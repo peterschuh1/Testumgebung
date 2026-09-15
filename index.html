@@ -24952,6 +24952,40 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldLurePosition=anglingLure.position.clone();
   const oldLureQuaternion=anglingLure.quaternion.clone();
   const oldLureScale=anglingLure.scale.clone();
+  const oldLureRenderOrder=anglingLure.renderOrder;
+  const oldAnglingModeForWarm=anglingMode;
+  const oldAnglingCinematicViewForWarm=anglingCinematicView;
+  const oldAnglingWaterForWarm=waterUniforms.anglingView.value;
+  const warmLureMeshes=[];
+  const warmLureMaterialStates=[];
+  const warmLureMaterialSeen=new Set();
+  anglingLure.traverse(object=>{
+    if(!object.isMesh)return;
+    warmLureMeshes.push({object,renderOrder:object.renderOrder});
+    const materials=Array.isArray(object.material)?object.material:[object.material];
+    materials.filter(Boolean).forEach(material=>{
+      if(warmLureMaterialSeen.has(material))return;
+      warmLureMaterialSeen.add(material);
+      warmLureMaterialStates.push({
+        material,
+        transparent:material.transparent,
+        opacity:material.opacity,
+        depthTest:material.depthTest,
+        depthWrite:material.depthWrite
+      });
+    });
+  });
+  // Pro Art genau einen Fisch ohne Frustum-Culling mitsenden. Damit werden
+  // wirklich alle 16 Bildtexturen auf die GPU geladen, selbst wenn eine Art
+  // an den beiden kleinen Warmlauf-Kameras gerade ausserhalb des Bildes steht.
+  const warmFishSamples=[];
+  const warmFishSpecies=new Set();
+  for(const actor of fishActors){
+    const object=actor?.obj,species=object?.userData?.species;
+    if(!object||!species||warmFishSpecies.has(species))continue;
+    warmFishSpecies.add(species);
+    warmFishSamples.push({object,visible:object.visible,frustumCulled:object.frustumCulled});
+  }
   const warmCelestial=[sunDisc,moonDisc,moonGlow].filter(Boolean);
   const oldCelestialState=warmCelestial.map(disc=>({
     visible:disc.visible,
@@ -24971,6 +25005,13 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldPondVisible=pond.visible;
   const oldPondNeutralVisible=pondNeutral.visible;
   const oldPondNightLiftVisible=pondNightLift.visible;
+  const oldPondCelestialDepthLiftVisible=pondCelestialDepthLift.visible;
+  const oldGroundVisible=ground.visible;
+  const oldSatEdgeOverlayVisible=satEdgeOverlay.visible;
+  const oldAnglingPhotoHorizonVisible=anglingPhotoHorizon.visible;
+  const oldAnglingPhotoShadowVisible=anglingPhotoShadowGroup.visible;
+  const oldAnglingBankVisible=anglingBankGroup.visible;
+  const oldAnglingMarkerVisible=anglingMarkerGroup.visible;
   const oldWaterSurfaceVisible=waterSurface.visible;
   const oldCloudDeckVisible=aczoPerf2CloudDeck.visible;
   const oldCloudDeckOrder=aczoPerf2CloudDeck.renderOrder;
@@ -24996,7 +25037,14 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
 
+    // Exakt den echten Kunstkoeder-Unterwasserzweig nachbilden, jedoch ohne
+    // updateAnglingMode() und damit ohne Timer, Fanglogik oder Spielzustandslauf.
+    anglingMode=true;anglingCinematicView='underwater';waterUniforms.anglingView.value=1;
+    contourGroup.visible=false;pond.visible=false;pondNeutral.visible=false;pondNightLift.visible=false;pondCelestialDepthLift.visible=false;
+    ground.visible=true;satEdgeOverlay.visible=false;anglingPhotoHorizon.visible=false;anglingPhotoShadowGroup.visible=false;
+    anglingBankGroup.visible=false;anglingMarkerGroup.visible=false;
     setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
+    warmFishSamples.forEach(state=>{state.object.visible=true;state.object.frustumCulled=false;});
     // Freier Tauchmodus verwendet fuer Sonne und Mond eine eigene
     // depthTest/fog-Kombination. Auch diese Variante wird hier vorab erzeugt.
     const warmDirection=new THREE.Vector3();camera.getWorldDirection(warmDirection);
@@ -25013,6 +25061,21 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     camera.position.set(start.x-2.2,start.y-1.2,start.z+.15);camera.lookAt(start.x+4.5,start.y+2.0,start.z-.25);camera.updateProjectionMatrix();
     anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
+
+    // Beim realen Wassereintritt liegt der Koeder in der oberen Truebschicht.
+    // Dort schaltet updateAnglingUpperLayerLureVisibility() erstmals auf diese
+    // transparente/depthTest-freie Materialvariante. Beide Koedermodelle werden
+    // genau so einmal vorgerendert, danach aber unveraendert zurueckgesetzt.
+    warmLureMaterialStates.forEach(state=>{
+      const material=state.material;
+      material.transparent=true;material.opacity=1;material.depthTest=false;material.depthWrite=false;material.needsUpdate=true;
+    });
+    warmLureMeshes.forEach(state=>state.object.renderOrder=40);
+    anglingLure.renderOrder=40;
+    anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
+    renderer.render(scene,camera);
+    anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
+    renderer.render(scene,camera);
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
     if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined')renderer.render(anglingReelScene,anglingReelMiniCamera);
     aczoUnderwaterShadersReady=true;aczoPerf24UwRenderWarmReady=true;aczoPerf26UwFullWarmReady=true;
@@ -25020,8 +25083,18 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   finally{
     // Erst den Unterwasserzustand verlassen, danach ALLE sichtbaren Karten-
     // Layer exakt auf ihren Zustand vor dem Prewarm zuruecksetzen.
+    anglingMode=oldAnglingModeForWarm;anglingCinematicView=oldAnglingCinematicViewForWarm;
+    waterUniforms.anglingView.value=oldAnglingWaterForWarm;
     setFishSubmergedLayers(oldUwSceneActive);
     fishGroup.visible=oldFishVisible;
+    warmFishSamples.forEach(state=>{state.object.visible=state.visible;state.object.frustumCulled=state.frustumCulled;});
+    warmLureMaterialStates.forEach(state=>{
+      const material=state.material;
+      material.transparent=state.transparent;material.opacity=state.opacity;
+      material.depthTest=state.depthTest;material.depthWrite=state.depthWrite;material.needsUpdate=true;
+    });
+    warmLureMeshes.forEach(state=>state.object.renderOrder=state.renderOrder);
+    anglingLure.renderOrder=oldLureRenderOrder;
     anglingScene.children.forEach((child,index)=>child.visible=oldAnglingChildVisibility[index]);
     anglingScene.visible=oldAnglingSceneVisible;
     anglingLure.visible=oldLureVisible;
@@ -25041,6 +25114,13 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     pond.visible=oldPondVisible;
     pondNeutral.visible=oldPondNeutralVisible;
     pondNightLift.visible=oldPondNightLiftVisible;
+    pondCelestialDepthLift.visible=oldPondCelestialDepthLiftVisible;
+    ground.visible=oldGroundVisible;
+    satEdgeOverlay.visible=oldSatEdgeOverlayVisible;
+    anglingPhotoHorizon.visible=oldAnglingPhotoHorizonVisible;
+    anglingPhotoShadowGroup.visible=oldAnglingPhotoShadowVisible;
+    anglingBankGroup.visible=oldAnglingBankVisible;
+    anglingMarkerGroup.visible=oldAnglingMarkerVisible;
     waterSurface.visible=oldWaterSurfaceVisible;
     aczoPerf2CloudDeck.visible=oldCloudDeckVisible;
     aczoPerf2CloudDeck.renderOrder=oldCloudDeckOrder;
