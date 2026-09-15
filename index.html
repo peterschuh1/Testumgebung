@@ -28884,28 +28884,30 @@ async function copyAnglingRecoveryCode(){
   }
 }
 
-// V8.101: Google Apps Script kann nach einer Ruhephase auf Mobilgeräten deutlich
-// länger als sieben Sekunden zum Aufwachen brauchen. Die Wiederherstellung ist
-// rein lesend und darf deshalb bei einem echten Timeout einmal sicher wiederholt
-// werden. Fachliche Antworten wie "Code nicht gefunden" werden nie wiederholt.
+// V8.104: Die Wiederherstellung fragt den Spielstand sofort ab. Ein vorgeschalteter,
+// blockierender Health-Check machte den ersten Aufruf auf iPhones unnötig langsam.
+// Google kann beim Aufwachen vereinzelt auch kurz 404/405 liefern; diese Antwort
+// wird bei den ersten Versuchen wie ein vorübergehender Routingfehler behandelt.
+// Erst ein 404/405 im letzten Versuch gilt als echte Backend-Inkompatibilität.
+// Fachliche Antworten wie "Code nicht gefunden" werden weiterhin nie wiederholt.
 async function fetchAnglingRecoveryPlayer(code){
   let lastError=null;
 
-  if(!anglingCloudWarmAt||Date.now()-anglingCloudWarmAt>4*60*1000){
-    anglingRecoveryStatus.textContent='Cloud-Verbindung wird vorbereitet …';
-    await prewarmAnglingCloudBackend(true);
-  }
-
-  const timeouts=[20000,32000,42000];
+  const timeouts=[16000,26000,38000];
   for(let attempt=0;attempt<timeouts.length;attempt++){
     if(attempt>0){
       anglingRecoveryStatus.textContent=attempt===1
         ?'Der Cloud-Dienst braucht länger. Zweiter Versuch läuft automatisch …'
         :'Verbindung ist ungewöhnlich langsam. Letzter Wiederherstellungsversuch läuft …';
-      await new Promise(resolve=>window.setTimeout(resolve,attempt===1?650:1200));
+      await new Promise(resolve=>window.setTimeout(resolve,attempt===1?450:900));
     }
     try{
-      const res=await anglingLeaderboardFetch(ANGLING_LEADERBOARD_ENDPOINT,{
+      // Eine eindeutige URL pro Versuch verhindert, dass Safari oder ein
+      // vorgeschalteter Google-Cache eine kurzzeitige 404-Antwort wiederverwendet.
+      const requestUrl=ANGLING_LEADERBOARD_ENDPOINT
+        +(ANGLING_LEADERBOARD_ENDPOINT.includes('?')?'&':'?')
+        +'recoveryAttempt='+(attempt+1)+'&_='+Date.now();
+      const res=await anglingLeaderboardFetch(requestUrl,{
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
         body:JSON.stringify({action:'recoverPlayer',recoveryCode:code}),
@@ -28914,13 +28916,15 @@ async function fetchAnglingRecoveryPlayer(code){
       const data=await res.json().catch(()=>null);
 
       if(!res.ok){
-        const backendMismatch=res.status===404||res.status===405;
+        const routeMiss=res.status===404||res.status===405;
+        const backendMismatch=routeMiss&&attempt===timeouts.length-1;
         const error=new Error(backendMismatch
           ?'Cloud-Backend passt nicht zur Spielversion (HTTP '+res.status+'). Apps Script V15 neu bereitstellen.'
           :(data?.error||('HTTP '+res.status)));
         error.status=res.status;
-        error.retryable=!backendMismatch&&(res.status===408||res.status===429||res.status>=500);
+        error.retryable=!backendMismatch&&(routeMiss||res.status===408||res.status===429||res.status>=500);
         error.backendMismatch=backendMismatch;
+        if(routeMiss)anglingCloudWarmAt=0;
         throw error;
       }
       if(!data){
