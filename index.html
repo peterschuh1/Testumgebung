@@ -5116,12 +5116,14 @@ function setAnglingMobilePerformance(active){
   if(active&&!anglingMobilePerfActive){
     anglingMobileSavedPixelRatio=renderer.getPixelRatio();
     const targetRatio=Math.min(anglingMobileSavedPixelRatio,1.12*aczoGraphicsScale()); // BETA 1.21: gleiche Entlastung relativ zur gewählten Grafikstufe
-    // PERF15: Kein Full-Canvas-Resize, wenn der Pixelratio-Wert ohnehin gleich bleibt.
-    if(Math.abs(targetRatio-renderer.getPixelRatio())>.001){renderer.setPixelRatio(targetRatio);if(typeof scheduleViewerResize==='function')scheduleViewerResize();}
+    // COLDSTART: Ein kaum sichtbarer DPR-Unterschied darf auf iOS keinen
+    // kompletten WebGL-Zeichenpuffer-Neuaufbau beim ersten Eintauchen ausloesen.
+    // Groessere, tatsaechlich entlastende Wechsel bleiben weiterhin moeglich.
+    if(Math.abs(targetRatio-renderer.getPixelRatio())>=.075){renderer.setPixelRatio(targetRatio);if(typeof scheduleViewerResize==='function')scheduleViewerResize();}
     anglingMobilePerfActive=true;
   }else if(!active&&anglingMobilePerfActive){
     const restoreRatio=anglingMobileSavedPixelRatio||aczoGraphicsTargetPixelRatio();
-    if(Math.abs(restoreRatio-renderer.getPixelRatio())>.001){renderer.setPixelRatio(restoreRatio);if(typeof scheduleViewerResize==='function')scheduleViewerResize();}
+    if(Math.abs(restoreRatio-renderer.getPixelRatio())>=.075){renderer.setPixelRatio(restoreRatio);if(typeof scheduleViewerResize==='function')scheduleViewerResize();}
     anglingMobilePerfActive=false;anglingMobileSavedPixelRatio=null;
   }
 }
@@ -20791,11 +20793,17 @@ const fishImageAspect={
   goby:0.487421
 };
 const fishTextureCache={};
+let fishTexturePendingCount=0;
+function finishFishTextureLoad(){
+  fishTexturePendingCount=Math.max(0,fishTexturePendingCount-1);
+}
 function fishTexture(name){
   if(fishTextureCache[name]) return fishTextureCache[name];
+  fishTexturePendingCount++;
   const tex=new THREE.TextureLoader().load(fishImageData[name],t=>{
     t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;
-  });
+    finishFishTextureLoad();
+  },undefined,finishFishTextureLoad);
   tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
   fishTextureCache[name]=tex;
   return tex;
@@ -24936,6 +24944,23 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4());
   const oldScissorTest=renderer.getScissorTest(),oldAutoClear=renderer.autoClear;
   const oldFishVisible=fishGroup.visible;
+  const oldAnglingSceneVisible=anglingScene.visible;
+  const oldAnglingChildVisibility=anglingScene.children.map(child=>child.visible);
+  const oldLureVisible=anglingLure.visible;
+  const oldSpinnerVisible=anglingSpinnerBlade.visible;
+  const oldSoftBodyVisible=anglingSoftBody.visible;
+  const oldLurePosition=anglingLure.position.clone();
+  const oldLureQuaternion=anglingLure.quaternion.clone();
+  const oldLureScale=anglingLure.scale.clone();
+  const warmCelestial=[sunDisc,moonDisc,moonGlow].filter(Boolean);
+  const oldCelestialState=warmCelestial.map(disc=>({
+    visible:disc.visible,
+    position:disc.position.clone(),
+    scale:disc.scale.clone(),
+    renderOrder:disc.renderOrder,
+    depthTest:disc.material?.depthTest,
+    fog:disc.material?.fog
+  }));
   // PERF27: Der unsichtbare Unterwasser-Prewarm darf den sichtbaren Karten-
   // zustand nicht veraendern. PERF26 schaltete intern auf Unterwasser um und
   // restaurierte danach nur einen Teil der Szene; dadurch blieben u. a.
@@ -24956,12 +24981,37 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   try{
     if(!aczoPerf26UwFullTarget)aczoPerf26UwFullTarget=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});
     const start=new THREE.Vector3();centralFishStart(start);
-    setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
     camera.near=.05;camera.fov=56;camera.position.copy(start);camera.up.set(0,0,1);camera.lookAt(start.x+8,start.y+2,start.z-.2);camera.updateProjectionMatrix();
     renderer.setRenderTarget(aczoPerf26UwFullTarget);renderer.setViewport(0,0,128,128);renderer.setScissor(0,0,128,128);renderer.setScissorTest(false);renderer.autoClear=true;
+
+    // Beide Kunstkoeder werden einmal in der Oberwasser-Shader-Variante
+    // gerendert. Die Gruppe liegt nur im unsichtbaren 128px-Ziel und wird
+    // danach vollstaendig auf ihren vorherigen Zustand zurueckgesetzt.
+    anglingScene.children.forEach(child=>child.visible=false);
+    anglingScene.visible=true;anglingLure.visible=true;
+    anglingLure.position.set(start.x+3.2,start.y+.8,start.z-.05);
+    anglingLure.rotation.set(Math.PI/2,0,0);anglingLure.scale.setScalar(.72);
+    anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
+    renderer.render(scene,camera);
+    anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
+    renderer.render(scene,camera);
+
+    setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
+    // Freier Tauchmodus verwendet fuer Sonne und Mond eine eigene
+    // depthTest/fog-Kombination. Auch diese Variante wird hier vorab erzeugt.
+    const warmDirection=new THREE.Vector3();camera.getWorldDirection(warmDirection);
+    warmCelestial.forEach((disc,index)=>{
+      disc.visible=true;
+      disc.position.copy(camera.position).addScaledVector(warmDirection,24+index*.4);
+      disc.position.z+=(index-1)*2.5;
+      disc.scale.setScalar(5+index);
+      disc.material.depthTest=true;disc.material.fog=false;disc.material.needsUpdate=true;
+    });
+    anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
     renderer.render(scene,camera);
     // Zweiter Blickwinkel wie die Kunstkoeder-Kamera: bodennah und leicht vorwaerts.
     camera.position.set(start.x-2.2,start.y-1.2,start.z+.15);camera.lookAt(start.x+4.5,start.y+2.0,start.z-.25);camera.updateProjectionMatrix();
+    anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
     if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined')renderer.render(anglingReelScene,anglingReelMiniCamera);
@@ -24972,6 +25022,17 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     // Layer exakt auf ihren Zustand vor dem Prewarm zuruecksetzen.
     setFishSubmergedLayers(oldUwSceneActive);
     fishGroup.visible=oldFishVisible;
+    anglingScene.children.forEach((child,index)=>child.visible=oldAnglingChildVisibility[index]);
+    anglingScene.visible=oldAnglingSceneVisible;
+    anglingLure.visible=oldLureVisible;
+    anglingSpinnerBlade.visible=oldSpinnerVisible;
+    anglingSoftBody.visible=oldSoftBodyVisible;
+    anglingLure.position.copy(oldLurePosition);anglingLure.quaternion.copy(oldLureQuaternion);anglingLure.scale.copy(oldLureScale);
+    warmCelestial.forEach((disc,index)=>{
+      const state=oldCelestialState[index];
+      disc.visible=state.visible;disc.position.copy(state.position);disc.scale.copy(state.scale);disc.renderOrder=state.renderOrder;
+      if(disc.material){disc.material.depthTest=state.depthTest;disc.material.fog=state.fog;disc.material.needsUpdate=true;}
+    });
     waterUniforms.underwaterView.value=oldUnder;
     scene.fog=oldFog;
     contoursEnabled=oldContoursEnabled;
@@ -25063,6 +25124,7 @@ let aczoStartupUwPrewarmStage=0;
 let aczoStartupUwPrewarmScheduled=false;
 let aczoStartupUwPrewarmFinished=false;
 let aczoStartupUwWarmAttempts=0;
+let aczoStartupUwTextureWaitStartedAt=0;
 function aczoFinishStartupUnderwaterPrewarm(){
   if(aczoStartupUwPrewarmFinished)return;
   aczoStartupUwPrewarmFinished=true;
@@ -25102,12 +25164,24 @@ function aczoRunStartupUnderwaterPrewarm(){
       anglingLureUnderwaterWorldReady=true;
       aczoStartupUwPrewarmStage=4;
     }else if(aczoStartupUwPrewarmStage===4){
+      // Die eingebetteten WebP-Fische werden asynchron dekodiert. Der letzte
+      // unsichtbare GPU-Lauf wartet kurz darauf, damit diese Kosten nicht erst
+      // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
+      // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
+      if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
+      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<1500){
+        if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
+        aczoScheduleStartupUnderwaterPrewarm(50);
+        return;
+      }
+      aczoStartupUwPrewarmStage=5;
+    }else if(aczoStartupUwPrewarmStage===5){
       aczoPerf26ForceFullUnderwaterPrewarm();
-      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=5;
+      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=6;
       else if(++aczoStartupUwWarmAttempts<4){
         aczoScheduleStartupUnderwaterPrewarm(160);
         return;
-      }else aczoStartupUwPrewarmStage=5;
+      }else aczoStartupUwPrewarmStage=6;
     }else{
       aczoFinishStartupUnderwaterPrewarm();
       return;
@@ -27792,10 +27866,17 @@ function applyAnglingCloudPlayer(player){
   return true;
 }
 
-async function loadAnglingPlayerCloud(){
+let anglingCloudPlayerLoadPromise=null;
+async function loadAnglingPlayerCloud({skipShared=false,retryTransient=true}={}){
   if(!anglingSetupComplete||!anglingCloudEnabled||!ANGLING_LEADERBOARD_ENDPOINT||!anglingPlayerProfile?.id)return false;
+  if(!skipShared&&anglingCloudPlayerLoadPromise)return await anglingCloudPlayerLoadPromise;
 
-  try{
+  const run=(async()=>{
+   // Google Apps Script zuerst mit einer kleinen Health-Anfrage wecken. Der
+   // eigentliche Spielstand-Abruf laeuft dadurch nicht mehr parallel zum
+   // Kaltstart des Backends.
+   await prewarmAnglingCloudBackend(false);
+   try{
     let res=await anglingLeaderboardFetch(ANGLING_LEADERBOARD_ENDPOINT,{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -27806,7 +27887,10 @@ async function loadAnglingPlayerCloud(){
       }),
       cache:'no-store'
     },30000);
-    let data=await res.json().catch(()=>null);
+    let data=null;
+    try{data=await res.json();}catch(parseErr){
+      const err=new Error('Ungültige Serverantwort');err.retryable=true;throw err;
+    }
     // Übergangsweg für die kurze Zeit, in der das neue HTML bereits online ist,
     // aber noch die vorherige Backend-Version läuft. Nach V12 wird ausschließlich
     // der geschützte POST-Zugriff verwendet.
@@ -27816,10 +27900,16 @@ async function loadAnglingPlayerCloud(){
         +'action=player&playerId='+encodeURIComponent(anglingPlayerProfile.id)
         +'&recoveryCode='+encodeURIComponent(anglingRecoveryCode||'');
       res=await anglingLeaderboardFetch(legacyUrl,{method:'GET',cache:'no-store'},7000);
-      data=await res.json().catch(()=>null);
+      try{data=await res.json();}catch(parseErr){
+        const err=new Error('Ungültige Serverantwort');err.retryable=true;throw err;
+      }
     }
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    if(!data||data.ok===false)throw new Error(data?.error||'Cloud-Lesefehler');
+    if(!res.ok){
+      const err=new Error('HTTP '+res.status);err.status=res.status;
+      err.retryable=res.status===408||res.status===429||res.status>=500;throw err;
+    }
+    if(!data){const err=new Error('Leere Serverantwort');err.retryable=true;throw err;}
+    if(data.ok===false){const err=new Error(data.error||'Cloud-Lesefehler');err.retryable=false;throw err;}
     captureAnglingRecoveryCode(data);
 
     // Noch kein Online-Spielstand: kompletten lokalen Stand anlegen.
@@ -27878,10 +27968,23 @@ async function loadAnglingPlayerCloud(){
     updateAnglingCloudStatus();
     return true;
 
-  }catch(err){
+   }catch(err){
+    // Genau ein automatischer Zweitversuch, ausschliesslich bei Netzwerk-,
+    // Timeout- oder temporaeren Serverfehlern. Fachliche Backend-Fehler werden
+    // nicht wiederholt und koennen daher keinen doppelten Zustand erzeugen.
+    if(retryTransient&&anglingCloudErrorIsTransient(err)){
+      await new Promise(resolve=>window.setTimeout(resolve,700));
+      await prewarmAnglingCloudBackend(true);
+      return await loadAnglingPlayerCloud({skipShared:true,retryTransient:false});
+    }
     console.warn('Google-Spielstand konnte nicht geladen werden:',err);
     return false;
-  }
+   }
+  })();
+  if(skipShared)return await run;
+  anglingCloudPlayerLoadPromise=run;
+  try{return await run;}
+  finally{if(anglingCloudPlayerLoadPromise===run)anglingCloudPlayerLoadPromise=null;}
 }
 
 async function syncAnglingPlayerCloud(){
@@ -29995,7 +30098,7 @@ async function loadAnglingLeaderboard({forceRefresh=false}={}){
  let task=anglingLeaderboardLoads.get('all');
  if(!task){
    task=(async()=>{
-     prewarmAnglingCloudBackend(false);
+     await prewarmAnglingCloudBackend(false);
      const url=ANGLING_LEADERBOARD_ENDPOINT+(ANGLING_LEADERBOARD_ENDPOINT.includes('?')?'&':'?')+'action=list&species=all&_='+Date.now();
      const data=await anglingLeaderboardJsonRetry(url,{method:'GET',cache:'no-store'},[18000,32000]);
      const rows=Array.isArray(data)?data:
