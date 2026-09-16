@@ -24523,32 +24523,56 @@ anglingBobBelly.renderOrder=224;anglingBobber.add(anglingBobBelly);
 addAnglingBobPart(.052,.025,.16,.205,anglingBobRed);
 addAnglingBobPart(.013,.010,.20,.385,anglingBobBlack,10);
 addAnglingBobPart(.015,.013,.085,.525,anglingBobYellow,10);
-// Dezentes Knicklicht direkt an der Posenantenne. Es verwendet kein echtes
-// PointLight und erzeugt deshalb weder Schatten- noch Beleuchtungskosten.
+// Sichtbares Knicklicht direkt an der Posenantenne. Die eigentliche Lichtquelle
+// bleibt scharf, ein kameraseitiger Halo vermittelt das Leuchten auch in der
+// grossen Uferansicht und im kleinen Livefenster.
 const anglingBobGlowStick=new THREE.Mesh(
-  new THREE.CylinderGeometry(.018,.018,.105,12),
+  new THREE.CylinderGeometry(.021,.021,.112,12),
   new THREE.MeshBasicMaterial({
-    color:0xbaff45,transparent:true,opacity:.98,
+    color:0xc8ff35,transparent:true,opacity:1,
     depthTest:false,depthWrite:false,toneMapped:false
   })
 );
 anglingBobGlowStick.rotation.x=Math.PI/2;
 anglingBobGlowStick.position.z=.515;
-anglingBobGlowStick.renderOrder=226;
+anglingBobGlowStick.renderOrder=228;
 anglingBobGlowStick.visible=false;
 anglingBobber.add(anglingBobGlowStick);
-const anglingBobGlowHalo=new THREE.Mesh(
-  new THREE.SphereGeometry(.047,12,8),
-  new THREE.MeshBasicMaterial({
-    color:0xc9ff6a,transparent:true,opacity:.16,
-    depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false
-  })
-);
-anglingBobGlowHalo.scale.set(.75,.75,1.55);
+const anglingBobGlowHalo=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:waterStarTexture,color:0xbfff36,transparent:true,opacity:.78,
+  depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,
+  fog:false,toneMapped:false
+}));
+anglingBobGlowHalo.scale.set(.34,.34,1);
 anglingBobGlowHalo.position.z=.515;
-anglingBobGlowHalo.renderOrder=225;
+anglingBobGlowHalo.renderOrder=227;
 anglingBobGlowHalo.visible=false;
 anglingBobber.add(anglingBobGlowHalo);
+
+// Eigene optische Wasserreflexion des Knicklichts. Sie ist kein zusaetzliches
+// Three.js-Licht und veraendert den bestehenden Wasser-/Himmels-Shader nicht.
+// Beide Scheiben liegen unmittelbar ueber der echten Welle und folgen auch der
+// Projektion der fliegenden Pose auf die Wasseroberflaeche.
+const anglingBobGlowReflectionMat=new THREE.MeshBasicMaterial({
+  map:waterStarTexture,color:0xb7ff39,transparent:true,opacity:0,
+  depthTest:true,depthWrite:false,side:THREE.DoubleSide,
+  blending:THREE.AdditiveBlending,toneMapped:false
+});
+const anglingBobGlowReflectionSoftMat=anglingBobGlowReflectionMat.clone();
+const anglingBobGlowReflection=new THREE.Mesh(
+  new THREE.CircleGeometry(1,28),anglingBobGlowReflectionMat
+);
+const anglingBobGlowReflectionSoft=new THREE.Mesh(
+  new THREE.CircleGeometry(1,28),anglingBobGlowReflectionSoftMat
+);
+anglingBobGlowReflection.renderOrder=221;
+anglingBobGlowReflectionSoft.renderOrder=220;
+anglingBobGlowReflection.visible=false;
+anglingBobGlowReflectionSoft.visible=false;
+anglingBobGlowReflection.layers.enable(7);
+anglingBobGlowReflectionSoft.layers.enable(7);
+anglingScene.add(anglingBobGlowReflectionSoft);
+anglingScene.add(anglingBobGlowReflection);
 const anglingBobHalo=new THREE.Mesh(
   new THREE.RingGeometry(.085,.145,28),
   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.30,depthTest:false,depthWrite:false,side:THREE.DoubleSide})
@@ -24568,6 +24592,39 @@ function updateAnglingBobGlowStick(){
     anglingBobber.visible&&!anglingUsesArtificialLure()&&!anglingUsesDeeper());
   anglingBobGlowStick.visible=visible;
   anglingBobGlowHalo.visible=visible;
+  if(!visible||!aczoPointInsideMasterPond(anglingBobber.position.x,anglingBobber.position.y)){
+    anglingBobGlowReflection.visible=false;
+    anglingBobGlowReflectionSoft.visible=false;
+    return;
+  }
+
+  const x=anglingBobber.position.x,y=anglingBobber.position.y;
+  const surface=anglingSurfaceZ(x,y);
+  const flightHeight=Math.max(0,anglingBobber.position.z-surface);
+  // In der Luft wird der Lichtfleck groesser und etwas diffuser, bleibt aber
+  // waehrend des kompletten Posenwurfs eindeutig auf dem Wasser erkennbar.
+  const flight=THREE.MathUtils.clamp(flightHeight/5.2,0,1);
+  const strength=THREE.MathUtils.lerp(1,.42,flight);
+  const towardCamera=Math.atan2(camera.position.y-y,camera.position.x-x)-Math.PI/2;
+  const shimmer=.92+Math.sin(waterUniforms.time.value*5.1)*.08;
+
+  anglingBobGlowReflection.position.set(x,y,surface+.032);
+  anglingBobGlowReflection.rotation.z=towardCamera;
+  anglingBobGlowReflection.scale.set(
+    THREE.MathUtils.lerp(.22,.47,flight),
+    THREE.MathUtils.lerp(.54,1.18,flight),1
+  );
+  anglingBobGlowReflection.material.opacity=.68*strength*shimmer;
+  anglingBobGlowReflection.visible=true;
+
+  anglingBobGlowReflectionSoft.position.set(x,y,surface+.026);
+  anglingBobGlowReflectionSoft.rotation.z=towardCamera;
+  anglingBobGlowReflectionSoft.scale.set(
+    THREE.MathUtils.lerp(.48,.88,flight),
+    THREE.MathUtils.lerp(.92,1.72,flight),1
+  );
+  anglingBobGlowReflectionSoft.material.opacity=.24*strength*shimmer;
+  anglingBobGlowReflectionSoft.visible=true;
 }
 
 
