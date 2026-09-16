@@ -12695,6 +12695,21 @@ const aczoAircraftWindowMat=new THREE.MeshBasicMaterial({color:0x243640,toneMapp
 const aczoAircraftRedMat=new THREE.MeshBasicMaterial({color:0xff2f24,toneMapped:false});
 const aczoAircraftGreenMat=new THREE.MeshBasicMaterial({color:0x34ff78,toneMapped:false});
 const aczoAircraftWhiteMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});
+const aczoAircraftRedGlowMat=new THREE.SpriteMaterial({
+  map:waterStarTexture,color:0xff3328,transparent:true,opacity:.98,
+  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
+  fog:false,toneMapped:false
+});
+const aczoAircraftGreenGlowMat=new THREE.SpriteMaterial({
+  map:waterStarTexture,color:0x35ff83,transparent:true,opacity:.98,
+  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
+  fog:false,toneMapped:false
+});
+const aczoAircraftWhiteGlowMat=new THREE.SpriteMaterial({
+  map:waterStarTexture,color:0xf4fbff,transparent:true,opacity:1,
+  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
+  fog:false,toneMapped:false
+});
 
 function aczoAircraftMesh(parent,geometry,material,x=0,y=0,z=0){
   const mesh=new THREE.Mesh(geometry,material);
@@ -12703,6 +12718,15 @@ function aczoAircraftMesh(parent,geometry,material,x=0,y=0,z=0){
   mesh.userData.aczoNoReceiveShadow=true;
   parent.add(mesh);
   return mesh;
+}
+
+function aczoAircraftGlow(parent,material,x,y,z,size){
+  const sprite=new THREE.Sprite(material);
+  sprite.position.set(x,y,z);
+  sprite.scale.set(size,size,1);
+  sprite.renderOrder=18;
+  parent.add(sprite);
+  return sprite;
 }
 
 function createAczoAircraftModel(kind){
@@ -12735,8 +12759,17 @@ function createAczoAircraftModel(kind){
   const green=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.16:.22,8,6),aczoAircraftGreenMat,span*.51,0,.04);
   const tail=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.14:.19,8,6),aczoAircraftWhiteMat,0,-length*.68,.12);
   const strobe=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.18:.25,8,6),aczoAircraftWhiteMat,0,.15,-radius*.98);
-  g.userData.navigationLights=[red,green,tail];
-  g.userData.strobe=strobe;
+  const haloSize=light?.92:1.28;
+  const redHalo=aczoAircraftGlow(g,aczoAircraftRedGlowMat,-span*.51,0,.05,haloSize);
+  const greenHalo=aczoAircraftGlow(g,aczoAircraftGreenGlowMat,span*.51,0,.05,haloSize);
+  const tailHalo=aczoAircraftGlow(g,aczoAircraftWhiteGlowMat,0,-length*.68,.14,haloSize*.86);
+  const strobeHalo=aczoAircraftGlow(g,aczoAircraftWhiteGlowMat,0,.15,-radius*1.02,light?1.35:1.85);
+  const beacon=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.13:.17,8,6),aczoAircraftRedMat,0,-length*.05,radius*1.05);
+  const beaconHalo=aczoAircraftGlow(g,aczoAircraftRedGlowMat,0,-length*.05,radius*1.10,light?1.05:1.40);
+  g.userData.navigationLights=[red,green,tail,redHalo,greenHalo,tailHalo];
+  g.userData.strobeLights=[strobe,strobeHalo];
+  g.userData.beaconLights=[beacon,beaconHalo];
+  [...g.userData.navigationLights,...g.userData.strobeLights,...g.userData.beaconLights].forEach(v=>v.visible=false);
   g.visible=false;
   return g;
 }
@@ -12805,7 +12838,9 @@ function spawnAczoLiveAircraft(candidate){
   const start=new THREE.Vector3(
     -candidate.dirEast*pathHalf+sideX*sceneOffset,
     -candidate.dirNorth*pathHalf+sideY*sceneOffset,
-    kind==='light'?58:(kind==='heavy'?76:68)
+    // Das Wolkendeck liegt bei etwa 82 m. Flugzeuge gehoeren klar darueber;
+    // Kleinmaschinen bleiben niedriger als Linien- und Grossflugzeuge.
+    kind==='light'?98:(kind==='heavy'?124:112)
   );
   const end=new THREE.Vector3(
     candidate.dirEast*pathHalf+sideX*sceneOffset,
@@ -12814,7 +12849,9 @@ function spawnAczoLiveAircraft(candidate){
   );
   model.position.copy(start);
   model.rotation.set(0,0,-candidate.rad);
-  model.scale.setScalar(kind==='light'?.78:(kind==='heavy'?1.04:.92));
+  // Hoehere Flugbahn mit massstaeblich klar unterscheidbaren Silhouetten.
+  // Die moderate Vergroesserung gleicht nur den groesseren Kameraabstand aus.
+  model.scale.setScalar(kind==='light'?.95:(kind==='heavy'?1.34:1.22));
   model.visible=true;
   aczoLiveAircraftRoot.visible=true;
   aczoActiveAircraft={
@@ -12833,12 +12870,23 @@ function updateAczoLiveAircraft(dt){
   const u=THREE.MathUtils.clamp(a.life/a.duration,0,1);
   a.model.position.lerpVectors(a.start,a.end,u);
   a.model.position.z+=Math.sin(u*Math.PI)*1.4;
+  // MeshBasicMaterial reagiert nicht auf das astronomische Szenenlicht.
+  // Deshalb wird der Rumpf nachts explizit zur dunklen Silhouette, waehrend
+  // die selbstleuchtenden Navigationslichter klar hervortreten.
+  const aircraftNight=aczoAstronomicalNight;
+  aczoAircraftBodyMat.color.setHex(aircraftNight?0x252c30:0xb8bec2);
+  aczoAircraftDarkMat.color.setHex(aircraftNight?0x0d1215:0x59636a);
+  aczoAircraftWindowMat.color.setHex(aircraftNight?0x071116:0x243640);
   const nav=a.model.userData.navigationLights||[];
-  nav.forEach(light=>light.visible=aczoAstronomicalNight);
-  if(a.model.userData.strobe){
-    const phase=a.life%1.45;
-    a.model.userData.strobe.visible=aczoAstronomicalNight&&(phase<.09||(phase>.22&&phase<.30));
-  }
+  nav.forEach(light=>light.visible=aircraftNight);
+  const strobePhase=a.life%1.45;
+  (a.model.userData.strobeLights||[]).forEach(light=>{
+    light.visible=aircraftNight&&(strobePhase<.10||(strobePhase>.22&&strobePhase<.32));
+  });
+  const beaconPhase=a.life%1.12;
+  (a.model.userData.beaconLights||[]).forEach(light=>{
+    light.visible=aircraftNight&&beaconPhase<.18;
+  });
   aczoLiveAircraftRoot.visible=viewAllowed;
   if(u>=1){
     a.model.visible=false;
