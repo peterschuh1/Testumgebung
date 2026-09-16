@@ -1480,8 +1480,13 @@ html,body{
   color:#fff8a4;font-size:clamp(27px,7vw,54px);font-weight:1000;letter-spacing:.06em;
   text-shadow:0 3px 0 #8b2e18,0 0 22px rgba(255,231,80,.92);pointer-events:none
 }
-.angling-ui.bite-alert .angling-bite-alert{display:block;animation:anglingBitePulse .42s ease-in-out infinite alternate}
-@keyframes anglingBitePulse{from{transform:translate(-50%,-50%) scale(.88)}to{transform:translate(-50%,-50%) scale(1.08)}}
+.angling-ui.bite-alert .angling-bite-alert{display:block;animation:anglingBiteImpact .28s cubic-bezier(.16,1.38,.30,1) both}
+/* V8.107: Ein einzelner harter Impuls statt eines langen, regelmäßigen Pulsierens. */
+@keyframes anglingBiteImpact{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.28);filter:blur(5px)}
+  62%{opacity:1;transform:translate(-50%,-50%) scale(1.20);filter:blur(0)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}
+}
 .angling-ui.fight-pulse::after{
   content:"";position:absolute;inset:0;z-index:57;pointer-events:none;
   background:radial-gradient(circle at 18% 35%,rgba(205,244,255,.48) 0 2px,transparent 3px),
@@ -11047,12 +11052,15 @@ const waterStarTexture=new THREE.CanvasTexture(waterStarCanvas);
 const waterStarHaloMat=new THREE.PointsMaterial({
   size:6.2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:0,
   map:waterStarTexture,alphaMap:waterStarTexture,
-  depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending
+  // V8.105: Sternreflexe liegen weiterhin auf der Wasseroberfläche, müssen
+  // aber von Stegen, Bäumen, Gebäuden und allen anderen Vordergrundobjekten
+  // sauber verdeckt werden.
+  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending
 });
 const waterStarCoreMat=new THREE.PointsMaterial({
   size:3.2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:0,
   map:waterStarTexture,alphaMap:waterStarTexture,
-  depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending
+  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending
 });
 const waterStarHalos=new THREE.Points(waterStarGeo,waterStarHaloMat);
 const waterStarCores=new THREE.Points(waterStarGeo,waterStarCoreMat);
@@ -11064,6 +11072,39 @@ let waterStarPhase=0;
 function pointInPondWaterMask(x,y){
   return aczoPointInsideMasterPond(x,y);
 
+}
+
+// V8.106: Offene Gitterroste und der offene Bootsrumpf lassen den Blick bis
+// auf die Wasseroberfläche frei. Punktförmige Sternhalos unter diesen schmalen
+// Konstruktionen würden dadurch optisch auf Metall und Boot übergreifen.
+// Nur die exakten Wasserflächen unter den Bauwerken werden ausgespart.
+function pointInWaterStarStructureMask(x,y){
+  const northDx=x-NORTH_PIER_SHORE.x,northDy=y-NORTH_PIER_SHORE.y;
+  const northAlong=northDx*NORTH_PIER_AXIS.x+northDy*NORTH_PIER_AXIS.y;
+  const northSide=northDx*NORTH_PIER_SIDE.x+northDy*NORTH_PIER_SIDE.y;
+  if(northAlong>=-.16&&northAlong<=NORTH_PIER_LENGTH+.16&&
+     Math.abs(northSide)<=NORTH_PIER_WIDTH*.5+.16)return true;
+
+  for(const pier of aczoSmallPierData){
+    const dx=x-pier.shore.x,dy=y-pier.shore.y;
+    const along=dx*pier.inward.x+dy*pier.inward.y;
+    const side=dx*pier.tangent.x+dy*pier.tangent.y;
+    if(along>=-.14&&along<=1.14&&Math.abs(side)<=.64)return true;
+  }
+
+  const dockDx=x-EAST_BOAT_PIER_SHORE.x,dockDy=y-EAST_BOAT_PIER_SHORE.y;
+  const dockX=dockDx*EAST_BOAT_PIER_TANGENT.x+dockDy*EAST_BOAT_PIER_TANGENT.y;
+  const dockY=dockDx*EAST_BOAT_PIER_INWARD.x+dockDy*EAST_BOAT_PIER_INWARD.y;
+  if(dockX>=-2.16&&dockX<=2.76&&dockY>=-.16&&dockY<=2.16)return true;
+
+  if(typeof eastBoatModel!=='undefined'&&eastBoatModel){
+    const boatDx=x-eastBoatModel.position.x,boatDy=y-eastBoatModel.position.y;
+    const c=Math.cos(eastBoatModel.rotation.z),s=Math.sin(eastBoatModel.rotation.z);
+    const boatX=boatDx*c+boatDy*s;
+    const boatY=-boatDx*s+boatDy*c;
+    if(boatX>=-2.55&&boatX<=2.45&&Math.abs(boatY)<=.82)return true;
+  }
+  return false;
 }
 
 function updateWaterStarReflectionPoints(dt){
@@ -11089,6 +11130,7 @@ function updateWaterStarReflectionPoints(dt){
     const x=camera.position.x+t*lx;
     const y=camera.position.y+t*ly;
     if(!pointInPondWaterMask(x,y)&&!pointInMosel(x,y))continue;
+    if(pointInWaterStarStructureMask(x,y))continue;
     waterStarPositions[count*3]=x;
     waterStarPositions[count*3+1]=y;
     waterStarPositions[count*3+2]=waterZ;
@@ -11200,11 +11242,16 @@ function restoreCelestialDiscWorldPositions(){
   if(typeof moonGlow!=='undefined')moonGlow.position.copy(moonDisc.position);
 }
 
+let aczoAstronomicalNight=false;
 function updateAstronomy(){
   if(typeof SunCalc==='undefined') return;
 
   const now=viewerNow();
   const sunPos=SunCalc.getPosition(now,SITE_LAT,SITE_LON);
+  // Gemeinsame, exakt astronomische Nachtinformation fuer kleine Lichtdetails.
+  // -6 Grad entspricht dem Ende der buergerlichen Daemmerung. Damit leuchten
+  // weder Flugzeuglampen noch das Knicklicht tagsueber oder in heller Daemmerung.
+  aczoAstronomicalNight=sunPos.altitude<=THREE.MathUtils.degToRad(-6);
   const moonPos=SunCalc.getMoonPosition(now,SITE_LAT,SITE_LON);
   const moonIll=SunCalc.getMoonIllumination(now);
   // Gemeinsame astronomische Quelle fuer Licht, sichtbare Scheiben und den
@@ -12632,6 +12679,201 @@ function updateBirds(dt){
     }
   }
 }
+
+
+// LIVE-FLUGVERKEHR: Eine sparsame ADS-B-Abfrage sucht nur nach Flugzeugen,
+// deren aktuelle Flugbahn dem Vereinsgelaende wirklich nahe kommt. Es wird
+// maximal ein bereits vorgebautes Low-Poly-Modell gleichzeitig dargestellt;
+// Netzabfrage, Geometrie und Materialien erzeugen daher keine Frame-Spitzen.
+const aczoLiveAircraftRoot=new THREE.Group();
+aczoLiveAircraftRoot.visible=false;
+scene.add(aczoLiveAircraftRoot);
+
+const aczoAircraftBodyMat=new THREE.MeshBasicMaterial({color:0xb8bec2,toneMapped:false});
+const aczoAircraftDarkMat=new THREE.MeshBasicMaterial({color:0x59636a,toneMapped:false});
+const aczoAircraftWindowMat=new THREE.MeshBasicMaterial({color:0x243640,toneMapped:false});
+const aczoAircraftRedMat=new THREE.MeshBasicMaterial({color:0xff2f24,toneMapped:false});
+const aczoAircraftGreenMat=new THREE.MeshBasicMaterial({color:0x34ff78,toneMapped:false});
+const aczoAircraftWhiteMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});
+
+function aczoAircraftMesh(parent,geometry,material,x=0,y=0,z=0){
+  const mesh=new THREE.Mesh(geometry,material);
+  mesh.position.set(x,y,z);
+  mesh.userData.aczoNoShadow=true;
+  mesh.userData.aczoNoReceiveShadow=true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function createAczoAircraftModel(kind){
+  const g=new THREE.Group();
+  const heavy=kind==='heavy';
+  const light=kind==='light';
+  const length=light?6.4:(heavy?13.8:10.6);
+  const radius=light?.42:(heavy?.76:.62);
+  const span=light?7.8:(heavy?17.5:13.2);
+  const wingChord=light?1.22:(heavy?2.2:1.72);
+  const body=aczoAircraftMesh(g,new THREE.CylinderGeometry(radius,radius,length,10,1,false),aczoAircraftBodyMat);
+  body.position.y=0;
+  aczoAircraftMesh(g,new THREE.ConeGeometry(radius,length*.13,10),aczoAircraftBodyMat,0,length*.565,0);
+  const tailCone=aczoAircraftMesh(g,new THREE.ConeGeometry(radius*.82,length*.16,9),aczoAircraftBodyMat,0,-length*.57,0);
+  tailCone.rotation.z=Math.PI;
+  aczoAircraftMesh(g,new THREE.BoxGeometry(span,wingChord,.13),aczoAircraftBodyMat,0,-length*.02,0);
+  aczoAircraftMesh(g,new THREE.BoxGeometry(span*.36,wingChord*.55,.10),aczoAircraftBodyMat,0,-length*.39,.05);
+  const fin=aczoAircraftMesh(g,new THREE.BoxGeometry(.12,length*.13,radius*2.25),aczoAircraftDarkMat,0,-length*.43,radius*.78);
+  fin.rotation.x=-.20;
+  if(!light){
+    const engineCount=heavy?4:2;
+    for(let i=0;i<engineCount;i++){
+      const side=(i%2?1:-1)*(heavy?(i<2?3.0:5.3):3.0);
+      const engine=aczoAircraftMesh(g,new THREE.CylinderGeometry(.25,.31,1.3,8),aczoAircraftDarkMat,side,.15,-.35);
+      engine.rotation.z=0;
+    }
+    aczoAircraftMesh(g,new THREE.BoxGeometry(.72,length*.30,.03),aczoAircraftWindowMat,0,length*.12,radius*.96);
+  }
+  const red=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.16:.22,8,6),aczoAircraftRedMat,-span*.51,0,.04);
+  const green=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.16:.22,8,6),aczoAircraftGreenMat,span*.51,0,.04);
+  const tail=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.14:.19,8,6),aczoAircraftWhiteMat,0,-length*.68,.12);
+  const strobe=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.18:.25,8,6),aczoAircraftWhiteMat,0,.15,-radius*.98);
+  g.userData.navigationLights=[red,green,tail];
+  g.userData.strobe=strobe;
+  g.visible=false;
+  return g;
+}
+
+const aczoAircraftModels={
+  light:createAczoAircraftModel('light'),
+  airliner:createAczoAircraftModel('airliner'),
+  heavy:createAczoAircraftModel('heavy')
+};
+Object.values(aczoAircraftModels).forEach(model=>aczoLiveAircraftRoot.add(model));
+
+let aczoActiveAircraft=null;
+let aczoAircraftFetchBusy=false;
+let aczoAircraftPollTimer=0;
+const aczoSeenAircraft=new Map();
+
+function aczoAircraftKind(a){
+  const category=String(a?.category||'').toUpperCase();
+  const type=String(a?.t||a?.type||'').toUpperCase();
+  if(category==='A5'||/^(A38|A35|B74|B77|B78|A33|A34|IL9|AN1)/.test(type))return 'heavy';
+  if(category==='A1'||category==='A2'||/^(C1|C2|C3|P28|PA|DA|SR|BE|PC|M20)/.test(type))return 'light';
+  return 'airliner';
+}
+
+function aczoAircraftCandidate(a){
+  const lat=Number(a?.lat),lon=Number(a?.lon);
+  const track=Number(a?.track ?? a?.true_heading);
+  const speedKnots=Number(a?.gs ?? a?.ground_speed);
+  const seenPos=Number(a?.seen_pos ?? a?.seen ?? 999);
+  const altitude=Number(a?.alt_baro ?? a?.alt_geom);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(track)||
+     !Number.isFinite(speedKnots)||speedKnots<35||seenPos>25||
+     String(a?.alt_baro).toLowerCase()==='ground'||(Number.isFinite(altitude)&&altitude<250))return null;
+  const north=(lat-SITE_LAT)*111.32;
+  const east=(lon-SITE_LON)*111.32*Math.cos(SITE_LAT*Math.PI/180);
+  const rad=track*Math.PI/180;
+  const dirEast=Math.sin(rad),dirNorth=Math.cos(rad);
+  const speedKmS=speedKnots*1.852/3600;
+  const along=east*dirEast+north*dirNorth;
+  const tClosest=THREE.MathUtils.clamp(-along/Math.max(.001,speedKmS),0,150);
+  const closeEast=east+dirEast*speedKmS*tClosest;
+  const closeNorth=north+dirNorth*speedKmS*tClosest;
+  const distanceClosest=Math.hypot(closeEast,closeNorth);
+  const distanceNow=Math.hypot(east,north);
+  // Nur reale, frische Flugbahnen, die innerhalb der naechsten 2,5 Minuten
+  // hoechstens rund 2,7 km am Gelaende vorbeifuehren.
+  if(distanceClosest>2.7||distanceNow>34)return null;
+  return {raw:a,track,rad,speedKnots,tClosest,distanceClosest,east,north,dirEast,dirNorth};
+}
+
+function spawnAczoLiveAircraft(candidate){
+  if(aczoActiveAircraft||!candidate)return;
+  const kind=aczoAircraftKind(candidate.raw);
+  const model=aczoAircraftModels[kind]||aczoAircraftModels.airliner;
+  Object.values(aczoAircraftModels).forEach(v=>v.visible=false);
+  const sideX=-candidate.dirNorth,sideY=candidate.dirEast;
+  const signedOffset=candidate.east*sideX+candidate.north*sideY;
+  const sceneOffset=THREE.MathUtils.clamp(signedOffset*7.0,-19,19);
+  const pathHalf=Math.max(D.sceneW,D.sceneH)*.82;
+  const start=new THREE.Vector3(
+    -candidate.dirEast*pathHalf+sideX*sceneOffset,
+    -candidate.dirNorth*pathHalf+sideY*sceneOffset,
+    kind==='light'?58:(kind==='heavy'?76:68)
+  );
+  const end=new THREE.Vector3(
+    candidate.dirEast*pathHalf+sideX*sceneOffset,
+    candidate.dirNorth*pathHalf+sideY*sceneOffset,
+    start.z+(Math.random()-.5)*3
+  );
+  model.position.copy(start);
+  model.rotation.set(0,0,-candidate.rad);
+  model.scale.setScalar(kind==='light'?.78:(kind==='heavy'?1.04:.92));
+  model.visible=true;
+  aczoLiveAircraftRoot.visible=true;
+  aczoActiveAircraft={
+    model,start,end,life:0,
+    duration:THREE.MathUtils.clamp(47-candidate.speedKnots*.035,24,42)
+  };
+  const key=String(candidate.raw?.hex||candidate.raw?.flight||'unknown').trim();
+  aczoSeenAircraft.set(key,Date.now());
+}
+
+function updateAczoLiveAircraft(dt){
+  const viewAllowed=!is2D&&!fishMode&&!(anglingMode&&anglingCinematicView==='underwater');
+  if(!aczoActiveAircraft){aczoLiveAircraftRoot.visible=false;return;}
+  const a=aczoActiveAircraft;
+  a.life+=dt;
+  const u=THREE.MathUtils.clamp(a.life/a.duration,0,1);
+  a.model.position.lerpVectors(a.start,a.end,u);
+  a.model.position.z+=Math.sin(u*Math.PI)*1.4;
+  const nav=a.model.userData.navigationLights||[];
+  nav.forEach(light=>light.visible=aczoAstronomicalNight);
+  if(a.model.userData.strobe){
+    const phase=a.life%1.45;
+    a.model.userData.strobe.visible=aczoAstronomicalNight&&(phase<.09||(phase>.22&&phase<.30));
+  }
+  aczoLiveAircraftRoot.visible=viewAllowed;
+  if(u>=1){
+    a.model.visible=false;
+    aczoActiveAircraft=null;
+    aczoLiveAircraftRoot.visible=false;
+  }
+}
+
+async function pollAczoLiveAircraft(){
+  clearTimeout(aczoAircraftPollTimer);
+  if(aczoAircraftFetchBusy||document.hidden){
+    aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,45000);
+    return;
+  }
+  aczoAircraftFetchBusy=true;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8500);
+  try{
+    const response=await fetch(`https://api.adsb.lol/v2/point/${SITE_LAT}/${SITE_LON}/18`,{
+      mode:'cors',cache:'no-store',signal:controller.signal
+    });
+    if(!response.ok)throw new Error('ADS-B '+response.status);
+    const payload=await response.json();
+    const now=Date.now();
+    for(const [key,stamp] of aczoSeenAircraft){if(now-stamp>30*60*1000)aczoSeenAircraft.delete(key);}
+    const candidates=(Array.isArray(payload?.ac)?payload.ac:[])
+      .map(aczoAircraftCandidate)
+      .filter(Boolean)
+      .filter(c=>!aczoSeenAircraft.has(String(c.raw?.hex||c.raw?.flight||'unknown').trim()))
+      .sort((a,b)=>(a.distanceClosest+a.tClosest*.002)-(b.distanceClosest+b.tClosest*.002));
+    if(candidates.length&&!aczoActiveAircraft)spawnAczoLiveAircraft(candidates[0]);
+  }catch(e){
+    // Externer Live-Dienst: Fehler bleiben absichtlich lautlos und beeinflussen
+    // weder Spielstart noch Renderloop. Der naechste Intervall versucht es neu.
+  }finally{
+    clearTimeout(timeout);
+    aczoAircraftFetchBusy=false;
+    aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,60000);
+  }
+}
+aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,6500);
 
 
 let cloudTravel=0;
@@ -24281,6 +24523,32 @@ anglingBobBelly.renderOrder=224;anglingBobber.add(anglingBobBelly);
 addAnglingBobPart(.052,.025,.16,.205,anglingBobRed);
 addAnglingBobPart(.013,.010,.20,.385,anglingBobBlack,10);
 addAnglingBobPart(.015,.013,.085,.525,anglingBobYellow,10);
+// Dezentes Knicklicht direkt an der Posenantenne. Es verwendet kein echtes
+// PointLight und erzeugt deshalb weder Schatten- noch Beleuchtungskosten.
+const anglingBobGlowStick=new THREE.Mesh(
+  new THREE.CylinderGeometry(.018,.018,.105,12),
+  new THREE.MeshBasicMaterial({
+    color:0xbaff45,transparent:true,opacity:.98,
+    depthTest:false,depthWrite:false,toneMapped:false
+  })
+);
+anglingBobGlowStick.rotation.x=Math.PI/2;
+anglingBobGlowStick.position.z=.515;
+anglingBobGlowStick.renderOrder=226;
+anglingBobGlowStick.visible=false;
+anglingBobber.add(anglingBobGlowStick);
+const anglingBobGlowHalo=new THREE.Mesh(
+  new THREE.SphereGeometry(.047,12,8),
+  new THREE.MeshBasicMaterial({
+    color:0xc9ff6a,transparent:true,opacity:.16,
+    depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false
+  })
+);
+anglingBobGlowHalo.scale.set(.75,.75,1.55);
+anglingBobGlowHalo.position.z=.515;
+anglingBobGlowHalo.renderOrder=225;
+anglingBobGlowHalo.visible=false;
+anglingBobber.add(anglingBobGlowHalo);
 const anglingBobHalo=new THREE.Mesh(
   new THREE.RingGeometry(.085,.145,28),
   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.30,depthTest:false,depthWrite:false,side:THREE.DoubleSide})
@@ -24294,6 +24562,13 @@ anglingBobber.add(anglingBobLineAttach);
 anglingBobber.traverse(o=>o.layers.enable(7));
 waterSurface.layers.enable(7);
 keepAboveAnglingPanoramaShadows(anglingBobber,1452);
+
+function updateAnglingBobGlowStick(){
+  const visible=!!(simulationEnabled&&aczoAstronomicalNight&&anglingMode&&
+    anglingBobber.visible&&!anglingUsesArtificialLure()&&!anglingUsesDeeper());
+  anglingBobGlowStick.visible=visible;
+  anglingBobGlowHalo.visible=visible;
+}
 
 
 // V7.87: auswerfbares Deeper-Echolot. Es ersetzt den Schwimmer vollständig.
@@ -26969,10 +27244,10 @@ const ANGLING_BITE_PROFILE={
 // Diese Werte beeinflussen ausschließlich die bereits laufende Bissanimation.
 // Fischwahl, Bisswahrscheinlichkeit, QTE und Drill bleiben davon unberührt.
 const ANGLING_BITE_DURATION_BY_SPECIES={
-  goby:1.90,sunfish:2.05,roach:2.25,rudd:2.38,perch:2.18,
-  bream:3.05,tench:3.28,
-  carp:3.08,mirrorcarp:3.18,grasscarp:3.00,koi:2.95,sturgeon:3.08,
-  pike:2.05,zander:3.30,eel:3.12,catfish:3.02
+  goby:.76,sunfish:.80,roach:.84,rudd:.88,perch:.78,
+  bream:1.02,tench:1.10,
+  carp:1.04,mirrorcarp:1.08,grasscarp:1.00,koi:.98,sturgeon:1.04,
+  pike:.76,zander:1.10,eel:1.05,catfish:1.02
 };
 const anglingSpeciesBiteMotion={dip:0,wobble:0,slide:0,lean:0,sideLean:0};
 
@@ -33294,7 +33569,12 @@ function updateAnglingFeedUi(){
  pruneAnglingFeedSpots();
  const artificial=anglingUsesArtificialLure();
  const phone=anglingPhoneLayoutActive();
- const poseActive=anglingMode&&!artificial&&anglingUi.classList.contains('line-active')&&['waiting','approach'].includes(anglingState);
+ // V8.107: Der intern bereits laufende, aber noch nicht sichtbare Biss darf
+ // die Futterleiste nicht verräterisch vorab ausblenden. Sie verschwindet nun
+ // exakt in demselben Moment, in dem der sichtbare BISS-Impuls beginnt.
+ const biteStillHidden=anglingState==='bite'&&anglingStateTime<anglingBiteDuration*.16;
+ const poseActive=anglingMode&&!artificial&&anglingUi.classList.contains('line-active')&&
+   (['waiting','approach'].includes(anglingState)||biteStillHidden);
  if(artificial){
    anglingFeedCastFeedback='';
    anglingFeedCastFeedbackUntil=0;
@@ -33730,7 +34010,9 @@ function beginAnglingBite(){
   // V8.40: Jede Art besitzt eine eigene Grunddauer. Eine kleine Zufallsabweichung
   // verhindert, dass zwei Bisse derselben Art exakt wie eine Aufnahme wirken.
   anglingBiteVariant=Math.random()*2-1;
-  anglingBiteDuration=(ANGLING_BITE_DURATION_BY_SPECIES[biteSpecies]||2.45)+Math.random()*.20;
+  // V8.107: Artspezifische Bewegung bleibt erhalten, wird aber kompakt und
+  // überraschend abgespielt. QTE, Fanglogik und Drill beginnen unverändert danach.
+  anglingBiteDuration=(ANGLING_BITE_DURATION_BY_SPECIES[biteSpecies]||.90)+Math.random()*.10;
   if(anglingSelectedBait==='baitfish'&&anglingPendingCatch&&!anglingPendingCatch.baitConsumed){
     anglingProgress.baitfish=Math.max(0,anglingProgress.baitfish-1);
     anglingPendingCatch.baitConsumed=true;saveAnglingProgress();updateAnglingSetupUi();
@@ -36260,17 +36542,18 @@ function updateAnglingMode(dt){
     if(phase>.43&&phase<.49&&anglingLastSurfaceEffect<=0){
       spawnAnglingSurfaceEffect(anglingBobber.position,.65,1.15);anglingLastSurfaceEffect=.9;
     }
-    anglingUi.classList.toggle('bite-alert',phase>=.30&&phase<.94);
+    // Derselbe Schwellwert wird von updateAnglingFeedUi() verwendet: Es gibt
+    // keinen unsichtbaren UI-Vorlauf mehr, der den Biss ankündigen könnte.
+    anglingUi.classList.toggle('bite-alert',phase>=.16&&phase<.78);
     if(phase>=1){
       anglingState='bite-focus';anglingStateTime=0;
       anglingUi.classList.remove('bite-alert');anglingUi.classList.add('bite-focus');
     }
   }else if(anglingState==='bite-focus'){
     if(anglingReturnToShorePendingReset)return false;
-    // Der Schwimmer bleibt nach der vollständigen Animation noch kurz unter
-    // Spannung. So wird der Biss erlebt, bevor das Spiel Timing verlangt.
+    // Nur ein sehr kurzer Nachdruck vor dem unveränderten Anhieb-QTE.
     setAnglingBobberRestPose(.54+Math.sin(anglingStateTime*15)*.018,Math.sin(anglingStateTime*11)*.035);
-    if(anglingStateTime>=.34)beginAnglingStrikeQte();
+    if(anglingStateTime>=.14)beginAnglingStrikeQte();
   }else if(anglingState==='strike'){
     anglingQteLapTime+=dt;
     if(anglingQteLapTime>=anglingQteRotationDuration){
@@ -37284,7 +37567,7 @@ function aczoPerf7Summary(){
   // laut Profiler praktisch kostenlos; das alte 120/240-ms-Raster erzeugte
   // dagegen das sichtbare 4-8-Hz-Ruckeln. Wetter/Wolken bleiben separat langsam.
   const aczoVisitorDaytime=carTrafficDaytimeAllowed();
-  updateBirds(visualDt);updateTraffic(visualDt);updateCarVisit(visualDt,aczoVisitorDaytime);updateBmwX3Visit(visualDt,aczoVisitorDaytime);
+  updateBirds(visualDt);updateAczoLiveAircraft(dt);updateTraffic(visualDt);updateCarVisit(visualDt,aczoVisitorDaytime);updateBmwX3Visit(visualDt,aczoVisitorDaytime);
   updateAczoFacilityDoors(visualDt);updateAczoConstructionGates(visualDt);
   updateAczoMainEntranceMotionLight(visualDt);updatePersonalCampScene(visualDt);
   // P10: Material-/Jahreszeitenzustand aendert sich im normalen Betrieb nicht
@@ -37341,6 +37624,7 @@ function aczoPerf7Summary(){
   updateFishShadows();
   updateUnderwaterEffects(dt);
   updateAnglingMode(dt);
+  updateAnglingBobGlowStick();
   updateAnglingClockDisplay();
  if(waterVisible){
    // Flache Uferperspektive benötigt etwas klarer wahrnehmbare Bewegung.
