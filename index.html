@@ -12753,6 +12753,12 @@ let aczoAircraftFetchBusy=false;
 let aczoAircraftPollTimer=0;
 const aczoSeenAircraft=new Map();
 
+function stopAczoActiveAircraft(){
+  if(aczoActiveAircraft?.model)aczoActiveAircraft.model.visible=false;
+  aczoActiveAircraft=null;
+  aczoLiveAircraftRoot.visible=false;
+}
+
 function aczoAircraftKind(a){
   const category=String(a?.category||'').toUpperCase();
   const type=String(a?.t||a?.type||'').toUpperCase();
@@ -12874,6 +12880,126 @@ async function pollAczoLiveAircraft(){
   }
 }
 aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,6500);
+
+// Nur mit ?flugtest=1 sichtbar. Der Produktionsbildschirm und die reale
+// ADS-B-Logik bleiben ohne diesen ausdruecklichen Parameter vollkommen gleich.
+// Der Tester setzt die komplette Szene voruebergehend auf 13 bzw. 23 Uhr,
+// startet ein Modell derselben Produktions-Pools und stellt beim Schliessen
+// die vorherige Spielzeit sekundengenau wieder her.
+function initAczoAircraftTestPanel(){
+  if(new URLSearchParams(location.search).get('flugtest')!=='1')return;
+
+  const openedAt=Date.now();
+  const savedViewerDate=new Date(viewerNow());
+  const savedClock={
+    simulationEnabled:!!simulationEnabled,
+    seasonTestMode:!!seasonTestMode,
+    day:seasonTestDay,
+    hour:seasonTestHour
+  };
+  let restored=false;
+
+  const panel=document.createElement('section');
+  panel.id='aczoAircraftTestPanel';
+  panel.setAttribute('aria-label','Flugzeug-Testsystem');
+  Object.assign(panel.style,{
+    position:'fixed',left:'10px',right:'10px',bottom:'10px',zIndex:'5000',
+    maxWidth:'520px',margin:'0 auto',padding:'12px',borderRadius:'16px',
+    border:'2px solid rgba(170,255,199,.82)',background:'rgba(2,37,32,.96)',
+    color:'#f4fff7',boxShadow:'0 8px 30px rgba(0,0,0,.48)',
+    fontFamily:'system-ui,-apple-system,sans-serif'
+  });
+  panel.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <strong style="font-size:16px;flex:1">✈️ Flugzeug-Test</strong>
+      <button type="button" data-aircraft-close style="border:0;border-radius:9px;padding:7px 11px;background:#bd443d;color:white;font-weight:800">Schließen</button>
+    </div>
+    <div style="font-size:12px;line-height:1.3;margin-bottom:9px;color:#d4eee1">Jeder Knopf startet sofort einen vollständigen Überflug. Nacht zeigt zusätzlich Positions- und Blitzlichter.</div>
+    <div data-aircraft-buttons style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+    <div style="display:flex;gap:7px;margin-top:8px">
+      <button type="button" data-aircraft-stop style="flex:1;border:0;border-radius:9px;padding:8px;background:#35534c;color:white;font-weight:750">Testflug stoppen</button>
+      <button type="button" data-aircraft-restore style="flex:1;border:0;border-radius:9px;padding:8px;background:#35534c;color:white;font-weight:750">Uhrzeit zurück</button>
+    </div>
+    <div data-aircraft-status style="margin-top:8px;min-height:16px;font-size:12px;color:#bfffcf">Bereit – bitte einen Testflug wählen.</div>`;
+  document.body.appendChild(panel);
+
+  const status=panel.querySelector('[data-aircraft-status]');
+  const buttonBox=panel.querySelector('[data-aircraft-buttons]');
+  const tests=[
+    ['light',false,'Kleinflugzeug · Tag'],['light',true,'Kleinflugzeug · Nacht'],
+    ['airliner',false,'Verkehrsflugzeug · Tag'],['airliner',true,'Verkehrsflugzeug · Nacht'],
+    ['heavy',false,'Großflugzeug · Tag'],['heavy',true,'Großflugzeug · Nacht']
+  ];
+
+  function setTestClock(night){
+    const d=new Date(viewerNow());
+    d.setHours(night?23:13,0,0,0);
+    simulationEnabled=true;
+    seasonTestMode=true;
+    seasonTestDay=seasonDayOfDate(d);
+    seasonTestHour=night?23:13;
+    setSeasonTimeAnchor(d);
+    updateAstronomy();
+    updateWeatherText();
+  }
+
+  function restoreClock(){
+    if(restored)return;
+    const continued=new Date(savedViewerDate.getTime()+(Date.now()-openedAt));
+    simulationEnabled=savedClock.simulationEnabled;
+    seasonTestMode=savedClock.seasonTestMode;
+    seasonTestDay=savedClock.day;
+    seasonTestHour=savedClock.hour;
+    setSeasonTimeAnchor(continued);
+    updateAstronomy();
+    updateWeatherText();
+    restored=true;
+    status.textContent='Vorherige Uhrzeit und Simulation wiederhergestellt.';
+  }
+
+  function startTest(kind,night){
+    if(fishMode||(anglingMode&&anglingCinematicView==='underwater')){
+      status.textContent='Bitte zuerst die Unterwasseransicht verlassen.';
+      return;
+    }
+    if(is2D)set3D();
+    restored=false;
+    setTestClock(night);
+    stopAczoActiveAircraft();
+    const category=kind==='light'?'A1':(kind==='heavy'?'A5':'A3');
+    const speedKnots=kind==='light'?125:(kind==='heavy'?470:430);
+    const track=kind==='heavy'?300:(kind==='light'?58:112);
+    const rad=track*Math.PI/180;
+    spawnAczoLiveAircraft({
+      raw:{category,hex:`TEST-${kind}-${Date.now()}`},
+      track,rad,speedKnots,tClosest:0,distanceClosest:0,east:0,north:0,
+      dirEast:Math.sin(rad),dirNorth:Math.cos(rad)
+    });
+    if(aczoActiveAircraft)aczoActiveAircraft.life=aczoActiveAircraft.duration*.10;
+    const name=kind==='light'?'Kleinflugzeug':(kind==='heavy'?'Großflugzeug':'Verkehrsflugzeug');
+    status.textContent=`${name} gestartet · ${night?'Nacht mit Positionslichtern':'Tag ohne Positionslichter'}.`;
+  }
+
+  tests.forEach(([kind,night,label])=>{
+    const button=document.createElement('button');
+    button.type='button';button.textContent=label;
+    Object.assign(button.style,{
+      border:'1px solid rgba(194,255,210,.45)',borderRadius:'10px',padding:'9px 6px',
+      background:night?'#163347':'#267148',color:'white',fontWeight:'800',fontSize:'12px'
+    });
+    button.addEventListener('click',()=>startTest(kind,night));
+    buttonBox.appendChild(button);
+  });
+
+  panel.querySelector('[data-aircraft-stop]').addEventListener('click',()=>{
+    stopAczoActiveAircraft();status.textContent='Testflug gestoppt.';
+  });
+  panel.querySelector('[data-aircraft-restore]').addEventListener('click',restoreClock);
+  panel.querySelector('[data-aircraft-close]').addEventListener('click',()=>{
+    stopAczoActiveAircraft();restoreClock();panel.remove();
+  });
+}
+setTimeout(initAczoAircraftTestPanel,900);
 
 
 let cloudTravel=0;
