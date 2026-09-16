@@ -35924,6 +35924,10 @@ function renderAnglingReelCamera(){
 function returnAnglingToShoreForRecast(){
   if(!anglingMode||!anglingSelection||anglingReturnToShorePendingReset)return;
 
+  const returningDeeper=anglingUsesDeeper();
+  const returningArtificial=anglingUsesArtificialLure();
+  const returningFloat=!returningDeeper&&!returningArtificial;
+
   // BETA 1.4: Rückflug zuerst atomar sperren, bevor Biss/QTE/andere UI-Logik
   // im selben Frame noch einen konkurrierenden Zustand starten kann.
   anglingReturnToShorePendingReset=true;
@@ -35948,6 +35952,39 @@ function returnAnglingToShoreForRecast(){
   anglingFishShadow.visible=false;
   anglingNetGroup.visible=false;
 
+  // Posenmontage: "Zum Ufer" ist ein sichtbares Schnelleinholen und kein
+  // sofortiger Zustands-Reset. Rute, Schnur und Schwimmer bleiben erhalten,
+  // die Rolle dreht und die Pose zieht mit einer kleinen Oberflaechenspur bis
+  // unmittelbar vor den Angler. Die Uferkamera bleibt dabei vollkommen ruhig.
+  if(returningFloat&&anglingBobber.visible){
+    resetAnglingRetrieveWake();
+    anglingRetrieveStart.copy(anglingBobber.position);
+    const shore=anglingSelection.shore;
+    const dx=anglingRetrieveStart.x-shore.x,dy=anglingRetrieveStart.y-shore.y;
+    const dist=Math.max(.001,Math.hypot(dx,dy)),ux=dx/dist,uy=dy/dist;
+    anglingRetrieveEnd.set(shore.x+ux*.45,shore.y+uy*.45,0);
+    anglingRetrieveEnd.z=anglingSurfaceZ(anglingRetrieveEnd.x,anglingRetrieveEnd.y)-.005;
+    anglingFastRetrieveDuration=THREE.MathUtils.clamp(.55+dist*.012,.62,1.22);
+    anglingState='fast-retrieving';anglingStateTime=0;
+    anglingCinematicView='shore';anglingCinematicBlend=0;anglingSafeReturnStart=null;
+    anglingRodGroup.visible=true;
+    anglingBobber.visible=true;
+    anglingDeeper.visible=false;
+    anglingDeeperReadyLine.visible=false;
+    anglingLure.visible=false;
+    anglingLine.visible=true;
+    anglingLine.material.opacity=.86;
+    anglingDrillLineGroup.visible=false;
+    anglingFloatZoom.style.display='none';
+    anglingFloatZoom.setAttribute('aria-hidden','true');
+    anglingReelZoom.style.display='none';
+    anglingReelZoom.setAttribute('aria-hidden','true');
+    anglingExitBtn.disabled=true;
+    anglingExitBtn.textContent='Montage wird eingeholt …';
+    setAnglingStatus('Schnell einholen','Pose und Montage kommen sichtbar zum Ufer zurück.');
+    return;
+  }
+
   anglingState='shore-return';anglingStateTime=0;
   // Die Rute ist ein kameragebundenes First-Person-Modell. Während des Rückflugs
   // darf sie deshalb NICHT mit der Kamera durchs Wasser zum Ufer fliegen.
@@ -35959,7 +35996,6 @@ function returnAnglingToShoreForRecast(){
   anglingLine.visible=false;
   anglingDrillLineGroup.visible=false;
 
-  const returningDeeper=anglingUsesDeeper();
   anglingExitBtn.disabled=true;
   anglingExitBtn.textContent=returningDeeper?'Echolot wird eingeholt …':'Zum Ufer …';
   setAnglingStatus(
@@ -36476,7 +36512,7 @@ function updateAnglingMode(dt){
 
   // Rollenanimation gilt nicht nur im Drill: auch jeder 0,5-m-Einholschritt
   // und jede Kunstköderführung dreht die sichtbare Kurbel an der großen Rute.
-  const reelTurning=anglingDrillReeling||anglingActionHeld||anglingState==='retrieving'||anglingState==='lure-retrieving'||anglingState==='deeper-retrieving';
+  const reelTurning=anglingDrillReeling||anglingActionHeld||anglingState==='retrieving'||anglingState==='lure-retrieving'||anglingState==='deeper-retrieving'||anglingState==='fast-retrieving';
   if(reelTurning){
     // P55: Nur im Drill folgt die sichtbare Rollengeschwindigkeit der gewählten Bremse.
     // Außerhalb des Drills bleibt das bisherige Kurbeltempo unverändert.
@@ -36641,7 +36677,12 @@ function updateAnglingMode(dt){
     const deeper=anglingUsesDeeper(),artificial=anglingUsesArtificialLure(),terminal=deeper?anglingDeeper:(artificial?anglingLure:anglingBobber);
     terminal.position.lerpVectors(anglingRetrieveStart,anglingRetrieveEnd,eased);
     if(deeper){const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);terminal.position.z=surface+.035;sampleAnglingDeeper(false);}
-    else if(!artificial){const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);terminal.position.z=surface-.005;updateAnglingBobberWaterTint(surface);}
+    else if(!artificial){
+      const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);
+      terminal.position.z=surface-.005;
+      updateAnglingBobberWaterTint(surface);
+      updateAnglingRetrieveWake(dt,terminal,false);
+    }
     else{const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);anglingLureDepth=Math.max(.10,surface-terminal.position.z);}
     const metres=Math.max(0,Math.hypot(terminal.position.x-anglingSelection.shore.x,terminal.position.y-anglingSelection.shore.y));
     anglingLineSummary.textContent=(deeper?'📡 Deeper · ':(artificial?'🌀 ':'🎣 ')+(anglingBaitLabels[anglingSelectedBait]||'Köder')+' · ')+metres.toFixed(1).replace('.',',')+' m';
@@ -36649,7 +36690,11 @@ function updateAnglingMode(dt){
       waterUniforms.underwaterView.value=0;scene.fog=null;setFishSubmergedLayers(false);fishGroup.visible=false;
       anglingUnderwaterEntry.classList.remove('show');anglingLureEntryTime=0;anglingCinematicView='shore';
       camera.position.copy(anglingShoreCameraPos);controls.target.copy(anglingShoreCameraTarget);camera.up.set(0,0,1);camera.lookAt(controls.target);
-      anglingRodGroup.visible=true;resetAnglingCast();
+      anglingRodGroup.visible=true;
+      // Ein per "Zum Ufer" gestartetes Posen-Schnelleinholen ist jetzt fertig.
+      // Die Sperre muss vor dem normalen Bereitschafts-Reset geloest werden.
+      anglingReturnToShorePendingReset=false;
+      resetAnglingCast();
     }
   }else if(anglingState==='retrieving'){
     const u=anglingClamp01(anglingStateTime/Math.max(.1,anglingRetrieveDuration)),eased=anglingEase(u);
