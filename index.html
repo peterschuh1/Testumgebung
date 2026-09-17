@@ -38637,102 +38637,131 @@ try{
 </script>
 
 
-<style id="aczo-webgpu-phase2-style">
-#aczoWebGPUPhase2{
-  position:fixed;right:8px;top:max(210px,calc(env(safe-area-inset-top) + 190px));
-  z-index:2147483003;width:min(270px,calc(100vw - 100px));box-sizing:border-box;
-  padding:8px 10px;border:1px solid rgba(255,255,255,.32);border-radius:12px;
-  background:rgba(6,19,22,.93);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28);
-  font:600 9.8px/1.2 system-ui,-apple-system,sans-serif;pointer-events:none
+
+
+
+<style id="aczo-webgpu-phase3-style">
+#aczoWebGPUPhase3{
+ position:fixed;right:8px;top:max(205px,calc(env(safe-area-inset-top) + 185px));
+ z-index:2147483004;width:min(300px,calc(100vw - 96px));box-sizing:border-box;
+ padding:8px 10px;border:1px solid rgba(255,255,255,.32);border-radius:12px;
+ background:rgba(6,19,22,.94);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.3);
+ font:600 9.8px/1.2 system-ui,-apple-system,sans-serif;pointer-events:none
 }
-#aczoWebGPUPhase2Canvas{
-  position:fixed;right:8px;top:max(302px,calc(env(safe-area-inset-top) + 282px));
-  z-index:2147483002;width:160px;height:100px;border-radius:10px;
-  border:1px solid rgba(255,255,255,.3);background:#000;pointer-events:none
+#aczoWebGPUPhase3Canvas{
+ position:fixed;right:8px;top:max(305px,calc(env(safe-area-inset-top) + 285px));
+ z-index:2147483003;width:180px;height:118px;border-radius:10px;
+ border:1px solid rgba(255,255,255,.35);background:#000;pointer-events:none
 }
 </style>
-<script type="importmap" id="aczo-webgpu-phase2-importmap">
+<script type="importmap" id="aczo-webgpu-phase3-importmap">
 {
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
-    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
-    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.tsl.js"
-  }
+ "imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+  "three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+  "three/tsl":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.tsl.js"
+ }
 }
 </script>
-<script type="module" id="aczo-webgpu-phase2-runtime">
-import * as THREE_WGPU from 'three';
-const status=document.createElement('div');
-status.id='aczoWebGPUPhase2';
-status.innerHTML='<b>WebGPU Phase 2 · Three.js</b><br>Modul geladen · Renderer startet …';
-document.body.appendChild(status);
+<script type="module" id="aczo-webgpu-phase3-runtime">
+import * as T from 'three';
 
+const stat=document.createElement('div');
+stat.id='aczoWebGPUPhase3';
+stat.innerHTML='<b>WebGPU Phase 3 · ACZO-Stresstest</b><br>Initialisierung …';
+document.body.appendChild(stat);
 const canvas=document.createElement('canvas');
-canvas.id='aczoWebGPUPhase2Canvas';
-canvas.width=320;canvas.height=200;
+canvas.id='aczoWebGPUPhase3Canvas';canvas.width=360;canvas.height=236;
 document.body.appendChild(canvas);
-
-function show(lines){status.innerHTML='<b>WebGPU Phase 2 · Three.js</b><br>'+lines.join('<br>');}
+const show=a=>stat.innerHTML='<b>WebGPU Phase 3 · ACZO-Stresstest</b><br>'+a.join('<br>');
 
 try{
-  const renderer=new THREE_WGPU.WebGPURenderer({canvas,antialias:true,alpha:false});
-  renderer.setPixelRatio(1);
-  renderer.setSize(320,200,false);
-  await renderer.init();
+ const renderer=new T.WebGPURenderer({canvas,antialias:true,alpha:false});
+ renderer.setPixelRatio(1);renderer.setSize(360,236,false);
+ await renderer.init();
 
-  const scene=new THREE_WGPU.Scene();
-  scene.background=new THREE_WGPU.Color(0x8ecae6);
-  const camera=new THREE_WGPU.PerspectiveCamera(48,320/200,.1,100);
-  camera.position.set(0,2.2,5.2);
-  camera.lookAt(0,0,0);
+ const scene=new T.Scene();scene.background=new T.Color(0xc9e7f2);
+ const camera=new T.PerspectiveCamera(48,360/236,.1,200);
+ camera.position.set(0,8.5,13);camera.lookAt(0,0,0);
+ scene.add(new T.HemisphereLight(0xffffff,0x3c4b43,1.8));
+ const sun=new T.DirectionalLight(0xffffff,2.2);sun.position.set(8,14,6);scene.add(sun);
 
-  scene.add(new THREE_WGPU.HemisphereLight(0xffffff,0x445566,1.7));
-  const sun=new THREE_WGPU.DirectionalLight(0xffffff,2.4);
-  sun.position.set(3,5,4);scene.add(sun);
+ // Pond-like ground/water. Standard WebGPU-compatible materials only.
+ const ground=new T.Mesh(new T.PlaneGeometry(20,16,40,32),
+   new T.MeshStandardMaterial({color:0x58704d,roughness:1}));
+ ground.rotation.x=-Math.PI/2;ground.position.y=-.15;scene.add(ground);
+ const water=new T.Mesh(new T.CircleGeometry(5.2,96),
+   new T.MeshStandardMaterial({color:0x2e8fbd,roughness:.38,metalness:.02}));
+ water.rotation.x=-Math.PI/2;water.scale.set(1.15,.88,1);water.position.y=-.08;scene.add(water);
 
-  // A modest real scene: many independent meshes to exercise Three.js WebGPU
-  // command generation rather than only a raw empty render pass.
-  const geo=new THREE_WGPU.BoxGeometry(.18,.18,.18);
-  for(let z=0;z<12;z++){
-    for(let x=0;x<20;x++){
-      const mat=new THREE_WGPU.MeshStandardMaterial({
-        color:new THREE_WGPU.Color().setHSL((x+z*2)/44,.55,.48),
-        roughness:.72,metalness:.04
-      });
-      const m=new THREE_WGPU.Mesh(geo,mat);
-      m.position.set((x-9.5)*.22,(Math.sin(x*.7+z)*.12),(z-5.5)*.22);
-      scene.add(m);
-    }
-  }
-  const ground=new THREE_WGPU.Mesh(
-    new THREE_WGPU.PlaneGeometry(5,4),
-    new THREE_WGPU.MeshStandardMaterial({color:0x315c3b,roughness:1})
-  );
-  ground.rotation.x=-Math.PI/2;ground.position.y=-.18;scene.add(ground);
+ // ~650 tree objects, deliberately separate draw calls like the real scene's costly state.
+ const trunkGeo=new T.CylinderGeometry(.045,.065,.75,5);
+ const crownGeo=new T.IcosahedronGeometry(.23,1);
+ const trunkMat=new T.MeshStandardMaterial({color:0x3c2b1f,roughness:1});
+ const crownMats=[
+   new T.MeshStandardMaterial({color:0x6fa75d,roughness:1}),
+   new T.MeshStandardMaterial({color:0x83b968,roughness:1}),
+   new T.MeshStandardMaterial({color:0x5f9454,roughness:1})
+ ];
+ let objects=2;
+ for(let i=0;i<325;i++){
+   const a=(i/325)*Math.PI*2;
+   const ring=5.8+(i%7)*.12;
+   const x=Math.cos(a)*ring*1.18,z=Math.sin(a)*ring*.88;
+   const trunk=new T.Mesh(trunkGeo,trunkMat);trunk.position.set(x,.22,z);scene.add(trunk);
+   const crown=new T.Mesh(crownGeo,crownMats[i%3]);
+   crown.position.set(x,.72+(i%5)*.025,z);crown.scale.set(1+(i%4)*.08,.9+(i%3)*.08,1);scene.add(crown);
+   objects+=2;
+ }
+ // ~300 additional independent meshes to push command/draw overhead toward ACZO territory.
+ const rockGeo=new T.DodecahedronGeometry(.08,0);
+ const rockMats=[
+   new T.MeshStandardMaterial({color:0x777b73,roughness:1}),
+   new T.MeshStandardMaterial({color:0x8a8c80,roughness:1})
+ ];
+ for(let i=0;i<300;i++){
+   const a=(i*.61803398875%1)*Math.PI*2,r=6.5+(i%13)*.16;
+   const m=new T.Mesh(rockGeo,rockMats[i%2]);
+   m.position.set(Math.cos(a)*r,0,Math.sin(a)*r*.78);
+   m.scale.setScalar(.7+(i%5)*.12);scene.add(m);objects++;
+ }
 
-  let frames=0,sum=0,worst=0,last=performance.now(),start=last;
-  function animate(t){
-    const dt=t-last;last=t;
-    if(dt>0&&dt<500){frames++;sum+=dt;worst=Math.max(worst,dt);}
-    scene.rotation.y=Math.sin(t*.00025)*.12;
-    renderer.render(scene,camera);
-    if(t-start<6000)requestAnimationFrame(animate);
-    else{
-      const avg=frames?sum/frames:0;
-      show([
-        'WebGPURenderer: <b>ERFOLGREICH</b>',
-        'Three.js: r180 · Backend: <b>WebGPU</b>',
-        'Testszene: 241 Meshes',
-        'Ø Frame: '+avg.toFixed(1)+' ms · Max: '+worst.toFixed(1)+' ms',
-        'Live-Weiher: weiterhin WebGL r128'
-      ]);
-      window.__aczoThreeWebGPUPhase2={ok:true,renderer,scene,camera,avg,worst};
-    }
-  }
-  requestAnimationFrame(animate);
+ // Warm-up 2s, then exactly 10s of measured rAF frame pacing.
+ let phase='warmup',start=performance.now(),last=start;
+ const measured=[];
+ function pct(a,p){return a[Math.max(0,Math.min(a.length-1,Math.floor((a.length-1)*p)))]||0;}
+ function frame(t){
+   scene.rotation.y=Math.sin(t*.00012)*.055;
+   renderer.render(scene,camera);
+   const dt=t-last;last=t;
+   if(phase==='warmup'){
+     if(t-start>=2000){phase='measure';start=t;measured.length=0;show([
+       'WebGPURenderer: <b>ERFOLGREICH</b> · Warm-up fertig',
+       'Testszene: '+objects+' Meshes · Messung 10 s …'
+     ]);}
+     requestAnimationFrame(frame);return;
+   }
+   if(dt>0&&dt<500)measured.push(dt);
+   if(t-start<10000){requestAnimationFrame(frame);return;}
+
+   const a=measured.slice().sort((x,y)=>x-y);
+   const avg=a.reduce((s,v)=>s+v,0)/(a.length||1);
+   const p99=pct(a,.99),low=p99?1000/p99:0,max=a[a.length-1]||0;
+   let c25=0,c33=0,c50=0;for(const v of a){if(v>25)c25++;if(v>33)c33++;if(v>50)c50++;}
+   show([
+    'WebGPURenderer: <b>ERFOLGREICH</b> · Three.js r180',
+    'Testszene: '+objects+' einzelne Meshes',
+    'Ø: '+avg.toFixed(1)+' ms · 1% Low: <b>'+low.toFixed(1)+' FPS</b>',
+    'P99: <b>'+p99.toFixed(1)+' ms</b> · Max: '+max.toFixed(1)+' ms',
+    'Spikes &gt;25/33/50: '+c25+' / '+c33+' / '+c50,
+    'Live-Weiher bleibt WebGL r128'
+   ]);
+   window.__aczoWebGPUPhase3={ok:true,avg,p99,low,max,c25,c33,c50,objects,renderer,scene,camera};
+ }
+ requestAnimationFrame(frame);
 }catch(err){
-  console.error('ACZO WebGPU Phase 2',err);
-  show(['WebGPURenderer: <b>FEHLER</b>',String(err&&err.message||err),'Live-Weiher bleibt WebGL']);
+ console.error('ACZO WebGPU Phase 3',err);
+ show(['WebGPURenderer: <b>FEHLER</b>',String(err&&err.message||err),'Live-Weiher bleibt WebGL']);
 }
 </script>
 
