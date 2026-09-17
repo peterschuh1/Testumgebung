@@ -4221,35 +4221,29 @@ html,body{
 
 
 
-<style id="aczo-gpu-test-fix-style">
-/* Diagnose mittig und oberhalb der unteren Bedienknöpfe. */
-#aczoGpuDiagnose{
-  left:50%!important;
-  right:auto!important;
-  bottom:max(170px,calc(env(safe-area-inset-bottom) + 150px))!important;
-  transform:translateX(-50%)!important;
-  width:min(470px,calc(100vw - 28px))!important;
-  max-width:calc(100vw - 28px)!important;
+<style id="aczo-gpu-benchmark-all-style">
+@media (max-width:760px){
+  #aczoGpuDiagnose{
+    left:auto!important; right:8px!important;
+    top:52%!important; bottom:auto!important;
+    transform:translateY(-50%)!important;
+    width:min(300px,calc(100vw - 105px))!important;
+    max-width:min(300px,calc(100vw - 105px))!important;
+    padding:9px 10px!important;
+    font-size:10.5px!important; line-height:1.18!important;
+    z-index:2147483000!important;
+  }
 }
 #aczoGpuDayTest{
-  position:fixed;
+  position:fixed; right:10px;
   top:max(74px,calc(env(safe-area-inset-top) + 54px));
-  right:12px;
-  z-index:2147483001;
-  border:1px solid rgba(255,255,255,.35);
-  border-radius:12px;
-  background:rgba(7,17,18,.90);
-  color:#fff;
-  padding:8px 11px;
-  font:700 12px/1.15 system-ui,-apple-system,sans-serif;
+  z-index:2147483001; border:1px solid rgba(255,255,255,.35);
+  border-radius:12px; background:rgba(7,17,18,.90); color:#fff;
+  padding:8px 11px; font:700 12px/1.15 system-ui,-apple-system,sans-serif;
   box-shadow:0 3px 14px rgba(0,0,0,.30);
 }
-#aczoGpuDayTest.active{background:rgba(22,92,49,.95)}
-#aczoFrameSpikeStats{
-  margin-top:6px;
-  padding-top:6px;
-  border-top:1px solid rgba(255,255,255,.18);
-}
+#aczoGpuDayTest.active{background:rgba(22,92,49,.96)}
+#aczoFrameSpikeStats{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18)}
 </style>
 
 </head>
@@ -38357,107 +38351,133 @@ function aczoPerf7Summary(){
 })();
 </script>
 
-<script id="aczo-gpu-test-runtime-fix">
+<script id="aczo-gpu-benchmark-all-runtime">
 (function(){
-  'use strict';
+'use strict';
+let dayForced=false;
+let savedTime=null;
+let lastAngling=false;
+const frameSamples=[];
+let frameLast=0, uiLast=0;
 
-  /* 1) Diagnosefenster sicher finden/positionieren. */
-  function getPanel(){
-    return document.getElementById('aczoGpuDiagnose') ||
-      [...document.querySelectorAll('div,section,aside')].find(n =>
-        /ACZO56 GPU-Diagnose/.test(n.textContent||'') &&
-        ![...n.children].some(c=>/ACZO56 GPU-Diagnose/.test(c.textContent||''))
-      );
-  }
-  function placePanel(){
-    const p=getPanel(); if(!p)return;
-    p.style.setProperty('left','50%','important');
-    p.style.setProperty('right','auto','important');
-    p.style.setProperty('bottom','max(170px, calc(env(safe-area-inset-bottom) + 150px))','important');
-    p.style.setProperty('transform','translateX(-50%)','important');
-    p.style.setProperty('width','min(470px, calc(100vw - 28px))','important');
-  }
-
-  /* 2) Frame-Spikes: rollendes 10-Sekunden-Fenster statt kumulierter Zähler. */
-  const samples=[];
-  let last=0,lastUi=0;
-  function percentile(a,p){
-    if(!a.length)return 0;
-    return a[Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*p)))];
-  }
-  function updateStats(now){
-    const p=getPanel(); if(!p||!samples.length)return;
-    let box=document.getElementById('aczoFrameSpikeStats');
-    if(!box){box=document.createElement('div');box.id='aczoFrameSpikeStats';p.appendChild(box);}
-    const recent=samples.filter(x=>now-x.t<=10000);
-    const dts=recent.map(x=>x.dt).sort((a,b)=>a-b);
-    const p99=percentile(dts,.99);
-    const low1=p99?1000/p99:0;
-    const c25=recent.filter(x=>x.dt>25).length;
-    const c33=recent.filter(x=>x.dt>33).length;
-    const c50=recent.filter(x=>x.dt>50).length;
-    const worst=dts.length?dts[dts.length-1]:0;
-    box.innerHTML='<b>Ruckel-Messung · letzte 10 s</b><br>'+
-      '1% Low: '+low1.toFixed(1)+' FPS · P99: '+p99.toFixed(1)+' ms<br>'+
-      'Spikes &gt;25/33/50 ms: '+c25+' / '+c33+' / '+c50+
-      ' · Max: '+worst.toFixed(1)+' ms';
-  }
-  function tick(t){
-    if(last){
-      const dt=t-last;
-      if(dt>0&&dt<500)samples.push({t,dt});
-      while(samples.length&&t-samples[0].t>10000)samples.shift();
+function panel(){
+  return document.getElementById('aczoGpuDiagnose') ||
+    [...document.querySelectorAll('div,section,aside')].find(n =>
+      /ACZO56 GPU-Diagnose/.test(n.textContent||'') &&
+      ![...n.children].some(c=>/ACZO56 GPU-Diagnose/.test(c.textContent||''))
+    );
+}
+function placePanel(){
+  if(!matchMedia('(max-width:760px)').matches)return;
+  const p=panel(); if(!p)return;
+  p.style.setProperty('left','auto','important');
+  p.style.setProperty('right','8px','important');
+  p.style.setProperty('top','52%','important');
+  p.style.setProperty('bottom','auto','important');
+  p.style.setProperty('transform','translateY(-50%)','important');
+  p.style.setProperty('width','min(300px, calc(100vw - 105px))','important');
+  p.style.setProperty('max-width','min(300px, calc(100vw - 105px))','important');
+}
+function forceRealTestDay(){
+  try{
+    const d=new Date();
+    d.setHours(13,0,0,0);
+    seasonTestMode=true;
+    seasonTestDay=seasonDayOfDate(d);
+    seasonTestHour=13;
+    setSeasonTimeAnchor(d);
+    simulationEnabled=true;
+    if(typeof updateSimulationButton==='function')updateSimulationButton();
+    if(typeof updateAstronomy==='function')updateAstronomy();
+    if(typeof applyWeatherScene==='function')applyWeatherScene();
+    if(typeof updateSeasonTestVisuals==='function')updateSeasonTestVisuals(0);
+    if(typeof updateWeatherText==='function')updateWeatherText();
+    if(typeof requestViewerShadowUpdate==='function')requestViewerShadowUpdate();
+  }catch(err){console.warn('GPU-Benchmark Tag:',err);}
+}
+function restoreRealTime(){
+  try{
+    if(savedTime){
+      seasonTestMode=savedTime.mode;
+      seasonTestDay=savedTime.day;
+      seasonTestHour=savedTime.hour;
+      seasonTimeBaseDate=savedTime.base?new Date(savedTime.base):null;
+      seasonTimeBaseStamp=savedTime.stamp;
+      simulationEnabled=savedTime.sim;
+    }else{
+      const d=new Date();
+      seasonTestMode=false; simulationEnabled=true;
+      seasonTestDay=seasonDayOfDate(d); seasonTestHour=seasonHourOfDate(d);
+      setSeasonTimeAnchor(d);
     }
-    last=t;
-    if(t-lastUi>500){placePanel();updateStats(t);lastUi=t;}
-    requestAnimationFrame(tick);
-  }
-
-  /* 3) Reproduzierbarer Tagtest. Wir benutzen die vorhandene Saison-Testlogik,
-        statt viewerNow() zur Laufzeit zu verbiegen. */
-  function installDayButton(){
-    if(document.getElementById('aczoGpuDayTest'))return;
-    const b=document.createElement('button');
-    b.id='aczoGpuDayTest'; b.type='button'; b.textContent='☀️ Test-Tag';
-    document.body.appendChild(b);
-    let active=false, saved=null;
-
-    b.addEventListener('click',()=>{
+    if(typeof updateSimulationButton==='function')updateSimulationButton();
+    if(typeof updateAstronomy==='function')updateAstronomy();
+    if(typeof applyWeatherScene==='function')applyWeatherScene();
+    if(typeof updateSeasonTestVisuals==='function')updateSeasonTestVisuals(0);
+    if(typeof updateWeatherText==='function')updateWeatherText();
+    if(typeof requestViewerShadowUpdate==='function')requestViewerShadowUpdate();
+  }catch(err){console.warn('GPU-Benchmark Echtzeit:',err);}
+}
+function installDay(){
+  if(document.getElementById('aczoGpuDayTest'))return;
+  const b=document.createElement('button');
+  b.id='aczoGpuDayTest'; b.type='button'; b.textContent='☀️ Test-Tag';
+  document.body.appendChild(b);
+  b.onclick=()=>{
+    dayForced=!dayForced;
+    if(dayForced){
       try{
-        if(!active){
-          saved={
-            mode:(typeof seasonTestMode!=='undefined'?seasonTestMode:false),
-            day:(typeof seasonTestDay!=='undefined'?seasonTestDay:null),
-            hour:(typeof seasonTestHour!=='undefined'?seasonTestHour:null)
-          };
-          if(typeof seasonTestMode!=='undefined')seasonTestMode=true;
-          if(typeof seasonTestDay!=='undefined' && typeof seasonDayOfDate==='function')
-            seasonTestDay=seasonDayOfDate(new Date());
-          if(typeof seasonTestHour!=='undefined')seasonTestHour=13;
-          active=true;b.classList.add('active');b.textContent='☀️ Test-Tag: 13:00';
-        }else{
-          if(saved){
-            if(typeof seasonTestMode!=='undefined')seasonTestMode=saved.mode;
-            if(typeof seasonTestDay!=='undefined'&&saved.day!==null)seasonTestDay=saved.day;
-            if(typeof seasonTestHour!=='undefined'&&saved.hour!==null)seasonTestHour=saved.hour;
-          }
-          active=false;b.classList.remove('active');b.textContent='☀️ Test-Tag';
-        }
-        if(typeof updateAstronomy==='function')updateAstronomy();
-        if(typeof applyWeatherScene==='function')applyWeatherScene();
-        if(typeof updateWeatherText==='function')updateWeatherText();
-        if(typeof requestViewerShadowUpdate==='function')requestViewerShadowUpdate();
-      }catch(err){console.warn('GPU-Test Tagmodus:',err);}
-    });
+        savedTime={
+          mode:seasonTestMode,day:seasonTestDay,hour:seasonTestHour,
+          base:seasonTimeBaseDate?new Date(seasonTimeBaseDate):null,
+          stamp:seasonTimeBaseStamp,sim:simulationEnabled
+        };
+      }catch(_){}
+      forceRealTestDay();
+      b.classList.add('active'); b.textContent='☀️ Test-Tag: 13:00';
+    }else{
+      restoreRealTime();
+      b.classList.remove('active'); b.textContent='☀️ Test-Tag';
+    }
+  };
+}
+function pct(a,p){
+  if(!a.length)return 0;
+  return a[Math.max(0,Math.min(a.length-1,Math.floor((a.length-1)*p)))];
+}
+function updateSpikeBox(now){
+  const p=panel(); if(!p)return;
+  let box=document.getElementById('aczoFrameSpikeStats');
+  if(!box){ box=document.createElement('div'); box.id='aczoFrameSpikeStats'; p.appendChild(box); }
+  const a=frameSamples.map(x=>x.dt).sort((x,y)=>x-y);
+  if(!a.length){box.innerHTML='<b>Ruckel-Messung · 10 s</b><br>Messung läuft …';return;}
+  const p99=pct(a,.99), low1=p99?1000/p99:0, worst=a[a.length-1];
+  const c25=a.filter(v=>v>25).length, c33=a.filter(v=>v>33).length, c50=a.filter(v=>v>50).length;
+  box.innerHTML='<b>Ruckel-Messung · letzte 10 s</b><br>'+
+    '1% Low: '+low1.toFixed(1)+' FPS · P99: '+p99.toFixed(1)+' ms<br>'+
+    'Spikes &gt;25/33/50: '+c25+' / '+c33+' / '+c50+' · Max: '+worst.toFixed(1)+' ms';
+}
+function loop(t){
+  if(frameLast){
+    const dt=t-frameLast;
+    if(dt>0&&dt<500)frameSamples.push({t:t,dt:dt});
   }
+  frameLast=t;
+  while(frameSamples.length && t-frameSamples[0].t>10000)frameSamples.shift();
 
-  function start(){
-    placePanel();
-    installDayButton();
-    requestAnimationFrame(tick);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
-  else start();
+  // Original game start intentionally switches to real time. In benchmark mode,
+  // immediately restore fixed 13:00 when anglingMode becomes active.
+  let ang=false;
+  try{ang=!!anglingMode;}catch(_){}
+  if(dayForced && ang && !lastAngling) forceRealTestDay();
+  lastAngling=ang;
+
+  if(t-uiLast>400){placePanel();updateSpikeBox(t);uiLast=t;}
+  requestAnimationFrame(loop);
+}
+function start(){placePanel();installDay();requestAnimationFrame(loop);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+else start();
 })();
 </script>
 
