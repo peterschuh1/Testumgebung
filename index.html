@@ -4246,6 +4246,46 @@ html,body{
 #aczoFrameSpikeStats{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.18)}
 </style>
 
+
+<style id="aczo-gpu-final-diagnostic-layout">
+@media (max-width:760px){
+  #aczoGpuDiagnose{
+    left:auto!important; right:8px!important;
+    top:42%!important; bottom:auto!important;
+    transform:none!important;
+    width:min(285px,calc(100vw - 112px))!important;
+    max-width:min(285px,calc(100vw - 112px))!important;
+    padding:8px 9px!important;
+    font-size:10px!important; line-height:1.16!important;
+  }
+  #aczoFrameSpikePanel{
+    position:fixed!important;
+    right:8px!important; left:auto!important;
+    top:calc(42% + 148px)!important;
+    width:min(285px,calc(100vw - 112px))!important;
+    max-width:min(285px,calc(100vw - 112px))!important;
+    z-index:2147483000!important;
+    box-sizing:border-box!important;
+    padding:7px 9px!important;
+    border:1px solid rgba(255,255,255,.28)!important;
+    border-radius:12px!important;
+    background:rgba(7,17,18,.91)!important;
+    color:#fff!important;
+    box-shadow:0 3px 14px rgba(0,0,0,.28)!important;
+    font:600 10px/1.18 system-ui,-apple-system,sans-serif!important;
+    pointer-events:none!important;
+  }
+}
+@media (min-width:761px){
+  #aczoFrameSpikePanel{
+    position:fixed;right:14px;bottom:14px;z-index:2147483000;
+    width:330px;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(255,255,255,.28);
+    border-radius:12px;background:rgba(7,17,18,.91);color:#fff;
+    font:600 11px/1.2 system-ui,-apple-system,sans-serif;pointer-events:none;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -38472,12 +38512,51 @@ function loop(t){
   if(dayForced && ang && !lastAngling) forceRealTestDay();
   lastAngling=ang;
 
-  if(t-uiLast>400){placePanel();updateSpikeBox(t);uiLast=t;}
+  if(t-uiLast>400){placePanel();uiLast=t;}
   requestAnimationFrame(loop);
 }
 function start(){placePanel();installDay();requestAnimationFrame(loop);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
 else start();
+})();
+</script>
+
+
+<script id="aczo-gpu-final-spike-panel">
+(function(){
+'use strict';
+const q=[];let last=0,lastPaint=0;
+function makePanel(){
+  let p=document.getElementById('aczoFrameSpikePanel');
+  if(p)return p;
+  p=document.createElement('div');p.id='aczoFrameSpikePanel';
+  p.innerHTML='<b>Ruckel-Messung · letzte 10 s</b><br>Messung läuft …';
+  document.body.appendChild(p);return p;
+}
+function pct(a,p){return a.length?a[Math.max(0,Math.min(a.length-1,Math.floor((a.length-1)*p)))]:0;}
+function paint(t){
+  const p=makePanel(),a=q.map(x=>x.dt).sort((x,y)=>x-y);
+  if(!a.length)return;
+  const p99=pct(a,.99),low=p99?1000/p99:0,max=a[a.length-1];
+  let c25=0,c33=0,c50=0;
+  for(const v of a){if(v>25)c25++;if(v>33)c33++;if(v>50)c50++;}
+  p.innerHTML='<b>Ruckel-Messung · letzte 10 s</b><br>'+
+    '1% Low: '+low.toFixed(1)+' FPS · P99: '+p99.toFixed(1)+' ms<br>'+
+    'Spikes &gt;25/33/50: '+c25+' / '+c33+' / '+c50+' · Max: '+max.toFixed(1)+' ms';
+}
+function raf(t){
+  if(last){
+    const dt=t-last;
+    // Ignore app suspension/tab switching, but retain genuine long frames.
+    if(dt>0&&dt<500)q.push({t,dt});
+  }
+  last=t;
+  while(q.length&&t-q[0].t>10000)q.shift();
+  if(t-lastPaint>350){paint(t);lastPaint=t;}
+  requestAnimationFrame(raf);
+}
+function start(){makePanel();requestAnimationFrame(raf);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
 
