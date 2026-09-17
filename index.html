@@ -4220,6 +4220,23 @@ html,body{
 </style>
 
 
+
+<style id="aczo-gpu-diagnose-position-fix">
+/* TEST: Diagnosefenster mittig, damit Unterwasser-/Angelbuttons frei bleiben. */
+#aczoGpuDiagnose,
+#aczo-gpu-diagnose,
+.aczo-gpu-diagnose,
+.aczo-gpu-diagnostic,
+.gpu-diagnose{
+  left:50% !important;
+  right:auto !important;
+  bottom:max(92px, calc(env(safe-area-inset-bottom) + 78px)) !important;
+  transform:translateX(-50%) !important;
+  max-width:min(480px, calc(100vw - 28px)) !important;
+  z-index:2147483000 !important;
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -10714,6 +10731,158 @@ function aczoBuildPrintDocumentHtml(dataUrl){
   });
 })();
 <\/script>
+
+<script id="aczo-webgpu-frame-spike-diagnose">
+/* ACZO56 WebGPU TEST 2: reine Messung, Grafikpfad unverändert.
+   Misst kurze Ruckler, die ein geglätteter FPS-Wert verschluckt. */
+(function(){
+  'use strict';
+  const S={last:0,frames:[],sp25:0,sp33:0,sp50:0,worst:0,lastSpike:0};
+  function percentile(sorted,p){
+    if(!sorted.length)return 0;
+    const i=Math.max(0,Math.min(sorted.length-1,Math.floor((sorted.length-1)*p)));
+    return sorted[i];
+  }
+  function findPanel(){
+    const nodes=[...document.querySelectorAll('div,section,aside')];
+    return nodes.find(n=>/ACZO56 GPU-Diagnose/.test(n.textContent||''))||null;
+  }
+  let extra=null;
+  function ensureExtra(){
+    if(extra&&extra.isConnected)return extra;
+    const panel=findPanel();
+    if(!panel)return null;
+    extra=document.createElement('div');
+    extra.id='aczoFrameSpikeStats';
+    extra.style.cssText='margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18);font:inherit;line-height:1.28;white-space:normal';
+    panel.appendChild(extra);
+    return extra;
+  }
+  function update(){
+    const el=ensureExtra(); if(!el||!S.frames.length)return;
+    const a=S.frames.slice().sort((x,y)=>x-y);
+    const p99=percentile(a,.99);
+    // "1% Low" als FPS aus der 99.-Perzentil-Framezeit, sinnvoller für Stottern.
+    const low1=p99>0?1000/p99:0;
+    el.innerHTML=
+      '<b>Ruckel-Messung (letzte 10 s)</b><br>'+
+      '1% Low: '+low1.toFixed(1)+' FPS · P99: '+p99.toFixed(1)+' ms<br>'+
+      'Spikes &gt;25/33/50 ms: '+S.sp25+' / '+S.sp33+' / '+S.sp50+
+      ' · Schlimmster: '+S.worst.toFixed(1)+' ms'+
+      (S.lastSpike?'<br>Letzter &gt;33-ms-Spike: '+((performance.now()-S.lastSpike)/1000).toFixed(1)+' s her':'');
+  }
+  let lastUi=0;
+  function tick(t){
+    if(S.last){
+      const dt=t-S.last;
+      // Tabsprung/Display-Sleep nicht als Spielruckler zählen.
+      if(dt>0 && dt<500){
+        S.frames.push(dt);
+        if(S.frames.length>600)S.frames.shift(); // ca. 10 s bei 60 Hz
+        if(dt>25)S.sp25++;
+        if(dt>33){S.sp33++;S.lastSpike=t;}
+        if(dt>50)S.sp50++;
+        S.worst=Math.max(S.worst,dt);
+      }
+    }
+    S.last=t;
+    if(t-lastUi>500){update();lastUi=t;}
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  window.__aczoFrameSpikeStats=S;
+})();
+</script>
+
+
+<script id="aczo-gpu-diagnose-position-runtime">
+(function(){
+  function place(){
+    const nodes=[...document.querySelectorAll('div,section,aside')];
+    const panel=nodes.find(n=>{
+      const own=[...n.childNodes].filter(x=>x.nodeType===3||x.nodeType===1)
+        .map(x=>x.textContent||'').join(' ');
+      return /ACZO56 GPU-Diagnose/.test(own) && ![...n.children].some(c=>/ACZO56 GPU-Diagnose/.test(c.textContent||''));
+    }) || nodes.find(n=>/ACZO56 GPU-Diagnose/.test(n.textContent||''));
+    if(!panel)return;
+    panel.style.setProperty('left','50%','important');
+    panel.style.setProperty('right','auto','important');
+    panel.style.setProperty('bottom','max(92px, calc(env(safe-area-inset-bottom) + 78px))','important');
+    panel.style.setProperty('transform','translateX(-50%)','important');
+    panel.style.setProperty('max-width','min(480px, calc(100vw - 28px))','important');
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',place,{once:true});
+  else place();
+  setTimeout(place,500);
+})();
+</script>
+
+
+<style id="aczo-gpu-daytest-style">
+#aczoGpuDayTest{
+  position:fixed; top:max(74px,calc(env(safe-area-inset-top) + 54px)); right:12px;
+  z-index:2147483001; border:1px solid rgba(255,255,255,.35); border-radius:12px;
+  background:rgba(7,17,18,.88); color:#fff; padding:8px 11px;
+  font:700 12px/1.15 system-ui,-apple-system,sans-serif; box-shadow:0 3px 14px rgba(0,0,0,.3);
+  -webkit-tap-highlight-color:transparent;
+}
+#aczoGpuDayTest:active{transform:scale(.98)}
+</style>
+<script id="aczo-gpu-daytest">
+(function(){
+  'use strict';
+  const TEST_HOUR=13, TEST_MINUTE=0;
+  let forced=false, realViewerNow=null;
+
+  function install(){
+    if(document.getElementById('aczoGpuDayTest'))return;
+    const b=document.createElement('button');
+    b.id='aczoGpuDayTest'; b.type='button';
+    b.textContent='☀️ Test-Tag';
+    b.title='Für Performance-Vergleich feste Tageszeit 13:00 verwenden';
+    document.body.appendChild(b);
+
+    if(typeof window.viewerNow==='function') realViewerNow=window.viewerNow;
+    // viewerNow is usually a top-level function, not necessarily window-owned.
+    try{ if(!realViewerNow && typeof viewerNow==='function') realViewerNow=viewerNow; }catch(e){}
+
+    function fixedDay(){
+      const base=realViewerNow ? new Date(realViewerNow()) : new Date();
+      base.setHours(TEST_HOUR,TEST_MINUTE,0,0);
+      return base;
+    }
+    function refresh(){
+      try{
+        if(typeof updateAstronomy==='function')updateAstronomy();
+        if(typeof applyWeatherScene==='function')applyWeatherScene();
+        if(typeof updateWeatherText==='function')updateWeatherText();
+        if(typeof requestViewerShadowUpdate==='function')requestViewerShadowUpdate();
+      }catch(e){console.warn('GPU-Test Tagmodus:',e);}
+    }
+    b.addEventListener('click',function(){
+      forced=!forced;
+      try{
+        if(forced){
+          if(typeof viewerNow==='function'){
+            if(!realViewerNow)realViewerNow=viewerNow;
+            viewerNow=fixedDay;
+          }
+          b.textContent='☀️ Test-Tag: 13:00';
+          b.style.background='rgba(22,92,49,.94)';
+        }else{
+          if(realViewerNow && typeof viewerNow==='function')viewerNow=realViewerNow;
+          b.textContent='☀️ Test-Tag';
+          b.style.background='rgba(7,17,18,.88)';
+        }
+      }catch(e){console.warn('GPU-Test Tagumschaltung:',e);}
+      refresh();
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
+  else install();
+})();
+</script>
+
 </body>
 </html>`;
 }
