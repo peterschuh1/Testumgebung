@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56-Interaktiv-V1.2</title>
+<title>ACZO56-Interaktiv-V1.3</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- V7.83: Kritische Viewer-Ressourcen früh anfordern. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -1971,6 +1971,12 @@ html,body{
 .angling-hof-card h2{margin:6px 0 1px;font-size:clamp(21px,4.2vw,38px);line-height:1.04;font-weight:1000;text-shadow:0 3px 20px rgba(0,0,0,.35)}
 .angling-hof-value{margin-top:7px;font-size:clamp(15px,2.5vw,22px);font-weight:950;color:#f4fff8}
 .angling-hof-detail{margin:7px auto 0;max-width:610px;font-size:11px;line-height:1.45;font-weight:750;color:rgba(239,255,247,.82)}
+.angling-hof-ranking{display:none;margin:10px auto 2px;max-width:470px;text-align:left}
+.angling-hof-ranking.show{display:grid;gap:5px}
+.angling-hof-rank-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 10px;border-radius:11px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.12)}
+.angling-hof-rank-row:first-child{background:rgba(255,225,105,.11);border-color:rgba(255,225,105,.30)}
+.angling-hof-rank-medal{font-size:16px;text-align:center}.angling-hof-rank-name{font-size:11px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.angling-hof-rank-value{font-size:10px;font-weight:900;color:#f4fff8;text-align:right;white-space:nowrap}
+@media(max-width:680px){.angling-hof-ranking{margin-top:8px}.angling-hof-rank-row{grid-template-columns:24px minmax(0,1fr) auto;padding:6px 8px;gap:6px}.angling-hof-rank-medal{font-size:14px}.angling-hof-rank-name{font-size:9.5px}.angling-hof-rank-value{font-size:8.8px}}
 .angling-hof-progress{height:8px;margin:11px auto 2px;max-width:420px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}
 .angling-hof-progress>span{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#d6aa42,#fff0a4);transition:width .65s ease}
 .angling-hof-dots{display:flex;justify-content:center;gap:5px;margin-top:11px}.angling-hof-dots i{display:block;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.25)}.angling-hof-dots i.on{background:#ffe583;box-shadow:0 0 10px rgba(255,229,131,.72)}
@@ -3770,6 +3776,60 @@ html,body{
 .aczo-phone-layout .angling-hof-brand small{font-size:7px!important;letter-spacing:.12em!important}
 .aczo-phone-layout .angling-hof-brand strong{font-size:14px!important;letter-spacing:.035em!important}
 
+
+/* V1.3 HOF MOBILE BOTTOM: unten über dem Hausdach, aber mit reservierter
+   Signaturzone für „Produced by Predatorpit“. Himmel, Feuerwerk und Fahne
+   bleiben frei, die Signatur ebenfalls. */
+.aczo-phone-layout .angling-hof-card{
+  top:auto!important;
+  bottom:max(76px,calc(env(safe-area-inset-bottom) + 58px))!important;
+  transform:translateX(-50%)!important
+}
+
+/* V1.3 HOF MOBILE: Top-3-Karten kompakter halten.
+   Die Karten bleiben weiterhin oberhalb der projizierten Fahnenmastspitze,
+   werden aber nicht mehr so hoch, dass sie unter den Zurück-Button ragen. */
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show){
+  padding:10px 12px 10px!important;
+  border-radius:16px!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-kicker{
+  font-size:7.4px!important;
+  line-height:1.05!important;
+  letter-spacing:.14em!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) h2{
+  margin:4px 0 0!important;
+  font-size:24px!important;
+  line-height:1!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-ranking{
+  margin:7px auto 1px!important;
+  gap:4px!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-rank-row{
+  grid-template-columns:22px minmax(0,1fr) auto!important;
+  min-height:0!important;
+  padding:5px 8px!important;
+  gap:6px!important;
+  border-radius:10px!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-rank-medal{font-size:13px!important}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-rank-name{font-size:9.2px!important}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-rank-value{font-size:8.2px!important}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-detail{
+  margin-top:6px!important;
+  font-size:8.8px!important;
+  line-height:1.22!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-dots{
+  margin-top:7px!important;
+  gap:4px!important
+}
+.aczo-phone-layout .angling-hof-card:has(.angling-hof-ranking.show) .angling-hof-dots i{
+  width:4px!important;height:4px!important
+}
+
 /* Online-Präsenz ist eine kurze Statusmeldung und kein dauerhaftes HUD. Sie
    erscheint unterhalb der oberen Bedienelemente, auch während eines Drills. */
 .angling-community-toast{top:165px!important}
@@ -4314,6 +4374,7 @@ html,body{
        <div id="anglingHallOfFameKicker" class="angling-hof-kicker">VEREINSWEIHER</div>
        <h2 id="anglingHallOfFameTitle">Hall of Fame</h2>
        <div id="anglingHallOfFameValue" class="angling-hof-value"></div>
+       <div id="anglingHallOfFameRanking" class="angling-hof-ranking"></div>
        <div id="anglingHallOfFameDetail" class="angling-hof-detail"></div>
        <div id="anglingHallOfFameProgress" class="angling-hof-progress" style="display:none"><span></span></div>
        <div id="anglingHallOfFameDots" class="angling-hof-dots"></div>
@@ -4809,6 +4870,23 @@ html,body{
 Interaktive Tiefenkarte & Angelspiel · Live-Wetter · astronomisches Licht · Unterwasserwelt · Fischsammlung<br>
 Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser und betroffenem Modus melden.
 </div>
+       <details class="help-note" style="cursor:pointer">
+         <summary style="font-weight:800">Update-History</summary>
+         <div style="margin-top:8px;cursor:default">
+           <strong>Version 1.3</strong><br>
+           • 2D-/3D-Karte, Tiefendarstellung und Übergänge weiter optimiert<br>
+           • Darstellung, Performance und mobile Steuerung weiter verbessert<br>
+           • Astronomisches Licht, Zeitraffer und Schattenbewegungen verfeinert<br>
+           • Unterwasserwelt mit natürlicherem Fischverhalten und ruhigeren Bewegungen erweitert<br>
+           • Gründelverhalten mit unterschiedlichen Fresswinkeln, Sedimentwolken und Luftblasen verbessert<br>
+           • Futterplatz und Unterwasser-Effekte realistischer abgestimmt<br>
+           • Angelspiel, Fischkontakt, Hänger- und Kollisionsverhalten weiter verfeinert<br>
+           • Besucher, Fahrzeuge und Bewegungsabläufe in der Umgebung überarbeitet<br>
+           • EP-System, Tagesaufgaben sowie Lockfutter- und Köderpreise neu ausbalanciert<br>
+           • Neue Animationen und versteckte Easter Eggs ergänzt<br>           • Hall of Fame mit Top-3-Vereinswertungen und kompakter persönlicher Übersicht überarbeitet<br>
+           • Zahlreiche Detailkorrekturen an Darstellung, Bedienung und Spielablauf
+         </div>
+       </details>
        <div class="help-note"><strong>Datenquellen & Hinweise</strong><br>
 Tiefenkarte und Darstellung: AC 1956 Zewen-Oberkirch e. V.<br>
 Luftbild/Kartengrundlage: © GeoBasis-DE / LVermGeoRP (2026), dl-de/by-2-0<br>
@@ -4839,7 +4917,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 // V7.75: Der Startlayer ist bereits durch HTML/CSS sichtbar, bevor dieser schwere
 // Three.js-Block ausgeführt wird. Er wird erst nach einem echten Renderbild freigegeben.
 // Öffentliche Versionsbezeichnung. Interner Arbeitsstand: Build 1.34.
-const VIEWER_VERSION='ACZO56-Interaktiv-V1.2';
+const VIEWER_VERSION='ACZO56-Interaktiv-V1.3';
 const ACZO_INTERNAL_BUILD='1.38';
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -5499,6 +5577,7 @@ const anglingHallOfFameKicker=document.getElementById('anglingHallOfFameKicker')
 const anglingHallOfFameTitle=document.getElementById('anglingHallOfFameTitle');
 const anglingHallOfFameValue=document.getElementById('anglingHallOfFameValue');
 const anglingHallOfFameDetail=document.getElementById('anglingHallOfFameDetail');
+const anglingHallOfFameRankingEl=document.getElementById('anglingHallOfFameRanking');
 const anglingHallOfFameProgress=document.getElementById('anglingHallOfFameProgress');
 const anglingHallOfFameDots=document.getElementById('anglingHallOfFameDots');
 const anglingHallOfFameCredit=document.getElementById('anglingHallOfFameCredit');
@@ -12681,375 +12760,6 @@ function updateBirds(dt){
 }
 
 
-// LIVE-FLUGVERKEHR: Eine sparsame ADS-B-Abfrage sucht nur nach Flugzeugen,
-// deren aktuelle Flugbahn dem Vereinsgelaende wirklich nahe kommt. Es wird
-// maximal ein bereits vorgebautes Low-Poly-Modell gleichzeitig dargestellt;
-// Netzabfrage, Geometrie und Materialien erzeugen daher keine Frame-Spitzen.
-const aczoLiveAircraftRoot=new THREE.Group();
-aczoLiveAircraftRoot.visible=false;
-scene.add(aczoLiveAircraftRoot);
-
-const aczoAircraftBodyMat=new THREE.MeshBasicMaterial({color:0xb8bec2,toneMapped:false});
-const aczoAircraftDarkMat=new THREE.MeshBasicMaterial({color:0x59636a,toneMapped:false});
-const aczoAircraftWindowMat=new THREE.MeshBasicMaterial({color:0x243640,toneMapped:false});
-const aczoAircraftRedMat=new THREE.MeshBasicMaterial({color:0xff2f24,toneMapped:false});
-const aczoAircraftGreenMat=new THREE.MeshBasicMaterial({color:0x34ff78,toneMapped:false});
-const aczoAircraftWhiteMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});
-const aczoAircraftRedGlowMat=new THREE.SpriteMaterial({
-  map:waterStarTexture,color:0xff3328,transparent:true,opacity:.98,
-  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  fog:false,toneMapped:false
-});
-const aczoAircraftGreenGlowMat=new THREE.SpriteMaterial({
-  map:waterStarTexture,color:0x35ff83,transparent:true,opacity:.98,
-  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  fog:false,toneMapped:false
-});
-const aczoAircraftWhiteGlowMat=new THREE.SpriteMaterial({
-  map:waterStarTexture,color:0xf4fbff,transparent:true,opacity:1,
-  depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  fog:false,toneMapped:false
-});
-
-function aczoAircraftMesh(parent,geometry,material,x=0,y=0,z=0){
-  const mesh=new THREE.Mesh(geometry,material);
-  mesh.position.set(x,y,z);
-  mesh.userData.aczoNoShadow=true;
-  mesh.userData.aczoNoReceiveShadow=true;
-  parent.add(mesh);
-  return mesh;
-}
-
-function aczoAircraftGlow(parent,material,x,y,z,size){
-  const sprite=new THREE.Sprite(material);
-  sprite.position.set(x,y,z);
-  sprite.scale.set(size,size,1);
-  sprite.renderOrder=18;
-  parent.add(sprite);
-  return sprite;
-}
-
-function createAczoAircraftModel(kind){
-  const g=new THREE.Group();
-  const heavy=kind==='heavy';
-  const light=kind==='light';
-  const length=light?6.4:(heavy?13.8:10.6);
-  const radius=light?.42:(heavy?.76:.62);
-  const span=light?7.8:(heavy?17.5:13.2);
-  const wingChord=light?1.22:(heavy?2.2:1.72);
-  const body=aczoAircraftMesh(g,new THREE.CylinderGeometry(radius,radius,length,10,1,false),aczoAircraftBodyMat);
-  body.position.y=0;
-  aczoAircraftMesh(g,new THREE.ConeGeometry(radius,length*.13,10),aczoAircraftBodyMat,0,length*.565,0);
-  const tailCone=aczoAircraftMesh(g,new THREE.ConeGeometry(radius*.82,length*.16,9),aczoAircraftBodyMat,0,-length*.57,0);
-  tailCone.rotation.z=Math.PI;
-  aczoAircraftMesh(g,new THREE.BoxGeometry(span,wingChord,.13),aczoAircraftBodyMat,0,-length*.02,0);
-  aczoAircraftMesh(g,new THREE.BoxGeometry(span*.36,wingChord*.55,.10),aczoAircraftBodyMat,0,-length*.39,.05);
-  const fin=aczoAircraftMesh(g,new THREE.BoxGeometry(.12,length*.13,radius*2.25),aczoAircraftDarkMat,0,-length*.43,radius*.78);
-  fin.rotation.x=-.20;
-  if(!light){
-    const engineCount=heavy?4:2;
-    for(let i=0;i<engineCount;i++){
-      const side=(i%2?1:-1)*(heavy?(i<2?3.0:5.3):3.0);
-      const engine=aczoAircraftMesh(g,new THREE.CylinderGeometry(.25,.31,1.3,8),aczoAircraftDarkMat,side,.15,-.35);
-      engine.rotation.z=0;
-    }
-    aczoAircraftMesh(g,new THREE.BoxGeometry(.72,length*.30,.03),aczoAircraftWindowMat,0,length*.12,radius*.96);
-  }
-  const red=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.16:.22,8,6),aczoAircraftRedMat,-span*.51,0,.04);
-  const green=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.16:.22,8,6),aczoAircraftGreenMat,span*.51,0,.04);
-  const tail=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.14:.19,8,6),aczoAircraftWhiteMat,0,-length*.68,.12);
-  const strobe=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.18:.25,8,6),aczoAircraftWhiteMat,0,.15,-radius*.98);
-  const haloSize=light?.92:1.28;
-  const redHalo=aczoAircraftGlow(g,aczoAircraftRedGlowMat,-span*.51,0,.05,haloSize);
-  const greenHalo=aczoAircraftGlow(g,aczoAircraftGreenGlowMat,span*.51,0,.05,haloSize);
-  const tailHalo=aczoAircraftGlow(g,aczoAircraftWhiteGlowMat,0,-length*.68,.14,haloSize*.86);
-  const strobeHalo=aczoAircraftGlow(g,aczoAircraftWhiteGlowMat,0,.15,-radius*1.02,light?1.35:1.85);
-  const beacon=aczoAircraftMesh(g,new THREE.SphereGeometry(light?.13:.17,8,6),aczoAircraftRedMat,0,-length*.05,radius*1.05);
-  const beaconHalo=aczoAircraftGlow(g,aczoAircraftRedGlowMat,0,-length*.05,radius*1.10,light?1.05:1.40);
-  g.userData.navigationLights=[red,green,tail,redHalo,greenHalo,tailHalo];
-  g.userData.strobeLights=[strobe,strobeHalo];
-  g.userData.beaconLights=[beacon,beaconHalo];
-  [...g.userData.navigationLights,...g.userData.strobeLights,...g.userData.beaconLights].forEach(v=>v.visible=false);
-  g.visible=false;
-  return g;
-}
-
-const aczoAircraftModels={
-  light:createAczoAircraftModel('light'),
-  airliner:createAczoAircraftModel('airliner'),
-  heavy:createAczoAircraftModel('heavy')
-};
-Object.values(aczoAircraftModels).forEach(model=>aczoLiveAircraftRoot.add(model));
-
-let aczoActiveAircraft=null;
-let aczoAircraftFetchBusy=false;
-let aczoAircraftPollTimer=0;
-const aczoSeenAircraft=new Map();
-
-function stopAczoActiveAircraft(){
-  if(aczoActiveAircraft?.model)aczoActiveAircraft.model.visible=false;
-  aczoActiveAircraft=null;
-  aczoLiveAircraftRoot.visible=false;
-}
-
-function aczoAircraftKind(a){
-  const category=String(a?.category||'').toUpperCase();
-  const type=String(a?.t||a?.type||'').toUpperCase();
-  if(category==='A5'||/^(A38|A35|B74|B77|B78|A33|A34|IL9|AN1)/.test(type))return 'heavy';
-  if(category==='A1'||category==='A2'||/^(C1|C2|C3|P28|PA|DA|SR|BE|PC|M20)/.test(type))return 'light';
-  return 'airliner';
-}
-
-function aczoAircraftCandidate(a){
-  const lat=Number(a?.lat),lon=Number(a?.lon);
-  const track=Number(a?.track ?? a?.true_heading);
-  const speedKnots=Number(a?.gs ?? a?.ground_speed);
-  const seenPos=Number(a?.seen_pos ?? a?.seen ?? 999);
-  const altitude=Number(a?.alt_baro ?? a?.alt_geom);
-  if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(track)||
-     !Number.isFinite(speedKnots)||speedKnots<35||seenPos>25||
-     String(a?.alt_baro).toLowerCase()==='ground'||(Number.isFinite(altitude)&&altitude<250))return null;
-  const north=(lat-SITE_LAT)*111.32;
-  const east=(lon-SITE_LON)*111.32*Math.cos(SITE_LAT*Math.PI/180);
-  const rad=track*Math.PI/180;
-  const dirEast=Math.sin(rad),dirNorth=Math.cos(rad);
-  const speedKmS=speedKnots*1.852/3600;
-  const along=east*dirEast+north*dirNorth;
-  const tClosest=THREE.MathUtils.clamp(-along/Math.max(.001,speedKmS),0,150);
-  const closeEast=east+dirEast*speedKmS*tClosest;
-  const closeNorth=north+dirNorth*speedKmS*tClosest;
-  const distanceClosest=Math.hypot(closeEast,closeNorth);
-  const distanceNow=Math.hypot(east,north);
-  // Nur reale, frische Flugbahnen, die innerhalb der naechsten 2,5 Minuten
-  // hoechstens rund 2,7 km am Gelaende vorbeifuehren.
-  if(distanceClosest>2.7||distanceNow>34)return null;
-  return {raw:a,track,rad,speedKnots,tClosest,distanceClosest,east,north,dirEast,dirNorth};
-}
-
-function spawnAczoLiveAircraft(candidate){
-  if(aczoActiveAircraft||!candidate)return;
-  const kind=aczoAircraftKind(candidate.raw);
-  const model=aczoAircraftModels[kind]||aczoAircraftModels.airliner;
-  Object.values(aczoAircraftModels).forEach(v=>v.visible=false);
-  const sideX=-candidate.dirNorth,sideY=candidate.dirEast;
-  const signedOffset=candidate.east*sideX+candidate.north*sideY;
-  const sceneOffset=THREE.MathUtils.clamp(signedOffset*7.0,-19,19);
-  const pathHalf=Math.max(D.sceneW,D.sceneH)*.82;
-  const start=new THREE.Vector3(
-    -candidate.dirEast*pathHalf+sideX*sceneOffset,
-    -candidate.dirNorth*pathHalf+sideY*sceneOffset,
-    // Das Wolkendeck liegt bei etwa 82 m. Flugzeuge gehoeren klar darueber;
-    // Kleinmaschinen bleiben niedriger als Linien- und Grossflugzeuge.
-    kind==='light'?98:(kind==='heavy'?124:112)
-  );
-  const end=new THREE.Vector3(
-    candidate.dirEast*pathHalf+sideX*sceneOffset,
-    candidate.dirNorth*pathHalf+sideY*sceneOffset,
-    start.z+(Math.random()-.5)*3
-  );
-  model.position.copy(start);
-  model.rotation.set(0,0,-candidate.rad);
-  // Hoehere Flugbahn mit massstaeblich klar unterscheidbaren Silhouetten.
-  // Die moderate Vergroesserung gleicht nur den groesseren Kameraabstand aus.
-  model.scale.setScalar(kind==='light'?.95:(kind==='heavy'?1.34:1.22));
-  model.visible=true;
-  aczoLiveAircraftRoot.visible=true;
-  aczoActiveAircraft={
-    model,start,end,life:0,
-    duration:THREE.MathUtils.clamp(47-candidate.speedKnots*.035,24,42)
-  };
-  const key=String(candidate.raw?.hex||candidate.raw?.flight||'unknown').trim();
-  aczoSeenAircraft.set(key,Date.now());
-}
-
-function updateAczoLiveAircraft(dt){
-  const viewAllowed=!is2D&&!fishMode&&!(anglingMode&&anglingCinematicView==='underwater');
-  if(!aczoActiveAircraft){aczoLiveAircraftRoot.visible=false;return;}
-  const a=aczoActiveAircraft;
-  a.life+=dt;
-  const u=THREE.MathUtils.clamp(a.life/a.duration,0,1);
-  a.model.position.lerpVectors(a.start,a.end,u);
-  a.model.position.z+=Math.sin(u*Math.PI)*1.4;
-  // MeshBasicMaterial reagiert nicht auf das astronomische Szenenlicht.
-  // Deshalb wird der Rumpf nachts explizit zur dunklen Silhouette, waehrend
-  // die selbstleuchtenden Navigationslichter klar hervortreten.
-  const aircraftNight=aczoAstronomicalNight;
-  aczoAircraftBodyMat.color.setHex(aircraftNight?0x252c30:0xb8bec2);
-  aczoAircraftDarkMat.color.setHex(aircraftNight?0x0d1215:0x59636a);
-  aczoAircraftWindowMat.color.setHex(aircraftNight?0x071116:0x243640);
-  const nav=a.model.userData.navigationLights||[];
-  nav.forEach(light=>light.visible=aircraftNight);
-  const strobePhase=a.life%1.45;
-  (a.model.userData.strobeLights||[]).forEach(light=>{
-    light.visible=aircraftNight&&(strobePhase<.10||(strobePhase>.22&&strobePhase<.32));
-  });
-  const beaconPhase=a.life%1.12;
-  (a.model.userData.beaconLights||[]).forEach(light=>{
-    light.visible=aircraftNight&&beaconPhase<.18;
-  });
-  aczoLiveAircraftRoot.visible=viewAllowed;
-  if(u>=1){
-    a.model.visible=false;
-    aczoActiveAircraft=null;
-    aczoLiveAircraftRoot.visible=false;
-  }
-}
-
-async function pollAczoLiveAircraft(){
-  clearTimeout(aczoAircraftPollTimer);
-  if(aczoAircraftFetchBusy||document.hidden){
-    aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,45000);
-    return;
-  }
-  aczoAircraftFetchBusy=true;
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),8500);
-  try{
-    const response=await fetch(`https://api.adsb.lol/v2/point/${SITE_LAT}/${SITE_LON}/18`,{
-      mode:'cors',cache:'no-store',signal:controller.signal
-    });
-    if(!response.ok)throw new Error('ADS-B '+response.status);
-    const payload=await response.json();
-    const now=Date.now();
-    for(const [key,stamp] of aczoSeenAircraft){if(now-stamp>30*60*1000)aczoSeenAircraft.delete(key);}
-    const candidates=(Array.isArray(payload?.ac)?payload.ac:[])
-      .map(aczoAircraftCandidate)
-      .filter(Boolean)
-      .filter(c=>!aczoSeenAircraft.has(String(c.raw?.hex||c.raw?.flight||'unknown').trim()))
-      .sort((a,b)=>(a.distanceClosest+a.tClosest*.002)-(b.distanceClosest+b.tClosest*.002));
-    if(candidates.length&&!aczoActiveAircraft)spawnAczoLiveAircraft(candidates[0]);
-  }catch(e){
-    // Externer Live-Dienst: Fehler bleiben absichtlich lautlos und beeinflussen
-    // weder Spielstart noch Renderloop. Der naechste Intervall versucht es neu.
-  }finally{
-    clearTimeout(timeout);
-    aczoAircraftFetchBusy=false;
-    aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,60000);
-  }
-}
-aczoAircraftPollTimer=setTimeout(pollAczoLiveAircraft,6500);
-
-// Nur mit ?flugtest=1 sichtbar. Der Produktionsbildschirm und die reale
-// ADS-B-Logik bleiben ohne diesen ausdruecklichen Parameter vollkommen gleich.
-// Der Tester setzt die komplette Szene voruebergehend auf 13 bzw. 23 Uhr,
-// startet ein Modell derselben Produktions-Pools und stellt beim Schliessen
-// die vorherige Spielzeit sekundengenau wieder her.
-function initAczoAircraftTestPanel(){
-  if(new URLSearchParams(location.search).get('flugtest')!=='1')return;
-
-  const openedAt=Date.now();
-  const savedViewerDate=new Date(viewerNow());
-  const savedClock={
-    simulationEnabled:!!simulationEnabled,
-    seasonTestMode:!!seasonTestMode,
-    day:seasonTestDay,
-    hour:seasonTestHour
-  };
-  let restored=false;
-
-  const panel=document.createElement('section');
-  panel.id='aczoAircraftTestPanel';
-  panel.setAttribute('aria-label','Flugzeug-Testsystem');
-  Object.assign(panel.style,{
-    position:'fixed',left:'10px',right:'10px',bottom:'10px',zIndex:'5000',
-    maxWidth:'520px',margin:'0 auto',padding:'12px',borderRadius:'16px',
-    border:'2px solid rgba(170,255,199,.82)',background:'rgba(2,37,32,.96)',
-    color:'#f4fff7',boxShadow:'0 8px 30px rgba(0,0,0,.48)',
-    fontFamily:'system-ui,-apple-system,sans-serif'
-  });
-  panel.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <strong style="font-size:16px;flex:1">✈️ Flugzeug-Test</strong>
-      <button type="button" data-aircraft-close style="border:0;border-radius:9px;padding:7px 11px;background:#bd443d;color:white;font-weight:800">Schließen</button>
-    </div>
-    <div style="font-size:12px;line-height:1.3;margin-bottom:9px;color:#d4eee1">Jeder Knopf startet sofort einen vollständigen Überflug. Nacht zeigt zusätzlich Positions- und Blitzlichter.</div>
-    <div data-aircraft-buttons style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
-    <div style="display:flex;gap:7px;margin-top:8px">
-      <button type="button" data-aircraft-stop style="flex:1;border:0;border-radius:9px;padding:8px;background:#35534c;color:white;font-weight:750">Testflug stoppen</button>
-      <button type="button" data-aircraft-restore style="flex:1;border:0;border-radius:9px;padding:8px;background:#35534c;color:white;font-weight:750">Uhrzeit zurück</button>
-    </div>
-    <div data-aircraft-status style="margin-top:8px;min-height:16px;font-size:12px;color:#bfffcf">Bereit – bitte einen Testflug wählen.</div>`;
-  document.body.appendChild(panel);
-
-  const status=panel.querySelector('[data-aircraft-status]');
-  const buttonBox=panel.querySelector('[data-aircraft-buttons]');
-  const tests=[
-    ['light',false,'Kleinflugzeug · Tag'],['light',true,'Kleinflugzeug · Nacht'],
-    ['airliner',false,'Verkehrsflugzeug · Tag'],['airliner',true,'Verkehrsflugzeug · Nacht'],
-    ['heavy',false,'Großflugzeug · Tag'],['heavy',true,'Großflugzeug · Nacht']
-  ];
-
-  function setTestClock(night){
-    const d=new Date(viewerNow());
-    d.setHours(night?23:13,0,0,0);
-    simulationEnabled=true;
-    seasonTestMode=true;
-    seasonTestDay=seasonDayOfDate(d);
-    seasonTestHour=night?23:13;
-    setSeasonTimeAnchor(d);
-    updateAstronomy();
-    updateWeatherText();
-  }
-
-  function restoreClock(){
-    if(restored)return;
-    const continued=new Date(savedViewerDate.getTime()+(Date.now()-openedAt));
-    simulationEnabled=savedClock.simulationEnabled;
-    seasonTestMode=savedClock.seasonTestMode;
-    seasonTestDay=savedClock.day;
-    seasonTestHour=savedClock.hour;
-    setSeasonTimeAnchor(continued);
-    updateAstronomy();
-    updateWeatherText();
-    restored=true;
-    status.textContent='Vorherige Uhrzeit und Simulation wiederhergestellt.';
-  }
-
-  function startTest(kind,night){
-    if(fishMode||(anglingMode&&anglingCinematicView==='underwater')){
-      status.textContent='Bitte zuerst die Unterwasseransicht verlassen.';
-      return;
-    }
-    if(is2D)set3D();
-    restored=false;
-    setTestClock(night);
-    stopAczoActiveAircraft();
-    const category=kind==='light'?'A1':(kind==='heavy'?'A5':'A3');
-    const speedKnots=kind==='light'?125:(kind==='heavy'?470:430);
-    const track=kind==='heavy'?300:(kind==='light'?58:112);
-    const rad=track*Math.PI/180;
-    spawnAczoLiveAircraft({
-      raw:{category,hex:`TEST-${kind}-${Date.now()}`},
-      track,rad,speedKnots,tClosest:0,distanceClosest:0,east:0,north:0,
-      dirEast:Math.sin(rad),dirNorth:Math.cos(rad)
-    });
-    if(aczoActiveAircraft)aczoActiveAircraft.life=aczoActiveAircraft.duration*.10;
-    const name=kind==='light'?'Kleinflugzeug':(kind==='heavy'?'Großflugzeug':'Verkehrsflugzeug');
-    status.textContent=`${name} gestartet · ${night?'Nacht mit Positionslichtern':'Tag ohne Positionslichter'}.`;
-  }
-
-  tests.forEach(([kind,night,label])=>{
-    const button=document.createElement('button');
-    button.type='button';button.textContent=label;
-    Object.assign(button.style,{
-      border:'1px solid rgba(194,255,210,.45)',borderRadius:'10px',padding:'9px 6px',
-      background:night?'#163347':'#267148',color:'white',fontWeight:'800',fontSize:'12px'
-    });
-    button.addEventListener('click',()=>startTest(kind,night));
-    buttonBox.appendChild(button);
-  });
-
-  panel.querySelector('[data-aircraft-stop]').addEventListener('click',()=>{
-    stopAczoActiveAircraft();status.textContent='Testflug gestoppt.';
-  });
-  panel.querySelector('[data-aircraft-restore]').addEventListener('click',restoreClock);
-  panel.querySelector('[data-aircraft-close]').addEventListener('click',()=>{
-    stopAczoActiveAircraft();restoreClock();panel.remove();
-  });
-}
-setTimeout(initAczoAircraftTestPanel,900);
-
-
 let cloudTravel=0;
 let aczoCloudMotionLastAt=0;
 let aczoCloudVisualSpeed=0;
@@ -13544,7 +13254,10 @@ function randomPersonAreaPoint(out){
 
 const carTestGroup=new THREE.Group();
 scene.add(carTestGroup);
-let carTestWait=8+Math.random()*12;
+// Der gemeinsame Besuchsplaner weiter unten entscheidet, welches Fahrzeug
+// zuerst und als Nächstes erscheint. Die alten konkurrierenden Einzel-Timer
+// bleiben nur als kompatible Zustandswerte erhalten und starten nichts mehr.
+let carTestWait=Infinity;
 let currentVisit=null;
 let previousCarColor=-1;
 const carPalette=[0x2f5e85,0x8a2e2e,0x485447,0x8b8d91,0x6f4b31,0x25313b];
@@ -13663,7 +13376,8 @@ function finishCarVisit(){
   carTestGroup.remove(currentVisit.car);
   disposeSceneTree(currentVisit.car);
   currentVisit=null;
-  carTestWait=120+Math.random()*180;
+  carTestWait=Infinity;
+  if(typeof aczoScheduleNextPropertyVisit==='function')aczoScheduleNextPropertyVisit();
 }
 
 function carTrafficDaytimeAllowed(){
@@ -13694,9 +13408,6 @@ function updateCarVisit(dt,daytime=carTrafficDaytimeAllowed()){
 
   const scaledDt=dt;
   if(!currentVisit){
-    if(typeof bmwX3Visit!=='undefined'&&bmwX3Visit)return;
-    carTestWait-=scaledDt;
-    if(carTestWait<=0) spawnCarVisit();
     return;
   }
   const v=currentVisit;
@@ -15022,24 +14733,31 @@ function pondDepthAt(x,y){
   return raw;
 }
 
-function softPointMaterial(color){
+function softPointMaterial(color,useFog=false){
   return new THREE.ShaderMaterial({
-    transparent:true,depthWrite:false,depthTest:true,
-    uniforms:{pointColor:{value:new THREE.Color(color)}},
+    transparent:true,depthWrite:false,depthTest:true,fog:useFog,
+    uniforms:THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {pointColor:{value:new THREE.Color(color)}}
+    ]),
     vertexShader:`
+      #include <fog_pars_vertex>
       attribute float pSize;attribute float pAlpha;varying float vAlpha;
       void main(){
         vec4 mv=modelViewMatrix*vec4(position,1.0);
         gl_PointSize=pSize*(150.0/max(1.0,-mv.z));
         vAlpha=pAlpha;gl_Position=projectionMatrix*mv;
+        #include <fog_vertex>
       }
     `,
     fragmentShader:`
+      #include <fog_pars_fragment>
       uniform vec3 pointColor;varying float vAlpha;
       void main(){
         vec2 q=gl_PointCoord-.5;float d=length(q);
         if(d>.5) discard;
         gl_FragColor=vec4(pointColor,vAlpha*smoothstep(.5,.12,d));
+        #include <fog_fragment>
       }
     `
   });
@@ -15065,7 +14783,7 @@ suspendedGeo.setAttribute('pAlpha',new THREE.BufferAttribute(suspendedAlpha,1));
 const suspendedWater=new THREE.Points(suspendedGeo,softPointMaterial(0xd4e5d6));
 suspendedWater.visible=false;suspendedWater.renderOrder=4.4;scene.add(suspendedWater);
 
-function makeParticlePool(count,color,fadeAlpha=.22){
+function makeParticlePool(count,color,fadeAlpha=.22,useFog=false){
   const positions=new Float32Array(count*3),sizes=new Float32Array(count),alphas=new Float32Array(count);
   const life=new Float32Array(count),maxLife=new Float32Array(count),vx=new Float32Array(count),vy=new Float32Array(count),vz=new Float32Array(count);
   positions.fill(-999);sizes.fill(1);alphas.fill(0);
@@ -15073,12 +14791,59 @@ function makeParticlePool(count,color,fadeAlpha=.22){
   geo.setAttribute('position',new THREE.BufferAttribute(positions,3));
   geo.setAttribute('pSize',new THREE.BufferAttribute(sizes,1));
   geo.setAttribute('pAlpha',new THREE.BufferAttribute(alphas,1));
-  const points=new THREE.Points(geo,softPointMaterial(color));
+  const points=new THREE.Points(geo,softPointMaterial(color,useFog));
   points.visible=false;points.renderOrder=4.5;scene.add(points);
   return {count,positions,sizes,alphas,life,maxLife,vx,vy,vz,geo,points,cursor:0,fadeAlpha};
 }
-const bubblePool=makeParticlePool(42,0xdaf7ff);
-const sedimentPool=makeParticlePool(84,0x9b8766);
+// V1.2 BUBBLE STREAM FIX: Lang lebende Gründelblasen dürfen nicht vom nächsten
+// Burst überschrieben werden, bevor sie nach 3–5 m Aufstieg die Oberfläche erreichen.
+const bubblePool=makeParticlePool(640,0xdaf7ff);
+// V1.2 ECHTE LUFTBLASEN-DARSTELLUNG:
+// Der generische Soft-Point-Shader eignet sich für Schwebstoffe/Sediment, aber nicht
+// für Luftblasen. Blasen brauchen einen hellen Rand, einen transparenten Kern und
+// eine Mindestgröße auf dem Bildschirm, sonst verschwinden sie im blauen Wasser.
+bubblePool.points.material.dispose();
+bubblePool.points.material=new THREE.ShaderMaterial({
+  transparent:true,depthWrite:false,depthTest:true,
+  blending:THREE.NormalBlending,
+  uniforms:{bubbleColor:{value:new THREE.Color(0xeafcff)}},
+  vertexShader:`
+    attribute float pSize;
+    attribute float pAlpha;
+    varying float vAlpha;
+    void main(){
+      vec4 mv=modelViewMatrix*vec4(position,1.0);
+      float perspective=pSize*(78.0/max(1.0,-mv.z));
+      gl_PointSize=clamp(perspective,2.0,7.2);
+      vAlpha=pAlpha;
+      gl_Position=projectionMatrix*mv;
+    }
+  `,
+  fragmentShader:`
+    uniform vec3 bubbleColor;
+    varying float vAlpha;
+    void main(){
+      vec2 q=gl_PointCoord-.5;
+      float d=length(q);
+      if(d>.5)discard;
+      float outer=smoothstep(.50,.480,d)*smoothstep(.440,.476,d);
+      float rim=smoothstep(.486,.454,d)*smoothstep(.395,.449,d);
+      float highlight=1.0-smoothstep(.018,.062,length(q-vec2(-.16,.16)));
+      float body=(1.0-smoothstep(.47,.33,d))*.022;
+      // Kontrast etwas anheben, ohne Größe oder Randbreite sichtbar aufzublasen.
+      float alpha=(outer*.40+rim*.43+highlight*.22+body)*vAlpha;
+      if(alpha<.016)discard;
+      // Kräftigerer blau-grauer Außenkontrast gegen die helle Oberfläche,
+      // heller Innenrand gegen dunklen Boden.
+      vec3 edgeColor=mix(vec3(.10,.32,.40),bubbleColor,
+                         clamp((rim*.98+highlight*.72+body*2.0)/(outer*.78+rim+.001),0.0,1.0));
+      gl_FragColor=vec4(edgeColor,alpha);
+    }
+  `
+});
+bubblePool.points.renderOrder=5.45;
+bubblePool.points.frustumCulled=false;
+const sedimentPool=makeParticlePool(180,0x9b8766);
 
 // V6.29: sichtbare Grundwolken. Maximal drei Wolken bleiben gleichzeitig aktiv;
 // bei einer vierten wird die älteste sofort wiederverwendet.
@@ -15094,7 +14859,7 @@ anglingSedimentCtx.fillStyle=anglingSedimentGrad;anglingSedimentCtx.fillRect(0,0
 const anglingSedimentTexture=new THREE.CanvasTexture(anglingSedimentCanvas);
 anglingSedimentTexture.encoding=THREE.sRGBEncoding;
 const anglingSedimentClouds=[];
-for(let i=0;i<9;i++){
+for(let i=0;i<24;i++){
   const mat=new THREE.SpriteMaterial({map:anglingSedimentTexture,transparent:true,opacity:0,depthWrite:false,depthTest:true,fog:true});
   const sp=new THREE.Sprite(mat);sp.visible=false;sp.renderOrder=5.15;scene.add(sp);
   sp.userData.life=0;sp.userData.maxLife=0;anglingSedimentClouds.push(sp);
@@ -15103,9 +14868,12 @@ let anglingSedimentCloudCursor=0;
 const anglingFeedingFxPos=new THREE.Vector3();
 function spawnAnglingSedimentCloud(x,y,z,strength=1){
   const cloud=anglingSedimentClouds[anglingSedimentCloudCursor++%anglingSedimentClouds.length];
-  cloud.position.set(x+(Math.random()-.5)*.05,y+(Math.random()-.5)*.05,z+.045);
-  cloud.userData.life=cloud.userData.maxLife=2.8+Math.random()*.7;
-  cloud.userData.startSize=.26+.06*strength;cloud.userData.endSize=.92+.26*strength;
+  cloud.position.set(x+(Math.random()-.5)*.08,y+(Math.random()-.5)*.08,z+.035);
+  // V1.2: Eine echte Gründelwolke baut sich unter Wasser langsam auf, bleibt
+  // einige Sekunden stehen und fällt ebenso weich wieder zusammen.
+  cloud.userData.life=cloud.userData.maxLife=7.6+Math.random()*2.4;
+  cloud.userData.startSize=.22+.05*strength;cloud.userData.endSize=1.00+.28*strength;
+  cloud.userData.rise=.030+Math.random()*.014; // insgesamt ca. 25–40 cm über Grund
   cloud.material.rotation=Math.random()*Math.PI;cloud.material.opacity=0;cloud.scale.setScalar(cloud.userData.startSize);cloud.visible=true;
 }
 function updateAnglingSedimentClouds(dt){
@@ -15114,13 +14882,16 @@ function updateAnglingSedimentClouds(dt){
     cloud.userData.life-=dt;
     if(cloud.userData.life<=0){cloud.visible=false;cloud.material.opacity=0;continue;}
     const p=1-cloud.userData.life/cloud.userData.maxLife;
-    cloud.scale.setScalar(THREE.MathUtils.lerp(cloud.userData.startSize,cloud.userData.endSize,1-Math.pow(1-p,2)));
-    cloud.position.z+=dt*.012;cloud.material.rotation+=dt*.06;
-    cloud.material.opacity=.64*Math.min(1,p*6)*Math.min(1,cloud.userData.life/1.05);
+    const grow=THREE.MathUtils.smoothstep(p,0,.58);
+    cloud.scale.setScalar(THREE.MathUtils.lerp(cloud.userData.startSize,cloud.userData.endSize,grow));
+    cloud.position.z+=dt*(cloud.userData.rise||.034);cloud.material.rotation+=dt*.028;
+    const fadeIn=THREE.MathUtils.smoothstep(p,0,.24);
+    const fadeOut=1-THREE.MathUtils.smoothstep(p,.64,1);
+    cloud.material.opacity=.70*fadeIn*fadeOut;
   }
 }
 // Große, kräftige Blutwolke: weiterhin nur ein einziges Partikelsystem.
-const bloodPool=makeParticlePool(220,0xc0182b,.86);
+const bloodPool=makeParticlePool(220,0xc0182b,.86,true);
 
 // Zusätzlich zu den feinen Partikeln bilden mehrere weiche, expandierende
 // Flächen einen dichten roten Wolkenkern. So bleibt der Effekt unabhängig von
@@ -15140,7 +14911,7 @@ const bloodClouds=[];
 for(let i=0;i<9;i++){
   const material=new THREE.SpriteMaterial({
     map:bloodCloudTexture,color:0xffffff,transparent:true,opacity:0,
-    depthWrite:false,depthTest:true,fog:false
+    depthWrite:false,depthTest:true,fog:true
   });
   const sprite=new THREE.Sprite(material);
   sprite.visible=false;sprite.renderOrder=5.35;scene.add(sprite);
@@ -15149,15 +14920,15 @@ for(let i=0;i<9;i++){
 }
 let bloodCloudCursor=0;
 function spawnBloodCloud(position){
-  for(let layer=0;layer<3;layer++){
+  for(let layer=0;layer<2;layer++){
     const cloud=bloodClouds[bloodCloudCursor++%bloodClouds.length];
     cloud.position.copy(position);
     cloud.position.x+=(Math.random()-.5)*.08;
     cloud.position.y+=(Math.random()-.5)*.08;
     cloud.position.z+=(Math.random()-.5)*.05;
-    cloud.userData.life=cloud.userData.maxLife=6.0+Math.random()*1.2;
-    cloud.userData.startSize=.16+Math.random()*.05;
-    cloud.userData.endSize=.40+Math.random()*.08;
+    cloud.userData.life=cloud.userData.maxLife=4.4+Math.random()*.9;
+    cloud.userData.startSize=.14+Math.random()*.04;
+    cloud.userData.endSize=.34+Math.random()*.07;
     cloud.material.rotation=Math.random()*Math.PI;
     cloud.material.opacity=0;
     cloud.scale.setScalar(cloud.userData.startSize);
@@ -15177,7 +14948,7 @@ function updateBloodClouds(dt){
     cloud.material.rotation+=dt*.035;
     const fadeIn=Math.min(1,progress*7);
     const fadeOut=Math.min(1,cloud.userData.life/2.8);
-    cloud.material.opacity=.76*fadeIn*fadeOut;
+    cloud.material.opacity=.58*fadeIn*fadeOut;
   }
 }
 let nextBubbleAt=2+Math.random()*4,nextSedimentAt=3+Math.random()*4,underwaterFxTime=0;
@@ -18305,6 +18076,8 @@ function aczoVisitorSegmentAllowed(x0,y0,x1,y1,person=null){
      aczoVisitorSegmentHitsCar(currentVisit.car,x0,y0,x1,y1,.34))return false;
   if(typeof bmwX3Visit!=='undefined'&&bmwX3Visit&&
      aczoVisitorSegmentHitsCar(bmwX3Visit.car,x0,y0,x1,y1,.34))return false;
+  if(typeof golfFamilyVisit!=='undefined'&&golfFamilyVisit&&
+     aczoVisitorSegmentHitsCar(golfFamilyVisit.car,x0,y0,x1,y1,.34))return false;
   return true;
 }
 function aczoVisitorNavCorners(){
@@ -18332,6 +18105,7 @@ function aczoVisitorNavCorners(){
   };
   if(typeof currentVisit!=='undefined'&&currentVisit)addCarCorners(currentVisit.car);
   if(typeof bmwX3Visit!=='undefined'&&bmwX3Visit)addCarCorners(bmwX3Visit.car);
+  if(typeof golfFamilyVisit!=='undefined'&&golfFamilyVisit)addCarCorners(golfFamilyVisit.car);
   return points.filter(p=>!aczoPointInsideVisitorBuilding(p.x,p.y,.32));
 }
 function aczoPlanVisitorOutdoorPath(from,destination){
@@ -18474,6 +18248,9 @@ function aczoCollectActiveVisitorPositions(){
   }
   if(typeof bmwX3Visit!=='undefined'&&bmwX3Visit&&bmwX3Visit.person&&bmwX3Visit.person.obj.visible)
     positions.push(bmwX3Visit.person.obj.position);
+  if(typeof golfFamilyVisit!=='undefined'&&golfFamilyVisit)for(const person of golfFamilyVisit.people){
+    if(person.obj.visible)positions.push(person.obj.position);
+  }
   return positions;
 }
 function updateAczoFacilityDoors(dt){
@@ -18522,7 +18299,7 @@ const bmwX3VisitGroup=new THREE.Group();
 bmwX3VisitGroup.name='ACZO56_BMW_X3_E83_BESUCH';
 scene.add(bmwX3VisitGroup);
 var bmwX3Visit=null;
-let bmwX3Wait=38+Math.random()*72;
+let bmwX3Wait=Infinity;
 const bmwX3TmpPos=new THREE.Vector3();
 const bmwX3TmpDir=new THREE.Vector3();
 
@@ -18695,7 +18472,8 @@ function finishBmwX3Visit(){
   aczoSetSwingGateCommand(false);
   bmwX3VisitGroup.remove(bmwX3Visit.person.obj,bmwX3Visit.car);
   disposeSceneTree(bmwX3Visit.person.obj);disposeSceneTree(bmwX3Visit.car);
-  bmwX3Visit=null;bmwX3Wait=240+Math.random()*300;
+  bmwX3Visit=null;bmwX3Wait=Infinity;
+  if(typeof aczoScheduleNextPropertyVisit==='function')aczoScheduleNextPropertyVisit();
 }
 function aczoBeginBmwGateWalk(visit,closing=false){
   visit.person.obj.visible=true;visit.person.blockedTime=0;
@@ -18715,8 +18493,6 @@ function updateBmwX3Visit(dt,daytime=carTrafficDaytimeAllowed()){
   // PERF23: Tour/Abfahrt laufen auch unsichtbar in 2D und beim Angeln weiter.
   if(!daytime){if(bmwX3Visit)finishBmwX3Visit();return;}
   if(!bmwX3Visit){
-    if(currentVisit)return;
-    bmwX3Wait-=dt;if(bmwX3Wait<=0)spawnBmwX3Visit();
     return;
   }
   const visit=bmwX3Visit,person=visit.person;
@@ -18817,6 +18593,327 @@ function updateBmwX3Visit(dt,daytime=carTrafficDaytimeAllowed()){
     visit.car.rotation.z=smoothPersonalAngle(visit.car.rotation.z,Math.atan2(-bmwX3TmpDir.x,bmwX3TmpDir.y),1-Math.exp(-4.4*dt));
     if(visit.distance<=0)finishBmwX3Visit();
   }
+}
+
+// =========================================================
+// Familienbesuch: hellgrauer VW Golf Variant mit zwei Erwachsenen und Kind.
+// Nach dem Parken spielt die Familie auf der freien Flaeche neben der Fahne
+// eine kurze Partie Wikingerschach (Kubb). Der Ablauf ist bewusst getrennt
+// von den vorhandenen Besucher- und BMW-Zustandsmaschinen.
+// =========================================================
+const golfFamilyVisitGroup=new THREE.Group();
+golfFamilyVisitGroup.name='ACZO56_GOLF_VARIANT_FAMILIE_KUBB';
+scene.add(golfFamilyVisitGroup);
+var golfFamilyVisit=null;
+const golfFamilyTmpDir=new THREE.Vector3();
+const ACZO_KUBB_CENTER=new THREE.Vector3(57.15,25.25,ACZO_VISITOR_GROUND_Z+.025);
+const ACZO_KUBB_YAW=-.18;
+
+function createGolfVariant(){
+  const car=new THREE.Group();
+  car.name='VW_GOLF_VARIANT_HELLGRAU';
+  car.userData.kind='vw-golf-variant';
+  car.userData.brand='Volkswagen';car.userData.model='Golf Variant';car.userData.wheelBottom=0;
+  const paint=new THREE.MeshStandardMaterial({color:0xb8bec2,roughness:.32,metalness:.58,envMapIntensity:1.10,side:THREE.DoubleSide});
+  const trim=new THREE.MeshStandardMaterial({color:0x171c1f,roughness:.67,metalness:.20,side:THREE.DoubleSide});
+  const glass=new THREE.MeshStandardMaterial({color:0x172f3b,roughness:.15,metalness:.20,transparent:true,opacity:.88,side:THREE.DoubleSide});
+  // Die Scheiben liegen als sichtbare Haut knapp vor der Karosserie. Der
+  // Polygon-Offset verhindert, dass die helle Haube sie aus flachen Winkeln
+  // wieder verdeckt oder mit ihnen flimmert.
+  glass.polygonOffset=true;glass.polygonOffsetFactor=-4;glass.polygonOffsetUnits=-4;
+  const chrome=new THREE.MeshStandardMaterial({color:0xc1c7c8,roughness:.25,metalness:.84,side:THREE.DoubleSide});
+  const lamp=new THREE.MeshStandardMaterial({color:0xf6eed7,emissive:0xffdfa0,emissiveIntensity:.13,roughness:.19});
+  const rear=new THREE.MeshStandardMaterial({color:0xa0191c,emissive:0x500003,emissiveIntensity:.20,roughness:.28});
+  const add=(geo,mat,name,pos=[0,0,0],rot=[0,0,0])=>{const m=new THREE.Mesh(geo,mat);m.name=name;m.position.set(...pos);m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;car.add(m);return m;};
+  const shell=aczoVehicleShellGeometry([
+    {y:2.28,w:.67,z0:.33,z1:.67},{y:2.05,w:.88,z0:.28,z1:.88},
+    {y:1.34,w:.91,z0:.25,z1:1.04},{y:.60,w:.80,z0:.26,z1:1.60},
+    {y:-1.42,w:.80,z0:.26,z1:1.58},{y:-2.08,w:.88,z0:.30,z1:1.10},
+    {y:-2.29,w:.72,z0:.36,z1:.74}
+  ]);
+  add(shell,paint,'GOLF_VARIANT_GEFORMTE_KAROSSERIE');
+  add(new THREE.BoxGeometry(1.39,2.15,.60),trim,'GOLF_VARIANT_GESCHLOSSENER_INNENRAUM',[0,-.38,1.25]);
+  for(const x of [-.40,.40])for(const y of [-.74,.28]){
+    add(new THREE.BoxGeometry(.42,.44,.48),trim,'GOLF_VARIANT_SITZ',[x,y,1.05]);
+    add(new THREE.CylinderGeometry(.13,.13,.16,12),trim,'GOLF_VARIANT_KOPFSTUETZE',[x,y,1.43],[Math.PI*.5,0,0]);
+  }
+  add(new THREE.BoxGeometry(1.52,2.02,.075),paint,'GOLF_VARIANT_LANGES_DACH',[0,-.46,1.64]);
+  // Echte, von vorn klar erkennbare Trapezscheibe zwischen Haube und Dach.
+  // Die frühere kleine Box lag zu weit hinten und innerhalb der Karosserie;
+  // dadurch erschien die gesamte Front als geschlossener grauer Block.
+  const frontGlassGeo=new THREE.BufferGeometry();
+  frontGlassGeo.setAttribute('position',new THREE.Float32BufferAttribute([
+    -.70,1.28,1.13,  .70,1.28,1.13,
+    -.66,.62,1.61,   .66,.62,1.61
+  ],3));
+  frontGlassGeo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,0,1,1,1],2));
+  frontGlassGeo.setIndex([0,1,2,1,3,2]);frontGlassGeo.computeVertexNormals();
+  const windshield=add(frontGlassGeo,glass,'GOLF_VARIANT_FRONTSCHEIBE_TRAPEZ');
+  windshield.renderOrder=4.4;windshield.castShadow=false;
+  // Sichtbare A-Saeulen und unterer Scheibenabschluss geben der Front ihre
+  // Golf-typische Form und trennen Scheibe, Dach und Motorhaube sauber.
+  for(const side of [-1,1])add(new THREE.BoxGeometry(.075,.055,.83),paint,'GOLF_VARIANT_A_SAEULE',[side*.735,.95,1.37],[.91,0,0]);
+  add(new THREE.BoxGeometry(1.43,.055,.055),trim,'GOLF_VARIANT_SCHEIBENABSCHLUSS',[0,1.285,1.115],[0,0,0]);
+  add(new THREE.BoxGeometry(1.48,.045,.54),glass,'GOLF_VARIANT_STEILES_HECKFENSTER',[0,-1.55,1.36],[-.16,0,0]);
+  for(const side of [-1,1]){
+    add(new THREE.BoxGeometry(.038,.78,.48),glass,'GOLF_VARIANT_SEITENSCHEIBE_VORN',[side*.815,.22,1.38]);
+    add(new THREE.BoxGeometry(.038,.82,.48),glass,'GOLF_VARIANT_SEITENSCHEIBE_HINTEN',[side*.815,-.66,1.38]);
+    add(new THREE.BoxGeometry(.038,.48,.45),glass,'GOLF_VARIANT_LADERAUMFENSTER',[side*.815,-1.34,1.36]);
+    add(new THREE.BoxGeometry(.055,.08,.55),trim,'GOLF_VARIANT_B_SAEULE',[side*.826,-.22,1.38]);
+    add(new THREE.BoxGeometry(.055,.08,.52),trim,'GOLF_VARIANT_C_SAEULE',[side*.826,-1.10,1.37]);
+    add(new THREE.BoxGeometry(.10,.28,.12),paint,'GOLF_VARIANT_SPIEGEL',[side*.96,.55,1.22]);
+    add(new THREE.BoxGeometry(.045,2.46,.055),chrome,'GOLF_VARIANT_DACHRELING',[side*.61,-.46,1.72]);
+    for(const y of [.28,-.66])add(new THREE.BoxGeometry(.034,.33,.026),chrome,'GOLF_VARIANT_TUERGRIFF',[side*.925,y,1.08]);
+    add(new THREE.BoxGeometry(.050,3.55,.08),trim,'GOLF_VARIANT_SCHWELLER',[side*.92,-.08,.42]);
+  }
+  add(new THREE.BoxGeometry(1.78,.16,.24),trim,'GOLF_VARIANT_FRONTSTOSSFAENGER',[0,2.18,.46]);
+  add(new THREE.BoxGeometry(1.42,.027,.055),trim,'GOLF_VARIANT_OBERE_GRILLLINIE',[0,2.302,.82]);
+  add(new THREE.BoxGeometry(1.24,.030,.19),trim,'GOLF_VARIANT_UNTERER_KUEHLERGRILL',[0,2.305,.61]);
+  add(new THREE.BoxGeometry(1.78,.16,.24),trim,'GOLF_VARIANT_HECKSTOSSFAENGER',[0,-2.18,.48]);
+  for(const x of [-.59,.59]){
+    const angle=x<0?-.07:.07;
+    add(new THREE.BoxGeometry(.52,.040,.16),trim,'GOLF_VARIANT_SCHEINWERFER_GEHAEUSE',[x,2.295,.84],[0,0,angle]);
+    const front=add(new THREE.BoxGeometry(.44,.028,.095),lamp,'GOLF_VARIANT_SCHMALER_SCHEINWERFER',[x,2.320,.85],[0,0,angle]);front.castShadow=false;
+    add(new THREE.BoxGeometry(.38,.035,.25),rear,'GOLF_VARIANT_RUECKLEUCHTE',[x,-2.285,.90]);
+  }
+  const tyreGeo=new THREE.CylinderGeometry(.35,.35,.25,22),rimGeo=new THREE.CylinderGeometry(.20,.20,.27,18);
+  for(const x of [-.95,.95])for(const y of [-1.36,1.36]){
+    add(tyreGeo,trim,'GOLF_VARIANT_REIFEN',[x,y,.35],[0,0,Math.PI*.5]);
+    add(rimGeo,chrome,'GOLF_VARIANT_FELGE',[x,y,.35],[0,0,Math.PI*.5]);
+  }
+  const badge=add(new THREE.CylinderGeometry(.105,.105,.026,20),chrome,'GOLF_VARIANT_VW_EMBLEM',[0,2.325,.82],[Math.PI*.5,0,0]);
+  badge.castShadow=false;
+  aczoVehiclePlate(car,'TR DJ 1',2.316,.54,true);aczoVehiclePlate(car,'TR DJ 1',-2.316,.60,false);
+  car.traverse(o=>{if(o.isMesh){o.castShadow=!(o.userData&&o.userData.aczoNoShadow);o.receiveShadow=true;}});
+  aczoAttachDynamicContactShadow(car,1.96,4.70,.25,.038,1.70);
+  return car;
+}
+
+function createGolfFamilyPerson(index){
+  const person=createVisitPerson(index+1);
+  person.speed=index===2?1.02:.91+index*.04;
+  person.obj.name=index===2?'GOLF_FAMILIE_KIND':'GOLF_FAMILIE_ERWACHSENER_'+(index+1);
+  if(index===2){
+    // Ursprung liegt an den Fuessen: das kleinere Modell steht trotz Skalierung
+    // sauber auf demselben Boden wie die Erwachsenen.
+    person.obj.scale.multiplyScalar(.67);
+    const shadow=person.obj.userData.aczoDynamicContactShadow;
+    if(shadow)shadow.scale.multiplyScalar(.72);
+  }
+  return person;
+}
+
+function createKubbSet(){
+  const set=new THREE.Group();set.name='WIKINGERSCHACH_KUBB_SPIELFELD';
+  set.position.copy(ACZO_KUBB_CENTER);set.rotation.z=ACZO_KUBB_YAW;set.visible=false;
+  const wood=new THREE.MeshStandardMaterial({color:0xcaa36c,roughness:.88,metalness:.01});
+  const woodLight=new THREE.MeshStandardMaterial({color:0xe1c48d,roughness:.84,metalness:.01});
+  const stripe=new THREE.MeshStandardMaterial({color:0x8b3131,roughness:.82,metalness:.02});
+  const blockGeo=new THREE.BoxGeometry(.21,.21,.46);
+  set.userData.blocks=[];
+  for(const side of [-1,1])for(let i=0;i<5;i++){
+    const block=new THREE.Mesh(blockGeo,wood);block.name='KUBB_HOLZKLOTZ';
+    block.position.set(-1.12+i*.56,side*2.05,.23);block.castShadow=true;block.receiveShadow=true;
+    block.userData.fallen=false;block.userData.baseZ=.23;set.add(block);set.userData.blocks.push(block);
+  }
+  const king=new THREE.Group();king.name='KUBB_KOENIG';king.position.set(0,0,0);
+  const kingBody=new THREE.Mesh(new THREE.BoxGeometry(.27,.27,.60),woodLight);kingBody.position.z=.30;kingBody.castShadow=true;kingBody.receiveShadow=true;king.add(kingBody);
+  const crown=new THREE.Mesh(new THREE.ConeGeometry(.24,.20,4),stripe);crown.position.z=.68;crown.rotation.z=Math.PI*.25;crown.castShadow=true;king.add(crown);
+  king.userData.fallen=false;king.userData.baseZ=0;set.add(king);set.userData.king=king;
+  const baton=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.34,10),woodLight);
+  baton.name='KUBB_WURFHOLZ';baton.rotation.x=Math.PI*.5;baton.visible=false;baton.castShadow=true;set.add(baton);set.userData.baton=baton;
+  golfFamilyVisitGroup.add(set);return set;
+}
+
+function aczoGolfKubbWorldPoint(localX,localY,out=new THREE.Vector3()){
+  out.set(localX,localY,0).applyAxisAngle(new THREE.Vector3(0,0,1),ACZO_KUBB_YAW).add(ACZO_KUBB_CENTER);
+  out.z=ACZO_VISITOR_GROUND_Z;return out;
+}
+function aczoGolfSetFieldRoutes(visit,returning=false){
+  const fieldSpots=[[-1.32,-2.95],[1.32,-2.95],[0,2.90]];
+  visit.people.forEach((person,i)=>{
+    person.pause=0;person.returned=false;person.blockedTime=0;person.navQueue.length=0;
+    const destination=returning
+      ?aczoParkingPersonPosition(visit.car,i,visit.people.length,new THREE.Vector3())
+      :aczoGolfKubbWorldPoint(fieldSpots[i][0],fieldSpots[i][1]);
+    aczoSetVisitorOutdoorRoute(person,destination,0);
+  });
+}
+function aczoGolfMoveFamily(visit,dt){
+  let all=true;
+  for(const person of visit.people){
+    if(person.returned)continue;
+    if(person.blockedTime>1.35){
+      person.blockedTime=0;person.avoidSign=person.avoidSign?-person.avoidSign:1;
+      const final=person.navQueue.length?person.navQueue[person.navQueue.length-1].pos:person.target;
+      aczoSetVisitorOutdoorRoute(person,final,0);
+    }
+    if(movePersonToward(person,person.target,dt)){
+      if(aczoAdvanceImmediatePersonRoute(person))all=false;
+      else person.returned=true;
+    }else all=false;
+  }
+  return all;
+}
+function aczoGolfStartKubbThrow(visit){
+  const set=visit.kubb,standing=set.userData.blocks.filter(b=>!b.userData.fallen);
+  let target=null;
+  if(standing.length)target=standing[Math.floor(Math.random()*standing.length)];
+  else if(!set.userData.king.userData.fallen)target=set.userData.king;
+  if(!target){visit.playTimer=Math.min(visit.playTimer,.2);return;}
+  const thrower=visit.people[visit.throwIndex%visit.people.length];visit.throwIndex++;
+  const start=set.worldToLocal(thrower.obj.position.clone());
+  start.z=(thrower===visit.people[2]) ? .82 : 1.05;
+  const hit=Math.random()<((target===set.userData.king) ? .82 : .74);
+  const end=target.position.clone();
+  if(!hit){end.x+=(Math.random()<.5?-1:1)*(.38+Math.random()*.45);end.y+=(Math.random()-.5)*.42;}
+  end.z=.14;
+  visit.throwData={target:hit?target:null,start,end,time:0,duration:.72+Math.random()*.24};
+  set.userData.baton.visible=true;set.userData.baton.position.copy(start);
+}
+function aczoGolfUpdateKubb(visit,dt){
+  const set=visit.kubb,baton=set.userData.baton;
+  visit.animTime+=dt;visit.nextThrow-=dt;
+  const centre=ACZO_KUBB_CENTER;
+  visit.people.forEach((p,i)=>{
+    p.obj.rotation.z=smoothPersonalAngle(p.obj.rotation.z,Math.atan2(-(centre.x-p.obj.position.x),centre.y-p.obj.position.y),1-Math.exp(-3.5*dt));
+    if(p.obj.userData.head)p.obj.userData.head.rotation.z=Math.sin(visit.animTime*1.8+i*1.7)*.20;
+  });
+  if(visit.throwData){
+    const shot=visit.throwData;shot.time+=dt;
+    const u=THREE.MathUtils.clamp(shot.time/shot.duration,0,1);
+    baton.position.copy(shot.start).lerp(shot.end,u);baton.position.z+=Math.sin(Math.PI*u)*(.82+Math.random()*.015);
+    baton.rotation.y+=dt*10.5;baton.rotation.z+=dt*7.2;
+    if(u>=1){
+      if(shot.target){
+        shot.target.userData.fallen=true;shot.target.rotation.x=Math.PI*.5;
+        shot.target.position.z=(shot.target===set.userData.king) ? .14 : .11;
+      }
+      baton.visible=false;visit.throwData=null;visit.nextThrow=2.0+Math.random()*1.6;
+    }
+  }else if(visit.nextThrow<=0&&visit.playTimer>1.0)aczoGolfStartKubbThrow(visit);
+}
+
+function spawnGolfFamilyVisit(){
+  aczoSetSwingGateCommand(false);
+  const car=createGolfVariant();carRouteSample(0,car.position,golfFamilyTmpDir);
+  car.rotation.z=Math.atan2(-golfFamilyTmpDir.x,golfFamilyTmpDir.y);
+  const people=[createGolfFamilyPerson(0),createGolfFamilyPerson(1),createGolfFamilyPerson(2)];
+  people.forEach(p=>{p.obj.visible=false;golfFamilyVisitGroup.add(p.obj);});
+  golfFamilyVisitGroup.add(car);
+  golfFamilyVisit={state:'arriving',car,people,kubb:createKubbSet(),distance:0,speed:4.45,timer:0,playTimer:0,nextThrow:1.0,throwIndex:0,throwData:null,animTime:0};
+}
+function finishGolfFamilyVisit(){
+  if(!golfFamilyVisit)return;
+  aczoSetSwingGateCommand(false);
+  const visit=golfFamilyVisit;
+  visit.people.forEach(p=>{golfFamilyVisitGroup.remove(p.obj);disposeSceneTree(p.obj);});
+  golfFamilyVisitGroup.remove(visit.car,visit.kubb);disposeSceneTree(visit.car);disposeSceneTree(visit.kubb);
+  golfFamilyVisit=null;
+  if(typeof aczoScheduleNextPropertyVisit==='function')aczoScheduleNextPropertyVisit();
+}
+function aczoBeginGolfGateWalk(visit,closing=false){
+  const driver=visit.people[0];driver.obj.visible=true;driver.blockedTime=0;driver.returned=false;
+  aczoSetGatePersonRoute(driver,visit.car,true);visit.state=closing?'gate-closer-to-handle':'gate-opener-to-handle';
+}
+function updateGolfFamilyVisit(dt,daytime=carTrafficDaytimeAllowed()){
+  const blockedView=anglingPhotoWallsActive();
+  golfFamilyVisitGroup.visible=!is2D&&daytime&&!blockedView;
+  if(!daytime){if(golfFamilyVisit)finishGolfFamilyVisit();return;}
+  if(!golfFamilyVisit)return;
+  const visit=golfFamilyVisit,driver=visit.people[0];
+  if(visit.state==='arriving'){
+    visit.distance=Math.min(ACZO_SWING_GATE_OUTSIDE_STOP_DISTANCE,visit.distance+visit.speed*dt);
+    carRouteSample(visit.distance,visit.car.position,golfFamilyTmpDir);
+    visit.car.rotation.z=smoothPersonalAngle(visit.car.rotation.z,Math.atan2(-golfFamilyTmpDir.x,golfFamilyTmpDir.y),1-Math.exp(-4.4*dt));
+    if(visit.distance>=ACZO_SWING_GATE_OUTSIDE_STOP_DISTANCE){visit.state='gate-arrival-stop';visit.timer=.85;}
+  }else if(visit.state==='gate-arrival-stop'){
+    visit.timer-=dt;if(visit.timer<=0)aczoBeginGolfGateWalk(visit,false);
+  }else if(visit.state==='gate-opener-to-handle'){
+    if(movePersonToward(driver,driver.target,dt)&&!aczoAdvanceImmediatePersonRoute(driver)){aczoSetSwingGateCommand(true);visit.state='gate-opening';}
+  }else if(visit.state==='gate-opening'){
+    if(aczoSwingGateOpenProgress()>.96){aczoSetGatePersonRoute(driver,visit.car,false);visit.state='gate-opener-to-car';}
+  }else if(visit.state==='gate-opener-to-car'){
+    if(movePersonToward(driver,driver.target,dt)&&!aczoAdvanceImmediatePersonRoute(driver)){driver.obj.visible=false;visit.state='arriving-inside';}
+  }else if(visit.state==='arriving-inside'){
+    aczoSetSwingGateCommand(true);visit.distance=Math.min(carRouteLength,visit.distance+visit.speed*dt);
+    carRouteSample(visit.distance,visit.car.position,golfFamilyTmpDir);
+    visit.car.rotation.z=smoothPersonalAngle(visit.car.rotation.z,Math.atan2(-golfFamilyTmpDir.x,golfFamilyTmpDir.y),1-Math.exp(-4.4*dt));
+    if(visit.distance>=carRouteLength){visit.state='parking';visit.timer=1.5;}
+  }else if(visit.state==='parking'){
+    aczoSetSwingGateCommand(true);visit.timer-=dt;
+    if(visit.timer<=0){
+      visit.people.forEach((p,i)=>{aczoParkingPersonPosition(visit.car,i,visit.people.length,p.obj.position);p.obj.visible=true;});
+      aczoGolfSetFieldRoutes(visit,false);visit.state='field-walk';
+    }
+  }else if(visit.state==='field-walk'){
+    aczoSetSwingGateCommand(true);
+    if(aczoGolfMoveFamily(visit,dt)){
+      visit.kubb.visible=true;visit.state='setup';visit.timer=2.4;
+      visit.people.forEach(p=>p.returned=false);
+    }
+  }else if(visit.state==='setup'){
+    visit.timer-=dt;
+    if(visit.timer<=0){visit.state='playing';visit.playTimer=48+Math.random()*18;visit.nextThrow=.8;}
+  }else if(visit.state==='playing'){
+    aczoSetSwingGateCommand(true);visit.playTimer-=dt;aczoGolfUpdateKubb(visit,dt);
+    if(visit.playTimer<=0&&!visit.throwData){visit.state='celebrating';visit.timer=3.2;}
+  }else if(visit.state==='celebrating'){
+    visit.timer-=dt;visit.animTime+=dt;
+    visit.people.forEach((p,i)=>{p.obj.rotation.z+=Math.sin(visit.animTime*4+i)*dt*.35;});
+    if(visit.timer<=0){visit.kubb.visible=false;aczoGolfSetFieldRoutes(visit,true);visit.state='returning';}
+  }else if(visit.state==='returning'){
+    if(aczoGolfMoveFamily(visit,dt)){
+      visit.people.forEach(p=>{p.obj.visible=false;p.returned=false;});visit.state='departing-inside';visit.timer=.8;
+    }
+  }else if(visit.state==='departing-inside'){
+    aczoSetSwingGateCommand(true);if(visit.timer>0){visit.timer-=dt;return;}
+    visit.distance=Math.max(ACZO_SWING_GATE_OUTSIDE_STOP_DISTANCE,visit.distance-visit.speed*dt);
+    carRouteSample(visit.distance,visit.car.position,golfFamilyTmpDir);golfFamilyTmpDir.multiplyScalar(-1);
+    visit.car.rotation.z=smoothPersonalAngle(visit.car.rotation.z,Math.atan2(-golfFamilyTmpDir.x,golfFamilyTmpDir.y),1-Math.exp(-4.4*dt));
+    if(visit.distance<=ACZO_SWING_GATE_OUTSIDE_STOP_DISTANCE){visit.state='gate-exit-stop';visit.timer=.85;}
+  }else if(visit.state==='gate-exit-stop'){
+    visit.timer-=dt;if(visit.timer<=0)aczoBeginGolfGateWalk(visit,true);
+  }else if(visit.state==='gate-closer-to-handle'){
+    if(movePersonToward(driver,driver.target,dt)&&!aczoAdvanceImmediatePersonRoute(driver)){aczoSetSwingGateCommand(false);visit.state='gate-closing';}
+  }else if(visit.state==='gate-closing'){
+    if(aczoSwingGateOpenProgress()<.04){aczoSetGatePersonRoute(driver,visit.car,false);visit.state='gate-closer-to-car';}
+  }else if(visit.state==='gate-closer-to-car'){
+    if(movePersonToward(driver,driver.target,dt)&&!aczoAdvanceImmediatePersonRoute(driver)){driver.obj.visible=false;visit.state='departing';}
+  }else if(visit.state==='departing'){
+    visit.distance=Math.max(0,visit.distance-visit.speed*dt);carRouteSample(visit.distance,visit.car.position,golfFamilyTmpDir);golfFamilyTmpDir.multiplyScalar(-1);
+    visit.car.rotation.z=smoothPersonalAngle(visit.car.rotation.z,Math.atan2(-golfFamilyTmpDir.x,golfFamilyTmpDir.y),1-Math.exp(-4.4*dt));
+    if(visit.distance<=0)finishGolfFamilyVisit();
+  }
+}
+
+// Ein einziger Planer verhindert konkurrierende Timer. Damit kann nicht nur
+// der bisherige Standardwagen, sondern auch BMW oder Golf der allererste
+// Besuch nach dem Laden sein.
+let aczoPropertyVisitWait=8+Math.random()*12;
+let aczoLastPropertyVisitType='';
+let aczoForcedPropertyVisitUsed=false;
+function aczoPropertyVisitActive(){return !!currentVisit||!!bmwX3Visit||!!golfFamilyVisit;}
+function aczoScheduleNextPropertyVisit(initial=false){
+  aczoPropertyVisitWait=initial?8+Math.random()*12:135+Math.random()*210;
+}
+function aczoChoosePropertyVisitType(){
+  if(!aczoForcedPropertyVisitUsed){
+    const forced=new URLSearchParams(location.search).get('besuchtest');
+    aczoForcedPropertyVisitUsed=true;
+    if(forced==='normal'||forced==='bmw'||forced==='golf')return forced;
+  }
+  const roll=Math.random();let type=roll<.34?'normal':roll<.67?'bmw':'golf';
+  // Etwas Abwechslung, ohne eine Fahrzeugart auszuschliessen.
+  if(type===aczoLastPropertyVisitType&&Math.random()<.55)type=type==='normal'?'bmw':type==='bmw'?'golf':'normal';
+  return type;
+}
+function updateAczoPropertyVisitScheduler(dt,daytime=carTrafficDaytimeAllowed()){
+  if(!daytime||aczoPropertyVisitActive())return;
+  if(!Number.isFinite(aczoPropertyVisitWait))aczoScheduleNextPropertyVisit();
+  aczoPropertyVisitWait-=dt;if(aczoPropertyVisitWait>0)return;
+  const type=aczoChoosePropertyVisitType();aczoLastPropertyVisitType=type;aczoPropertyVisitWait=Infinity;
+  if(type==='bmw')spawnBmwX3Visit();else if(type==='golf')spawnGolfFamilyVisit();else spawnCarVisit();
 }
 
 
@@ -20949,16 +21046,25 @@ function updateParticlePool(pool,dt,isBubble){
     if(pool.life[i]<=0) continue;
     const k=i*3;
     pool.life[i]-=dt;
-    if(pool.life[i]<=0||(isBubble&&pool.positions[k+2]>-.07)){
+    if(pool.life[i]<=0){
       pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;continue;
     }
     pool.positions[k]+=pool.vx[i]*dt;
     pool.positions[k+1]+=pool.vy[i]*dt;
     pool.positions[k+2]+=pool.vz[i]*dt;
     if(isBubble){
-      pool.positions[k]+=.012*Math.sin(underwaterFxTime*2.1+i)*dt;
-      pool.positions[k+1]+=.012*Math.cos(underwaterFxTime*1.7+i)*dt;
-      pool.alphas[i]=.48*Math.min(1,pool.life[i]/Math.max(.01,pool.maxLife[i]*.24));
+      pool.positions[k]+=.016*Math.sin(underwaterFxTime*2.1+i)*dt;
+      pool.positions[k+1]+=.016*Math.cos(underwaterFxTime*1.7+i)*dt;
+      const surface=anglingSurfaceZ(pool.positions[k],pool.positions[k+1]);
+      if(pool.positions[k+2]>=surface-.025){
+        if(anglingMode&&Math.random()<.72){
+          anglingFeedingFxPos.set(pool.positions[k],pool.positions[k+1],surface+.004);
+          spawnAnglingSurfaceEffect(anglingFeedingFxPos,.075+Math.random()*.055,.72+Math.random()*.16,1.25+Math.random()*.45,.09+Math.random()*.035,.28+Math.random()*.10);
+        }
+        pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;continue;
+      }
+      const age=1-pool.life[i]/Math.max(.01,pool.maxLife[i]);
+      pool.alphas[i]=.54*Math.min(1,age*5)*Math.min(1,pool.life[i]/.90);
     }else{
       const q=pool.life[i]/Math.max(.01,pool.maxLife[i]);
       const fadeIn=Math.min(1,(1-q)*8),fadeOut=Math.min(1,q*3);
@@ -20981,6 +21087,15 @@ function randomFxPoint(minDepth,maxDepth){
 
 function updateUnderwaterEffects(dt){
   const anglingUnderwater=anglingMode&&anglingCinematicView==='underwater';
+  // V1.2 BUBBLE TRANSIT: Grundelblasen muessen unabhaengig von der Kamera
+  // weiterlaufen. Beim Posenangeln steht die Kamera ueber Wasser, die Blasen
+  // steigen darunter aber real weiter und erzeugen erst beim Auftreffen den Ring.
+  // Unter Wasser wird derselbe Pool sichtbar gerendert.
+  updateParticlePool(bubblePool,dt,true);
+  // Mehrere Kamera-/Angel-Übergänge setzen den Pool bewusst auf invisible.
+  // Für die aktive Unterwasseransicht muss er deshalb hier jedes Bild wieder
+  // eindeutig freigegeben werden. Von Land läuft nur die Physik weiter.
+  bubblePool.points.visible=!!(fishMode||anglingUnderwater);
   if(!fishMode&&!anglingUnderwater) return;
   // PERF14: In der Kunstkoederkamera laufen die additiven Caustics deutlich
   // langsamer. Das verhindert das regelmaessige globale Hell/Dunkel-Pumpen,
@@ -21049,7 +21164,8 @@ function updateUnderwaterEffects(dt){
     }
     nextSedimentAt=underwaterFxTime+5+Math.random()*6.5;
   }
-  updateParticlePool(bubblePool,dt,true);
+  // bubblePool wurde bereits vor dem Kamera-Gate aktualisiert, damit dieselben
+  // Blasen auch beim Posenangeln ihren kompletten Weg zur Oberflaeche fortsetzen.
   updateParticlePool(sedimentPool,dt,false);
   updateParticlePool(bloodPool,dt,false);
   updateBloodClouds(dt);
@@ -21671,26 +21787,33 @@ function addFishPopulation(name,count,options={}){
   }
 }
 
-// Exakt dieselben Arten, Mengen, Größen und Schwarmparameter wie bisher. Der
-// Aufbau kann jetzt jedoch artweise zwischen zwei Loader-Frames pausieren.
+// Etwas dichtere Unterwasserwelt, ohne die Raubfischmenge oder den einzigartigen
+// goldenen Koi zu vervielfachen. Auf Mobilgeraeten bleibt der Aufschlag bewusst
+// kleiner; Desktop bekommt durch die groessere Leistungsreserve mehr Schwarmtiere.
+const fishWorldDesktopDensity=!(
+  (window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)||
+  window.innerWidth<=700
+);
+const fishWorldCount=(mobileCount,desktopCount)=>fishWorldDesktopDensity?desktopCount:mobileCount;
 const fishWorldBuildPlan=[
-  ['roach',100,{schools:7}],
-  ['rudd',70,{schools:6}],
+  ['roach',fishWorldCount(112,120),{schools:fishWorldCount(8,9)}],
+  ['rudd',fishWorldCount(78,84),{schools:7}],
   ['pike',10,{exactSizes:[.62,.70,.76,.84,.92,1.00,1.08,1.16,1.24,1.32]}],
   ['catfish',5,{exactSizes:[.86,1.00,1.10,1.22,1.34]}],
-  ['carp',10,{schools:2}],
-  ['mirrorcarp',10,{schools:2}],
+  ['carp',fishWorldCount(11,12),{schools:2}],
+  ['mirrorcarp',fishWorldCount(11,12),{schools:2}],
   ['grasscarp',3,{exactSizes:[1.00,1.15,1.30]}],
   ['sturgeon',3],
   ['zander',4,{exactSizes:[.50,.60,.70,.90]}],
   ['eel',8],
-  ['tench',20],
-  ['bream',30,{schools:4}],
+  ['tench',fishWorldCount(22,24)],
+  ['bream',fishWorldCount(34,36),{schools:5}],
   ['koi',1],
-  ['perch',50,{schools:7,loners:6}],
-  ['sunfish',70,{schools:9}],
-  // Sehr großer Bestand, aber durch Sichtweiten-Culling weiterhin leichtgewichtig.
-  ['goby',160,{schools:18}]
+  ['perch',fishWorldCount(56,60),{schools:8,loners:6}],
+  ['sunfish',fishWorldCount(79,84),{schools:10}],
+  // Grosser Bestand, aber durch Sichtweiten-Culling und die bestehende
+  // Acht-Frame-Simulation entfernter Tiere weiterhin leichtgewichtig.
+  ['goby',fishWorldCount(179,192),{schools:fishWorldCount(20,22)}]
 ];
 let fishWorldBuildIndex=0;
 function buildFishWorldStep(){
@@ -22360,7 +22483,7 @@ const huntRules={
   zander:['goby'],
   eel:['goby']
 };
-let fishWorldTime=0,nextHuntAt=6,activeHunt=null,lastHuntPredatorSpecies=null;
+let fishWorldTime=0,nextHuntAt=12+Math.random()*8,activeHunt=null,lastHuntPredatorSpecies=null;
 
 function huntSpeciesIsActive(species){
   const cloud=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0);
@@ -22374,7 +22497,9 @@ function startHuntEvent(){
   for(const predator of fishActors){
     const predatorSpecies=predator.obj.userData.species;
     const allowedPrey=huntRules[predatorSpecies];
-    if(!allowedPrey||predator.obj.userData.hiddenByHunt||!huntSpeciesIsActive(predatorSpecies)) continue;
+    if(!allowedPrey||predator.obj.userData.hiddenByHunt||
+       (predator.huntCooldownUntil||0)>fishWorldTime||
+       !huntSpeciesIsActive(predatorSpecies)) continue;
     for(const selectedPreySpecies of allowedPrey){
       let nearest=null,nearestD2=Infinity;
       for(const prey of fishActors){
@@ -22437,7 +22562,7 @@ function finishHuntEvent(){
   prey.obj.visible=false;
   prey.huntFleeUntil=0;
   spawnBloodCloud(p);
-  for(let i=0;i<48;i++){
+  for(let i=0;i<28;i++){
     const a=Math.random()*Math.PI*2,s=.012+Math.random()*.045;
     spawnPoolParticle(
       bloodPool,p.x+(Math.random()-.5)*.22,p.y+(Math.random()-.5)*.22,p.z+(Math.random()-.5)*.14,
@@ -22446,17 +22571,33 @@ function finishHuntEvent(){
     );
   }
   randomSpeciesPoint(predator.obj.userData.species,predator.target);
-  predator.pause=.35+Math.random()*.45;
+  // Nach einer erfolgreichen Jagd ruht genau dieser Räuber deutlich länger.
+  // Gleichzeitig verhindert eine globale Pause, dass sofort ein anderer Hecht
+  // die nächste sichtbare Verfolgung beginnt.
+  predator.pause=2.5+Math.random()*3.5;
+  predator.huntCooldownUntil=fishWorldTime+28+Math.random()*22;
+  nextHuntAt=Math.max(nextHuntAt,fishWorldTime+24+Math.random()*18);
   activeHunt=null;
+}
+
+function cancelHuntEvent(){
+  if(!activeHunt)return;
+  const {predator}=activeHunt;
+  randomSpeciesPoint(predator.obj.userData.species,predator.target);
+  predator.pause=1.8+Math.random()*2.4;
+  predator.huntCooldownUntil=fishWorldTime+16+Math.random()*14;
+  activeHunt=null;
+  nextHuntAt=Math.max(nextHuntAt,fishWorldTime+14+Math.random()*10);
 }
 
 function updateHuntSchedule(){
   if(!activeHunt&&fishWorldTime>=nextHuntAt){
-    startHuntEvent();
-    nextHuntAt=fishWorldTime+10;
+    const started=startHuntEvent();
+    nextHuntAt=fishWorldTime+(started?18+Math.random()*12:10+Math.random()*8);
   }
-  // Sicherheitsnetz für sehr weit auseinandergeratene Tiere.
-  if(activeHunt&&fishWorldTime-activeHunt.startedAt>9) finishHuntEvent();
+  // Eine nach neun Sekunden erfolglose Verfolgung wird wirklich abgebrochen.
+  // Früher wurde sie trotzdem als Beutefang samt Blutwolke abgeschlossen.
+  if(activeHunt&&fishWorldTime-activeHunt.startedAt>9) cancelHuntEvent();
 }
 
 let anglingVisibleStrikeActor=null;
@@ -22670,7 +22811,7 @@ function updateAnglingFeedUnderwaterVisual(dt,lureUnderwaterActive){
   }
   bedPos.needsUpdate=true;
   anglingFeedBed.material.opacity=.14+maturity*.08+.026*Math.sin(anglingFeedUnderwaterTime*1.4);
-  anglingFeedBottomCrumbGeo.setDrawRange(0,Math.max(18,Math.round(FEED_BOTTOM_CRUMB_COUNT*(.28+.72*maturity))));
+  anglingFeedBottomCrumbGeo.setDrawRange(0,Math.max(120,Math.round(FEED_BOTTOM_CRUMB_COUNT*(.55+.45*maturity))));
   anglingFeedRiseParticleGeo.setDrawRange(0,Math.max(9,Math.round(FEED_RISE_PARTICLE_COUNT*(.20+.80*maturity))));
   for(let i=0;i<FEED_BOTTOM_CRUMB_COUNT;i++){
     const s=anglingFeedBottomSeeds[i],j=i*3;
@@ -22990,9 +23131,15 @@ function updateFishActors(dt){
         const fishW=Math.abs(f.obj.userData.baseFishWidth||f.obj.scale.x||.18);
         const fishH=Math.abs(f.obj.userData.baseFishHeight||f.obj.scale.y||.08);
 
-        // Störe grundeln horizontal. Karpfen, Spiegelkarpfen, Schleien und
-        // Brassen behalten ihre bisherige 45°-Fresspose.
-        f.visualPitch=species==='sturgeon'?0:-THREE.MathUtils.degToRad(45);
+        // Störe grundeln weiterhin horizontal. Die übrigen Grundfresser bekommen
+        // pro Gründelphase EINEN festen Zufallswinkel. Dadurch stehen nicht alle
+        // wie geklont bei 45°, ohne jemals steiler als bisher zu werden.
+        if(species==='sturgeon'){
+          f.visualPitch=0;
+        }else{
+          if(!Number.isFinite(f.feedPitch))f.feedPitch=-THREE.MathUtils.degToRad(22+Math.random()*23);
+          f.visualPitch=f.feedPitch;
+        }
         // Beim ruhigen Gruendeln bleibt die bewaehrte klare Seitenansicht.
         f.visualDepthYaw=0;
 
@@ -23035,25 +23182,20 @@ function updateFishActors(dt){
           const shoreBubbleHint=anglingMode&&anglingCinematicView==='shore';
 
           if(fishWorldTime>=f.feedDustAt){
+            const fxX=f.obj.position.x+(Math.random()-.5)*.10;
+            const fxY=f.obj.position.y+(Math.random()-.5)*.10;
             spawnAnglingBottomDust(
-              f.obj.position.x+(Math.random()-.5)*.10,
-              f.obj.position.y+(Math.random()-.5)*.10,
-              floor+.018,
-              feedStrength*(feedMode==='feedspot'?.90:1.0)
+              fxX,fxY,floor+.018,
+              feedStrength*(feedMode==='feedspot'?.98:1.0)
             );
-            f.feedDustAt=fishWorldTime+(feedMode==='feedspot'?(2.8+Math.random()*2.1):(2.2+Math.random()*1.9));
-          }
-
-          if(fishWorldTime>=f.feedBubbleAt){
+            // Staub und Luftblasen haben dieselbe Ursache: der Fisch wühlt den
+            // Boden auf. Deshalb starten beide Effekte jetzt im selben Moment.
             spawnGroundFeedingBubbles(
-              f.obj.position.x+(Math.random()-.5)*.08,
-              f.obj.position.y+(Math.random()-.5)*.08,
-              floor+.020,
-              feedStrength,
-              shoreBubbleHint,
-              feedMode
+              fxX+(Math.random()-.5)*.05,fxY+(Math.random()-.5)*.05,
+              floor+.020,feedStrength,shoreBubbleHint,feedMode
             );
-            f.feedBubbleAt=fishWorldTime+(feedMode==='feedspot'?(4.6+Math.random()*2.6):(2.8+Math.random()*2.0));
+            f.feedDustAt=fishWorldTime+(feedMode==='feedspot'?(3.6+Math.random()*2.0):(2.8+Math.random()*1.8));
+            f.feedBubbleAt=f.feedDustAt;
           }
         }
       }
@@ -23074,7 +23216,8 @@ function updateFishActors(dt){
           // 4–7 Sekunden ruhig grundeln statt pro Frame zwischen Schwimmen und
           // 45°-Pose hin- und herzuschalten.
           f.feedBottomUntil=fishWorldTime+4.0+Math.random()*3.0;
-          f.visualPitch=species==='sturgeon'?0:-THREE.MathUtils.degToRad(45);
+          f.feedPitch=species==='sturgeon'?0:-THREE.MathUtils.degToRad(22+Math.random()*23);
+          f.visualPitch=f.feedPitch;
           f.pause=0;
           f.feedSource='feedspot';
           f.feedDustAt=fishWorldTime+.9+Math.random()*1.1;
@@ -23092,7 +23235,8 @@ function updateFishActors(dt){
       // Futterplatz immer mal wieder kurz am Grund gründeln.
       if(ambientBottomGrazer&&ambientBottomReady&&Math.random()<.55){
         f.feedBottomUntil=fishWorldTime+3.2+Math.random()*3.0;
-        f.visualPitch=species==='sturgeon'?0:-THREE.MathUtils.degToRad(45);
+        f.feedPitch=species==='sturgeon'?0:-THREE.MathUtils.degToRad(22+Math.random()*23);
+        f.visualPitch=f.feedPitch;
         f.pause=0;
         f.feedSource='ambient';
         f.feedDustAt=0; // erste Staubwolke sofort
@@ -23135,8 +23279,13 @@ function updateFishActors(dt){
       if(!Number.isFinite(f.sideFlipCandidateSince))f.sideFlipCandidateSince=0;
       if(!Number.isFinite(f.sideFlipCandidate))f.sideFlipCandidate=0;
 
-      const desiredSide=screenX>.14?-1:(screenX<-.14?1:0);
+      // Kopfseite mit echter Hysterese: Bei einer klaren Richtungsänderung muss
+      // der Fisch schnell genug drehen, sonst schwimmt die Fototextur sichtbar
+      // rückwärts. Nahe der Frontalansicht bleibt die bisherige Seite dagegen
+      // stabil und kann nicht frameweise hin und her springen.
+      const desiredSide=screenX>.18?-1:(screenX<-.18?1:0);
       const wantsFlip=desiredSide!==0&&desiredSide!==f.screenSide;
+      const strongOpposite=Math.abs(screenX)>.42;
 
       if(wantsFlip){
         if(f.sideFlipCandidate!==desiredSide){
@@ -23144,15 +23293,16 @@ function updateFishActors(dt){
           f.sideFlipCandidateSince=fishWorldTime;
         }else if(
           fishWorldTime>=f.sideFlipCooldownUntil &&
-          fishWorldTime-f.sideFlipCandidateSince>=.62
+          fishWorldTime-f.sideFlipCandidateSince>=(strongOpposite?.12:.28)
         ){
           f.screenSide=desiredSide;
-          f.sideFlipCooldownUntil=fishWorldTime+1.10;
+          f.sideFlipCooldownUntil=fishWorldTime+(strongOpposite?.32:.55);
           f.sideFlipCandidate=0;
           f.sideFlipCandidateSince=0;
         }
-      }else{
-        // Gleiche Richtung oder fast frontal: aktuelle Ausrichtung beibehalten.
+      }else if(Math.abs(screenX)>.08){
+        // Nur bei einer wirklich erkennbaren Bewegungsrichtung Kandidaten löschen.
+        // Im frontalen Totbereich bleibt die aktuelle Kopfseite unangetastet.
         f.sideFlipCandidate=0;
         f.sideFlipCandidateSince=0;
       }
@@ -23162,15 +23312,15 @@ function updateFishActors(dt){
       // Hechte ändern bei der Jagd ihre vertikale Bewegungsrichtung sehr häufig.
       // Ihre Fotofläche folgt dem weiterhin, aber deutlich gedämpfter, damit der
       // Kopf nicht mehr bei jedem kleinen Kurswechsel hysterisch nickt.
-      const pikePitchStable=species==='pike';
-      const pitchLimit=pikePitchStable
-        ?THREE.MathUtils.degToRad(7)
+      const predatorPitchStable=['pike','zander','perch','catfish'].includes(species);
+      const pitchLimit=predatorPitchStable
+        ?THREE.MathUtils.degToRad(6)
         :(strictBottomFish.has(species)?THREE.MathUtils.degToRad(8):MAX_FISH_PITCH);
       let targetPitch=isLureHunter?0:THREE.MathUtils.clamp(
         Math.atan2(fishMoveDelta.z,Math.max(.0001,horizontalSpeed)),
         -pitchLimit,pitchLimit
       );
-      if(pikePitchStable)targetPitch*=.62;
+      if(predatorPitchStable)targetPitch*=.52;
       // P63: Grundeln bleiben optisch immer horizontal. Ihre Bodennähe wird
       // ausschließlich über die Z-Position geregelt, nicht über Kopfneigung.
       if(species==='goby')targetPitch=0;
@@ -23179,14 +23329,14 @@ function updateFishActors(dt){
       // aber nicht mehr jeden winzigen Richtungswechsel sofort sichtbar mitmachen.
       // Gerade bei Jagd und Bodenkorrekturen wechselte das Vorzeichen der Z-Richtung
       // zuvor frameweise und ließ den Kopf unnatürlich hoch/runter zittern.
-      const pitchDeadband=THREE.MathUtils.degToRad(pikePitchStable?3.4:(strictBottomFish.has(species)?3.2:1.8));
+      const pitchDeadband=THREE.MathUtils.degToRad(predatorPitchStable?3.8:(strictBottomFish.has(species)?3.2:1.8));
       if(Math.abs(targetPitch)<pitchDeadband)targetPitch=0;
       if(!Number.isFinite(f.visualPitch))f.visualPitch=0;
 
-      const pitchLambda=pikePitchStable?2.0:((isHunter||isLureHunter)?4.8:(isFleeing?4.0:2.2));
+      const pitchLambda=predatorPitchStable?1.55:((isHunter||isLureHunter)?4.8:(isFleeing?4.0:2.2));
       const pitchBlend=1-Math.exp(-pitchLambda*Math.max(.001,step));
       const blendedPitch=THREE.MathUtils.lerp(f.visualPitch,targetPitch,pitchBlend);
-      const maxPitchRate=pikePitchStable?.15:((isHunter||isLureHunter)?.66:(isFleeing?.56:.28)); // P58: ruhiger, kein Kopf-Pumpen
+      const maxPitchRate=predatorPitchStable?.105:((isHunter||isLureHunter)?.66:(isFleeing?.56:.28)); // P58: ruhiger, kein Kopf-Pumpen
       const maxPitchStep=maxPitchRate*Math.max(.001,step);
       f.visualPitch+=THREE.MathUtils.clamp(
         blendedPitch-f.visualPitch,
@@ -23203,11 +23353,13 @@ function updateFishActors(dt){
       const lateralMotion=Math.abs(screenX);
       const depthShare=Math.abs(depthMotion)/Math.max(.001,Math.abs(depthMotion)+lateralMotion);
       const depthTurn=THREE.MathUtils.smoothstep(depthShare,.16,.94);
-      const targetDepthYaw=Math.abs(depthMotion)<.08
+      const targetDepthYaw=Math.abs(depthMotion)<.14
         ?0
         :-f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn;
       if(!Number.isFinite(f.visualDepthYaw))f.visualDepthYaw=0;
-      const yawLambda=(isHunter||isLureHunter)?5.2:(isFleeing?4.4:2.7);
+      // Tiefendrehung bewusst ruhiger. Kleine Kurskorrekturen dürfen die
+      // Billboard-Fläche nicht mehr sichtbar links/rechts schaukeln lassen.
+      const yawLambda=(isHunter||isLureHunter)?3.4:(isFleeing?3.2:2.15);
       f.visualDepthYaw=THREE.MathUtils.lerp(
         f.visualDepthYaw,targetDepthYaw,
         1-Math.exp(-yawLambda*Math.max(.001,step))
@@ -23301,11 +23453,17 @@ const anglingFeedBedGeo=new THREE.CircleGeometry(1,96);
 const anglingFeedBedBaseXY=new Float32Array(anglingFeedBedGeo.attributes.position.array.length);
 anglingFeedBedBaseXY.set(anglingFeedBedGeo.attributes.position.array);
 const anglingFeedBed=new THREE.Mesh(anglingFeedBedGeo,anglingFeedBedMat);anglingFeedBed.visible=true;anglingFeedBed.position.z=0;anglingFeedBed.renderOrder=-2;anglingFeedUnderwaterGroup.add(anglingFeedBed);
-const FEED_BOTTOM_CRUMB_COUNT=68;
+const FEED_BOTTOM_CRUMB_COUNT=240;
 const anglingFeedBottomCrumbPos=new Float32Array(FEED_BOTTOM_CRUMB_COUNT*3);
 const anglingFeedBottomCrumbGeo=new THREE.BufferGeometry();
 anglingFeedBottomCrumbGeo.setAttribute('position',new THREE.BufferAttribute(anglingFeedBottomCrumbPos,3));
-const anglingFeedBottomCrumbs=new THREE.Points(anglingFeedBottomCrumbGeo,new THREE.PointsMaterial({color:0xc49d4f,size:.06,sizeAttenuation:true,transparent:true,opacity:.88,depthWrite:false}));
+const anglingFeedCrumbCanvas=document.createElement('canvas');anglingFeedCrumbCanvas.width=anglingFeedCrumbCanvas.height=32;
+const anglingFeedCrumbCtx=anglingFeedCrumbCanvas.getContext('2d');
+const anglingFeedCrumbGrad=anglingFeedCrumbCtx.createRadialGradient(16,16,1,16,16,15);
+anglingFeedCrumbGrad.addColorStop(0,'rgba(222,185,92,1)');anglingFeedCrumbGrad.addColorStop(.62,'rgba(190,145,63,.96)');anglingFeedCrumbGrad.addColorStop(1,'rgba(145,104,44,0)');
+anglingFeedCrumbCtx.fillStyle=anglingFeedCrumbGrad;anglingFeedCrumbCtx.fillRect(0,0,32,32);
+const anglingFeedCrumbTexture=new THREE.CanvasTexture(anglingFeedCrumbCanvas);
+const anglingFeedBottomCrumbs=new THREE.Points(anglingFeedBottomCrumbGeo,new THREE.PointsMaterial({map:anglingFeedCrumbTexture,color:0xffffff,size:.042,sizeAttenuation:true,transparent:true,opacity:.94,alphaTest:.08,depthWrite:false}));
 anglingFeedBottomCrumbs.renderOrder=8;anglingFeedUnderwaterGroup.add(anglingFeedBottomCrumbs);
 const FEED_RISE_PARTICLE_COUNT=46;
 const anglingFeedRiseParticlePos=new Float32Array(FEED_RISE_PARTICLE_COUNT*3);
@@ -24775,12 +24933,23 @@ function updateAnglingBobGlowStick(){
   const x=anglingBobber.position.x,y=anglingBobber.position.y;
   const surface=anglingSurfaceZ(x,y);
   const flightHeight=Math.max(0,anglingBobber.position.z-surface);
+  const submersion=Math.max(0,surface-anglingBobber.position.z);
+  const underwater=THREE.MathUtils.smoothstep(submersion,.05,1.05);
   // In der Luft wird der Lichtfleck groesser und etwas diffuser, bleibt aber
   // waehrend des kompletten Posenwurfs eindeutig auf dem Wasser erkennbar.
   const flight=THREE.MathUtils.clamp(flightHeight/5.2,0,1);
-  const strength=THREE.MathUtils.lerp(1,.42,flight);
+  // Zieht ein Fisch die Pose tief, bleibt das Knicklicht an der Antenne. Sein
+  // Licht wird unter Wasser kleiner, diffuser und die Oberflaechenreflexion
+  // nimmt mit der optischen Wassertiefe glaubhaft ab.
+  const depthStrength=THREE.MathUtils.lerp(1,.10,underwater);
+  const strength=THREE.MathUtils.lerp(1,.42,flight)*depthStrength;
   const towardCamera=Math.atan2(camera.position.y-y,camera.position.x-x)-Math.PI/2;
   const shimmer=.92+Math.sin(waterUniforms.time.value*5.1)*.08;
+
+  anglingBobGlowStick.material.opacity=THREE.MathUtils.lerp(1,.42,underwater);
+  anglingBobGlowHalo.material.opacity=THREE.MathUtils.lerp(.78,.19,underwater);
+  const haloSize=THREE.MathUtils.lerp(.34,.58,underwater);
+  anglingBobGlowHalo.scale.set(haloSize,haloSize,1);
 
   anglingBobGlowReflection.position.set(x,y,surface+.032);
   anglingBobGlowReflection.rotation.z=towardCamera;
@@ -24789,7 +24958,7 @@ function updateAnglingBobGlowStick(){
     THREE.MathUtils.lerp(.54,1.18,flight),1
   );
   anglingBobGlowReflection.material.opacity=.68*strength*shimmer;
-  anglingBobGlowReflection.visible=true;
+  anglingBobGlowReflection.visible=strength>.035;
 
   anglingBobGlowReflectionSoft.position.set(x,y,surface+.026);
   anglingBobGlowReflectionSoft.rotation.z=towardCamera;
@@ -24798,7 +24967,7 @@ function updateAnglingBobGlowStick(){
     THREE.MathUtils.lerp(.92,1.72,flight),1
   );
   anglingBobGlowReflectionSoft.material.opacity=.24*strength*shimmer;
-  anglingBobGlowReflectionSoft.visible=true;
+  anglingBobGlowReflectionSoft.visible=strength>.035;
 }
 
 
@@ -26350,6 +26519,10 @@ let anglingQteInputLockUntil=0;
 let anglingQteLastAttemptAt=0;
 let anglingBiteDuration=2.4;
 let anglingBiteVariant=0;
+// Die sichtbare Vorbissphase variiert von Biss zu Biss. Der Hinweis "BISS!"
+// beginnt exakt an diesem Schwellwert; dieselbe Grenze nutzt die Futterleiste.
+let anglingBiteAlertPhase=.68;
+let anglingBiteDeepFactor=1;
 let anglingStrikeQuality='normal';
 let anglingCastStart=new THREE.Vector3();
 let anglingCastEnd=new THREE.Vector3();
@@ -27250,14 +27423,14 @@ const ANGLING_POPULATION={
   sturgeon:3,zander:4,eel:8,tench:20,bream:30,koi:1,perch:50,sunfish:70,goby:160
 };
 const ANGLING_LURE_CATALOG={
-  spinner_basic:{name:'Blinker Standard',icon:'spinner_basic',type:'spinner',price:20,desc:'Solider Allrounder für Raubfische.',tag:'Standard',boost:{}},
-  softbait_basic:{name:'Gummifisch Standard',icon:'softbait_basic',type:'softbait',price:20,desc:'Grundnah stark, besonders auf Zander.',tag:'Standard',boost:{}},
-  spinner_premium:{name:'Blinker Premium',icon:'spinner_premium',type:'spinner',price:35,desc:'Etwas auffälliger und insgesamt fängiger.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
-  softbait_premium:{name:'Gummifisch Premium',icon:'softbait_premium',type:'softbait',price:35,desc:'Mehr Aktion und etwas höhere Raubfischchance.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
-  pike_special:{name:'Hecht-Spezial',icon:'pike_special',type:'spinner',price:50,desc:'Gezielt auf Hecht abgestimmt.',tag:'Hecht ++',boost:{pike:1.65,zander:.82,perch:.92,catfish:.70}},
-  zander_special:{name:'Zander-Spezial',icon:'zander_special',type:'softbait',price:50,desc:'Grundnaher Spezialköder für Zander.',tag:'Zander ++',boost:{zander:1.70,pike:.86,perch:.90,catfish:.88}},
-  perch_special:{name:'Barsch-Spezial',icon:'perch_special',type:'spinner',price:45,desc:'Kompakt und aggressiv für Barsche.',tag:'Barsch ++',boost:{perch:1.75,pike:.88,zander:.82,catfish:.55}},
-  catfish_special:{name:'Wels-Spezial',icon:'catfish_special',type:'softbait',price:55,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
+  spinner_basic:{name:'Blinker Standard',icon:'spinner_basic',type:'spinner',price:15,desc:'Solider Allrounder für Raubfische.',tag:'Standard',boost:{}},
+  softbait_basic:{name:'Gummifisch Standard',icon:'softbait_basic',type:'softbait',price:15,desc:'Grundnah stark, besonders auf Zander.',tag:'Standard',boost:{}},
+  spinner_premium:{name:'Blinker Premium',icon:'spinner_premium',type:'spinner',price:25,desc:'Etwas auffälliger und insgesamt fängiger.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
+  softbait_premium:{name:'Gummifisch Premium',icon:'softbait_premium',type:'softbait',price:25,desc:'Mehr Aktion und etwas höhere Raubfischchance.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
+  pike_special:{name:'Hecht-Spezial',icon:'pike_special',type:'spinner',price:40,desc:'Gezielt auf Hecht abgestimmt.',tag:'Hecht ++',boost:{pike:1.65,zander:.82,perch:.92,catfish:.70}},
+  zander_special:{name:'Zander-Spezial',icon:'zander_special',type:'softbait',price:40,desc:'Grundnaher Spezialköder für Zander.',tag:'Zander ++',boost:{zander:1.70,pike:.86,perch:.90,catfish:.88}},
+  perch_special:{name:'Barsch-Spezial',icon:'perch_special',type:'spinner',price:35,desc:'Kompakt und aggressiv für Barsche.',tag:'Barsch ++',boost:{perch:1.75,pike:.88,zander:.82,catfish:.55}},
+  catfish_special:{name:'Wels-Spezial',icon:'catfish_special',type:'softbait',price:40,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
 };
 const ANGLING_EQUIPMENT_CATALOG={
   rod_standard:{
@@ -27383,9 +27556,9 @@ function anglingApplyActiveRodAppearance(){
 }
 
 const ANGLING_FEED_CATALOG={
-  cheap:{name:'Lockfutter günstig',price:100,tag:'10 Min. · guter Effekt',desc:'Einfaches Lockfutter. Erhöht Aktivität und Bisschance am Futterplatz deutlich.',bite:1.45,attract:1.22,predator:1.08,radius:2.6},
-  normal:{name:'Lockfutter normal',price:165,tag:'10 Min. · starker Effekt',desc:'Kräftiger Futtermix. Baut einen klaren Futterplatz auf und zieht Fische spürbar an.',bite:1.80,attract:1.42,predator:1.13,radius:2.9},
-  premium:{name:'Lockfutter Premium',price:260,tag:'10 Min. · sehr starker Effekt',desc:'Hochwertiger Futtermix. Maximale Lockwirkung und deutlich erhöhte Aktivität am Spot.',bite:2.25,attract:1.68,predator:1.20,radius:3.2}
+  cheap:{name:'Lockfutter günstig',price:50,tag:'10 Min. · guter Effekt',desc:'Einfaches Lockfutter. Erhöht Aktivität und Bisschance am Futterplatz deutlich.',bite:1.45,attract:1.22,predator:1.08,radius:2.6},
+  normal:{name:'Lockfutter normal',price:80,tag:'10 Min. · starker Effekt',desc:'Kräftiger Futtermix. Baut einen klaren Futterplatz auf und zieht Fische spürbar an.',bite:1.80,attract:1.42,predator:1.13,radius:2.9},
+  premium:{name:'Lockfutter Premium',price:120,tag:'10 Min. · sehr starker Effekt',desc:'Hochwertiger Futtermix. Maximale Lockwirkung und deutlich erhöhte Aktivität am Spot.',bite:2.25,attract:1.68,predator:1.20,radius:3.2}
 };
 const ANGLING_FEED_DURATION=10*60*1000;
 const ANGLING_FEED_BUILDUP=4*60*1000;
@@ -29649,8 +29822,8 @@ function buildAnglingHallOfFameSlides(){
   const slides=[{
     kicker:'AC 1956 · VEREINSWEIHER',
     title:'Hall of Fame',
-    value:'Rekorde, Fortschritt und große Momente',
-    detail:'Nicht nur der längste Fisch zählt: Hier geht es auch um Fangqualität, Artenvielfalt, Erfahrung und Ausdauer.',
+    value:'Die Besten am Weiher',
+    detail:'Gesamtwertung, Rekorde, Artenvielfalt, Erfahrung und Aktivität – mit den ersten drei Plätzen jeder Disziplin.',
     fireworks:3
   }];
 
@@ -29658,107 +29831,68 @@ function buildAnglingHallOfFameSlides(){
   const rows=(anglingHallOfFameRows||[]).slice().sort(
     (a,b)=>(Number(b.lengthCm ?? b.cm)||0)-(Number(a.lengthCm ?? a.cm)||0)
   );
-
-  // Spektakulärster Einzelfang bleibt als eigene Disziplin erhalten.
-  const biggest=hof?.biggestCatch||rows[0]||null;
-  if(biggest){
-    const rawSpecies=String(biggest.species||'');
-    const species=ANGLING_LEADERBOARD_API_TO_SPECIES[rawSpecies]||rawSpecies;
-    const cm=Number(biggest.lengthCm ?? biggest.cm)||0;
-    const kg=Number(biggest.weightKg ?? biggest.kg)||0;
+  const medals=['🥇','🥈','🥉'];
+  const asArray=(primary,fallback)=>{
+    if(Array.isArray(primary)&&primary.length)return primary.slice(0,3);
+    return fallback?[fallback]:[];
+  };
+  const rankingSlide=(kicker,title,ranking,valueFn,detail,fireworks=2)=>{
+    if(!ranking.length)return;
     slides.push({
-      kicker:'🐟 GRÖSSTER VERÖFFENTLICHTER FANG',
-      title:String(biggest.name||'Anonym').slice(0,30),
-      value:(fishDisplayNames[species]||rawSpecies||'Fisch')+' · '+formatAnglingLength(cm)+(kg?' · '+formatAnglingWeight(kg):''),
-      detail:'Der aktuell längste freiwillig veröffentlichte Fang am Vereinsweiher.',
-      fireworks:3
+      kicker,title,value:'',
+      ranking:ranking.slice(0,3).map((r,i)=>({
+        medal:medals[i]||((i+1)+'.'),
+        name:String(r?.name||'Anonym').slice(0,30),
+        value:valueFn(r,i)
+      })),
+      detail,fireworks
     });
-  }
+  };
 
-  // V14: echte kombinierte Gesamtwertung.
-  const overall=Array.isArray(hof?.overall)?hof.overall:[];
-  overall.slice(0,3).forEach((r,i)=>{
-    const medals=['🏆','🥈','🥉'];
-    slides.push({
-      kicker:i===0
-        ?'🏆 WEIHERMEISTER · GESAMTWERTUNG'
-        :(medals[i]+' GESAMTWERTUNG · PLATZ '+(i+1)),
-      title:String(r.name||'Anonym').slice(0,30),
-      value:Number(r.score||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+
-        ' Punkte · '+(Number(r.speciesCount)||0)+'/'+(Number(r.speciesTotal)||16)+' Arten',
-      detail:
-        (Number(r.lifetimeXp)||0).toLocaleString('de-DE')+' Gesamt-EP · '+
-        (Number(r.totalCatches)||0).toLocaleString('de-DE')+' Fänge · Fangqualität '+
-        Number(r.qualityPercent||0).toLocaleString('de-DE',{maximumFractionDigits:0})+' %',
-      fireworks:i===0?4:2
-    });
-  });
+  const overall=Array.isArray(hof?.overall)?hof.overall.slice(0,3):[];
+  rankingSlide(
+    '🏆 WEIHERMEISTER · GESAMTWERTUNG','Die Gesamtwertung',overall,
+    r=>Number(r.score||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+' P · '+(Number(r.speciesCount)||0)+'/'+(Number(r.speciesTotal)||16)+' Arten',
+    '50 % Fangqualität · 20 % Artenvielfalt · 20 % Erfahrung · 10 % Aktivität',4
+  );
 
-  function addCategory(entry,kicker,value,detail,fireworks=1){
-    if(!entry)return;
-    slides.push({
-      kicker,
-      title:String(entry.name||'Anonym').slice(0,30),
-      value,
-      detail,
-      fireworks
-    });
-  }
+  rankingSlide(
+    '🎯 REKORDJÄGER','Die stärksten Artenrekorde',
+    asArray(hof?.recordHunterTop3,hof?.recordHunter),
+    r=>Number(r.qualityPercent||0).toLocaleString('de-DE',{maximumFractionDigits:0})+' %',
+    'Gewertet werden die fünf stärksten veröffentlichten Artenrekorde relativ zur jeweiligen Fischart.'
+  );
+  rankingSlide(
+    '🌐 ALLROUNDER','Die vielseitigsten Angler',
+    asArray(hof?.allrounderTop3,hof?.allrounder),
+    r=>(Number(r.speciesCount)||0)+'/'+(Number(r.speciesTotal)||16)+' Arten',
+    'Hier zählt, wie viele unterschiedliche Fischarten mit veröffentlichtem Bestfang vertreten sind.'
+  );
+  rankingSlide(
+    '⭐ ERFAHRUNG','Die erfahrensten Angler',
+    asArray(hof?.experiencedTop3,hof?.experienced),
+    r=>(Number(r.lifetimeXp)||0).toLocaleString('de-DE')+' Gesamt-EP',
+    'Ausgegebene EP bleiben erhalten: Entscheidend ist die gesamte gesammelte Spielerfahrung.'
+  );
+  rankingSlide(
+    '🎣 AKTIVITÄT','Die fleißigsten Angler',
+    asArray(hof?.activeTop3,hof?.active),
+    r=>(Number(r.totalCatches)||0).toLocaleString('de-DE')+' Fänge',
+    'Gewertet wird die Gesamtzahl der im Cloud-Spielstand registrierten Fänge.'
+  );
 
-  if(hof?.recordHunter){
-    addCategory(
-      hof.recordHunter,
-      '🎯 REKORDJÄGER',
-      Number(hof.recordHunter.qualityPercent||0).toLocaleString('de-DE',{maximumFractionDigits:0})+' % Fangqualität',
-      'Bewertet werden die fünf stärksten veröffentlichten Artenrekorde relativ zur jeweiligen Fischart.',
-      2
-    );
-  }
-
-  if(hof?.allrounder){
-    addCategory(
-      hof.allrounder,
-      '🌐 ALLROUNDER',
-      (Number(hof.allrounder.speciesCount)||0)+' von '+(Number(hof.allrounder.speciesTotal)||16)+' Arten',
-      'Wer viele unterschiedliche Arten stark befischt, wird hier belohnt.',
-      2
-    );
-  }
-
-  if(hof?.experienced){
-    addCategory(
-      hof.experienced,
-      '⭐ ERFAHRENSTER ANGLER',
-      (Number(hof.experienced.lifetimeXp)||0).toLocaleString('de-DE')+' Gesamt-EP',
-      'Ausgegebene EP zählen weiterhin: Entscheidend ist die gesamte Spielerfahrung.',
-      1
-    );
-  }
-
-  if(hof?.active){
-    addCategory(
-      hof.active,
-      '🎣 FLEISSIGSTER ANGLER',
-      (Number(hof.active.totalCatches)||0).toLocaleString('de-DE')+' Fänge',
-      'Die Gesamtzahl aller im Cloud-Spielstand registrierten Fänge.',
-      1
-    );
-  }
-
-  // Fallback auf die alte Bestenliste, solange V14 noch nicht bereitgestellt ist.
-  if(!overall.length){
-    rows.slice(0,3).forEach((r,i)=>{
-      const species=ANGLING_LEADERBOARD_API_TO_SPECIES[r.species]||r.species;
-      const cm=Number(r.lengthCm ?? r.cm)||0,kg=Number(r.weightKg ?? r.kg)||0;
-      slides.push({
-        kicker:i===0?'🏆 GRÖSSTER ÖFFENTLICHER FANG':'TOP '+(i+1)+' · BESTENLISTE',
-        title:String(r.name||'Anonym').slice(0,30),
-        value:(fishDisplayNames[species]||species||'Fisch')+' · '+formatAnglingLength(cm)+(kg?' · '+formatAnglingWeight(kg):''),
-        detail:'Übergangsanzeige der bisherigen öffentlichen Bestenliste.',
-        fireworks:i===0?3:1
-      });
-    });
-  }
+  let biggestTop=asArray(hof?.biggestCatchesTop3,hof?.biggestCatch);
+  if(!biggestTop.length)biggestTop=rows.slice(0,3);
+  rankingSlide(
+    '🐟 GRÖSSTE VERÖFFENTLICHTE FÄNGE','Die größten Einzelfänge',biggestTop,
+    r=>{
+      const rawSpecies=String(r?.species||'');
+      const species=ANGLING_LEADERBOARD_API_TO_SPECIES[rawSpecies]||rawSpecies;
+      const cm=Number(r?.lengthCm ?? r?.cm)||0;
+      return (fishDisplayNames[species]||rawSpecies||'Fisch')+' · '+formatAnglingLength(cm);
+    },
+    'Die drei aktuell längsten freiwillig veröffentlichten Fänge am Vereinsweiher.',3
+  );
 
   const koiCatchers=Array.isArray(hof?.koiCatchers)&&hof.koiCatchers.length
     ? hof.koiCatchers
@@ -29775,83 +29909,42 @@ function buildAnglingHallOfFameSlides(){
         });
         return out;
       })();
-
-  koiCatchers.forEach((r,index)=>{
-    const cm=Number(r.lengthCm ?? r.cm)||70;
-    const kg=Number(r.weightKg ?? r.kg)||anglingEstimatedKg('koi',cm);
-    const count=koiCatchers.length;
+  if(koiCatchers.length){
     slides.push({
-      kicker:'🏅 FÄNGER DES GELBEN KOI'+(count>1?' · '+(index+1)+'/'+count:''),
-      title:String(r.name||'Anonym').slice(0,30),
-      value:'Gelber Koi · '+formatAnglingLength(cm)+(kg?' · '+formatAnglingWeight(kg):''),
-      detail:count===1
-        ?'Der öffentlich eingetragene Fänger des einzigen gelben Koi im Vereinsweiher.'
-        :'Einer von '+count+' öffentlich eingetragenen Fängern des einzigen gelben Koi im Vereinsweiher.',
+      kicker:'🏅 GELBER KOI · EHRENTAFEL',
+      title:koiCatchers.length===1?'Ein besonderer Fang':koiCatchers.length+' eingetragene Fänger',
+      value:koiCatchers.map(r=>String(r.name||'Anonym').slice(0,30)).join(' · '),
+      detail:'Öffentlich eingetragene Fänger des einzigen gelben Koi im Vereinsweiher.',
       fireworks:3
     });
-  });
+  }
 
+  // Eine einzige persönliche Zusammenfassung statt fünf teilweise doppelter Folien.
   const info=anglingLevelInfo();
+  const best=anglingHallOfFameBestLocalRecord();
+  const speciesRecords=Object.keys(anglingProgress?.records||{}).filter(k=>anglingProgress.records[k]).length;
+  const speciesTotal=Object.keys(ANGLING_POPULATION||{}).length;
+  const summary=[
+    (Number(anglingProgress.lifetimeXp)||0).toLocaleString('de-DE')+' Gesamt-EP',
+    (Number(anglingProgress.totalCatches)||0).toLocaleString('de-DE')+' Fänge',
+    speciesRecords+'/'+speciesTotal+' Arten'
+  ];
   slides.push({
     kicker:'DEIN ANGLER',
     title:'Stufe '+info.current.level+' · '+info.current.title,
-    value:info.next
-      ?(info.within.toLocaleString('de-DE')+' / '+info.span.toLocaleString('de-DE')+' Gesamt-EP')
-      :'Höchste Anglerstufe erreicht',
-    detail:info.next
-      ?((info.span-info.within).toLocaleString('de-DE')+' EP bis „'+info.next.title+'“.')
-      :'Du hast den Weihermeister-Level erreicht.',
+    value:summary.join(' · '),
+    detail:(best?'Bestfang '+(fishDisplayNames[best.species]||best.species)+' '+formatAnglingLength(best.cm)+' · ':'')+
+      (info.next?(info.span-info.within).toLocaleString('de-DE')+' EP bis „'+info.next.title+'“.':'Höchste Anglerstufe erreicht.'),
     progress:info.progress,
     fireworks:info.progress>.85?2:0
   });
 
-  const best=anglingHallOfFameBestLocalRecord();
-  if(best)slides.push({
-    kicker:'DEIN PERSÖNLICHER REKORD',
-    title:fishDisplayNames[best.species]||best.species,
-    value:formatAnglingLength(best.cm)+(best.kg?' · '+formatAnglingWeight(best.kg):''),
-    detail:'Dein aktuell längster lokal gespeicherter Bestfang.',
+  slides.push({
+    kicker:'AC 1956 · HALL OF FAME',
+    title:'Petri Heil!',
+    value:'Jeder Fang kann die Rangliste verändern.',
+    detail:'Gewertet werden ausschließlich freiwillig veröffentlichte Rekorde und freigegebene Spielstände.',
     fireworks:2
-  });
-
-  const speciesRecords=Object.keys(anglingProgress?.records||{}).filter(k=>anglingProgress.records[k]).length;
-  const speciesTotal=Object.keys(ANGLING_POPULATION||{}).length;
-  slides.push({
-    kicker:'DEINE ARTENVIELFALT',
-    title:speciesRecords+' von '+speciesTotal+' Fischarten',
-    value:speciesRecords>=speciesTotal?'Alle Arten am Weiher gefangen':(speciesTotal-speciesRecords)+' Arten fehlen noch',
-    detail:'Jede erstmals gefangene Art erweitert deine persönliche Sammlung.',
-    progress:speciesTotal?speciesRecords/speciesTotal:0,
-    fireworks:speciesRecords>=speciesTotal?3:0
-  });
-
-  const catchStats=new Map();
-  for(const caught of (anglingProgress?.catches||[])){
-    if(!caught?.species)continue;
-    const stat=catchStats.get(caught.species)||{species:caught.species,count:0,totalCm:0,bestCm:0};
-    const cm=Math.max(0,Number(caught.cm)||0);
-    stat.count++;stat.totalCm+=cm;stat.bestCm=Math.max(stat.bestCm,cm);
-    catchStats.set(caught.species,stat);
-  }
-  const favorite=[...catchStats.values()].sort((a,b)=>b.count-a.count||b.bestCm-a.bestCm)[0];
-  if(favorite){
-    const avgCm=favorite.count?favorite.totalCm/favorite.count:0;
-    slides.push({
-      kicker:'DEIN LIEBLINGSFISCH',
-      title:fishDisplayNames[favorite.species]||favorite.species,
-      value:favorite.count.toLocaleString('de-DE')+'-mal im Fangbuch',
-      detail:'Ø '+formatAnglingLength(avgCm)+' · Bestmaß '+formatAnglingLength(favorite.bestCm)+' · Aus den letzten bis zu 100 Fängen.',
-      fireworks:favorite.count>=10?1:0
-    });
-  }
-
-  slides.push({
-    kicker:'DEINE BILANZ',
-    title:(Number(anglingProgress.totalCatches)||0).toLocaleString('de-DE')+' gefangene Fische',
-    value:speciesRecords+' persönliche Artenrekorde',
-    detail:'Gesamt-EP: '+(Number(anglingProgress.lifetimeXp)||0).toLocaleString('de-DE')+
-      ' · Verfügbare EP: '+(Number(anglingProgress.xp)||0).toLocaleString('de-DE'),
-    fireworks:1
   });
 
   anglingHallOfFameSlides=slides;
@@ -29907,6 +30000,18 @@ function showAnglingHallOfFameSlide(index){
     anglingHallOfFameKicker.textContent=slide.kicker||'';
     anglingHallOfFameTitle.textContent=slide.title||'';
     anglingHallOfFameValue.textContent=slide.value||'';
+    if(anglingHallOfFameRankingEl){
+      anglingHallOfFameRankingEl.replaceChildren();
+      const ranking=Array.isArray(slide.ranking)?slide.ranking:[];
+      ranking.forEach(row=>{
+        const line=document.createElement('div');line.className='angling-hof-rank-row';
+        const medal=document.createElement('span');medal.className='angling-hof-rank-medal';medal.textContent=row.medal||'';
+        const name=document.createElement('strong');name.className='angling-hof-rank-name';name.textContent=row.name||'Anonym';
+        const value=document.createElement('span');value.className='angling-hof-rank-value';value.textContent=row.value||'';
+        line.append(medal,name,value);anglingHallOfFameRankingEl.appendChild(line);
+      });
+      anglingHallOfFameRankingEl.classList.toggle('show',ranking.length>0);
+    }
     anglingHallOfFameDetail.textContent=slide.detail||'';
     const progress=Number(slide.progress);
     if(Number.isFinite(progress)){
@@ -29970,6 +30075,17 @@ function syncAnglingHallOfFameOverlayLayout(rect=getAnglingHallOfFameViewportRec
     localBottom=Math.max(localBottom,rect.height-flagTip.y+14);
   }
   localBottom=Math.min(localBottom,Math.max(20,rect.height-190));
+  // Auf Telefonen darf die Karte trotz Fahnenfreihaltung nicht in die obere
+  // Navigation wandern. Die eigentliche Absicherung erfolgt über die kompaktere
+  // mobile Top-3-Karte; diese Grenze verhindert extreme Projektionslagen.
+  if(document.documentElement.classList.contains('aczo-phone-layout')){
+    const cardH=anglingHallOfFameCard?.offsetHeight||0;
+    const safeTop=Math.max(104,Math.min(150,rect.height*.12));
+    if(cardH>0){
+      const maxBottom=Math.max(20,rect.height-safeTop-cardH);
+      localBottom=Math.min(localBottom,maxBottom);
+    }
+  }
   anglingHallOfFame.style.setProperty('--hof-card-x',Math.round(rect.left+localCardX)+'px');
   anglingHallOfFame.style.setProperty('--hof-card-bottom',Math.round(Math.max(0,innerHeight-rect.bottom)+localBottom)+'px');
 }
@@ -32077,50 +32193,50 @@ function anglingLocalDayKey(ts=Date.now()){
 }
 
 const ANGLING_DAILY_QUEST_KEY='aczo56-angling-daily-quests-v1';
-const ANGLING_DAILY_QUEST_BONUS_EP=25;
+const ANGLING_DAILY_QUEST_BONUS_EP=50;
 const ANGLING_DAILY_QUEST_PREDATORS=new Set(['pike','zander','catfish','eel','perch']);
 const ANGLING_DAILY_QUEST_PEACEFUL=new Set(['roach','rudd','bream','tench','carp','mirrorcarp','grasscarp','koi']);
 const ANGLING_DAILY_QUESTS=[
   // LEICHT – bewusst unterschiedliche Spielideen, nicht nur kleinere Zahlen derselben Aufgabe.
-  {id:'l_catch2',difficulty:'light',category:'volume',family:'catch-count',title:'Erster Erfolg',desc:'Fange 2 Fische.',reward:10,kind:'count',target:2},
-  {id:'l_species2',difficulty:'light',category:'variety',family:'species-variety',title:'Artenwechsel',desc:'Fange 2 verschiedene Fischarten.',reward:15,kind:'uniqueSpecies',target:2},
-  {id:'l_natural1',difficulty:'light',category:'method',family:'natural-method',title:'Natur pur',desc:'Fange einen Fisch mit Naturköder.',reward:10,kind:'naturalCount',target:1},
-  {id:'l_worm1',difficulty:'light',category:'bait',family:'specific-bait',title:'Wurmklassiker',desc:'Fange einen Fisch mit Wurm.',reward:10,kind:'baitCount',target:1,baits:['worm']},
-  {id:'l_feed1',difficulty:'light',category:'tactic',family:'feed-tactic',title:'Gut vorbereitet',desc:'Fange einen Fisch innerhalb eines aktiven Futterplatzes.',reward:15,kind:'feedCount',target:1,onFeed:true},
-  {id:'l_nofeed1',difficulty:'light',category:'tactic',family:'feed-tactic',title:'Ohne Lockfutter',desc:'Fange einen Fisch außerhalb eines aktiven Futterplatzes.',reward:15,kind:'feedCount',target:1,onFeed:false},
-  {id:'l_depth25',difficulty:'light',category:'depth',family:'depth',title:'Etwas tiefer',desc:'Fange einen Fisch aus mindestens 2,5 m Tiefe.',reward:15,kind:'depthCount',target:1,minDepth:2.5},
-  {id:'l_size35',difficulty:'light',category:'size',family:'size',title:'Solider Fang',desc:'Fange einen Fisch über 35 cm.',reward:15,kind:'sizeCount',target:1,minCm:35},
-  {id:'l_silver',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Silber im Kescher',desc:'Fange ein Rotauge oder eine Rotfeder.',reward:15,kind:'targetSpecies',target:1,species:['roach','rudd']},
-  {id:'l_ufersmall',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Uferbewohner',desc:'Fange eine Grundel oder einen Sonnenbarsch.',reward:10,kind:'targetSpecies',target:1,species:['goby','sunfish']},
-  {id:'l_perch',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Stachelritter',desc:'Fange einen Flussbarsch.',reward:15,kind:'targetSpecies',target:1,species:['perch']},
+  {id:'l_catch2',difficulty:'light',category:'volume',family:'catch-count',title:'Erster Erfolg',desc:'Fange 2 Fische.',reward:20,kind:'count',target:2},
+  {id:'l_species2',difficulty:'light',category:'variety',family:'species-variety',title:'Artenwechsel',desc:'Fange 2 verschiedene Fischarten.',reward:25,kind:'uniqueSpecies',target:2},
+  {id:'l_natural1',difficulty:'light',category:'method',family:'natural-method',title:'Natur pur',desc:'Fange einen Fisch mit Naturköder.',reward:20,kind:'naturalCount',target:1},
+  {id:'l_worm1',difficulty:'light',category:'bait',family:'specific-bait',title:'Wurmklassiker',desc:'Fange einen Fisch mit Wurm.',reward:20,kind:'baitCount',target:1,baits:['worm']},
+  {id:'l_feed1',difficulty:'light',category:'tactic',family:'feed-tactic',title:'Gut vorbereitet',desc:'Fange einen Fisch innerhalb eines aktiven Futterplatzes.',reward:25,kind:'feedCount',target:1,onFeed:true},
+  {id:'l_nofeed1',difficulty:'light',category:'tactic',family:'feed-tactic',title:'Ohne Lockfutter',desc:'Fange einen Fisch außerhalb eines aktiven Futterplatzes.',reward:25,kind:'feedCount',target:1,onFeed:false},
+  {id:'l_depth25',difficulty:'light',category:'depth',family:'depth',title:'Etwas tiefer',desc:'Fange einen Fisch aus mindestens 2,5 m Tiefe.',reward:25,kind:'depthCount',target:1,minDepth:2.5},
+  {id:'l_size35',difficulty:'light',category:'size',family:'size',title:'Solider Fang',desc:'Fange einen Fisch über 35 cm.',reward:25,kind:'sizeCount',target:1,minCm:35},
+  {id:'l_silver',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Silber im Kescher',desc:'Fange ein Rotauge oder eine Rotfeder.',reward:25,kind:'targetSpecies',target:1,species:['roach','rudd']},
+  {id:'l_ufersmall',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Uferbewohner',desc:'Fange eine Grundel oder einen Sonnenbarsch.',reward:20,kind:'targetSpecies',target:1,species:['goby','sunfish']},
+  {id:'l_perch',difficulty:'light',category:'target',family:'fish-target',fishTheme:true,title:'Stachelritter',desc:'Fange einen Flussbarsch.',reward:25,kind:'targetSpecies',target:1,species:['perch']},
 
   // MITTEL
-  {id:'m_species3',difficulty:'medium',category:'variety',family:'species-variety',title:'Bunter Kescher',desc:'Fange 3 verschiedene Fischarten.',reward:20,kind:'uniqueSpecies',target:3},
-  {id:'m_natural2',difficulty:'medium',category:'method',family:'natural-method',title:'Naturköder-Session',desc:'Fange 2 Fische mit Naturködern.',reward:20,kind:'naturalCount',target:2},
-  {id:'m_baits2',difficulty:'medium',category:'bait',family:'bait-variety',title:'Köderwechsel',desc:'Fange Fische mit 2 unterschiedlichen Ködern.',reward:20,kind:'uniqueBaits',target:2},
-  {id:'m_predator1',difficulty:'medium',category:'fishgroup',family:'predator-group',fishTheme:true,title:'Raubfischkontakt',desc:'Fange einen Raubfisch.',reward:20,kind:'groupCount',target:1,group:'predator'},
-  {id:'m_peace2',difficulty:'medium',category:'fishgroup',family:'peaceful-group',fishTheme:true,title:'Friedfischrunde',desc:'Fange 2 Friedfische.',reward:20,kind:'groupCount',target:2,group:'peaceful'},
-  {id:'m_artificial1',difficulty:'medium',category:'method',family:'artificial-method',title:'Aktiv gesucht',desc:'Fange einen Fisch mit Kunstköder.',reward:20,kind:'artificialCount',target:1},
-  {id:'m_depth4',difficulty:'medium',category:'depth',family:'depth',title:'Tiefe gesucht',desc:'Fange einen Fisch aus mindestens 4,0 m Tiefe.',reward:20,kind:'depthCount',target:1,minDepth:4},
-  {id:'m_size50',difficulty:'medium',category:'size',family:'size',title:'Halber Meter',desc:'Fange einen Fisch über 50 cm.',reward:20,kind:'sizeCount',target:1,minCm:50},
-  {id:'m_spots2',difficulty:'medium',category:'tactic',family:'spot-tactic',title:'Zwei Plätze',desc:'Fange jeweils einen Fisch an 2 deutlich unterschiedlichen Angelstellen.',reward:20,kind:'uniqueSpots',target:2},
-  {id:'m_bream',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Breit gebaut',desc:'Fange eine Brasse.',reward:20,kind:'targetSpecies',target:1,species:['bream']},
-  {id:'m_tench',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Goldgrün',desc:'Fange eine Schleie.',reward:25,kind:'targetSpecies',target:1,species:['tench']},
-  {id:'m_carp',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Karpfenzeit',desc:'Fange einen Schuppen-, Spiegel- oder Graskarpfen.',reward:25,kind:'targetSpecies',target:1,species:['carp','mirrorcarp','grasscarp']},
-  {id:'m_perch_lure',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Barsch aktiv',desc:'Fange einen Flussbarsch mit Kunstköder.',reward:25,kind:'targetMethod',target:1,species:['perch'],method:'artificial'},
+  {id:'m_species3',difficulty:'medium',category:'variety',family:'species-variety',title:'Bunter Kescher',desc:'Fange 3 verschiedene Fischarten.',reward:35,kind:'uniqueSpecies',target:3},
+  {id:'m_natural2',difficulty:'medium',category:'method',family:'natural-method',title:'Naturköder-Session',desc:'Fange 2 Fische mit Naturködern.',reward:35,kind:'naturalCount',target:2},
+  {id:'m_baits2',difficulty:'medium',category:'bait',family:'bait-variety',title:'Köderwechsel',desc:'Fange Fische mit 2 unterschiedlichen Ködern.',reward:35,kind:'uniqueBaits',target:2},
+  {id:'m_predator1',difficulty:'medium',category:'fishgroup',family:'predator-group',fishTheme:true,title:'Raubfischkontakt',desc:'Fange einen Raubfisch.',reward:35,kind:'groupCount',target:1,group:'predator'},
+  {id:'m_peace2',difficulty:'medium',category:'fishgroup',family:'peaceful-group',fishTheme:true,title:'Friedfischrunde',desc:'Fange 2 Friedfische.',reward:35,kind:'groupCount',target:2,group:'peaceful'},
+  {id:'m_artificial1',difficulty:'medium',category:'method',family:'artificial-method',title:'Aktiv gesucht',desc:'Fange einen Fisch mit Kunstköder.',reward:35,kind:'artificialCount',target:1},
+  {id:'m_depth4',difficulty:'medium',category:'depth',family:'depth',title:'Tiefe gesucht',desc:'Fange einen Fisch aus mindestens 4,0 m Tiefe.',reward:35,kind:'depthCount',target:1,minDepth:4},
+  {id:'m_size50',difficulty:'medium',category:'size',family:'size',title:'Halber Meter',desc:'Fange einen Fisch über 50 cm.',reward:35,kind:'sizeCount',target:1,minCm:50},
+  {id:'m_spots2',difficulty:'medium',category:'tactic',family:'spot-tactic',title:'Zwei Plätze',desc:'Fange jeweils einen Fisch an 2 deutlich unterschiedlichen Angelstellen.',reward:35,kind:'uniqueSpots',target:2},
+  {id:'m_bream',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Breit gebaut',desc:'Fange eine Brasse.',reward:35,kind:'targetSpecies',target:1,species:['bream']},
+  {id:'m_tench',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Goldgrün',desc:'Fange eine Schleie.',reward:40,kind:'targetSpecies',target:1,species:['tench']},
+  {id:'m_carp',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Karpfenzeit',desc:'Fange einen Schuppen-, Spiegel- oder Graskarpfen.',reward:40,kind:'targetSpecies',target:1,species:['carp','mirrorcarp','grasscarp']},
+  {id:'m_perch_lure',difficulty:'medium',category:'target',family:'fish-target',fishTheme:true,title:'Barsch aktiv',desc:'Fange einen Flussbarsch mit Kunstköder.',reward:40,kind:'targetMethod',target:1,species:['perch'],method:'artificial'},
 
   // SCHWER
-  {id:'h_species4',difficulty:'hard',category:'variety',family:'species-variety',title:'Artenkenner',desc:'Fange 4 verschiedene Fischarten.',reward:30,kind:'uniqueSpecies',target:4},
-  {id:'h_size70',difficulty:'hard',category:'size',family:'size',title:'Großer Fang',desc:'Fange einen Fisch über 70 cm.',reward:30,kind:'sizeCount',target:1,minCm:70},
-  {id:'h_predators2',difficulty:'hard',category:'fishgroup',family:'predator-group',fishTheme:true,title:'Räuber unterwegs',desc:'Fange 2 Raubfische.',reward:30,kind:'groupCount',target:2,group:'predator'},
-  {id:'h_baits3',difficulty:'hard',category:'bait',family:'bait-variety',title:'Köderkiste genutzt',desc:'Fange Fische mit 3 unterschiedlichen Ködern.',reward:30,kind:'uniqueBaits',target:3},
-  {id:'h_allround',difficulty:'hard',category:'method',family:'mixed-method',title:'Allround-Angler',desc:'Fange mindestens einen Fisch mit Naturköder und einen mit Kunstköder.',reward:30,kind:'allroundMethods',target:2},
-  {id:'h_depth4x2',difficulty:'hard',category:'depth',family:'depth',title:'Tiefenjäger',desc:'Fange 2 Fische aus mindestens 4,0 m Tiefe.',reward:30,kind:'depthCount',target:2,minDepth:4},
-  {id:'h_mobile',difficulty:'hard',category:'tactic',family:'spot-tactic',title:'Mobil bleiben',desc:'Fange 3 Fische an mindestens 2 deutlich unterschiedlichen Angelstellen.',reward:30,kind:'catchesAcrossSpots',target:3,minSpots:2},
-  {id:'h_big_nofeed',difficulty:'hard',category:'tactic',family:'feed-tactic',title:'Groß ohne Futter',desc:'Fange einen Fisch über 60 cm außerhalb eines aktiven Futterplatzes.',reward:35,kind:'sizeNoFeed',target:1,minCm:60},
-  {id:'h_baitfish_predator',difficulty:'hard',category:'method',family:'baitfish-method',fishTheme:true,title:'Raubfischansitz',desc:'Fange einen Raubfisch mit Köderfisch.',reward:35,kind:'groupMethod',target:1,group:'predator',method:'baitfish'},
-  {id:'h_pike_zander',difficulty:'hard',category:'target',family:'fish-target',fishTheme:true,title:'Räuber im Fokus',desc:'Fange einen Hecht oder Zander.',reward:30,kind:'targetSpecies',target:1,species:['pike','zander']},
-  {id:'h_catch5',difficulty:'hard',category:'volume',family:'catch-count',title:'Guter Angeltag',desc:'Fange insgesamt 5 Fische.',reward:30,kind:'count',target:5}
+  {id:'h_species4',difficulty:'hard',category:'variety',family:'species-variety',title:'Artenkenner',desc:'Fange 4 verschiedene Fischarten.',reward:50,kind:'uniqueSpecies',target:4},
+  {id:'h_size70',difficulty:'hard',category:'size',family:'size',title:'Großer Fang',desc:'Fange einen Fisch über 70 cm.',reward:50,kind:'sizeCount',target:1,minCm:70},
+  {id:'h_predators2',difficulty:'hard',category:'fishgroup',family:'predator-group',fishTheme:true,title:'Räuber unterwegs',desc:'Fange 2 Raubfische.',reward:50,kind:'groupCount',target:2,group:'predator'},
+  {id:'h_baits3',difficulty:'hard',category:'bait',family:'bait-variety',title:'Köderkiste genutzt',desc:'Fange Fische mit 3 unterschiedlichen Ködern.',reward:50,kind:'uniqueBaits',target:3},
+  {id:'h_allround',difficulty:'hard',category:'method',family:'mixed-method',title:'Allround-Angler',desc:'Fange mindestens einen Fisch mit Naturköder und einen mit Kunstköder.',reward:50,kind:'allroundMethods',target:2},
+  {id:'h_depth4x2',difficulty:'hard',category:'depth',family:'depth',title:'Tiefenjäger',desc:'Fange 2 Fische aus mindestens 4,0 m Tiefe.',reward:50,kind:'depthCount',target:2,minDepth:4},
+  {id:'h_mobile',difficulty:'hard',category:'tactic',family:'spot-tactic',title:'Mobil bleiben',desc:'Fange 3 Fische an mindestens 2 deutlich unterschiedlichen Angelstellen.',reward:50,kind:'catchesAcrossSpots',target:3,minSpots:2},
+  {id:'h_big_nofeed',difficulty:'hard',category:'tactic',family:'feed-tactic',title:'Groß ohne Futter',desc:'Fange einen Fisch über 60 cm außerhalb eines aktiven Futterplatzes.',reward:60,kind:'sizeNoFeed',target:1,minCm:60},
+  {id:'h_baitfish_predator',difficulty:'hard',category:'method',family:'baitfish-method',fishTheme:true,title:'Raubfischansitz',desc:'Fange einen Raubfisch mit Köderfisch.',reward:60,kind:'groupMethod',target:1,group:'predator',method:'baitfish'},
+  {id:'h_pike_zander',difficulty:'hard',category:'target',family:'fish-target',fishTheme:true,title:'Räuber im Fokus',desc:'Fange einen Hecht oder Zander.',reward:50,kind:'targetSpecies',target:1,species:['pike','zander']},
+  {id:'h_catch5',difficulty:'hard',category:'volume',family:'catch-count',title:'Guter Angeltag',desc:'Fange insgesamt 5 Fische.',reward:50,kind:'count',target:5}
 ];
 let anglingDailyQuestState=null;
 let anglingDailyQuestIntroTimer=0;
@@ -33106,7 +33222,22 @@ function updateAnglingBobberWaterTint(surface){
   });
 }
 
-function setAnglingBobberRestPose(biteDip=0,biteWobble=0,biteSlide=0,biteLean=0,biteSideLean=0){
+const anglingBobberDeepWaterColor=new THREE.Color(0x426b70);
+function updateAnglingBobberDepthLook(depth=0){
+  const underwater=THREE.MathUtils.smoothstep(Math.max(0,depth),.06,1.05);
+  // Mit zunehmender Tiefe wirkt die Pose perspektivisch kleiner. Weniger
+  // Kontrast und Deckkraft simulieren die optische Unschärfe im Wasser ohne
+  // einen teuren Postprocessing-Blur (wichtig für iPhone und Livefenster).
+  anglingBobber.scale.setScalar(THREE.MathUtils.lerp(1,.62,underwater));
+  anglingBobber.traverse(o=>{
+    if(!o.isMesh||!o.material||!o.userData.anglingBobBaseColor)return;
+    o.material.color.lerp(anglingBobberDeepWaterColor,.36*underwater);
+    o.material.opacity*=THREE.MathUtils.lerp(1,.58,underwater);
+  });
+  anglingBobHalo.material.opacity=THREE.MathUtils.lerp(.30,.035,underwater);
+}
+
+function setAnglingBobberRestPose(biteDip=0,biteWobble=0,biteSlide=0,biteLean=0,biteSideLean=0,visualDepth=biteDip){
   if(!anglingSelection)return;
   // Jeder Frame startet wieder am echten Wurfpunkt. Nur der aktuelle Biss darf
   // den Schwimmer seitlich verschieben; dadurch gibt es kein Aufsummieren.
@@ -33116,6 +33247,12 @@ function setAnglingBobberRestPose(biteDip=0,biteWobble=0,biteSlide=0,biteLean=0,
   anglingBobber.position.x=anglingCastEnd.x+biteSide.x*(biteSlide+steerSlide);
   anglingBobber.position.y=anglingCastEnd.y+biteSide.y*(biteSlide+steerSlide);
   const info=getAnglingRigInfo(anglingBobber.position.x,anglingBobber.position.y);
+  // Auch ein sehr kräftiger Biss darf die Pose optisch nicht unter den lokal
+  // vorhandenen Gewässerboden ziehen. In tiefem Wasser bleibt rund ein Meter
+  // Abtauchen möglich, in flachen Zonen wird der Weg automatisch begrenzt.
+  const maxVisibleDip=Math.min(1.15,Math.max(.30,info.waterDepth*.68));
+  biteDip=Math.min(biteDip,maxVisibleDip);
+  visualDepth=Math.min(visualDepth,maxVisibleDip);
   const rigChanged=anglingRigState!==info.state||Math.abs(anglingLocalWaterDepth-info.waterDepth)>.05;
   anglingLocalWaterDepth=info.waterDepth;anglingRigState=info.state;
   if(rigChanged){
@@ -33146,6 +33283,7 @@ function setAnglingBobberRestPose(biteDip=0,biteWobble=0,biteSlide=0,biteLean=0,
   anglingBobber.rotation.y=THREE.MathUtils.clamp(-slopeX*1.35,-.14,.14)+Math.cos(t*1.55)*.018+biteSideLean;
   anglingBobber.rotation.z=Math.sin(t*2.6)*.055+biteWobble;
   updateAnglingBobberWaterTint(surface);
+  updateAnglingBobberDepthLook(Math.max(0,visualDepth));
 }
 
 function updateAnglingUpperLayerLureVisibility(){
@@ -33803,7 +33941,7 @@ function updateAnglingFeedUi(){
  // V8.107: Der intern bereits laufende, aber noch nicht sichtbare Biss darf
  // die Futterleiste nicht verräterisch vorab ausblenden. Sie verschwindet nun
  // exakt in demselben Moment, in dem der sichtbare BISS-Impuls beginnt.
- const biteStillHidden=anglingState==='bite'&&anglingStateTime<anglingBiteDuration*.16;
+ const biteStillHidden=anglingState==='bite'&&anglingStateTime<anglingBiteDuration*anglingBiteAlertPhase;
  const poseActive=anglingMode&&!artificial&&anglingUi.classList.contains('line-active')&&
    (['waiting','approach'].includes(anglingState)||biteStillHidden);
  if(artificial){
@@ -34238,19 +34376,20 @@ function beginAnglingBite(){
   anglingState='bite';anglingStateTime=0;
   const biteSpecies=anglingPendingCatch?.species;
   anglingCurrentBiteProfile=ANGLING_BITE_PROFILE[biteSpecies]||'twitch';
-  // V8.40: Jede Art besitzt eine eigene Grunddauer. Eine kleine Zufallsabweichung
-  // verhindert, dass zwei Bisse derselben Art exakt wie eine Aufnahme wirken.
+  // Jede Art behaelt ihre eigene Handschrift, aber Vorbissdauer, sichtbarer
+  // BISS-Moment und Endtiefe werden pro Ereignis neu kombiniert. Dadurch kann
+  // dieselbe Fischart kurz entschlossen oder laenger pruefend beissen.
   anglingBiteVariant=Math.random()*2-1;
-  // V8.107: Artspezifische Bewegung bleibt erhalten, wird aber kompakt und
-  // überraschend abgespielt. QTE, Fanglogik und Drill beginnen unverändert danach.
-  anglingBiteDuration=(ANGLING_BITE_DURATION_BY_SPECIES[biteSpecies]||.90)+Math.random()*.10;
+  const biteBase=ANGLING_BITE_DURATION_BY_SPECIES[biteSpecies]||.90;
+  anglingBiteDuration=THREE.MathUtils.clamp(biteBase*(1.38+Math.random()*1.02),1.12,2.55);
+  anglingBiteAlertPhase=.57+Math.random()*.23;
+  anglingBiteDeepFactor=.96+Math.random()*.64;
   if(anglingSelectedBait==='baitfish'&&anglingPendingCatch&&!anglingPendingCatch.baitConsumed){
     anglingProgress.baitfish=Math.max(0,anglingProgress.baitfish-1);
     anglingPendingCatch.baitConsumed=true;saveAnglingProgress();updateAnglingSetupUi();
   }
   anglingQte.classList.remove('show','now');anglingStrikeMeter.classList.remove('show','now');
   anglingUi.classList.remove('bite-alert','bite-focus','perfect-hit');
-  if(navigator.vibrate)navigator.vibrate([45,35,75]);
   anglingActionBtn.disabled=true;anglingActionBtn.textContent='•••';
   // Keine Statusänderung: Die letzte neutrale/atmosphärische Meldung bleibt
   // stehen, bis der Biss tatsächlich sichtbar wird.
@@ -34276,7 +34415,6 @@ function beginAnglingStrikeQte(){
   anglingQte.style.pointerEvents='auto';
   anglingActionBtn.disabled=false;anglingActionBtn.textContent='⚡';
   setAnglingStatus('','');
-  if(navigator.vibrate)navigator.vibrate(35);
 }
 
 const ANGLING_STRENGTH={
@@ -34529,9 +34667,9 @@ function attemptAnglingLanding(){
 }
 
 const ANGLING_EP_REWARD_RANGE={
-  goby:[18,27],roach:[19,28],rudd:[20,28],sunfish:[19,28],perch:[22,32],bream:[25,35],
-  tench:[28,38],eel:[30,42],zander:[40,55],carp:[45,60],mirrorcarp:[50,65],pike:[50,70],
-  sturgeon:[60,80],grasscarp:[65,85],catfish:[70,100]
+  goby:[20,30],roach:[22,32],rudd:[23,33],sunfish:[22,32],perch:[26,38],bream:[30,42],
+  tench:[34,47],eel:[36,50],zander:[48,65],carp:[54,72],mirrorcarp:[60,78],pike:[60,84],
+  sturgeon:[72,96],grasscarp:[78,102],catfish:[85,120]
 };
 function anglingEpRewardForCatch(caught){
   if(caught.species==='koi')return caught.snagged?500:1000;
@@ -34994,51 +35132,42 @@ function anglingLureDepthLimits(x,y){
 }
 
 function spawnGroundFeedingBubbles(x,y,z,strength=1,surfaceHint=true,mode='ambient'){
-  bubblePool.points.visible=true;
   const s=THREE.MathUtils.clamp(strength,.45,1.5);
   const feedspot=mode==='feedspot';
 
-  // Am Futterplatz soll der Luftaustritt realistischer und zurückhaltender wirken.
-  const count=(feedspot?2:4)+Math.round((feedspot?3:5)*s);
+  // V1.2: Blasen entstehen zusammen mit dem Gründeln am Boden und müssen den
+  // kompletten Weg bis zur Oberfläche sichtbar zurücklegen. Der frühere Effekt
+  // erzeugte den Oberflächenring sofort, obwohl die eigentliche Blase nach nur
+  // wenigen Sekunden starb und die Oberfläche aus 3–5 m Tiefe nie erreichen konnte.
+  // Futterplatz bewusst zurückhaltend: wenige einzelne Blasen pro Gründelimpuls.
+  // Natürliches Gründeln bleibt überall dezent: pro tatsächlichem Gründelimpuls
+  // nur einzelne Blasen. Der Futterplatz wirkt lebhafter, weil dort mehr Fische
+  // und mehr Gründelereignisse stattfinden, nicht weil jeder Fisch eine Fontäne erzeugt.
+  const count=Math.random()<.62 ? 1 : 2;
+  const surface=anglingSurfaceZ(x,y);
   for(let i=0;i<count;i++){
     const a=Math.random()*Math.PI*2;
-    const side=(feedspot?.008:.010)+Math.random()*(feedspot?.018:.028)*s;
+    const side=.006+Math.random()*.018*s;
+    const startZ=z+.025+Math.random()*.055;
+    const rise=.18+Math.random()*.08;
+    const travel=Math.max(.12,surface-startZ);
+    const life=travel/rise+1.4+Math.random()*1.8;
     spawnPoolParticle(
       bubblePool,
-      x+(Math.random()-.5)*((feedspot?.10:.14)+.06*s),
-      y+(Math.random()-.5)*((feedspot?.10:.14)+.06*s),
-      z+.04+Math.random()*.06,
-      .24+Math.random()*(feedspot?.20:.28),
-      (feedspot?3.2:3.4)+Math.random()*(feedspot?2.6:3.0),
+      x+(Math.random()-.5)*(.12+.07*s),
+      y+(Math.random()-.5)*(.12+.07*s),
+      startZ,
+      // Sichtbare Luftblase: deutlich größer als Sediment-/Futterpartikel.
+      // Unterschiedliche Größen verhindern einen künstlichen Perlenketten-Look.
+      .78+Math.random()*.52,
+      life,
       Math.cos(a)*side,
       Math.sin(a)*side,
-      .15+Math.random()*(feedspot?.11:.15),
-      .38
+      rise,
+      .94
     );
   }
-
-  // Von oben nur ein sehr dezenter, kleiner Luftblasenteppich – keine großen
-  // Platscher. Am Futterplatz nochmals sparsamer.
-  if(surfaceHint){
-    const n=feedspot?(Math.random()<.70?1:2):(2+(Math.random()<.55?1:0));
-    for(let i=0;i<n;i++){
-      anglingFeedingFxPos.set(
-        x+(Math.random()-.5)*((feedspot?.14:.18)+.10*s),
-        y+(Math.random()-.5)*((feedspot?.14:.18)+.10*s),
-        0
-      );
-      spawnAnglingSurfaceEffect(
-        anglingFeedingFxPos,
-        (feedspot?.06:.08)+.07*s,
-        (feedspot?.64:.72)+Math.random()*.20,
-        (feedspot?1.18:1.45)+Math.random()*(feedspot?.45:.75),
-        (feedspot?.09:.12)+Math.random()*.04,
-        (feedspot?.26:.34)+Math.random()*.12
-      );
-    }
-  }
 }
-
 function spawnAnglingBottomDust(x,y,z,strength=1){
   sedimentPool.points.visible=true;
   const s=THREE.MathUtils.clamp(strength,.4,1.6);
@@ -35062,12 +35191,12 @@ function spawnAnglingBottomDust(x,y,z,strength=1){
       x+(Math.random()-.5)*(.26+.10*s),
       y+(Math.random()-.5)*(.26+.10*s),
       z+.02+Math.random()*.09,
-      .72+Math.random()*1.18,
-      2.2+Math.random()*2.4,
+      .82+Math.random()*1.28,
+      5.8+Math.random()*3.2,
       Math.cos(a)*speed,
       Math.sin(a)*speed,
-      .012+Math.random()*.040,
-      .30
+      .024+Math.random()*.030,
+      .38
     );
   }
 }
@@ -35659,9 +35788,9 @@ function aczoSecondaryCameraDue(lastAt,now){
 // unmittelbar danach exakt auf ihren vorherigen Zustand gesetzt.
 const aczoAnglingInsetGroups=[cloudGroup,cloudReflectionGroup,aczoOuterForestGroup,
   aczoSurveyedNatureGroup,realBirchGroup,birdGroup,aczoWildBoarGroup,carTestGroup,
-  personalSceneGroup,bmwX3VisitGroup];
+  personalSceneGroup,bmwX3VisitGroup,golfFamilyVisitGroup];
 const aczoAnglingInsetShoreGroups=[cloudGroup,cloudReflectionGroup,aczoOuterForestGroup,
-  birdGroup,aczoWildBoarGroup,carTestGroup,personalSceneGroup,bmwX3VisitGroup];
+  birdGroup,aczoWildBoarGroup,carTestGroup,personalSceneGroup,bmwX3VisitGroup,golfFamilyVisitGroup];
 const aczoAnglingInsetStates=new Array(aczoAnglingInsetGroups.length).fill(false);
 const aczoAnglingInsetShoreStates=new Array(aczoAnglingInsetShoreGroups.length).fill(false);
 function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
@@ -36800,18 +36929,21 @@ function updateAnglingMode(dt){
     const phase=anglingClamp01(anglingStateTime/anglingBiteDuration);
     const biteVisibility=anglingRigState==='over'?.55:1;
     const biteMotion=getAnglingSpeciesBiteMotion(anglingPendingCatch?.species,phase);
-    const biteDip=biteMotion.dip*biteVisibility;
+    const deepStart=Math.max(.32,anglingBiteAlertPhase-.19);
+    const deepCommit=THREE.MathUtils.smoothstep(phase,deepStart,.98);
+    const deepPull=(.10+.22*Math.abs(anglingBiteVariant))*deepCommit;
+    const biteDip=(biteMotion.dip*anglingBiteDeepFactor+deepPull)*biteVisibility;
     const biteWobble=biteMotion.wobble;
     const biteSlide=biteMotion.slide*biteVisibility;
     const biteLean=biteMotion.lean*biteVisibility;
     const biteSideLean=biteMotion.sideLean*biteVisibility;
     setAnglingBobberRestPose(biteDip,biteWobble,biteSlide,biteLean,biteSideLean);
-    if(phase>.43&&phase<.49&&anglingLastSurfaceEffect<=0){
+    if(phase>anglingBiteAlertPhase-.09&&phase<anglingBiteAlertPhase-.03&&anglingLastSurfaceEffect<=0){
       spawnAnglingSurfaceEffect(anglingBobber.position,.65,1.15);anglingLastSurfaceEffect=.9;
     }
     // Derselbe Schwellwert wird von updateAnglingFeedUi() verwendet: Es gibt
     // keinen unsichtbaren UI-Vorlauf mehr, der den Biss ankündigen könnte.
-    anglingUi.classList.toggle('bite-alert',phase>=.16&&phase<.78);
+    anglingUi.classList.toggle('bite-alert',phase>=anglingBiteAlertPhase&&phase<1);
     if(phase>=1){
       anglingState='bite-focus';anglingStateTime=0;
       anglingUi.classList.remove('bite-alert');anglingUi.classList.add('bite-focus');
@@ -36819,7 +36951,8 @@ function updateAnglingMode(dt){
   }else if(anglingState==='bite-focus'){
     if(anglingReturnToShorePendingReset)return false;
     // Nur ein sehr kurzer Nachdruck vor dem unveränderten Anhieb-QTE.
-    setAnglingBobberRestPose(.54+Math.sin(anglingStateTime*15)*.018,Math.sin(anglingStateTime*11)*.035);
+    const focusDepth=THREE.MathUtils.clamp(.62*anglingBiteDeepFactor,.58,1.02);
+    setAnglingBobberRestPose(focusDepth+Math.sin(anglingStateTime*15)*.018,Math.sin(anglingStateTime*11)*.035,0,0,0,focusDepth);
     if(anglingStateTime>=.14)beginAnglingStrikeQte();
   }else if(anglingState==='strike'){
     anglingQteLapTime+=dt;
@@ -36842,7 +36975,8 @@ function updateAnglingMode(dt){
       // Leuchten muss exakt dem sichtbaren Treffersegment entsprechen.
       const visiblePhase=(phase+.25)%1;
       const now=visiblePhase>=.22&&visiblePhase<=.78;
-      setAnglingBobberRestPose(.56+Math.sin(anglingStateTime*18)*.014,Math.sin(anglingStateTime*13)*.025);
+      const strikeDepth=THREE.MathUtils.clamp(.64*anglingBiteDeepFactor,.60,1.04);
+      setAnglingBobberRestPose(strikeDepth+Math.sin(anglingStateTime*18)*.014,Math.sin(anglingStateTime*13)*.025,0,0,0,strikeDepth);
       anglingQte.style.setProperty('--qte-angle',(phase*360).toFixed(1)+'deg');
       anglingQte.classList.toggle('now',now);projectAnglingQte();
     }
@@ -37711,7 +37845,8 @@ if(aczoPerf7CpuEnabled){
   [
     ['updateSkyClouds','Clouds'],['updateRealCloudReflections','CloudRefl'],
     ['updateRainRipples','Rain'],['updateBirds','Birds'],['updateTraffic','Traffic'],
-    ['updateCarVisit','Visits'],['updateBmwX3Visit','Visits'],
+    ['updateAczoPropertyVisitScheduler','Visits'],['updateCarVisit','Visits'],
+    ['updateBmwX3Visit','Visits'],['updateGolfFamilyVisit','Visits'],
     ['updateAczoSurveyForestLod','ForestLOD'],['updateAczoRealBirchFineLod','BirchLOD'],
     ['updateAczoWildBoars','Wildlife'],['updateClubFlagPole','Flag'],
     ['updateFishView','Fish'],['updateFishActors','Fish'],['updateFishShadows','Fish'],
@@ -37762,7 +37897,7 @@ function aczoPerf7Summary(){
 
  // Autonome sichtbare Bewegung bekommt ein eigenes, deutlich günstigeres Budget.
  // So bleiben Besucher/BMW/Regen/Schnee lesbar, blockieren aber nicht dauerhaft 30 FPS.
- const aczoAmbientMotion=!!currentVisit||!!bmwX3Visit
+ const aczoAmbientMotion=!!currentVisit||!!bmwX3Visit||!!golfFamilyVisit
    ||rainSystem.visible||seasonSnowPoints.visible;
 
  // P7: Ein 120-Hz-iPhone braucht fuer diesen Viewer keine 120 kompletten
@@ -37843,7 +37978,8 @@ function aczoPerf7Summary(){
   // laut Profiler praktisch kostenlos; das alte 120/240-ms-Raster erzeugte
   // dagegen das sichtbare 4-8-Hz-Ruckeln. Wetter/Wolken bleiben separat langsam.
   const aczoVisitorDaytime=carTrafficDaytimeAllowed();
-  updateBirds(visualDt);updateAczoLiveAircraft(dt);updateTraffic(visualDt);updateCarVisit(visualDt,aczoVisitorDaytime);updateBmwX3Visit(visualDt,aczoVisitorDaytime);
+  updateBirds(visualDt);updateTraffic(visualDt);updateAczoPropertyVisitScheduler(visualDt,aczoVisitorDaytime);
+  updateCarVisit(visualDt,aczoVisitorDaytime);updateBmwX3Visit(visualDt,aczoVisitorDaytime);updateGolfFamilyVisit(visualDt,aczoVisitorDaytime);
   updateAczoFacilityDoors(visualDt);updateAczoConstructionGates(visualDt);
   updateAczoMainEntranceMotionLight(visualDt);updatePersonalCampScene(visualDt);
   // P10: Material-/Jahreszeitenzustand aendert sich im normalen Betrieb nicht
@@ -38059,11 +38195,17 @@ function aczoPerf7Summary(){
  // PERF4: Kameraabhaengige Himmelsdarstellung bleibt bei Interaktion direkt,
  // im Stillstand reichen 8 Hz. Statische Sichtbarkeits-/Shadow-Caster-Pruefungen
  // laufen nur 4 Hz, statt bei jedem kompletten Renderpass.
+ // SONNENFIX: Die sichtbaren Scheiben muessen nach JEDEM Kamera-Update und vor
+ // JEDEM Hauptbild relativ zur aktuellen Kamera stehen. Am Frameende werden sie
+ // fuer Welt-/Nebenberechnungen wieder auf ihre astronomischen Weltpositionen
+ // gesetzt. Wuerde diese billige Positionskorrektur ebenfalls auf 8 Hz
+ // gedrosselt, wechselte der Uebergang in den Himmelblick zwischen Welt- und
+ // Kameraposition und die Sonne schiene seitlich zu springen.
+ if(simulationEnabled)positionCelestialDiscsForMainCamera();
  const aczoCelestialDue=aczoInteractive||aczoPlainMapGesture||(frameNow-aczoPerf4LastCelestialAt>=125);
  if(aczoCelestialDue){
    aczoPerf4LastCelestialAt=frameNow;
    if(simulationEnabled){
-     positionCelestialDiscsForMainCamera();
      enforceCelestialDiscVisibility();
      updateCelestialReflectionScreens();
      updateCelestialDepthLighting();
@@ -38134,5 +38276,53 @@ function aczoPerf7Summary(){
 
 
 <!-- P17: iOS gesture guard, visible directional small-object shadows and adaptive map workload. -->
+<!-- ACZO56 WEBGPU DIAGNOSE TEST: reine Mess-/Kompatibilitätsebene, Rendering bleibt WebGL -->
+<style id="aczo-webgpu-diagnostic-style">
+#aczoGpuDiag{position:fixed;left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));z-index:2147483000;width:min(310px,calc(100vw - 16px));padding:9px 11px;border:1px solid rgba(255,255,255,.24);border-radius:12px;background:rgba(5,10,14,.86);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#eef7fb;font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.28);pointer-events:auto}
+#aczoGpuDiag b{font-size:12px;color:#fff}#aczoGpuDiag .ok{color:#8fe3a4}#aczoGpuDiag .no{color:#ffadad}#aczoGpuDiag .muted{color:#b9c8d0}#aczoGpuDiag button{float:right;border:0;border-radius:7px;padding:2px 7px;background:rgba(255,255,255,.14);color:#fff;font:inherit}
+#aczoGpuDiag.aczo-collapsed{width:auto}.aczo-collapsed .aczo-gpu-body{display:none}
+</style>
+<div id="aczoGpuDiag" aria-live="polite"><button type="button" id="aczoGpuDiagToggle">−</button><b>ACZO56 GPU-Diagnose</b><div class="aczo-gpu-body" id="aczoGpuDiagBody">Initialisierung …</div></div>
+<script id="aczo-webgpu-diagnostic-script">
+(function(){
+  const box=document.getElementById('aczoGpuDiag'),body=document.getElementById('aczoGpuDiagBody'),toggle=document.getElementById('aczoGpuDiagToggle');
+  if(!box||!body)return;
+  toggle.onclick=()=>{box.classList.toggle('aczo-collapsed');toggle.textContent=box.classList.contains('aczo-collapsed')?'+':'−';};
+  const yes=v=>v?'<span class="ok">JA</span>':'<span class="no">NEIN</span>';
+  let webgpu=!!navigator.gpu, adapterAvailable=null, gpuLabel='nicht freigegeben';
+  let gl2=false, glName='nicht verfügbar';
+  try{
+    const c=document.createElement('canvas'); const gl=c.getContext('webgl2'); gl2=!!gl;
+  }catch(e){}
+  try{
+    if(typeof renderer!=='undefined'&&renderer&&renderer.getContext){
+      const gl=renderer.getContext();
+      const ext=gl&&gl.getExtension&&gl.getExtension('WEBGL_debug_renderer_info');
+      if(gl&&ext)glName=gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)||glName;
+      else if(gl)glName=gl.getParameter(gl.RENDERER)||glName;
+    }
+  }catch(e){}
+  if(webgpu&&navigator.gpu.requestAdapter){
+    navigator.gpu.requestAdapter({powerPreference:'high-performance'}).then(a=>{adapterAvailable=!!a;if(a&&a.info){gpuLabel=[a.info.vendor,a.info.architecture,a.info.device].filter(Boolean).join(' / ')||gpuLabel;} }).catch(()=>{adapterAvailable=false;});
+  }
+  let frames=0,last=performance.now(),fps=0,frameMs=0;
+  function tick(now){frames++;const span=now-last;if(span>=1000){fps=frames*1000/span;frameMs=span/frames;frames=0;last=now;}requestAnimationFrame(tick);} requestAnimationFrame(tick);
+  function render(){
+    let calls='–',tris='–',pts='–',lines='–',ratio='–',size='–',profile='–';
+    try{if(typeof renderer!=='undefined'&&renderer){const ri=renderer.info&&renderer.info.render;if(ri){calls=ri.calls;tris=ri.triangles;pts=ri.points;lines=ri.lines;}ratio=renderer.getPixelRatio().toFixed(2);const v=renderer.getDrawingBufferSize(new THREE.Vector2());size=Math.round(v.x)+'×'+Math.round(v.y);}}catch(e){}
+    try{if(typeof aczoGraphicsMode!=='undefined')profile=aczoGraphicsMode;}catch(e){}
+    body.innerHTML=
+      'Aktiver Renderer: <b>WebGL</b><br>'+ 
+      'WebGPU API: '+yes(webgpu)+' · Adapter: '+(adapterAvailable===null?'<span class="muted">prüft…</span>':yes(adapterAvailable))+'<br>'+ 
+      'WebGL 2: '+yes(gl2)+'<br>'+ 
+      'GPU: <span class="muted">'+String(gpuLabel||glName).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))+'</span><br>'+ 
+      'Profil: '+profile+' · Pixel Ratio: '+ratio+' · Buffer: '+size+'<br>'+ 
+      'FPS: <b>'+fps.toFixed(1)+'</b> · Frame: '+frameMs.toFixed(1)+' ms<br>'+ 
+      'Draw Calls: '+calls+' · Triangles: '+Number(tris).toLocaleString('de-DE')+'<br>'+ 
+      '<span class="muted">Diagnose-Test. Grafikpfad unverändert.</span>';
+  }
+  setInterval(render,500);render();
+})();
+</script>
 </body>
 </html>
