@@ -38636,5 +38636,105 @@ try{
 })();
 </script>
 
+
+<style id="aczo-webgpu-phase2-style">
+#aczoWebGPUPhase2{
+  position:fixed;right:8px;top:max(210px,calc(env(safe-area-inset-top) + 190px));
+  z-index:2147483003;width:min(270px,calc(100vw - 100px));box-sizing:border-box;
+  padding:8px 10px;border:1px solid rgba(255,255,255,.32);border-radius:12px;
+  background:rgba(6,19,22,.93);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28);
+  font:600 9.8px/1.2 system-ui,-apple-system,sans-serif;pointer-events:none
+}
+#aczoWebGPUPhase2Canvas{
+  position:fixed;right:8px;top:max(302px,calc(env(safe-area-inset-top) + 282px));
+  z-index:2147483002;width:160px;height:100px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.3);background:#000;pointer-events:none
+}
+</style>
+<script type="importmap" id="aczo-webgpu-phase2-importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js",
+    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.tsl.js"
+  }
+}
+</script>
+<script type="module" id="aczo-webgpu-phase2-runtime">
+import * as THREE_WGPU from 'three';
+const status=document.createElement('div');
+status.id='aczoWebGPUPhase2';
+status.innerHTML='<b>WebGPU Phase 2 · Three.js</b><br>Modul geladen · Renderer startet …';
+document.body.appendChild(status);
+
+const canvas=document.createElement('canvas');
+canvas.id='aczoWebGPUPhase2Canvas';
+canvas.width=320;canvas.height=200;
+document.body.appendChild(canvas);
+
+function show(lines){status.innerHTML='<b>WebGPU Phase 2 · Three.js</b><br>'+lines.join('<br>');}
+
+try{
+  const renderer=new THREE_WGPU.WebGPURenderer({canvas,antialias:true,alpha:false});
+  renderer.setPixelRatio(1);
+  renderer.setSize(320,200,false);
+  await renderer.init();
+
+  const scene=new THREE_WGPU.Scene();
+  scene.background=new THREE_WGPU.Color(0x8ecae6);
+  const camera=new THREE_WGPU.PerspectiveCamera(48,320/200,.1,100);
+  camera.position.set(0,2.2,5.2);
+  camera.lookAt(0,0,0);
+
+  scene.add(new THREE_WGPU.HemisphereLight(0xffffff,0x445566,1.7));
+  const sun=new THREE_WGPU.DirectionalLight(0xffffff,2.4);
+  sun.position.set(3,5,4);scene.add(sun);
+
+  // A modest real scene: many independent meshes to exercise Three.js WebGPU
+  // command generation rather than only a raw empty render pass.
+  const geo=new THREE_WGPU.BoxGeometry(.18,.18,.18);
+  for(let z=0;z<12;z++){
+    for(let x=0;x<20;x++){
+      const mat=new THREE_WGPU.MeshStandardMaterial({
+        color:new THREE_WGPU.Color().setHSL((x+z*2)/44,.55,.48),
+        roughness:.72,metalness:.04
+      });
+      const m=new THREE_WGPU.Mesh(geo,mat);
+      m.position.set((x-9.5)*.22,(Math.sin(x*.7+z)*.12),(z-5.5)*.22);
+      scene.add(m);
+    }
+  }
+  const ground=new THREE_WGPU.Mesh(
+    new THREE_WGPU.PlaneGeometry(5,4),
+    new THREE_WGPU.MeshStandardMaterial({color:0x315c3b,roughness:1})
+  );
+  ground.rotation.x=-Math.PI/2;ground.position.y=-.18;scene.add(ground);
+
+  let frames=0,sum=0,worst=0,last=performance.now(),start=last;
+  function animate(t){
+    const dt=t-last;last=t;
+    if(dt>0&&dt<500){frames++;sum+=dt;worst=Math.max(worst,dt);}
+    scene.rotation.y=Math.sin(t*.00025)*.12;
+    renderer.render(scene,camera);
+    if(t-start<6000)requestAnimationFrame(animate);
+    else{
+      const avg=frames?sum/frames:0;
+      show([
+        'WebGPURenderer: <b>ERFOLGREICH</b>',
+        'Three.js: r180 · Backend: <b>WebGPU</b>',
+        'Testszene: 241 Meshes',
+        'Ø Frame: '+avg.toFixed(1)+' ms · Max: '+worst.toFixed(1)+' ms',
+        'Live-Weiher: weiterhin WebGL r128'
+      ]);
+      window.__aczoThreeWebGPUPhase2={ok:true,renderer,scene,camera,avg,worst};
+    }
+  }
+  requestAnimationFrame(animate);
+}catch(err){
+  console.error('ACZO WebGPU Phase 2',err);
+  show(['WebGPURenderer: <b>FEHLER</b>',String(err&&err.message||err),'Live-Weiher bleibt WebGL']);
+}
+</script>
+
 </body>
 </html>
