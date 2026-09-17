@@ -4286,6 +4286,23 @@ html,body{
 }
 </style>
 
+
+<style id="aczo-webgpu-phase1-style">
+#aczoWebGPUPhase1{
+  position:fixed;right:10px;top:max(126px,calc(env(safe-area-inset-top) + 106px));
+  z-index:2147483002;box-sizing:border-box;max-width:min(330px,calc(100vw - 20px));
+  padding:8px 10px;border:1px solid rgba(255,255,255,.32);border-radius:12px;
+  background:rgba(6,19,22,.92);color:#fff;
+  font:600 10.5px/1.2 system-ui,-apple-system,sans-serif;
+  box-shadow:0 3px 14px rgba(0,0,0,.28);pointer-events:none
+}
+#aczoWebGPUPhase1 b{font-weight:800}
+@media(max-width:760px){
+  #aczoWebGPUPhase1{right:8px;top:max(122px,calc(env(safe-area-inset-top) + 102px));
+    max-width:min(270px,calc(100vw - 100px));font-size:9.8px}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -38557,6 +38574,65 @@ function raf(t){
 }
 function start(){makePanel();requestAnimationFrame(raf);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
+
+
+<script id="aczo-webgpu-phase1-runtime">
+(async function(){
+'use strict';
+function box(){
+  let e=document.getElementById('aczoWebGPUPhase1');
+  if(!e){e=document.createElement('div');e.id='aczoWebGPUPhase1';e.innerHTML='<b>WebGPU Phase 1</b><br>Initialisierung …';document.body.appendChild(e);}
+  return e;
+}
+function show(lines){box().innerHTML='<b>WebGPU Phase 1 · echter Gerätetest</b><br>'+lines.join('<br>');}
+try{
+  if(!navigator.gpu){show(['API: NEIN','WebGL bleibt aktiv']);return;}
+  const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+  if(!adapter){show(['API: JA · Adapter: NEIN','WebGL bleibt aktiv']);return;}
+  const device=await adapter.requestDevice();
+  if(!device){show(['API: JA · Adapter: JA · Device: NEIN','WebGL bleibt aktiv']);return;}
+
+  // Create and configure a genuine GPUCanvasContext on a tiny hidden canvas.
+  // This proves more than navigator.gpu alone without touching the live Three.js scene.
+  const c=document.createElement('canvas');c.width=4;c.height=4;
+  c.style.cssText='position:fixed;left:-20px;top:-20px;width:4px;height:4px;opacity:0;pointer-events:none';
+  document.body.appendChild(c);
+  const ctx=c.getContext('webgpu');
+  const format=navigator.gpu.getPreferredCanvasFormat();
+  ctx.configure({device:device,format:format,alphaMode:'premultiplied'});
+
+  // Submit one real WebGPU render pass.
+  const encoder=device.createCommandEncoder();
+  const pass=encoder.beginRenderPass({
+    colorAttachments:[{
+      view:ctx.getCurrentTexture().createView(),
+      clearValue:{r:0,g:0,b:0,a:1},
+      loadOp:'clear',storeOp:'store'
+    }]
+  });
+  pass.end();
+  device.queue.submit([encoder.finish()]);
+  await device.queue.onSubmittedWorkDone();
+
+  const lim=adapter.limits||{};
+  const feats=adapter.features?adapter.features.size:0;
+  window.__aczoWebGPUPhase1={ok:true,adapter,device,format};
+  show([
+    'API: <b>JA</b> · Adapter: <b>JA</b> · Device: <b>JA</b>',
+    'Render-Pass: <b>ERFOLGREICH</b> · Format: '+format,
+    'Features: '+feats+' · maxTexture: '+(lim.maxTextureDimension2D||'–'),
+    'Live-Szene: <b>WebGL</b> (bewusst unverändert)',
+    'Nächster Schritt: Three.js/WebGPU + Shader-Migration'
+  ]);
+  device.lost.then(info=>{
+    const e=box();e.innerHTML+='<br><b>Device lost:</b> '+(info&&info.message?info.message:'unbekannt');
+  });
+}catch(err){
+  console.error('ACZO WebGPU Phase 1',err);
+  show(['Initialisierung: <b>FEHLER</b>',String(err&&err.message||err),'WebGL bleibt aktiv']);
+}
 })();
 </script>
 
