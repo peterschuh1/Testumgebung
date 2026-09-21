@@ -2459,8 +2459,9 @@ html,body{
 .angling-item-card.unavailable .angling-item-top,
 .angling-item-card.unavailable .angling-item-stock,
 .angling-item-card.unavailable .angling-item-tag{
-  opacity:.42;
-  filter:grayscale(.62) saturate(.42);
+  /* Auch bei Bestand 0 bleiben Artikelname, Bild und Beschreibung lesbar. */
+  opacity:1;
+  filter:none;
 }
 .angling-item-card.unavailable .angling-item-action{
   opacity:1;
@@ -25752,12 +25753,6 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldUwSceneActive=!!window.__aczoUnderwaterSceneActive;
   const oldCameraNear=camera.near,oldCameraFov=camera.fov;
   const oldCameraPos=camera.position.clone(),oldCameraQuat=camera.quaternion.clone(),oldCameraUp=camera.up.clone();
-  // C1: Der vorhandene Warmup verwendete die Materialseiten der Kartenkamera.
-  // Die echte mobile Tauchkamera waehlt dagegen eine andere Shader-Variante.
-  // Nur im bestehenden verdeckten Pass synchronisieren; danach exakt restaurieren.
-  const warmSurfaceMaterials=[waterMat,moselWaterMat,aczoPerf2CloudMat];
-  const oldWarmSurfaceSides=warmSurfaceMaterials.map(material=>material.side);
-  const oldWarmWaterSide=aczoPerf9WaterSide,oldWarmCloudSide=aczoPerf9CloudSide;
   try{
     if(!aczoPerf26UwFullTarget)aczoPerf26UwFullTarget=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});
     const start=new THREE.Vector3();centralFishStart(start);
@@ -25783,7 +25778,6 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     ground.visible=true;satEdgeOverlay.visible=false;anglingPhotoHorizon.visible=false;anglingPhotoShadowGroup.visible=false;
     anglingBankGroup.visible=false;anglingMarkerGroup.visible=false;
     setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
-    aczoPerf9UpdateLargeSurfaceSides();
     warmFishSamples.forEach(state=>{state.object.visible=true;state.object.frustumCulled=false;});
     // Freier Tauchmodus verwendet fuer Sonne und Mond eine eigene
     // depthTest/fog-Kombination. Auch diese Variante wird hier vorab erzeugt.
@@ -25866,12 +25860,6 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     aczoPerf2CloudDeck.renderOrder=oldCloudDeckOrder;
     aczoPerf2CloudMat.depthWrite=oldCloudDepthWrite;
     camera.near=oldCameraNear;camera.fov=oldCameraFov;camera.position.copy(oldCameraPos);camera.quaternion.copy(oldCameraQuat);camera.up.copy(oldCameraUp);camera.updateProjectionMatrix();
-    warmSurfaceMaterials.forEach((material,index)=>{
-      if(material.side!==oldWarmSurfaceSides[index]){
-        material.side=oldWarmSurfaceSides[index];material.needsUpdate=true;
-      }
-    });
-    aczoPerf9WaterSide=oldWarmWaterSide;aczoPerf9CloudSide=oldWarmCloudSide;
     renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);renderer.autoClear=oldAutoClear;
     // Die normalen Karten-Layer nach dem Restore einmal sauber synchronisieren,
     // ohne den gespeicherten Sichtbarkeitszustand zu ueberschreiben.
@@ -26021,172 +26009,180 @@ function aczoRunStartupUnderwaterPrewarm(){
 }
 aczoScheduleStartupUnderwaterPrewarm(30);
 
-// V5.77: Kunstköder sind eigenständige kleine 3D-Modelle. Der Blinker ist
-// eine gewölbte Metall-Löffelform mit Ösen und Drilling, der Gummifisch ein
-// schlanker Beutefisch mit Jigkopf, Auge und Paddelschwanz. Beide sind bewusst
-// maßstäblich auf rund 12 cm gebracht; die Nahkamera übernimmt die Lesbarkeit.
+// Köderdarstellung: einmal erzeugte Geometrien, keine zusätzliche Szenenaufnahme.
+const ACZO_LURE_DESIGNS={
+  spinner_basic:{family:'spoon',width:.053,fullness:.72,metal:0xd8dcde,accent:0xb84525,accent2:0x652717,scale:[1.0,1.0,1],thumbScale:.87},
+  spinner_premium:{family:'spoon',width:.046,fullness:.58,metal:0xe6bd57,accent:0x9d3026,accent2:0xf9d878,scale:[1,1.10,1],thumbScale:.91},
+  pike_special:{family:'spoon',width:.058,fullness:.68,metal:0xdbe3d9,accent:0x70a735,accent2:0x17291c,scale:[1.15,1.28,1],thumbScale:1},
+  perch_special:{family:'spoon',width:.052,fullness:.82,metal:0xd9984c,accent:0xd8782f,accent2:0x332419,scale:[.68,.70,.85],thumbScale:.53},
+  softbait_basic:{family:'shad',width:.029,height:.038,fullness:.74,ribs:9,ribDepth:.045,soft:0x728e52,belly:0xd5d0a8,tail:0x829451,scale:[1,1,1],paddle:[.90,.86,1],thumbScale:.81},
+  softbait_premium:{family:'shad',width:.036,height:.046,fullness:.59,ribs:12,ribDepth:.032,soft:0x62b1b5,belly:0xe5eee6,tail:0x77bfc0,scale:[1,1.05,1],paddle:[1.07,1.06,1],thumbScale:.86},
+  zander_special:{family:'shad',width:.024,height:.032,fullness:.92,ribs:15,ribDepth:.075,soft:0x4b78a7,belly:0xd9e3e8,tail:0x779cac,scale:[.90,1.12,.93],paddle:[.79,.90,.82],thumbScale:.92},
+  catfish_special:{family:'shad',width:.039,height:.051,fullness:.58,ribs:13,ribDepth:.14,soft:0x303b3c,belly:0x727d77,tail:0x35433d,scale:[1.13,1.20,1.10],paddle:[1.24,1.22,1.12],thumbScale:1}
+};
+function aczoLureMergeGeometry(parts){
+  const flat=parts.map(g=>g.index?g.toNonIndexed():g),out=new THREE.BufferGeometry();
+  for(const name of ['position','normal']){
+    const count=flat.reduce((n,g)=>n+g.attributes[name].array.length,0),data=new Float32Array(count);
+    let offset=0;flat.forEach(g=>{data.set(g.attributes[name].array,offset);offset+=g.attributes[name].array.length;});
+    out.setAttribute(name,new THREE.BufferAttribute(data,3));
+  }
+  flat.forEach((g,i)=>{if(g!==parts[i])g.dispose();parts[i].dispose();});
+  out.computeBoundingSphere();return out;
+}
+function aczoLureWire(points,radius=.0021){
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p))),20,radius,6,false);
+}
+function aczoLurePoint(start,end,radius=.0024){
+  const a=new THREE.Vector3(...start),b=new THREE.Vector3(...end),d=b.clone().sub(a);
+  const g=new THREE.ConeGeometry(radius,d.length(),6);
+  g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize())));
+  return g.translate((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
+}
+function aczoLureReflectionMap(){
+  const size=64,faces=[];
+  // Durchgehendes stilisiertes Himmel/Ufer-Panorama; keine Live-Spiegelung.
+  for(let face=0;face<6;face++){
+    const c=document.createElement('canvas');c.width=c.height=size;
+    const ctx=c.getContext('2d'),im=ctx.createImageData(size,size);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const u=2*(x+.5)/size-1,v=2*(y+.5)/size-1;
+      const d=[[1,-v,-u],[-1,-v,u],[u,1,v],[u,-1,-v],[u,-v,1],[-u,-v,-1]][face];
+      const len=Math.hypot(...d),z=d[2]/len,az=Math.atan2(d[1],d[0]);
+      const sky=Math.max(0,Math.min(1,(z+.08)*2.4));
+      const bank=Math.exp(-Math.pow((z-.02)/.19,2))*(.50+.20*Math.sin(az*9)+.12*Math.sin(az*23));
+      const highlight=Math.pow(Math.max(0,(d[0]*.36+d[1]*-.48+d[2]*.8)/len),42);
+      const base=[43+sky*153,54+sky*159,40+sky*192],i=(y*size+x)*4;
+      for(let k=0;k<3;k++)im.data[i+k]=Math.min(255,Math.max(8,base[k]*(1-bank*.7)+highlight*130));
+      im.data[i+3]=255;
+    }
+    ctx.putImageData(im,0,0);faces.push(c);
+  }
+  const map=new THREE.CubeTexture(faces);map.encoding=THREE.sRGBEncoding;map.needsUpdate=true;return map;
+}
 const anglingLure=new THREE.Group();anglingLure.visible=false;anglingScene.add(anglingLure);
 const anglingSpinnerBlade=new THREE.Group();anglingLure.add(anglingSpinnerBlade);
 const anglingSoftBody=new THREE.Group();anglingLure.add(anglingSoftBody);
-const anglingSoftTail=new THREE.Group();anglingSoftBody.add(anglingSoftTail);
-const anglingLureMetal=new THREE.MeshStandardMaterial({color:0xcfd4d1,metalness:.99,roughness:.05,side:THREE.DoubleSide,envMapIntensity:1.34});
-const anglingLureDarkMetal=new THREE.MeshStandardMaterial({color:0x313632,metalness:.90,roughness:.18});
-const anglingLureHookMetal=new THREE.MeshStandardMaterial({color:0x3d4448,metalness:.95,roughness:.13});
-const anglingLureJigMetal=new THREE.MeshStandardMaterial({color:0x555d63,metalness:.92,roughness:.15});
-const anglingLureRed=new THREE.MeshStandardMaterial({color:0xa52a20,metalness:.08,roughness:.32});
-const anglingLureSpinnerAccent2=new THREE.MeshStandardMaterial({color:0xf3edcf,metalness:.24,roughness:.24});
-const anglingLureSoftMat=new THREE.MeshStandardMaterial({color:0x6f8e5d,metalness:0,roughness:.58});
-const anglingLureSoftBelly=new THREE.MeshStandardMaterial({color:0xc7c6a5,metalness:0,roughness:.68});
-const anglingLureSoftTailTip=new THREE.MeshStandardMaterial({color:0xb98b4d,metalness:0,roughness:.42});
-const anglingLureEyeMat=new THREE.MeshBasicMaterial({color:0xf4e8b4});
-const anglingLurePupilMat=new THREE.MeshBasicMaterial({color:0x050505});
-
+const anglingSoftTail=new THREE.Group();anglingSoftTail.position.y=-.145;anglingSoftBody.add(anglingSoftTail);
+const aczoLureEnv=aczoLureReflectionMap();
+const anglingLureMetal=new THREE.MeshStandardMaterial({color:0xd8dcde,metalness:.94,roughness:.17,side:THREE.DoubleSide,envMap:aczoLureEnv,envMapIntensity:.65});
+const anglingLureDarkMetal=new THREE.MeshStandardMaterial({color:0x727879,metalness:.58,roughness:.24});
+const anglingLureHookMetal=new THREE.MeshStandardMaterial({color:0x737c80,metalness:.55,roughness:.22});
+const anglingLureJigMetal=new THREE.MeshStandardMaterial({color:0x747d83,metalness:.52,roughness:.35});
+const anglingLureRed=new THREE.MeshStandardMaterial({color:0xb84525,metalness:.28,roughness:.26,side:THREE.DoubleSide});
+const anglingLureSpinnerAccent2=new THREE.MeshStandardMaterial({color:0x17291c,metalness:.22,roughness:.30,side:THREE.DoubleSide});
+const anglingLureSoftMat=new THREE.MeshStandardMaterial({color:0x728e52,metalness:0,roughness:.34});
+const anglingLureSoftBelly=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,metalness:0,roughness:.36});
+const anglingLureSoftTailTip=new THREE.MeshStandardMaterial({color:0x829451,metalness:0,roughness:.32});
+const anglingLureEyeMat=new THREE.MeshStandardMaterial({color:0xd4c489,metalness:.24,roughness:.22});
+const anglingLurePupilMat=new THREE.MeshBasicMaterial({color:0x080a09});
 function addLureRing(parent,y,z=0){
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.015,.0021,8,18),anglingLureDarkMetal);
-  ring.rotation.x=Math.PI/2;ring.position.set(0,y,z);parent.add(ring);return ring;
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.011,.0018,6,14),anglingLureDarkMetal);
+  ring.position.set(0,y,z);parent.add(ring);return ring;
 }
 function createSingleHookGroup(scale=1){
-  const hook=new THREE.Group();
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.010*scale,.0018*scale,8,18),anglingLureDarkMetal);
-  ring.rotation.x=Math.PI/2;ring.position.set(0,0,.001);hook.add(ring);
-  const shank=new THREE.Mesh(new THREE.CylinderGeometry(.0021*scale,.0023*scale,.072*scale,8),anglingLureHookMetal);
-  shank.rotation.x=Math.PI/2;shank.position.set(0,0,-.029*scale);hook.add(shank);
-  const pts=[
-    new THREE.Vector3(0,0,-.063*scale),
-    new THREE.Vector3(.004*scale,0,-.084*scale),
-    new THREE.Vector3(.014*scale,0,-.103*scale),
-    new THREE.Vector3(.030*scale,0,-.110*scale),
-    new THREE.Vector3(.048*scale,0,-.100*scale),
-    new THREE.Vector3(.060*scale,0,-.078*scale),
-    new THREE.Vector3(.060*scale,0,-.046*scale),
-    new THREE.Vector3(.042*scale,0,-.017*scale)
-  ];
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const bend=new THREE.Mesh(new THREE.TubeGeometry(curve,26,.0022*scale,8,false),anglingLureHookMetal);
-  hook.add(bend);
-  const point=new THREE.Mesh(new THREE.CylinderGeometry(.00055*scale,.00155*scale,.018*scale,6),anglingLureHookMetal);
-  point.position.set(.036*scale,0,-.012*scale);point.rotation.set(Math.PI/2,0,-.58);hook.add(point);
-  const barb=new THREE.Mesh(new THREE.CylinderGeometry(.00055*scale,.00115*scale,.009*scale,6),anglingLureHookMetal);
-  barb.position.set(.022*scale,0,-.030*scale);barb.rotation.set(Math.PI/2,0,-.84);hook.add(barb);
-  return hook;
+  // Jig: ein durchgehender Schenkel aus dem Kopf durch den Körper zum Rückenbogen.
+  const hook=new THREE.Group(),g=aczoLureMergeGeometry([
+    aczoLureWire([[0,.25,.0],[0,.14,.0],[0,.018,.004],[0,-.038,.031],[0,-.027,.076],[0,.025,.083]],.0025),
+    aczoLurePoint([0,.025,.083],[0,.055,.072],.0030),
+    aczoLurePoint([0,.040,.077],[0,.026,.066],.0016)
+  ]);
+  hook.add(new THREE.Mesh(g,anglingLureHookMetal));hook.scale.setScalar(scale);return hook;
 }
-function addSingleHook(parent,y,z=0,rotX=Math.PI,rotZ=0,scale=1){
-  const g=createSingleHookGroup(scale);
-  g.position.set(0,y,z);g.rotation.set(rotX,0,rotZ);parent.add(g);return g;
+function addSingleHook(parent,y,z=0,rotX=0,rotZ=0,scale=1){
+  const g=createSingleHookGroup(scale);g.position.set(0,y,z);g.rotation.set(rotX,0,rotZ);parent.add(g);return g;
 }
-
-// ----- spoon / blinker -----
-const spoonShape=new THREE.Shape();
-spoonShape.moveTo(0,-.165);
-spoonShape.bezierCurveTo(.028,-.156,.050,-.094,.056,-.018);
-spoonShape.bezierCurveTo(.058,.062,.042,.138,0,.165);
-spoonShape.bezierCurveTo(-.042,.138,-.058,.062,-.056,-.018);
-spoonShape.bezierCurveTo(-.050,-.094,-.028,-.156,0,-.165);
-const spoonGeo=new THREE.ExtrudeGeometry(spoonShape,{
-  depth:.018,bevelEnabled:true,bevelSegments:3,steps:1,bevelSize:.007,bevelThickness:.006,curveSegments:24
-});
-spoonGeo.center();
-const spoon=new THREE.Mesh(spoonGeo,anglingLureMetal);
-spoon.rotation.x=.30;
-spoon.scale.set(.66,1,.84);
-anglingSpinnerBlade.add(spoon);
-const spoonStripe=new THREE.Mesh(new THREE.BoxGeometry(.009,.145,.010),anglingLureRed);
-spoonStripe.position.set(0,-.004,.016);spoonStripe.rotation.z=.08;anglingSpinnerBlade.add(spoonStripe);
-const spoonAccentPlate=new THREE.Mesh(new THREE.BoxGeometry(.030,.045,.009),anglingLureSpinnerAccent2);
-spoonAccentPlate.position.set(0,.044,.015);spoonAccentPlate.rotation.z=-.11;anglingSpinnerBlade.add(spoonAccentPlate);
-addLureRing(anglingSpinnerBlade,.188,.005);
-const anglingSpinnerHookPivot=new THREE.Group();
-anglingSpinnerHookPivot.position.set(0,-.202,-.004);
-anglingSpinnerBlade.add(anglingSpinnerHookPivot);
-const anglingSpinnerHookSwing=new THREE.Group();
-anglingSpinnerHookSwing.position.set(0,-.010,-.004);
-anglingSpinnerHookPivot.add(anglingSpinnerHookSwing);
-addLureRing(anglingSpinnerHookPivot,0,.004);
-addLureRing(anglingSpinnerHookSwing,0,.004);
-addSingleHook(anglingSpinnerHookSwing,-.018,-.004,Math.PI,0,1.02);
-const anglingSpinnerLineAttach=new THREE.Object3D();
-anglingSpinnerLineAttach.position.set(0,.188,.006);
-anglingSpinnerBlade.add(anglingSpinnerLineAttach);
-
-// ----- softbait / shad -----
-const softCore=new THREE.Mesh(new THREE.SphereGeometry(.082,22,16),anglingLureSoftMat);
-softCore.scale.set(.42,2.08,.30);
-softCore.position.y=.010;
-anglingSoftBody.add(softCore);
-const softHead=new THREE.Mesh(new THREE.SphereGeometry(.060,18,14),anglingLureSoftMat);
-softHead.scale.set(.62,.84,.56);
-softHead.position.set(0,.200,.000);
-anglingSoftBody.add(softHead);
-const softBelly=new THREE.Mesh(new THREE.SphereGeometry(.062,18,12),anglingLureSoftBelly);
-softBelly.scale.set(.34,1.35,.17);
-softBelly.position.set(0,.018,-.020);
-anglingSoftBody.add(softBelly);
-const softBackStripe=new THREE.Mesh(new THREE.SphereGeometry(.056,16,10),anglingLureSoftTailTip);
-softBackStripe.scale.set(.18,1.42,.08);
-softBackStripe.position.set(0,.010,.026);
-anglingSoftBody.add(softBackStripe);
-
-const jigHead=new THREE.Mesh(new THREE.SphereGeometry(.048,18,16),anglingLureJigMetal);
-jigHead.scale.set(1.05,1.05,.98);
-jigHead.position.y=.245;
-anglingSoftBody.add(jigHead);
-const anglingJigEyelet=new THREE.Mesh(new THREE.TorusGeometry(.010,.0019,8,18),anglingLureDarkMetal);
-anglingJigEyelet.rotation.x=Math.PI/2;
-anglingJigEyelet.position.set(0,.286,.000);
-anglingSoftBody.add(anglingJigEyelet);
-
+function aczoCreateTrebleHook(){
+  const parts=[aczoLureWire([[0,0,0],[0,-.048,0]],.0024)];
+  for(let i=0;i<3;i++){
+    const a=i*Math.PI*2/3,c=Math.cos(a),s=Math.sin(a),p=(r,y)=>[r*c,y,r*s];
+    parts.push(aczoLureWire([p(0,-.043),p(.009,-.071),p(.027,-.079),p(.040,-.062),p(.037,-.042)],.0021));
+    parts.push(aczoLurePoint(p(.037,-.042),p(.028,-.023),.0025));
+    parts.push(aczoLurePoint(p(.032,-.033),p(.023,-.045),.0013));
+  }
+  return new THREE.Mesh(aczoLureMergeGeometry(parts),anglingLureHookMetal);
+}
+function aczoSpoonPoint(d,t,u,offset=0){
+  const width=d.width*Math.pow(Math.max(0,Math.sin(Math.PI*t)),d.fullness);
+  return [u*width,(t-.5)*.330,.023*Math.sin(Math.PI*t)*(1-u*u)+.009*u*u+offset];
+}
+function aczoSpoonSurface(d,t0=0,t1=1,u0=-1,u1=1,offset=0,back=false,rows=18){
+  const pos=[],idx=[],cols=8;
+  for(let i=0;i<=rows;i++)for(let j=0;j<=cols;j++)pos.push(...aczoSpoonPoint(d,t0+(t1-t0)*i/rows,u0+(u1-u0)*j/cols,offset));
+  for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){
+    const a=i*(cols+1)+j,b=a+cols+1;
+    idx.push(...(back?[a,b,a+1,b,b+1,a+1]:[a,a+1,b,b,a+1,b+1]));
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();return g;
+}
+function aczoSpoonGeometry(d){
+  const parts=[aczoSpoonSurface(d),aczoSpoonSurface(d,0,1,-1,1,-.004,true)],p=[],ix=[];
+  for(const u of [-1,1])for(let i=0;i<=18;i++)p.push(...aczoSpoonPoint(d,i/18,u),...aczoSpoonPoint(d,i/18,u,-.004));
+  for(let side=0;side<2;side++)for(let i=0;i<18;i++){const a=side*38+i*2;ix.push(a,a+1,a+2,a+1,a+3,a+2);}
+  const edge=new THREE.BufferGeometry();edge.setAttribute('position',new THREE.Float32BufferAttribute(p,3));edge.setIndex(ix);edge.computeVertexNormals();parts.push(edge);
+  return aczoLureMergeGeometry(parts);
+}
+function aczoSoftSection(d,t){
+  const outline=.04+.96*Math.pow(Math.max(0,Math.sin(Math.PI*t)),d.fullness)*(1-.5*t)+.65*Math.pow(1-t,6);
+  const rib=1-d.ribDepth*(.5+.5*Math.cos(t*d.ribs*Math.PI*2))*Math.sin(Math.PI*t);
+  return outline*rib;
+}
+function aczoSoftGeometry(d){
+  const pos=[],col=[],idx=[],rows=48,sides=14,top=new THREE.Color(d.soft),belly=new THREE.Color(d.belly),color=new THREE.Color();
+  for(let i=0;i<=rows;i++){
+    const t=i/rows,y=.214-t*.416;
+    const section=aczoSoftSection(d,t);
+    for(let j=0;j<=sides;j++){
+      const a=j/sides*Math.PI*2,z=Math.cos(a),x=Math.sin(a);
+      pos.push(x*d.width*section,y,z*d.height*section);
+      color.copy(top).lerp(belly,THREE.MathUtils.smoothstep(-z,-.1,.85));
+      const fleck=((i*17+j*31)%37===0&&d===ACZO_LURE_DESIGNS.softbait_premium)?1.18:1;
+      col.push(Math.min(1,color.r*fleck),Math.min(1,color.g*fleck),Math.min(1,color.b*fleck));
+    }
+  }
+  for(let i=0;i<rows;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;idx.push(a,b,a+1,b,b+1,a+1);}
+  const nose=pos.length/3;pos.push(0,.220,0,0,-.205,0);col.push(top.r,top.g,top.b,top.r,top.g,top.b);
+  for(let j=0;j<sides;j++){idx.push(nose,j,j+1);const a=rows*(sides+1)+j;idx.push(nose+1,a+1,a);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();g.computeBoundingSphere();return g;
+}
+const aczoLureGeometryCache={};
+for(const [id,d] of Object.entries(ACZO_LURE_DESIGNS)){
+  if(d.family==='spoon'){
+    const marks=[];
+    if(id==='perch_special')for(const t of [.24,.44,.64,.80])marks.push(aczoSpoonSurface(d,t,t+.047,-.95,.95,.0013,false,3));
+    else marks.push(aczoSpoonSurface(d,.39,.66,-.30,.30,.0014,false,6));
+    aczoLureGeometryCache[id]={body:aczoSpoonGeometry(d),accent:aczoSpoonSurface(d,id==='pike_special'?.22:.06,id==='pike_special'?.82:.30,-.92,.92,.001),marks:aczoLureMergeGeometry(marks)};
+  }else aczoLureGeometryCache[id]={body:aczoSoftGeometry(d)};
+}
+const spoon=new THREE.Mesh(aczoLureGeometryCache.spinner_basic.body,anglingLureMetal);anglingSpinnerBlade.add(spoon);
+const spoonStripe=new THREE.Mesh(aczoLureGeometryCache.spinner_basic.accent,anglingLureRed);anglingSpinnerBlade.add(spoonStripe);
+const spoonAccentPlate=new THREE.Mesh(aczoLureGeometryCache.spinner_basic.marks,anglingLureSpinnerAccent2);anglingSpinnerBlade.add(spoonAccentPlate);
+spoon.onBeforeRender=function(){
+  // Verhindert leuchtendes Metall nachts. Vorhandene Lichtwerte, kein weiterer Loop.
+  anglingLureMetal.envMapIntensity=Math.max(.015,Math.min(.95,hemi.intensity*.18+sun.intensity*.42+moonLight.intensity*.12));
+};
+addLureRing(anglingSpinnerBlade,.173,.007);
+const anglingSpinnerHookPivot=new THREE.Group();anglingSpinnerHookPivot.position.set(0,-.175,.007);anglingSpinnerBlade.add(anglingSpinnerHookPivot);
+const anglingSpinnerHookSwing=new THREE.Group();anglingSpinnerHookSwing.position.set(0,-.018,0);anglingSpinnerHookPivot.add(anglingSpinnerHookSwing);
+addLureRing(anglingSpinnerHookPivot,0);addLureRing(anglingSpinnerHookSwing,0);
+const anglingTrebleHook=aczoCreateTrebleHook();anglingTrebleHook.position.y=-.008;anglingSpinnerHookSwing.add(anglingTrebleHook);
+const anglingSpinnerLineAttach=new THREE.Object3D();anglingSpinnerLineAttach.position.set(0,.188,.006);anglingSpinnerBlade.add(anglingSpinnerLineAttach);
+const softCore=new THREE.Mesh(aczoLureGeometryCache.softbait_basic.body,anglingLureSoftBelly);anglingSoftBody.add(softCore);
+const jigHead=new THREE.Mesh(new THREE.SphereGeometry(.029,14,10),anglingLureJigMetal);jigHead.position.y=.245;anglingSoftBody.add(jigHead);
+const anglingJigEyelet=new THREE.Mesh(new THREE.TorusGeometry(.009,.0016,6,14),anglingLureDarkMetal);anglingJigEyelet.position.set(0,.279,.017);anglingJigEyelet.rotation.y=Math.PI/2;anglingSoftBody.add(anglingJigEyelet);
+const aczoSoftEyes=[];
 for(const sx of [-1,1]){
-  const eye=new THREE.Mesh(new THREE.SphereGeometry(.010,10,8),anglingLureEyeMat);
-  eye.position.set(sx*.040,.212,.012);
-  anglingSoftBody.add(eye);
-  const pupil=new THREE.Mesh(new THREE.SphereGeometry(.0043,8,6),anglingLurePupilMat);
-  pupil.position.set(sx*.049,.214,.014);
-  anglingSoftBody.add(pupil);
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.009,10,8),anglingLureEyeMat);eye.scale.set(.26,1,1);eye.position.set(sx*.024,.158,.011);anglingSoftBody.add(eye);
+  const pupil=new THREE.Mesh(new THREE.SphereGeometry(.0048,8,6),anglingLurePupilMat);pupil.scale.set(.3,1,1);pupil.position.set(sx*.027,.160,.012);anglingSoftBody.add(pupil);
+  aczoSoftEyes.push({sx,eye,pupil});
 }
-
-// Shad-Schwanz näher und sauberer an den Körper angebunden
-const tailRoot=new THREE.Mesh(new THREE.CylinderGeometry(.012,.018,.110,10),anglingLureSoftMat);
-tailRoot.rotation.x=Math.PI/2;
-tailRoot.position.y=-.132;
-anglingSoftTail.add(tailRoot);
-const tailStem=new THREE.Mesh(new THREE.CylinderGeometry(.007,.012,.126,10),anglingLureSoftMat);
-tailStem.rotation.x=Math.PI/2;
-tailStem.position.y=-.226;
-anglingSoftTail.add(tailStem);
-const tailPaddleShape=new THREE.Shape();
-tailPaddleShape.moveTo(0,-.060);
-tailPaddleShape.bezierCurveTo(.020,-.055,.042,-.020,.050,.020);
-tailPaddleShape.bezierCurveTo(.048,.060,.024,.094,0,.102);
-tailPaddleShape.bezierCurveTo(-.024,.094,-.048,.060,-.050,.020);
-tailPaddleShape.bezierCurveTo(-.042,-.020,-.020,-.055,0,-.060);
-const tailPaddleGeo=new THREE.ExtrudeGeometry(tailPaddleShape,{
-  depth:.018,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.0025,bevelThickness:.0025,curveSegments:16
-});
-tailPaddleGeo.center();
-const softTailMesh=new THREE.Mesh(tailPaddleGeo,anglingLureSoftTailTip);
-softTailMesh.position.set(0,-.310,.0);
-softTailMesh.scale.set(.92,.98,1.0);
-anglingSoftTail.add(softTailMesh);
-
-// sichtbarer Rücken-/Jighaken auf dem oberen Mittelkörper
-const anglingSoftHookPivot=new THREE.Group();
-anglingSoftHookPivot.position.set(.020,.030,.040);
-anglingSoftBody.add(anglingSoftHookPivot);
-const anglingSoftHookLead=new THREE.Mesh(new THREE.CylinderGeometry(.0026,.0030,.170,8),anglingLureHookMetal);
-anglingSoftHookLead.rotation.set(Math.PI/2-.24,0,.04);
-anglingSoftHookLead.position.set(-.010,.065,-.004);
-anglingSoftHookPivot.add(anglingSoftHookLead);
-addSingleHook(anglingSoftHookPivot,.030,.000,-.20,.08,1.08);
-
-const anglingSoftLineAttach=new THREE.Object3D();
-anglingSoftLineAttach.position.set(0,.286,.000);
-anglingSoftBody.add(anglingSoftLineAttach);
-
-// V8.15: Pose etwas größer, Vorschau näher an der Spitze, Blinker mit besser
-// sichtbarem frei schwingendem Einzelhaken und Shad mit deutlicherem Oberhaken
-// sowie sauberer angebundenem Schwanz.
+const tailRoot=new THREE.Mesh(new THREE.CylinderGeometry(.012,.006,.166,10),anglingLureSoftMat);tailRoot.position.y=-.081;anglingSoftTail.add(tailRoot);
+const softTailMesh=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),anglingLureSoftTailTip);softTailMesh.scale.set(.043,.011,.047);softTailMesh.position.set(0,-.169,-.003);softTailMesh.rotation.x=-.35;anglingSoftTail.add(softTailMesh);
+const anglingSoftHookPivot=new THREE.Group();anglingSoftBody.add(anglingSoftHookPivot);addSingleHook(anglingSoftHookPivot,0);
+const anglingSoftLineAttach=new THREE.Object3D();anglingSoftLineAttach.position.set(0,.286,.000);anglingSoftBody.add(anglingSoftLineAttach);
 anglingLure.scale.setScalar(.074);anglingLure.traverse(o=>o.layers.enable(7));
 anglingFloatCamera.layers.enable(0);
+
 
 const ANGLING_LINE_POINTS=20;
 const anglingLineGeo=new THREE.BufferGeometry();
@@ -27512,10 +27508,10 @@ const ANGLING_LURE_CATALOG={
   softbait_basic:{name:'Gummifisch Standard',icon:'softbait_basic',type:'softbait',price:15,desc:'Grundnah stark, besonders auf Zander.',tag:'Standard',boost:{}},
   spinner_premium:{name:'Blinker Premium',icon:'spinner_premium',type:'spinner',price:25,desc:'Etwas auffälliger und insgesamt fängiger.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
   softbait_premium:{name:'Gummifisch Premium',icon:'softbait_premium',type:'softbait',price:25,desc:'Mehr Aktion und etwas höhere Raubfischchance.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
-  pike_special:{name:'Hecht-Spezial',icon:'pike_special',type:'spinner',price:40,desc:'Gezielt auf Hecht abgestimmt.',tag:'Hecht ++',boost:{pike:1.65,zander:.82,perch:.92,catfish:.70}},
-  zander_special:{name:'Zander-Spezial',icon:'zander_special',type:'softbait',price:40,desc:'Grundnaher Spezialköder für Zander.',tag:'Zander ++',boost:{zander:1.70,pike:.86,perch:.90,catfish:.88}},
-  perch_special:{name:'Barsch-Spezial',icon:'perch_special',type:'spinner',price:35,desc:'Kompakt und aggressiv für Barsche.',tag:'Barsch ++',boost:{perch:1.75,pike:.88,zander:.82,catfish:.55}},
-  catfish_special:{name:'Wels-Spezial',icon:'catfish_special',type:'softbait',price:40,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
+  pike_special:{name:'Blinker Hecht-Spezial',icon:'pike_special',type:'spinner',price:40,desc:'Gezielt auf Hecht abgestimmt.',tag:'Hecht ++',boost:{pike:1.65,zander:.82,perch:.92,catfish:.70}},
+  zander_special:{name:'Gummifisch Zander-Spezial',icon:'zander_special',type:'softbait',price:40,desc:'Grundnaher Spezialköder für Zander.',tag:'Zander ++',boost:{zander:1.70,pike:.86,perch:.90,catfish:.88}},
+  perch_special:{name:'Blinker Barsch-Spezial',icon:'perch_special',type:'spinner',price:35,desc:'Kompakt und aggressiv für Barsche.',tag:'Barsch ++',boost:{perch:1.75,pike:.88,zander:.82,catfish:.55}},
+  catfish_special:{name:'Gummifisch Wels-Spezial',icon:'catfish_special',type:'softbait',price:40,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
 };
 const ANGLING_EQUIPMENT_CATALOG={
   rod_standard:{
@@ -27670,26 +27666,28 @@ const ANGLING_LURE_APPEARANCE={
   catfish_special:{overall:.080,softBodyScale:[1.08,1.18,1.08],tailScale:[1.10,1.18,1.10],soft:0x2a3135,belly:0x6a7177,tail:0x7560a0,jig:0x30363b,hook:0x24282d}
 };
 function applyAnglingLureStyle(){
-  const profile=ANGLING_LURE_APPEARANCE[anglingSelectedLureId]||ANGLING_LURE_APPEARANCE.spinner_basic;
-  const spinnerScale=profile.spinnerScale||[1,1,1];
-  const softBodyScale=profile.softBodyScale||[1,1,1];
-  const tailScale=profile.tailScale||[1,1,1];
+  const id=ACZO_LURE_DESIGNS[anglingSelectedLureId]?anglingSelectedLureId:'spinner_basic';
+  const profile=ANGLING_LURE_APPEARANCE[id],d=ACZO_LURE_DESIGNS[id];
+  // overall bleibt unverändert: dieser Wert wird auch vom bestehenden Kontaktmodell gelesen.
   anglingLure.scale.setScalar(profile.overall||.074);
-  anglingSpinnerBlade.scale.set(spinnerScale[0],spinnerScale[1],spinnerScale[2]);
-  anglingSoftBody.scale.set(softBodyScale[0],softBodyScale[1],softBodyScale[2]);
-  anglingSoftTail.scale.set(tailScale[0],tailScale[1],tailScale[2]);
-  spoon.scale.set(.88,1,1);
-  spoonStripe.scale.set(1,1,1);
-  spoonAccentPlate.scale.set(1,1,1);
-  anglingLureMetal.color.setHex(profile.metal??0xcfd4d1);
-  anglingLureDarkMetal.color.setHex(profile.dark??0x313632);
-  anglingLureHookMetal.color.setHex(profile.hook??profile.dark??0x313632);
-  anglingLureRed.color.setHex(profile.accent??0xa52a20);
-  anglingLureSpinnerAccent2.color.setHex(profile.accent2??0xf3edcf);
-  anglingLureSoftMat.color.setHex(profile.soft??0x6f8e5d);
-  anglingLureSoftBelly.color.setHex(profile.belly??0xc7c6a5);
-  anglingLureSoftTailTip.color.setHex(profile.tail??0xb98b4d);
-  anglingLureJigMetal.color.setHex(profile.jig??profile.dark??0x313632);
+  if(d.family==='spoon'){
+    const g=aczoLureGeometryCache[id];spoon.geometry=g.body;spoonStripe.geometry=g.accent;spoonAccentPlate.geometry=g.marks;
+    anglingSpinnerBlade.scale.set(...d.scale);
+    anglingLureMetal.color.setHex(d.metal);anglingLureRed.color.setHex(d.accent);anglingLureSpinnerAccent2.color.setHex(d.accent2);
+    anglingLureMetal.roughness=id==='spinner_premium'?.13:.19;
+  }else{
+    softCore.geometry=aczoLureGeometryCache[id].body;anglingSoftBody.scale.set(...d.scale);
+    anglingSoftTail.scale.set(1,1,1);
+    softTailMesh.scale.set(.043*d.paddle[0],.011*d.paddle[2],.047*d.paddle[1]);
+    anglingLureSoftMat.color.setHex(d.soft);anglingLureSoftTailTip.color.setHex(d.tail);
+    // Augen folgen der jeweiligen Körperoberfläche statt neben schmalen Shads zu schweben.
+    const section=aczoSoftSection(d,(.214-.158)/.416);
+    const rx=d.width*section,rz=d.height*section;
+    const x=rx*Math.sqrt(Math.max(0,1-Math.pow(.011/rz,2)));
+    aczoSoftEyes.forEach(({sx,eye,pupil})=>{eye.position.x=sx*(x+.001);pupil.position.x=sx*(x+.003);});
+  }
+  anglingLureDarkMetal.color.setHex(0x727879);anglingLureHookMetal.color.setHex(0x737c80);
+  anglingLureJigMetal.color.setHex(profile.jig||0x747d83);
 }
 
 const ANGLING_BAIT_FACTORS={
@@ -28216,10 +28214,51 @@ function createAnglingCategory(title,icon,note='',cls=''){
  return {section,grid};
 }
 
+function aczoLureDesignThumb(key,uid){
+  const d=ACZO_LURE_DESIGNS[key];if(!d)return '';
+  const hex=v=>'#'+v.toString(16).padStart(6,'0'),g=n=>n+'_'+uid;
+  const common='viewBox="0 0 96 64" aria-hidden="true" focusable="false"';
+  const scale=d.thumbScale;
+  const wrap=body=>`<svg ${common}><g transform="translate(48 32) scale(${scale}) translate(-48 -32)">${body}</g></svg>`;
+  if(d.family==='spoon'){
+    const width=d.width/.053,outline=`M12 32 C20 ${32-12*width} 44 ${32-19*width} 68 29 Q73 32 68 35 C44 ${32+19*width} 20 ${32+12*width} 12 32Z`;
+    const stripe=key==='perch_special'
+      ?'<path d="M27 14l4 36M40 12l4 38M53 13l4 33" stroke="#34251b" stroke-width="3.2"/>'
+      :key==='pike_special'?'<path d="M18 25Q39 12 62 26L59 32Q34 25 18 31Z" fill="#76ac3f"/><path d="M30 17l5 12M44 15l4 12M57 19l3 10" stroke="#1e3324" stroke-width="3"/>'
+      :`<path d="M53 15h20v34H53Z" fill="${hex(d.accent)}"/>`;
+    return wrap(`<defs>
+      <linearGradient id="${g('metal')}" x1="0" y1="0" x2=".20" y2="1"><stop stop-color="#fcffff"/><stop offset=".20" stop-color="${hex(d.metal)}"/><stop offset=".39" stop-color="#3e4b48"/><stop offset=".48" stop-color="#101c1b"/><stop offset=".58" stop-color="${hex(d.metal)}"/><stop offset=".70" stop-color="#fffdf0"/><stop offset="1" stop-color="${hex(d.metal)}"/></linearGradient>
+      <linearGradient id="${g('steel')}" x1="0" x2="1"><stop stop-color="#444b48"/><stop offset=".45" stop-color="#e0e7df"/><stop offset="1" stop-color="#525e5a"/></linearGradient>
+      <clipPath id="${g('clip')}"><path d="${outline}"/></clipPath></defs>
+      <path d="${outline}" fill="url(#${g('metal')})" stroke="#d5dace" stroke-width=".65"/>
+      <g clip-path="url(#${g('clip')})" opacity=".86">${stripe}</g>
+      <path d="M19 27Q38 ${19-2*width} 60 27" fill="none" stroke="#fafff3" stroke-width=".65" opacity=".8"/>
+      <g fill="none" stroke="url(#${g('steel')})" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="10" cy="32" rx="3.5" ry="2.3"/><ellipse cx="72" cy="32" rx="3.6" ry="2.5"/>
+        <path d="M75 32h9M83 32c11 0 10-12 3-12l-3 1M83 32c11 0 10 12 3 12l-3-1M81 32q7-4 9 0l-3 1"/>
+      </g><path d="M84 21l3-1-1 3M84 43l3 1-1-3" fill="#aab7af"/>`);
+  }
+  const height=d.height/.038,top=32-9*height,bottom=32+9*height;
+  const outline=`M18 32Q23 ${top} 33 ${top}C48 ${top-1} 59 29 77 30L84 26L88 28L87 39L83 40L77 34C57 35 47 ${bottom} 29 ${bottom}Q20 ${bottom-1} 18 32Z`;
+  let ribs='';for(let i=0;i<d.ribs;i++){const x=32+i*37/d.ribs;ribs+=`<path d="M${x} 17q-3 15 0 30" fill="none" stroke="${hex(d.soft)}" stroke-width="${key==='catfish_special'?1.6:.8}" opacity=".60"/>`;}
+  return wrap(`<defs>
+    <linearGradient id="${g('rubber')}" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${hex(d.soft)}"/><stop offset=".42" stop-color="${hex(d.soft)}"/><stop offset=".82" stop-color="${hex(d.belly)}"/><stop offset="1" stop-color="${hex(d.soft)}"/></linearGradient>
+    <radialGradient id="${g('jig')}" cx=".28" cy=".25"><stop stop-color="#e6ebed"/><stop offset=".4" stop-color="#9da6aa"/><stop offset="1" stop-color="#394348"/></radialGradient>
+    <clipPath id="${g('shadclip')}"><path d="${outline}"/></clipPath></defs>
+    <path d="M16 28L18 32H52Q65 31 62 18Q59 10 45 17" fill="none" stroke="#8e9894" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M45 17l4-3-1 3" fill="#c6d3c9"/>
+    <path d="${outline}" fill="url(#${g('rubber')})" stroke="${hex(d.belly)}" stroke-width=".55"/>
+    <g clip-path="url(#${g('shadclip')})">${ribs}${key==='softbait_premium'?'<path d="M31 29h1m7 5h1m8-7h1m9 7h1m8-3h1m-21 6h1" stroke="#f6fff0" stroke-width="1.2"/>':''}</g>
+    <path d="M30 ${top+2}Q49 ${top+3} 70 31" fill="none" stroke="#eef7e7" stroke-width=".75" opacity=".48"/>
+    <circle cx="25" cy="29" r="3.2" fill="#cbbd76" stroke="#33433b" stroke-width=".6"/><circle cx="25" cy="29" r="1.9" fill="#101a16"/><circle cx="24.4" cy="28.3" r=".7" fill="#fff"/>
+    <circle cx="13" cy="32" r="6" fill="url(#${g('jig')})"/><circle cx="13" cy="24" r="2" fill="none" stroke="#a8b4b3" stroke-width=".85"/>`);
+}
+
 let anglingBaitThumbUid=0;
 function anglingBaitThumb(key){
  const common='viewBox="0 0 96 64" aria-hidden="true" focusable="false"';
  const uid='abthumb_'+(++anglingBaitThumbUid);
+ if(ACZO_LURE_DESIGNS[key])return aczoLureDesignThumb(key,uid);
  const gid=name=>name+'_'+uid;
  const hook='<path d="M78 38c8 0 9 11 2 15-5 3-11 0-11-6" fill="none" stroke="#cfd6d4" stroke-width="2.2" stroke-linecap="round"/>';
  const eye='<circle cx="76" cy="22" r="2.2" fill="#f5f7ef"/><circle cx="76.6" cy="22" r="1" fill="#111"/>';
@@ -28365,7 +28404,8 @@ function renderAnglingBaitBox(){
  const standard=createAnglingCategory('Naturköder','🌿','Grundausstattung','natural');
  const premium=createAnglingCategory('Spezial-Friedfischköder','⭐','Premium','premium');
  const baitfishCat=createAnglingCategory('Köderfisch','🐟','muss gefangen werden','baitfish');
- const artificial=createAnglingCategory('Kunstköder','🌀','aktiv führen','artificial');
+ const spinners=createAnglingCategory('Blinker','🌀','Kunstköder','artificial');
+ const softbaits=createAnglingCategory('Gummifische','🐟','Kunstköder','artificial');
  const feed=createAnglingCategory('Lockfutter','🟡','Vorrat für Futterplätze','premium');
  const equipment=createAnglingCategory('Equipment','🧭','dauerhafte Ausrüstung','equipment');
 
@@ -28389,7 +28429,7 @@ function renderAnglingBaitBox(){
 
  Object.entries(ANGLING_LURE_CATALOG).forEach(([id,l])=>{
    const stock=anglingLureStock(id);
-   artificial.grid.appendChild(createAnglingItemCard({
+   (l.type==='softbait'?softbaits:spinners).grid.appendChild(createAnglingItemCard({
      icon:l.icon,name:l.name,desc:l.desc,stock,tag:l.tag,
      selected:stock>0&&anglingUsesArtificialLure()&&anglingSelectedLureId===id,
      unavailable:stock<1,
@@ -28430,7 +28470,7 @@ function renderAnglingBaitBox(){
    }));
  });
 
- [standard,premium,baitfishCat,artificial,feed,equipment].forEach(c=>anglingBaitBoxBody.appendChild(c.section));
+ [standard,premium,baitfishCat,spinners,softbaits,feed,equipment].forEach(c=>anglingBaitBoxBody.appendChild(c.section));
 }
 function refreshAnglingCommerceViews(){
   if(anglingBaitBoxPanel.classList.contains('open'))renderAnglingBaitBox();
@@ -28471,7 +28511,8 @@ function renderAnglingShop(){
 
  const standard=createAnglingCategory('Naturköder','🌿','günstiger Nachschub','natural');
  const premium=createAnglingCategory('Spezial-Friedfischköder','⭐','gezieltere Fangchancen','premium');
- const artificial=createAnglingCategory('Kunstköder','🌀','Blinker & Gummifische','artificial');
+ const spinners=createAnglingCategory('Blinker','🌀','Kunstköder','artificial');
+ const softbaits=createAnglingCategory('Gummifische','🐟','Kunstköder','artificial');
  const feedCat=createAnglingCategory('Lockfutter','🟡','teuer · 10 Minuten Wirkung','premium');
  const equipmentCat=createAnglingCategory('Equipment','🧭','dauerhafte Ausrüstung','equipment');
 
@@ -28486,7 +28527,7 @@ function renderAnglingShop(){
  });
 
  Object.entries(ANGLING_LURE_CATALOG).forEach(([id,l])=>{
-   artificial.grid.appendChild(createAnglingItemCard({
+   (l.type==='softbait'?softbaits:spinners).grid.appendChild(createAnglingItemCard({
      icon:l.icon,name:l.name,desc:l.desc,stock:anglingLureStock(id),tag:l.tag,
      action:l.price+' EP · Kaufen',actionClass:'buy',
      disabled:anglingProgress.xp<l.price,onClick:()=>buyAnglingLure(id)
@@ -28517,7 +28558,7 @@ function renderAnglingShop(){
    }));
  });
 
- [standard,premium,artificial,feedCat,equipmentCat].forEach(c=>anglingShopBody.appendChild(c.section));
+ [standard,premium,spinners,softbaits,feedCat,equipmentCat].forEach(c=>anglingShopBody.appendChild(c.section));
 }
 function openAnglingShop(){if(guardAnglingMenuOpen())return;closeAnglingGamePanels();renderAnglingShop();markAnglingGamePanelOpen(anglingShopPanel);}
 
@@ -38203,187 +38244,6 @@ function aczoPerf7Summary(){
 }
 // -------------------------------------------------------------------------
 
-// BEGIN ACZO LOCAL DIAGNOSTICS
-// ACZO56 local diagnostics. No network, storage clearing, gameplay updates or RAF loop.
-// Activate explicitly with ?aczo_diag=1. OFF: return before creating UI/listeners/wrappers.
-(function aczoLocalDiagnostics(){
-  if(new URLSearchParams(location.search).get('aczo_diag')!=='1')return;
-  const label='C1_KANDIDAT';
-  const capacity=18000,intervals=new Float64Array(capacity),times=new Float64Array(capacity);
-  const work=new Float64Array(capacity),calls=new Uint32Array(capacity),triangles=new Float64Array(capacity);
-  let samples=0,lastMainAt=0,current=-1,recording=true,segmentAt=performance.now(),stoppedAt=null;
-  let lastState='',mainCount=0,allRenders=0,offscreenRenders=0;
-  let drawCalls=0,triangleCount=0,renderCpu=0,longTasks=0,longTaskMs=0;
-  let memoryPeak={geometries:0,textures:0,programs:0},resourcesAtStart=null;
-  const phases=[],events=[],cpu=Object.create(null),transitions=[],openTransitions=new Map();
-  const startup={diagnosticInstalledMs:performance.now(),loaderHiddenMs:null,loaderRemovedMs:null};
-  const round=v=>Math.round(v*100)/100;
-  function event(type,detail){
-    if(events.length<300)events.push({at:round(performance.now()),type,detail});
-  }
-  function begin(key){
-    if(!recording)return;
-    openTransitions.set(key,performance.now());event('begin',key);
-  }
-  function finish(key){
-    if(!recording||!openTransitions.has(key))return;
-    const start=openTransitions.get(key);openTransitions.delete(key);
-    if(transitions.length<120)transitions.push({name:key,startMs:round(start),endMs:round(performance.now()),durationMs:round(performance.now()-start)});
-  }
-  function state(){
-    if(fishMode)return fishTransition?'fish-'+fishTransition.type:'fish-swim';
-    if(anglingMode)return 'angling-'+anglingState+'-'+anglingCinematicView;
-    return skyLookMode?'sky':(is2D?'map-2d':'map-3d');
-  }
-  function resources(){
-    return {geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
-      programs:renderer.info.programs?renderer.info.programs.length:null,fish:fishActors.length};
-  }
-  function summarize(values){
-    const sorted=values.slice().sort((a,b)=>a-b),n=sorted.length;
-    if(!n)return {n:0};
-    const q=p=>round(sorted[Math.max(0,Math.ceil(n*p)-1)]);
-    return {n,medianMs:q(.5),p95Ms:q(.95),p99Ms:q(.99),maxMs:round(sorted[n-1]),
-      over50ms:sorted.filter(v=>v>50).length,over100ms:sorted.filter(v=>v>100).length};
-  }
-  function metrics(){
-    const start=Math.max(0,samples-capacity),dt=[],cpuTimes=[];
-    let dc=0,tr=0;
-    for(let i=start;i<samples;i++){const k=i%capacity;if(intervals[k]>0)dt.push(intervals[k]);cpuTimes.push(work[k]);dc+=calls[k];tr+=triangles[k];}
-    return {mainFrameIntervals:summarize(dt),rendererSubmissionMsPerMainFrame:summarize(cpuTimes),
-      sceneDrawCallsPerRetainedMainFrame:samples?round(dc/Math.min(samples,capacity)):0,
-      trianglesPerRetainedMainFrame:samples?round(tr/Math.min(samples,capacity)):0};
-  }
-  function report(){
-    const endedAt=stoppedAt===null?performance.now():stoppedAt,duration=endedAt-segmentAt;
-    const phaseStats=phases.map((p,i)=>{
-      const end=i+1<phases.length?phases[i+1].at:endedAt,v=[];
-      for(let j=Math.max(0,samples-capacity);j<samples;j++){
-        const k=j%capacity;if(times[k]>=p.at&&times[k]<end&&intervals[k]>0)v.push(intervals[k]);
-      }
-      return {state:p.state,startMs:round(p.at),endMs:round(end),intervals:summarize(v)};
-    });
-    return {label,recording,warning:'Intervals are main-render submission intervals, NOT GPU/presentation times. CPU timings overlap. Diagnostic overhead is included.',
-      environment:{userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,dpr:devicePixelRatio,
-        rendererPixelRatio:renderer.getPixelRatio(),bufferWidth:renderer.domElement.width,bufferHeight:renderer.domElement.height,
-        quality:aczoGraphicsMode,simulationEnabled,nightFactor:sceneNightFactor},
-      startup,segmentStartMs:round(segmentAt),durationMs:round(duration),...metrics(),
-      renders:{main:mainCount,total:allRenders,offscreen:offscreenRenders,drawCalls,triangles:triangleCount,
-        synchronousSubmissionMs:round(renderCpu)},resourcesAtStart,resourcesNow:resources(),resourcePeaks:memoryPeak,
-      longTasks:{supported:!!longTaskObserver,count:longTasks,durationMs:round(longTaskMs)},
-      cpu,transitions,unfinishedTransitions:[...openTransitions.keys()],phases:phaseStats,events,
-      samplesRetained:Math.min(samples,capacity),olderSamplesOverwritten:Math.max(0,samples-capacity)};
-  }
-  const originalRender=renderer.render;
-  renderer.render=function(s,c){
-    if(!recording)return originalRender.apply(this,arguments);
-    const t=performance.now(),offscreen=this.getRenderTarget()!==null;
-    // Inset cameras are different objects; startup weather can also use this main camera.
-    const main=s===scene&&c===camera&&!offscreen;
-    if(main){
-      const nextState=state();
-      if(nextState!==lastState){
-        if(phases.length<200)phases.push({state:nextState,at:t});
-        if(nextState==='fish-swim')finish('dive');
-        if(!fishMode)finish('surface-return');
-        if(anglingCinematicView==='underwater')finish('lure-to-underwater');
-        lastState=nextState;
-      }
-      current=samples++%capacity;times[current]=t;
-      intervals[current]=lastMainAt?t-lastMainAt:0;lastMainAt=t;
-      work[current]=0;calls[current]=0;triangles[current]=0;mainCount++;
-    }
-    const beforeCalls=this.info.render.calls,beforeTriangles=this.info.render.triangles;
-    try{return originalRender.apply(this,arguments);}
-    finally{
-      const ms=performance.now()-t;
-      const dc=this.info.autoReset?this.info.render.calls:Math.max(0,this.info.render.calls-beforeCalls);
-      const tr=this.info.autoReset?this.info.render.triangles:Math.max(0,this.info.render.triangles-beforeTriangles);
-      renderCpu+=ms;allRenders++;if(offscreen)offscreenRenders++;
-      drawCalls+=dc;triangleCount+=tr;
-      if(current>=0&&!offscreen){work[current]+=ms;calls[current]+=dc;triangles[current]+=tr;}
-      const m=resources();
-      memoryPeak.geometries=Math.max(memoryPeak.geometries,m.geometries);
-      memoryPeak.textures=Math.max(memoryPeak.textures,m.textures);
-      memoryPeak.programs=Math.max(memoryPeak.programs,m.programs||0);
-      if(ms>100)event('slow-render',{ms:round(ms),offscreen,state:state()});
-      if(offscreen)event('offscreen-pass',{ms:round(ms),waterSide:waterMat.side,
-        targetEncoding:this.getRenderTarget()?.texture.encoding,outputEncoding:this.outputEncoding});
-    }
-  };
-  function wrap(name,category,onBegin,onEnd){
-    const original=window[name];if(typeof original!=='function')return;
-    window[name]=function(){
-      if(!recording)return original.apply(this,arguments);
-      const t=performance.now();if(onBegin)onBegin();
-      try{return original.apply(this,arguments);}
-      finally{
-        const ms=performance.now()-t;
-        const r=cpu[name]||(cpu[name]={calls:0,totalMs:0,maxMs:0});
-        r.calls++;r.totalMs+=ms;r.maxMs=Math.max(r.maxMs,ms);
-        if(category==='warmup'||ms>100)event(category||'slow-function',{name,ms:round(ms)});
-        if(onEnd)onEnd();
-      }
-    };
-  }
-  ['aczoPerf26ForceFullUnderwaterPrewarm','aczoPerf24ForceUnderwaterRenderWarmup',
-    'aczoCompileUnderwaterShaders','ensureAnglingLureUnderwaterWorld','buildFishWorldStep',
-    'aczoPrimeFishRuntimeStep','rebuildFishPlants','rebuildUnderwaterObjects'].forEach(n=>wrap(n,'warmup'));
-  ['updateFishActors','updateUnderwaterEffects','updateFishView','updateAnglingMode',
-    'renderAnglingFloatCamera','renderAnglingReelCamera','aczoResolveUnderwaterSweep'].forEach(n=>wrap(n,'cpu'));
-  wrap('enterFishView','transition',()=>{if(!fishMode&&!anglingMode)begin('dive');});
-  wrap('leaveFishView','transition',()=>{if(fishMode&&!fishTransition)begin('surface-return');});
-  wrap('startAnglingCast','transition',()=>{
-    if(anglingMode&&anglingState==='ready'&&anglingUsesArtificialLure())begin('lure-to-underwater');
-  },()=>{if(anglingState!=='casting')openTransitions.delete('lure-to-underwater');});
-  const loader=document.getElementById('mapStartupLoader');
-  let loaderObserver=null;
-  if(loader){
-    loaderObserver=new MutationObserver(()=>{
-      if(loader.classList.contains('is-done')&&startup.loaderHiddenMs===null)startup.loaderHiddenMs=round(performance.now());
-      if(!loader.isConnected){startup.loaderRemovedMs=round(performance.now());loaderObserver.disconnect();}
-    });
-    loaderObserver.observe(loader,{attributes:true,attributeFilter:['class']});
-    loaderObserver.observe(loader.parentNode,{childList:true});
-  }
-  let longTaskObserver=null;
-  if(typeof PerformanceObserver!=='undefined'&&PerformanceObserver.supportedEntryTypes?.includes('longtask')){
-    try{longTaskObserver=new PerformanceObserver(list=>{
-      if(!recording)return;for(const e of list.getEntries()){if(e.startTime<segmentAt)continue;longTasks++;longTaskMs+=e.duration;}
-    });longTaskObserver.observe({entryTypes:['longtask']});}catch(e){longTaskObserver=null;}
-  }
-  document.addEventListener('visibilitychange',()=>{
-    lastMainAt=0;current=-1;
-    if(document.hidden){event('hidden','Ongoing transition measurements discarded');openTransitions.clear();}
-  });
-  const panel=document.createElement('details');panel.id='aczo-local-diagnostics';
-  panel.style.cssText='position:fixed;top:4px;left:4px;z-index:2147483647;max-width:90vw;background:#102334;color:white;padding:7px;border:1px solid #89b8cf;border-radius:8px;font:12px system-ui;max-height:65vh;overflow:auto';
-  const summary=document.createElement('summary');summary.textContent='Messung '+label+' · läuft';panel.appendChild(summary);
-  const description=document.createElement('p');description.textContent='Lokal, ohne Upload. Menü beim Spielen schließen. Ergebnis erst nach dem Test öffnen.';panel.appendChild(description);
-  const output=document.createElement('textarea');output.readOnly=true;output.rows=10;output.style.cssText='display:none;width:75vw;max-width:600px';
-  function button(text,fn){const b=document.createElement('button');b.textContent=text;b.type='button';b.style.cssText='margin:4px;padding:8px';b.onclick=fn;panel.appendChild(b);}
-  button('Neue Messung',()=>{
-    samples=0;lastMainAt=0;current=-1;segmentAt=performance.now();lastState='';
-    mainCount=allRenders=offscreenRenders=drawCalls=triangleCount=renderCpu=longTasks=longTaskMs=0;
-    phases.length=events.length=transitions.length=0;openTransitions.clear();
-    for(const key of Object.keys(cpu))delete cpu[key];
-    memoryPeak={geometries:0,textures:0,programs:0};resourcesAtStart=resources();
-    recording=true;stoppedAt=null;output.style.display='none';summary.textContent='Messung '+label+' · läuft';panel.open=false;
-  });
-  button('Stopp / Ergebnis',()=>{
-    recording=false;stoppedAt=performance.now();output.value=JSON.stringify(report(),null,2);output.style.display='block';summary.textContent='Messung '+label+' · gestoppt';
-  });
-  button('JSON speichern',()=>{
-    const blob=new Blob([JSON.stringify(report(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='ACZO56_'+label+'_'+Date.now()+'.json';a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-  });
-  panel.appendChild(output);document.body.appendChild(panel);resourcesAtStart=resources();
-  // Read-only diagnostic access; no game state setters.
-  window.aczoLocalReport=report;
-})();
-
-// END ACZO LOCAL DIAGNOSTICS
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
