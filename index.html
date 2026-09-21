@@ -4268,6 +4268,68 @@ html,body{
     top:auto!important;
   }
 }
+
+/* Mobile Shop/Köderbox: eigener Scrollbereich, keine permanenten Effekte. */
+#anglingBaitBoxPanel.open,#anglingShopPanel.open{display:flex!important;flex-direction:column;overflow:hidden!important;height:min(80vh,760px);max-height:calc(100% - 24px)!important;padding:0!important;width:min(680px,calc(100% - 20px))!important;backdrop-filter:none}
+@supports(height:80dvh){#anglingBaitBoxPanel.open,#anglingShopPanel.open{height:min(80dvh,760px)}}
+#anglingBaitBoxPanel>.angling-game-panel-head,#anglingShopPanel>.angling-game-panel-head{position:relative!important;top:auto!important;flex:none;margin:0!important;padding:10px 12px!important;min-height:58px;gap:8px;background:#082e23}
+#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:17px!important}
+#anglingBaitBoxPanel .angling-panel-close,#anglingShopPanel .angling-panel-close{position:static!important;min-width:70px!important;width:auto!important;height:44px!important;min-height:44px!important;padding:0 10px!important;flex:none}
+#anglingShopPanel .angling-shop-head-right{padding:0!important;gap:7px}
+#anglingBaitBoxBody,#anglingShopBody{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:10px 12px 16px;-webkit-overflow-scrolling:touch;scroll-padding:12px}
+.aczo-commerce-tools{flex:none;padding:0 10px 8px;border-bottom:1px solid #54705b;background:#0b3328}
+.aczo-commerce-tabs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;padding:4px 0;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.aczo-commerce-tools button{flex:none;min-height:44px!important;min-width:44px;padding:8px 12px!important;border-radius:10px!important;font:700 12px system-ui!important;color:#eef8ed!important;border:1px solid #507362!important;background:#153e31!important;white-space:nowrap}
+.aczo-commerce-tools button[aria-pressed="true"]{background:#eed16b!important;border-color:#ffedaa!important;color:#253224!important}
+.aczo-commerce-filter{display:flex;gap:6px;padding-top:5px;align-items:center}
+.aczo-commerce-filter>span{margin-left:auto;color:#b8d0c4;font:11px system-ui}
+#anglingBaitBoxBody [hidden],#anglingShopBody [hidden]{display:none!important}
+#anglingBaitBoxBody .angling-category-grid,#anglingShopBody .angling-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important}
+#anglingBaitBoxBody .angling-category-head,#anglingShopBody .angling-category-head{min-height:36px!important;margin-bottom:8px}
+#anglingBaitBoxBody .angling-category-head strong,#anglingShopBody .angling-category-head strong{font-size:13px!important}
+#anglingBaitBoxBody .angling-category-head,#anglingShopBody .angling-category-head{flex-wrap:wrap}
+#anglingBaitBoxBody .angling-category-head small,#anglingShopBody .angling-category-head small{font-size:9px!important}
+#anglingBaitBoxBody .angling-item-card,#anglingShopBody .angling-item-card{padding:10px!important;border-radius:14px!important;min-height:0!important;background:linear-gradient(145deg,#234b3b,#10372c);display:flex;flex-direction:column;gap:6px}
+#anglingBaitBoxBody .angling-item-card.selected,#anglingShopBody .angling-item-card.selected{border-color:#f2d268;box-shadow:inset 0 0 0 1px #f2d268,0 0 0 1px #f2d26833}
+#anglingBaitBoxBody .angling-item-top,#anglingShopBody .angling-item-top{display:flex!important;align-items:center;gap:10px!important;min-height:90px!important;width:100%;border:0!important;border-radius:9px!important;background:transparent!important;box-shadow:none!important;color:inherit!important;padding:20px 0 0!important;text-align:left!important;cursor:pointer}
+#anglingBaitBoxBody .angling-item-icon,#anglingShopBody .angling-item-icon{width:86px!important;height:62px!important;flex:0 0 86px!important;border:1px solid #69816b50;border-radius:10px;background:#071f1c66}
+#anglingBaitBoxBody .angling-item-icon svg,#anglingShopBody .angling-item-icon svg{width:82px!important;height:58px!important;filter:none;transform:none}
+#anglingBaitBoxBody .angling-item-title,#anglingShopBody .angling-item-title{font-size:13px!important;line-height:1.25!important;overflow-wrap:anywhere}
+#anglingBaitBoxBody .angling-item-desc,#anglingShopBody .angling-item-desc{font-size:11px!important;line-height:1.35!important;color:#d3e2d8}
+#anglingBaitBoxBody .angling-item-stock,#anglingShopBody .angling-item-stock{font-size:11px!important;top:8px;right:8px}
+#anglingBaitBoxBody .angling-item-tag,#anglingShopBody .angling-item-tag{font-size:10px!important;align-self:flex-start;margin:0!important;line-height:1.25!important}
+#anglingBaitBoxBody .angling-item-action,#anglingShopBody .angling-item-action{min-height:44px!important;font-size:12px!important;line-height:1.25!important;margin-top:auto!important}
+.aczo-item-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font:700 10px system-ui}
+.aczo-item-badges span{border:1px solid #81978066;padding:3px 7px;border-radius:20px;color:#d2e0d5}
+.aczo-item-badges .aczo-equipped{border-color:#e5c566;color:#ffe694;background:#604f1740}
+.aczo-item-badges .aczo-premium{border-color:#d5b655;color:#ffe49b}
+.aczo-item-badges .aczo-special{border-color:#88c1ce;color:#b9e6f0}
+.aczo-commerce-empty{padding:24px 12px;text-align:center;color:#d7e3da;font:14px/1.5 system-ui}
+.aczo-commerce-empty button{min-height:44px;padding:8px 14px;color:#203427;background:#f0d475;border:0;border-radius:9px}
+#aczo-product-overlay{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:flex-end;justify-content:center;background:#00120db3;padding:12px 12px max(12px,env(safe-area-inset-bottom));box-sizing:border-box;touch-action:auto}
+#aczo-product-dialog{width:min(100%,500px);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#123b2e;border:1px solid #92a98c;border-radius:22px;color:#f0f8ed;box-shadow:0 12px 40px #0008;font:14px/1.45 system-ui;animation:aczo-sheet-in .18s ease-out}
+.aczo-product-head{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #58735d;flex:none}
+.aczo-product-head button{min-width:44px;min-height:44px;color:#fff;background:#2f5545;border:1px solid #7a9580;border-radius:12px;font:700 20px system-ui}
+.aczo-product-content{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:12px 18px}
+.aczo-product-art{position:relative;overflow:hidden;display:grid;place-items:center;height:145px;border-radius:14px;background:radial-gradient(ellipse at 50% 30%,#365846,#092e24);border:1px solid #67806a55}
+.aczo-product-art svg{width:220px;max-width:100%;height:140px}
+.aczo-product-art.aczo-spoon::after{content:"";position:absolute;inset:-30% -60%;background:linear-gradient(110deg,transparent 40%,#ffffeb38 49%,transparent 57%);animation:aczo-metal-sweep .85s ease-out both;pointer-events:none}
+#aczo-product-title{font:750 20px/1.2 system-ui;margin:14px 0 8px}
+.aczo-product-content p{margin:8px 0}
+.aczo-product-detail{padding:9px 12px;border:1px solid #80997b55;border-radius:10px;color:#f2dda1;background:#46513240}
+.aczo-product-actions{padding:12px 18px;border-top:1px solid #58735d;flex:none;background:#0b3025}
+.aczo-product-actions button{width:100%;min-height:48px;border:1px solid #abc799;border-radius:12px;color:white;background:linear-gradient(#36ad72,#247549);font:750 14px system-ui}
+.aczo-product-actions button.buy{color:#263621;background:linear-gradient(#f2d975,#bc9228);border-color:#ffeab0}
+.aczo-product-actions button:disabled{opacity:.55}
+.aczo-commerce-fly{position:fixed;z-index:2147483601;width:56px;height:46px;pointer-events:none;border-radius:10px;background:#173f30;border:1px solid #f3da79;box-shadow:0 3px 10px #0005}
+.aczo-commerce-fly svg{width:100%;height:32px}.aczo-commerce-fly span{position:absolute;bottom:0;right:3px;font:800 13px system-ui;color:#ffe480}
+@keyframes aczo-sheet-in{from{transform:translateY(25px);opacity:.3}to{transform:translateY(0);opacity:1}}
+@keyframes aczo-metal-sweep{from{transform:translateX(-45%)}to{transform:translateX(45%)}}
+@media(max-width:680px){#anglingBaitBoxBody .angling-category-grid,#anglingShopBody .angling-category-grid{grid-template-columns:1fr}#anglingBaitBoxBody,#anglingShopBody{padding:8px 10px 14px}.aczo-commerce-filter>span{font-size:10px}}
+@media(max-width:360px){#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:15px!important}#anglingShopPanel .angling-shop-head-right{gap:4px}#anglingShopPanel .angling-shop-head-right>span{font-size:10px}}
+@media(max-height:480px){#aczo-product-dialog{max-height:calc(100dvh - 16px)}.aczo-product-art{height:85px}.aczo-product-art svg{height:82px}.aczo-product-head{padding:4px 12px}}
+@media(prefers-reduced-motion:reduce){#aczo-product-dialog,.aczo-product-art.aczo-spoon::after{animation:none!important}.aczo-product-art.aczo-spoon::after{display:none}}
+
 </style>
 
 
@@ -28214,10 +28276,141 @@ function consumeAnglingNaturalBait(chance=1){
   return true;
 }
 
+// UI-Zustand ist flüchtig. Inventar, Preise und Speichern bleiben bei den vorhandenen Funktionen.
+const aczoCommerceState={box:{category:'bait',owned:false},shop:{category:'bait',owned:false}};
+let aczoProductOverlay=null,aczoProductReturnFocus=null,aczoProductParent=null;
+const aczoCommerceFlights=new Set();
+function aczoCommerceCategory(kind,id){
+  if(kind==='feed')return 'feed';
+  if(kind==='equipment'){const slot=ANGLING_EQUIPMENT_CATALOG[id]?.slot;return slot==='rod'?'rods':slot==='net'?'nets':'sonar';}
+  return 'bait';
+}
+function aczoCommerceStock(o){
+  if(o.itemType==='lure')return anglingLureStock(o.itemId);
+  if(o.itemType==='natural')return anglingNaturalStock(o.itemId);
+  if(o.itemType==='feed')return anglingFeedStock(o.itemId);
+  if(o.itemType==='equipment')return anglingEquipmentStock(o.itemId);
+  return Number(o.stock)||0;
+}
+function aczoCloseProductDetails(restore=true){
+  if(!aczoProductOverlay)return;
+  const focus=aczoProductReturnFocus;
+  aczoProductOverlay.remove();aczoProductOverlay=null;
+  if(aczoProductParent)aczoProductParent.inert=false;
+  aczoProductParent=null;aczoProductReturnFocus=null;
+  if(restore&&focus?.isConnected)focus.focus({preventScroll:true});
+}
+function aczoClearCommerceEffects(){
+  for(const f of aczoCommerceFlights){f.getAnimations?.().forEach(a=>a.cancel());f.remove();}
+  aczoCommerceFlights.clear();
+}
+function aczoCommercePurchaseEffect(o,count,from){
+  if(!from||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const target=anglingBaitBoxBtn?.getBoundingClientRect();if(!target||!target.width)return;
+  const f=document.createElement('div');f.className='aczo-commerce-fly';f.setAttribute('aria-hidden','true');
+  f.innerHTML=anglingBaitThumb(o.icon);const n=document.createElement('span');n.textContent='+'+count;f.append(n);
+  f.style.left=(from.left+from.width/2-28)+'px';f.style.top=(from.top+from.height/2-23)+'px';
+  document.body.append(f);aczoCommerceFlights.add(f);
+  const clear=()=>{f.remove();aczoCommerceFlights.delete(f);};
+  if(!f.animate){clear();return;}
+  const dx=target.left+target.width/2-(from.left+from.width/2),dy=target.top+target.height/2-(from.top+from.height/2);
+  const animation=f.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx}px,${dy}px) scale(.40)`,opacity:.1}],{duration:650,easing:'cubic-bezier(.2,.7,.3,1)',fill:'forwards'});
+  animation.finished.then(clear,clear);
+}
+function aczoInvokeCommerceAction(o,button){
+  if(o.disabled)return;
+  const from=button.getBoundingClientRect(),stock=aczoCommerceStock(o),xp=anglingProgress.xp;
+  // Fehlende Produkte öffnen direkt die passende Shop-Kategorie.
+  if(o.unavailable)aczoCommerceState.shop.category=aczoCommerceCategory(o.itemType,o.itemId);
+  aczoCloseProductDetails(false);
+  o.onClick();
+  const gained=aczoCommerceStock(o)-stock;
+  if(gained>0&&anglingProgress.xp<xp)aczoCommercePurchaseEffect(o,gained,from);
+}
+function aczoOpenProductDetails(o,trigger){
+  aczoCloseProductDetails(false);aczoProductReturnFocus=trigger;
+  const overlay=document.createElement('div');overlay.id='aczo-product-overlay';
+  const dialog=document.createElement('div');dialog.id='aczo-product-dialog';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','aczo-product-title');
+  const head=document.createElement('div');head.className='aczo-product-head';
+  const wallet=document.createElement('strong');wallet.textContent=anglingProgress.xp+' EP · Bestand × '+aczoCommerceStock(o);
+  const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Produktdetails schließen');close.addEventListener('click',()=>aczoCloseProductDetails());head.append(wallet,close);
+  const content=document.createElement('div');content.className='aczo-product-content';
+  const art=document.createElement('div');art.className='aczo-product-art'+(ANGLING_LURE_CATALOG[o.itemId]?.type==='spinner'?' aczo-spoon':'');art.innerHTML=anglingBaitThumb(o.icon);
+  const title=document.createElement('h2');title.id='aczo-product-title';title.textContent=o.name;
+  const desc=document.createElement('p');desc.textContent=o.desc;content.append(art,title,desc);
+  const detail=text=>{if(!text)return;const p=document.createElement('p');p.className='aczo-product-detail';p.textContent=text;content.append(p);};
+  detail(o.tag);
+  if(o.selected)detail(o.itemType==='equipment'?'✓ Ausgerüstet':'✓ Aktuell ausgewählt');
+  const equipment=o.itemType==='equipment'?ANGLING_EQUIPMENT_CATALOG[o.itemId]:null;
+  if(equipment?.slot==='rod'){
+    const active=ANGLING_EQUIPMENT_CATALOG[anglingActiveRodId()];
+    detail('Wurfweite: aktuell '+active.maxCast+' m → '+equipment.maxCast+' m mit dieser Rute.');
+  }
+  const lure=o.itemType==='lure'?ANGLING_LURE_CATALOG[o.itemId]:null;
+  if(lure){const labels={pike:'Hecht',zander:'Zander',perch:'Barsch',catfish:'Wels'};
+    const preferred=Object.entries(lure.boost).filter(([,v])=>v>=1.4).map(([id])=>labels[id]||id);
+    if(preferred.length)detail('Bevorzugte Zielfische: '+preferred.join(', '));
+  }
+  const actions=document.createElement('div');actions.className='aczo-product-actions';
+  const action=document.createElement('button');action.type='button';action.className=o.actionClass||'equip';action.textContent=o.action;action.disabled=!!o.disabled;action.addEventListener('click',()=>aczoInvokeCommerceAction(o,action));actions.append(action);
+  dialog.append(head,content,actions);overlay.append(dialog);document.body.append(overlay);aczoProductOverlay=overlay;
+  aczoProductParent=trigger.closest('.angling-game-panel');if(aczoProductParent)aczoProductParent.inert=true;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)aczoCloseProductDetails();e.stopPropagation();});
+  ['pointerdown','pointerup','pointermove','touchstart','touchmove','wheel'].forEach(type=>overlay.addEventListener(type,e=>e.stopPropagation(),{passive:true}));
+  overlay.addEventListener('keydown',e=>{
+    e.stopPropagation();
+    if(e.key==='Escape'){e.preventDefault();aczoCloseProductDetails();return;}
+    if(e.key==='Tab'){const last=action.disabled?close:action;
+      if(e.shiftKey&&document.activeElement===close){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();close.focus();}
+    }
+  });
+  close.focus({preventScroll:true});
+}
+function aczoFinishCommerce(body,mode){
+  const panel=body.parentElement,state=aczoCommerceState[mode];
+  let tools=panel.querySelector('.aczo-commerce-tools');
+  if(!tools){
+    tools=document.createElement('div');tools.className='aczo-commerce-tools';
+    const tabs=document.createElement('nav');tabs.className='aczo-commerce-tabs';tabs.setAttribute('aria-label','Produktkategorien');
+    for(const [key,label] of [['bait','Köder'],['feed','Lockfutter'],['rods','Ruten'],['nets','Kescher'],['sonar','Echolote']]){
+      const b=document.createElement('button');b.type='button';b.dataset.category=key;b.textContent=label;b.setAttribute('aria-controls',body.id);
+      b.addEventListener('click',()=>{state.category=key;aczoFinishCommerce(body,mode);body.scrollTop=0;});tabs.append(b);
+    }
+    tools.append(tabs);
+    if(mode==='box'){
+      const filter=document.createElement('div');filter.className='aczo-commerce-filter';filter.setAttribute('role','group');filter.setAttribute('aria-label','Bestandsfilter');
+      for(const [value,label] of [['all','Alle'],['owned','Im Besitz']]){
+        const b=document.createElement('button');b.type='button';b.dataset.stock=value;b.textContent=label;
+        b.addEventListener('click',()=>{state.owned=value==='owned';aczoFinishCommerce(body,mode);body.scrollTop=0;});filter.append(b);
+      }
+      const count=document.createElement('span');count.className='aczo-commerce-count';count.setAttribute('aria-live','polite');filter.append(count);tools.append(filter);
+    }
+    panel.insertBefore(tools,body);
+  }
+  tools.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===state.category)));
+  tools.querySelectorAll('[data-stock]').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.stock==='owned')===state.owned)));
+  const sectionCategory={'Lockfutter':'feed','Ruten':'rods','Kescher':'nets','Echolote':'sonar'};let visible=0;
+  body.querySelectorAll('.angling-category').forEach(section=>{
+    const category=sectionCategory[section.querySelector('.angling-category-head strong').textContent]||'bait';let count=0;
+    section.querySelectorAll('.angling-item-card').forEach(card=>{card.hidden=mode==='box'&&state.owned&&Number(card.dataset.stock)<1;if(!card.hidden)count++;});
+    section.hidden=category!==state.category||count===0;if(!section.hidden)visible+=count;
+  });
+  const counter=tools.querySelector('.aczo-commerce-count');if(counter)counter.textContent=visible+' Artikel';
+  body.querySelector('.aczo-commerce-empty')?.remove();
+  if(!visible){
+    const empty=document.createElement('div');empty.className='aczo-commerce-empty';
+    const text=document.createElement('p');text.textContent=state.owned?'Hier hast du noch keine Ausrüstung im Bestand.':'In dieser Kategorie gibt es aktuell keine Artikel.';empty.append(text);
+    if(state.owned){const b=document.createElement('button');b.type='button';b.textContent='Alle Artikel anzeigen';b.addEventListener('click',()=>{state.owned=false;aczoFinishCommerce(body,mode);});empty.append(b);}
+    body.append(empty);
+  }
+}
+
 function anglingGamePanelOpen(){
  return anglingUi.classList.contains('main-menu-open')||!!document.querySelector('.angling-game-panel.open');
 }
 function closeAnglingGamePanels(){
+ aczoCloseProductDetails(false);aczoClearCommerceEffects();
  anglingBaitBoxPanel.classList.remove('open');anglingShopPanel.classList.remove('open');anglingGameHelpPanel.classList.remove('open');anglingLeaderboardPanel.classList.remove('open');anglingDailyQuestPanel?.classList.remove('open');anglingRecoveryPanel?.classList.remove('open');anglingTimePanel?.classList.remove('open');anglingJumpLabPanel?.classList.remove('open');
  [anglingBaitBoxPanel,anglingShopPanel,anglingGameHelpPanel,anglingLeaderboardPanel,anglingDailyQuestPanel,anglingRecoveryPanel,anglingTimePanel,anglingJumpLabPanel].forEach(p=>p?.setAttribute('aria-hidden','true'));
  if(anglingRecoveryInputBlurTimer){window.clearTimeout(anglingRecoveryInputBlurTimer);anglingRecoveryInputBlurTimer=null;}
@@ -28365,15 +28558,28 @@ function anglingBaitThumb(key){
 function createAnglingItemCard(o){
  const card=document.createElement('div');
  card.className='angling-item-card'+(o.selected?' selected':'')+(o.unavailable?' unavailable':'');
- const top=document.createElement('div');top.className='angling-item-top';
+ card.dataset.stock=String(o.stock??0);card.dataset.product=o.itemType+':'+o.itemId;
+ const top=document.createElement('button');top.type='button';top.className='angling-item-top';top.setAttribute('aria-label','Details zu '+o.name);top.addEventListener('click',()=>aczoOpenProductDetails(o,top));
  const ico=document.createElement('span');ico.className='angling-item-icon';ico.innerHTML=anglingBaitThumb(o.icon);
- const copy=document.createElement('div'),title=document.createElement('div'),desc=document.createElement('div');
- title.className='angling-item-title';title.textContent=o.name;desc.className='angling-item-desc';desc.textContent=o.desc;copy.append(title,desc);top.append(ico,copy);card.append(top);
+ const copy=document.createElement('span'),title=document.createElement('span'),desc=document.createElement('span');
+ title.className='angling-item-title';title.textContent=o.name;desc.className='angling-item-desc';desc.textContent=o.desc;title.style.display=desc.style.display='block';copy.style.minWidth='0';copy.append(title,desc);top.append(ico,copy);card.append(top);
  if(o.stock!==null&&o.stock!==undefined){const s=document.createElement('span');s.className='angling-item-stock';s.textContent='× '+o.stock;card.append(s);}
+ const badges=document.createElement('div');badges.className='aczo-item-badges';
+ const badge=(label,cls='')=>{const b=document.createElement('span');b.textContent=label;b.className=cls;badges.append(b);};
+ if(o.itemType==='lure'){
+   const l=ANGLING_LURE_CATALOG[o.itemId];
+   if(Object.values(l.boost).some(v=>v>=1.4))badge('Spezial','aczo-special');
+   else if(o.itemId.endsWith('_premium'))badge('Premium','aczo-premium');
+   else badge('Standard');
+ }
+ if(o.selected)badge(o.itemType==='equipment'?'✓ Ausgerüstet':'✓ Ausgewählt','aczo-equipped');
+ else if(Number(o.stock)===0)badge('Nicht im Bestand');
+ if(badges.childElementCount)card.append(badges);
  if(o.tag){const t=document.createElement('span');t.className='angling-item-tag';t.textContent=o.tag;card.append(t);}
- const btn=document.createElement('button');btn.className='angling-item-action '+(o.actionClass||'equip');btn.textContent=o.action;btn.disabled=!!o.disabled;btn.addEventListener('click',o.onClick);card.append(btn);
+ const btn=document.createElement('button');btn.type='button';btn.className='angling-item-action '+(o.actionClass||'equip');btn.textContent=o.action;btn.disabled=!!o.disabled;btn.addEventListener('click',()=>aczoInvokeCommerceAction(o,btn));card.append(btn);
  return card;
 }
+
 function equipAnglingNaturalBait(id){
  if(anglingUi.classList.contains('line-active')){
    showAnglingToast('Köder nur vor dem Auswurf wechseln.',1450);
@@ -28441,6 +28647,7 @@ ensureAnglingCommerceInventorySchema();
 auditAnglingCommerceCatalogs();
 
 function renderAnglingBaitBox(){
+ aczoCloseProductDetails(false);
  anglingBaitBoxBody.replaceChildren();
 
  const standard=createAnglingCategory('Naturköder','🌿','Grundausstattung','natural');
@@ -28449,7 +28656,9 @@ function renderAnglingBaitBox(){
  const spinners=createAnglingCategory('Blinker','🌀','Kunstköder','artificial');
  const softbaits=createAnglingCategory('Gummifische','🐟','Kunstköder','artificial');
  const feed=createAnglingCategory('Lockfutter','🟡','Vorrat für Futterplätze','premium');
- const equipment=createAnglingCategory('Equipment','🧭','dauerhafte Ausrüstung','equipment');
+ const rods=createAnglingCategory('Ruten','🎣','dauerhafte Ausrüstung','equipment');
+ const nets=createAnglingCategory('Kescher','🥅','dauerhafte Ausrüstung','equipment');
+ const sonar=createAnglingCategory('Echolote','📡','dauerhafte Ausrüstung','equipment');
 
  ANGLING_NATURAL_BAITS.forEach(b=>{
    const stock=anglingNaturalStock(b.id),unavailable=stock<1;
@@ -28457,6 +28666,7 @@ function renderAnglingBaitBox(){
      ?(unavailable?'Erst Köderfisch fangen':'Auswählen')
      :(unavailable?'Im Tackle-Shop kaufen':'Auswählen');
    const card=createAnglingItemCard({
+     itemType:'natural',itemId:b.id,
      icon:b.icon,name:b.name,desc:b.desc,stock,tag:b.tag||'',
      selected:!unavailable&&anglingSelectedBait===b.id,
      unavailable,
@@ -28472,6 +28682,7 @@ function renderAnglingBaitBox(){
  Object.entries(ANGLING_LURE_CATALOG).forEach(([id,l])=>{
    const stock=anglingLureStock(id);
    (l.type==='softbait'?softbaits:spinners).grid.appendChild(createAnglingItemCard({
+     itemType:'lure',itemId:id,
      icon:l.icon,name:l.name,desc:l.desc,stock,tag:l.tag,
      selected:stock>0&&anglingUsesArtificialLure()&&anglingSelectedLureId===id,
      unavailable:stock<1,
@@ -28484,6 +28695,7 @@ function renderAnglingBaitBox(){
  Object.entries(ANGLING_FEED_CATALOG).forEach(([id,f])=>{
    const stock=anglingFeedStock(id),unavailable=stock<1;
    feed.grid.appendChild(createAnglingItemCard({
+     itemType:'feed',itemId:id,
      icon:'corn',name:f.name,desc:f.desc,stock,tag:f.tag,
      unavailable,
      action:unavailable?'Im Tackle-Shop kaufen':'Im Bestand · beim Posenangeln nutzbar',
@@ -28501,7 +28713,8 @@ function renderAnglingBaitBox(){
        ?anglingActiveNetId()===id
        :anglingProgress.selectedEquipment===id&&stock>0;
    const owned=stock>0;
-   equipment.grid.appendChild(createAnglingItemCard({
+   (e.slot==='rod'?rods:e.slot==='net'?nets:sonar).grid.appendChild(createAnglingItemCard({
+     itemType:'equipment',itemId:id,
      icon:e.icon,name:e.name,desc:e.desc,stock,tag:e.tag,
      selected,
      unavailable:!owned&&e.shop!==false,
@@ -28512,7 +28725,8 @@ function renderAnglingBaitBox(){
    }));
  });
 
- [standard,premium,baitfishCat,spinners,softbaits,feed,equipment].forEach(c=>anglingBaitBoxBody.appendChild(c.section));
+ [standard,premium,baitfishCat,spinners,softbaits,feed,rods,nets,sonar].forEach(c=>anglingBaitBoxBody.appendChild(c.section));
+ aczoFinishCommerce(anglingBaitBoxBody,'box');
 }
 function refreshAnglingCommerceViews(){
   if(anglingBaitBoxPanel.classList.contains('open'))renderAnglingBaitBox();
@@ -28548,6 +28762,7 @@ function buyAnglingFeed(id){
  saveAnglingProgress();updateAnglingSetupUi();updateAnglingFeedUi();refreshAnglingCommerceViews();showAnglingToast(f.name+' gekauft.',1100);
 }
 function renderAnglingShop(){
+ aczoCloseProductDetails(false);
  anglingShopBody.replaceChildren();
  anglingShopEp.textContent=anglingProgress.xp+' EP';
 
@@ -28556,10 +28771,13 @@ function renderAnglingShop(){
  const spinners=createAnglingCategory('Blinker','🌀','Kunstköder','artificial');
  const softbaits=createAnglingCategory('Gummifische','🐟','Kunstköder','artificial');
  const feedCat=createAnglingCategory('Lockfutter','🟡','teuer · 10 Minuten Wirkung','premium');
- const equipmentCat=createAnglingCategory('Equipment','🧭','dauerhafte Ausrüstung','equipment');
+ const rods=createAnglingCategory('Ruten','🎣','dauerhafte Ausrüstung','equipment');
+ const nets=createAnglingCategory('Kescher','🥅','dauerhafte Ausrüstung','equipment');
+ const sonar=createAnglingCategory('Echolote','📡','dauerhafte Ausrüstung','equipment');
 
  ANGLING_NATURAL_BAITS.filter(b=>b.id!=='baitfish').forEach(b=>{
    const card=createAnglingItemCard({
+     itemType:'natural',itemId:b.id,
      icon:b.icon,name:b.name+' · Vorrat',desc:'Paket mit '+b.pack+' Stück.',
      stock:anglingNaturalStock(b.id),tag:b.tag||'Naturköder',
      action:b.price+' EP · +'+b.pack,actionClass:'buy',
@@ -28570,6 +28788,7 @@ function renderAnglingShop(){
 
  Object.entries(ANGLING_LURE_CATALOG).forEach(([id,l])=>{
    (l.type==='softbait'?softbaits:spinners).grid.appendChild(createAnglingItemCard({
+     itemType:'lure',itemId:id,
      icon:l.icon,name:l.name,desc:l.desc,stock:anglingLureStock(id),tag:l.tag,
      action:l.price+' EP · Kaufen',actionClass:'buy',
      disabled:anglingProgress.xp<l.price,onClick:()=>buyAnglingLure(id)
@@ -28577,6 +28796,7 @@ function renderAnglingShop(){
  });
  Object.entries(ANGLING_FEED_CATALOG).forEach(([id,f])=>{
    feedCat.grid.appendChild(createAnglingItemCard({
+     itemType:'feed',itemId:id,
      icon:'corn',name:f.name,desc:f.desc,stock:anglingFeedStock(id),tag:f.tag,
      action:f.price+' EP · 1 Portion',actionClass:'buy',
      disabled:anglingProgress.xp<f.price,onClick:()=>buyAnglingFeed(id)
@@ -28590,7 +28810,8 @@ function renderAnglingShop(){
      :e.slot==='net'
        ?anglingActiveNetId()===id
        :owned&&anglingProgress.selectedEquipment===id;
-   equipmentCat.grid.appendChild(createAnglingItemCard({
+   (e.slot==='rod'?rods:e.slot==='net'?nets:sonar).grid.appendChild(createAnglingItemCard({
+     itemType:'equipment',itemId:id,
      icon:e.icon,name:e.name,desc:e.desc,stock:owned?1:0,tag:e.tag,
      selected,
      action:owned?(selected?'Ausgerüstet':'Ausrüsten'):(e.price+' EP · Kaufen'),
@@ -28600,7 +28821,8 @@ function renderAnglingShop(){
    }));
  });
 
- [standard,premium,spinners,softbaits,feedCat,equipmentCat].forEach(c=>anglingShopBody.appendChild(c.section));
+ [standard,premium,spinners,softbaits,feedCat,rods,nets,sonar].forEach(c=>anglingShopBody.appendChild(c.section));
+ aczoFinishCommerce(anglingShopBody,'shop');
 }
 function openAnglingShop(){if(guardAnglingMenuOpen())return;closeAnglingGamePanels();renderAnglingShop();markAnglingGamePanelOpen(anglingShopPanel);}
 
