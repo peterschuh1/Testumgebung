@@ -21445,14 +21445,40 @@ const fishTextureCache={};
 let fishTexturePendingCount=0;
 function finishFishTextureLoad(){
   fishTexturePendingCount=Math.max(0,fishTexturePendingCount-1);
+  // PERF36: Safari kann das Bild-Load-Ereignis liefern, bevor die letzte
+  // WebP-Dekodierung/GPU-Vorbereitung wirklich abgeschlossen ist. Sobald alle
+  // Fischbilder dekodiert sind, darf ein eventuell zu frueher Warmup deshalb
+  // noch einmal unsichtbar nachgezogen werden.
+  if(fishTexturePendingCount===0&&typeof window.__aczoFishTexturesDecoded==='function'){
+    window.__aczoFishTexturesDecoded();
+  }
 }
 function fishTexture(name){
   if(fishTextureCache[name]) return fishTextureCache[name];
   fishTexturePendingCount++;
-  const tex=new THREE.TextureLoader().load(fishImageData[name],t=>{
-    t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;
+  let settled=false;
+  const settle=()=>{
+    if(settled)return;
+    settled=true;
     finishFishTextureLoad();
-  },undefined,finishFishTextureLoad);
+  };
+  const tex=new THREE.TextureLoader().load(fishImageData[name],t=>{
+    t.encoding=THREE.sRGBEncoding;
+    const image=t.image;
+    // HTMLImageElement.decode() zwingt speziell WebKit dazu, die eingebetteten
+    // WebP-Daten jetzt und nicht erst im ersten sichtbaren Unterwasserframe zu
+    // dekodieren. Fehler fallen auf das normale TextureLoader-Verhalten zurueck.
+    if(image&&typeof image.decode==='function'){
+      try{
+        const decoded=image.decode();
+        if(decoded&&typeof decoded.then==='function'){
+          decoded.catch(()=>{}).then(()=>{t.needsUpdate=true;settle();});
+          return;
+        }
+      }catch(err){}
+    }
+    t.needsUpdate=true;settle();
+  },undefined,settle);
   tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
   fishTextureCache[name]=tex;
   return tex;
@@ -21860,6 +21886,28 @@ function keepFishAboveFloor(f){
     obj.position.z=THREE.MathUtils.clamp(obj.position.z,eelMin,eelMax);
   }else obj.position.z=Math.max(obj.position.z,floorZ+clearance);
   return true;
+}
+
+// PERF36: Der erste sichtbare Unterwasserframe darf nicht fuer den gesamten
+// Fischbestand erstmals je fuenf Tiefenabfragen ausfuehren. Die exakt gleiche
+// Bodenstuetzberechnung wird waehrend des Start-Ladebildschirms in kleinen
+// Paketen ausgefuehrt. Danach greift keepFishAboveFloor() auf seinen bereits
+// vorhandenen positionsgenauen Cache zu; Verhalten und Fischpositionen bleiben
+// identisch zum bisherigen ersten Simulationsframe.
+let aczoFishRuntimePrimeIndex=0;
+function aczoPrimeFishRuntimeStep(batchSize=48){
+  if(!fishWorldBuilt)return false;
+  const end=Math.min(fishActors.length,aczoFishRuntimePrimeIndex+Math.max(1,batchSize|0));
+  for(;aczoFishRuntimePrimeIndex<end;aczoFishRuntimePrimeIndex++){
+    const actor=fishActors[aczoFishRuntimePrimeIndex];
+    if(!actor||!actor.obj)continue;
+    if(!keepFishAboveFloor(actor)){
+      randomSpeciesPoint(actor.obj.userData.species,actor.obj.position);
+      keepFishAboveFloor(actor);
+    }
+    actor.obj.updateMatrix();
+  }
+  return aczoFishRuntimePrimeIndex>=fishActors.length;
 }
 
 function initialFishFeedSeed(name,index){
@@ -25909,7 +25957,14 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     renderer.render(scene,camera);
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
     if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined')renderer.render(anglingReelScene,anglingReelMiniCamera);
-    aczoUnderwaterShadersReady=true;aczoPerf24UwRenderWarmReady=true;aczoPerf26UwFullWarmReady=true;
+    aczoUnderwaterShadersReady=true;
+    aczoPerf24UwRenderWarmReady=true;
+    // Erst als vollstaendig bereit melden, wenn nicht nur Programme und
+    // Geometrie, sondern auch alle WebP-Fischbilder dekodiert sowie deren
+    // Boden-Caches vorbereitet sind. Genau diese beiden Restarbeiten erzeugten
+    // auf iOS den einmaligen Stillstand beim ersten Tauchgang/Kunstkoederwurf.
+    aczoPerf26UwFullWarmReady=fishTexturePendingCount===0&&
+      aczoFishRuntimePrimeIndex>=fishActors.length;
   }catch(err){console.warn('PERF26 UW-Full-Prewarm:',err);}
   finally{
     // Erst den Unterwasserzustand verlassen, danach ALLE sichtbaren Karten-
@@ -25983,6 +26038,22 @@ function aczoPerf26ScheduleFullUnderwaterPrewarm(delay=420){
     if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:900});else run();
   },delay);
 }
+
+let aczoPerf36FishTextureRewarmQueued=false;
+window.__aczoFishTexturesDecoded=()=>{
+  if(aczoPerf36FishTextureRewarmQueued||!anglingLureUnderwaterWorldReady||
+     aczoPerf26UwFullWarmReady)return;
+  aczoPerf36FishTextureRewarmQueued=true;
+  // Einen eigenen Frame spaeter rendern: so bleibt der Decode-Callback kurz
+  // und Safari kann die frisch dekodierten Bilder zuerst intern abschliessen.
+  requestAnimationFrame(()=>{
+    aczoPerf36FishTextureRewarmQueued=false;
+    if(document.hidden||fishMode||anglingMode){
+      aczoPerf26ScheduleFullUnderwaterPrewarm(500);return;
+    }
+    aczoPerf26ScheduleFullUnderwaterPrewarm(0);
+  });
+};
 
 function aczoPrewarmUnderwaterWorld(){
   if(aczoUnderwaterShadersReady||document.hidden)return;
@@ -26075,24 +26146,29 @@ function aczoRunStartupUnderwaterPrewarm(){
       anglingLureUnderwaterWorldReady=true;
       aczoStartupUwPrewarmStage=4;
     }else if(aczoStartupUwPrewarmStage===4){
+      // Die spaeter im echten Bild benoetigten Bodenabstaende des gesamten
+      // Fischbestands in kleinen Paketen cachen. Ein Paket bleibt selbst auf
+      // aelteren iPhones kurz genug fuer gleichmaessiges Loader-Rendering.
+      if(aczoPrimeFishRuntimeStep(40))aczoStartupUwPrewarmStage=5;
+    }else if(aczoStartupUwPrewarmStage===5){
       // Die eingebetteten WebP-Fische werden asynchron dekodiert. Der letzte
       // unsichtbare GPU-Lauf wartet kurz darauf, damit diese Kosten nicht erst
       // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
       // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
       if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
-      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<1500){
+      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<9000){
         if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
         aczoScheduleStartupUnderwaterPrewarm(50);
         return;
       }
-      aczoStartupUwPrewarmStage=5;
-    }else if(aczoStartupUwPrewarmStage===5){
+      aczoStartupUwPrewarmStage=6;
+    }else if(aczoStartupUwPrewarmStage===6){
       aczoPerf26ForceFullUnderwaterPrewarm();
-      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=6;
+      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=7;
       else if(++aczoStartupUwWarmAttempts<4){
         aczoScheduleStartupUnderwaterPrewarm(160);
         return;
-      }else aczoStartupUwPrewarmStage=6;
+      }else aczoStartupUwPrewarmStage=7;
     }else{
       aczoFinishStartupUnderwaterPrewarm();
       return;
