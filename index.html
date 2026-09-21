@@ -4272,15 +4272,15 @@ html,body{
 /* Mobile Shop/Köderbox: eigener Scrollbereich, keine permanenten Effekte. */
 #anglingBaitBoxPanel.open,#anglingShopPanel.open{display:flex!important;flex-direction:column;overflow:hidden!important;height:min(80vh,760px);max-height:calc(100% - 24px)!important;padding:0!important;width:min(680px,calc(100% - 20px))!important;backdrop-filter:none}
 @supports(height:80dvh){#anglingBaitBoxPanel.open,#anglingShopPanel.open{height:min(80dvh,760px)}}
-#anglingBaitBoxPanel>.angling-game-panel-head,#anglingShopPanel>.angling-game-panel-head{position:relative!important;top:auto!important;flex:none;margin:0!important;padding:10px 12px!important;min-height:58px;gap:8px;background:#082e23}
-#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:17px!important}
-#anglingBaitBoxPanel .angling-panel-close,#anglingShopPanel .angling-panel-close{position:static!important;min-width:70px!important;width:auto!important;height:44px!important;min-height:44px!important;padding:0 10px!important;flex:none}
+#anglingBaitBoxPanel>.angling-game-panel-head,#anglingShopPanel>.angling-game-panel-head{position:relative!important;top:auto!important;flex:none;margin:0!important;padding:6px 10px!important;min-height:48px;gap:8px;background:#082e23}
+#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:15px!important}
+#anglingBaitBoxPanel .angling-panel-close,#anglingShopPanel .angling-panel-close{position:static!important;min-width:70px!important;width:auto!important;height:40px!important;min-height:40px!important;padding:0 10px!important;flex:none}
 #anglingShopPanel .angling-shop-head-right{padding:0!important;gap:7px}
 #anglingBaitBoxBody,#anglingShopBody{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:10px 12px 16px;-webkit-overflow-scrolling:touch;scroll-padding:12px}
-.aczo-commerce-tools{flex:none;padding:0 10px 8px;border-bottom:1px solid #54705b;background:#0b3328}
+.aczo-commerce-tools{flex:none;padding:0 8px 5px;border-bottom:1px solid #54705b;background:#0b3328}
 .aczo-commerce-tabs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;padding:4px 0;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-.aczo-commerce-tools button{flex:none;min-height:44px!important;min-width:44px;padding:8px 12px!important;border-radius:10px!important;font:700 12px system-ui!important;color:#eef8ed!important;border:1px solid #507362!important;background:#153e31!important;white-space:nowrap}
-.aczo-commerce-tools button[aria-pressed="true"]{background:#eed16b!important;border-color:#ffedaa!important;color:#253224!important}
+.aczo-commerce-tools button{flex:none;min-height:36px!important;min-width:44px;padding:5px 9px!important;border-radius:10px!important;font:700 11px system-ui!important;color:#eef8ed!important;border:1px solid #507362!important;background:#153e31!important;white-space:nowrap}
+.aczo-commerce-tools button[aria-pressed="true"]{background:#344c37!important;border-color:#b49d58!important;color:#f2dda0!important}
 .aczo-commerce-filter{display:flex;gap:6px;padding-top:5px;align-items:center}
 .aczo-commerce-filter>span{margin-left:auto;color:#b8d0c4;font:11px system-ui}
 #anglingBaitBoxBody [hidden],#anglingShopBody [hidden]{display:none!important}
@@ -4289,16 +4289,16 @@ html,body{
 #anglingBaitBoxBody .angling-category-head strong,#anglingShopBody .angling-category-head strong{font-size:13px!important}
 #anglingBaitBoxBody .angling-category-head,#anglingShopBody .angling-category-head{flex-wrap:wrap}
 #anglingBaitBoxBody .angling-category-head small,#anglingShopBody .angling-category-head small{font-size:9px!important}
-#anglingBaitBoxBody .angling-item-card,#anglingShopBody .angling-item-card{padding:10px!important;border-radius:14px!important;min-height:0!important;background:linear-gradient(145deg,#234b3b,#10372c);display:flex;flex-direction:column;gap:6px}
+#anglingBaitBoxBody .angling-item-card,#anglingShopBody .angling-item-card{padding:8px!important;border-radius:11px!important;min-height:0!important;background:linear-gradient(145deg,#183c31,#123128);display:flex;flex-direction:column;gap:4px}
 #anglingBaitBoxBody .angling-item-card.selected,#anglingShopBody .angling-item-card.selected{border-color:#f2d268;box-shadow:inset 0 0 0 1px #f2d268,0 0 0 1px #f2d26833}
-#anglingBaitBoxBody .angling-item-top,#anglingShopBody .angling-item-top{display:flex!important;align-items:center;gap:10px!important;min-height:90px!important;width:100%;border:0!important;border-radius:9px!important;background:transparent!important;box-shadow:none!important;color:inherit!important;padding:20px 0 0!important;text-align:left!important;cursor:pointer}
-#anglingBaitBoxBody .angling-item-icon,#anglingShopBody .angling-item-icon{width:86px!important;height:62px!important;flex:0 0 86px!important;border:1px solid #69816b50;border-radius:10px;background:#071f1c66}
-#anglingBaitBoxBody .angling-item-icon svg,#anglingShopBody .angling-item-icon svg{width:82px!important;height:58px!important;filter:none;transform:none}
+#anglingBaitBoxBody .angling-item-top,#anglingShopBody .angling-item-top{display:flex!important;align-items:center;gap:8px!important;min-height:56px!important;width:100%;border:0!important;border-radius:9px!important;background:transparent!important;box-shadow:none!important;color:inherit!important;padding:12px 0 0!important;text-align:left!important;cursor:pointer}
+#anglingBaitBoxBody .angling-item-icon,#anglingShopBody .angling-item-icon{width:58px!important;height:44px!important;flex:0 0 58px!important;border:0;border-radius:8px;background:#0c241f66}
+#anglingBaitBoxBody .angling-item-icon svg,#anglingShopBody .angling-item-icon svg{width:56px!important;height:40px!important;filter:none;transform:none}
 #anglingBaitBoxBody .angling-item-title,#anglingShopBody .angling-item-title{font-size:13px!important;line-height:1.25!important;overflow-wrap:anywhere}
 #anglingBaitBoxBody .angling-item-desc,#anglingShopBody .angling-item-desc{font-size:11px!important;line-height:1.35!important;color:#d3e2d8}
-#anglingBaitBoxBody .angling-item-stock,#anglingShopBody .angling-item-stock{font-size:11px!important;top:8px;right:8px}
+#anglingBaitBoxBody .angling-item-stock,#anglingShopBody .angling-item-stock{font-size:10px!important;top:6px;right:7px}
 #anglingBaitBoxBody .angling-item-tag,#anglingShopBody .angling-item-tag{font-size:10px!important;align-self:flex-start;margin:0!important;line-height:1.25!important}
-#anglingBaitBoxBody .angling-item-action,#anglingShopBody .angling-item-action{min-height:44px!important;font-size:12px!important;line-height:1.25!important;margin-top:auto!important}
+#anglingBaitBoxBody .angling-item-action,#anglingShopBody .angling-item-action{min-height:38px!important;font-size:11px!important;line-height:1.25!important;margin-top:auto!important}
 .aczo-item-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font:700 10px system-ui}
 .aczo-item-badges span{border:1px solid #81978066;padding:3px 7px;border-radius:20px;color:#d2e0d5}
 .aczo-item-badges .aczo-equipped{border-color:#e5c566;color:#ffe694;background:#604f1740}
@@ -4311,14 +4311,14 @@ html,body{
 .aczo-product-head{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #58735d;flex:none}
 .aczo-product-head button{min-width:44px;min-height:44px;color:#fff;background:#2f5545;border:1px solid #7a9580;border-radius:12px;font:700 20px system-ui}
 .aczo-product-content{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:12px 18px}
-.aczo-product-art{position:relative;overflow:hidden;display:grid;place-items:center;height:145px;border-radius:14px;background:radial-gradient(ellipse at 50% 30%,#365846,#092e24);border:1px solid #67806a55}
-.aczo-product-art svg{width:220px;max-width:100%;height:140px}
+.aczo-product-art{position:relative;overflow:hidden;display:grid;place-items:center;height:110px;border-radius:14px;background:radial-gradient(ellipse at 50% 30%,#365846,#092e24);border:1px solid #67806a55}
+.aczo-product-art svg{width:180px;max-width:100%;height:106px}
 .aczo-product-art.aczo-spoon::after{content:"";position:absolute;inset:-30% -60%;background:linear-gradient(110deg,transparent 40%,#ffffeb38 49%,transparent 57%);animation:aczo-metal-sweep .85s ease-out both;pointer-events:none}
-#aczo-product-title{font:750 20px/1.2 system-ui;margin:14px 0 8px}
+#aczo-product-title{font:750 17px/1.2 system-ui;margin:14px 0 8px}
 .aczo-product-content p{margin:8px 0}
 .aczo-product-detail{padding:9px 12px;border:1px solid #80997b55;border-radius:10px;color:#f2dda1;background:#46513240}
 .aczo-product-actions{padding:12px 18px;border-top:1px solid #58735d;flex:none;background:#0b3025}
-.aczo-product-actions button{width:100%;min-height:48px;border:1px solid #abc799;border-radius:12px;color:white;background:linear-gradient(#36ad72,#247549);font:750 14px system-ui}
+.aczo-product-actions button{width:100%;min-height:42px;border:1px solid #abc799;border-radius:12px;color:white;background:linear-gradient(#36ad72,#247549);font:750 12px system-ui}
 .aczo-product-actions button.buy{color:#263621;background:linear-gradient(#f2d975,#bc9228);border-color:#ffeab0}
 .aczo-product-actions button:disabled{opacity:.55}
 .aczo-commerce-fly{position:fixed;z-index:2147483601;width:56px;height:46px;pointer-events:none;border-radius:10px;background:#173f30;border:1px solid #f3da79;box-shadow:0 3px 10px #0005}
@@ -4329,6 +4329,31 @@ html,body{
 @media(max-width:360px){#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:15px!important}#anglingShopPanel .angling-shop-head-right{gap:4px}#anglingShopPanel .angling-shop-head-right>span{font-size:10px}}
 @media(max-height:480px){#aczo-product-dialog{max-height:calc(100dvh - 16px)}.aczo-product-art{height:85px}.aczo-product-art svg{height:82px}.aczo-product-head{padding:4px 12px}}
 @media(prefers-reduced-motion:reduce){#aczo-product-dialog,.aczo-product-art.aczo-spoon::after{animation:none!important}.aczo-product-art.aczo-spoon::after{display:none}}
+
+/* Begrenzung gegen intrinsische Breiten und die globale button-nowrap-Regel. */
+#anglingBaitBoxPanel,#anglingShopPanel,#aczo-product-dialog{box-sizing:border-box;min-width:0}
+#anglingBaitBoxPanel *,#anglingShopPanel *,#aczo-product-dialog *{box-sizing:border-box}
+#anglingBaitBoxBody,#anglingShopBody{min-width:0;width:100%;max-width:100%;overflow-x:hidden;touch-action:pan-y}
+#anglingBaitBoxBody .angling-category,#anglingShopBody .angling-category,
+#anglingBaitBoxBody .angling-category-grid,#anglingShopBody .angling-category-grid,
+#anglingBaitBoxBody .angling-item-card,#anglingShopBody .angling-item-card{min-width:0;max-width:100%;width:100%}
+#anglingBaitBoxBody .angling-item-top,#anglingShopBody .angling-item-top{min-width:0;max-width:100%;flex:none!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+#anglingBaitBoxBody .angling-item-top>span:last-child,#anglingShopBody .angling-item-top>span:last-child{flex:1 1 0;min-width:0;white-space:normal!important;overflow-wrap:anywhere}
+#anglingBaitBoxBody .angling-item-action,#anglingShopBody .angling-item-action{white-space:normal!important;overflow-wrap:anywhere;word-break:normal;flex:none!important;max-width:100%;padding:6px 8px!important}
+#anglingBaitBoxBody .angling-item-tag,#anglingShopBody .angling-item-tag{white-space:normal;max-width:100%;overflow-wrap:anywhere}
+#anglingBaitBoxBody .angling-item-action.equip,#anglingShopBody .angling-item-action.equip{background:linear-gradient(#298357,#1c5c40)!important;border-color:#68997b!important}
+#anglingBaitBoxBody .angling-item-action:disabled,#anglingShopBody .angling-item-action:disabled{opacity:.8;background:#193b30!important;border-color:#506f5b!important;color:#bdd0bf!important}
+.aczo-commerce-tools{min-width:0;max-width:100%}
+.aczo-commerce-tabs{width:100%;max-width:100%;touch-action:pan-x}
+.aczo-commerce-filter button{min-height:32px!important;padding:4px 10px!important;font-size:10px!important}
+.aczo-commerce-filter>span{white-space:nowrap;flex:none}
+.aczo-item-badges span{padding:2px 6px}
+#aczo-product-dialog{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.aczo-product-content,.aczo-product-actions,.aczo-product-head{min-width:0;max-width:100%}
+.aczo-product-content{overflow-x:hidden;touch-action:pan-y}
+.aczo-product-actions button{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}
+.aczo-product-head strong{min-width:0;overflow-wrap:anywhere}
+.aczo-product-head button{flex:0 0 44px}
 
 </style>
 
@@ -28490,10 +28515,55 @@ function aczoLureDesignThumb(key,uid){
 }
 
 let anglingBaitThumbUid=0;
+// Statische SVG-Produktbilder; keine Texturdownloads oder laufenden Animationen.
+function aczoProductThumb(key,uid){
+ const g=n=>'product_'+n+'_'+uid;
+ const wrap=body=>`<svg viewBox="0 0 96 64" aria-hidden="true" focusable="false"><defs>
+ <linearGradient id="${g('steel')}" x2=".2" y2="1"><stop stop-color="#e9f0ee"/><stop offset=".30" stop-color="#74898d"/><stop offset=".52" stop-color="#f6fbf5"/><stop offset=".7" stop-color="#52666c"/><stop offset="1" stop-color="#a9b8b3"/></linearGradient>
+ <radialGradient id="${g('seed')}" cx=".32" cy=".22"><stop stop-color="#fff2a1"/><stop offset=".42" stop-color="#eaba3e"/><stop offset="1" stop-color="#98601e"/></radialGradient>
+ <radialGradient id="${g('dark')}" cx=".30" cy=".22"><stop stop-color="#53616b"/><stop offset=".4" stop-color="#253239"/><stop offset="1" stop-color="#080f15"/></radialGradient>
+ <linearGradient id="${g('cream')}" x2=".2" y2="1"><stop stop-color="#fff6d5"/><stop offset=".46" stop-color="#e9d5ab"/><stop offset="1" stop-color="#a58b67"/></linearGradient>
+ </defs><ellipse cx="48" cy="55" rx="30" ry="3" fill="#000" opacity=".17"/>${body}</svg>`;
+ if(['worm','mistworm','dew_worm'].includes(key)){
+   const dark=key==='mistworm'?'#643225':key==='dew_worm'?'#53332d':'#743932';
+   const light=key==='mistworm'?'#b77c57':key==='dew_worm'?'#aa7661':'#c58573';
+   const path=key==='mistworm'?'M15 46C10 28 24 15 35 27S49 56 63 40S72 17 82 20':key==='dew_worm'?'M10 43C22 48 17 22 31 19S38 43 51 46S78 38 79 19':'M12 44C25 45 18 24 33 23S44 47 58 40S66 21 82 23';
+   return wrap(`<path d="${path}" fill="none" stroke="${dark}" stroke-width="8" stroke-linecap="round"/><path d="${path}" fill="none" stroke="${light}" stroke-width="5.4" stroke-linecap="round"/><path d="${path}" fill="none" stroke="${dark}" stroke-width="6.8" stroke-dasharray=".65 2.7" opacity=".52"/><path d="${path}" transform="translate(0,-1)" fill="none" stroke="#efd0a8" stroke-width="1.2" opacity=".5"/>`);
+ }
+ if(key==='maggot'||key==='maggot_mix'){
+   const grub=(x,y,angle,red)=>`<g transform="translate(${x} ${y}) rotate(${angle})"><path d="M-17 0C-14-9 10-8 18-1C22 5 7 9-7 7C-14 6-18 4-17 0Z" fill="${red?'#c57963':`url(#${g('cream')})`}" stroke="${red?'#855443':'#b5a27d'}" stroke-width=".6"/><path d="M-10-5Q-7 0-9 6M-4-6Q0 0-2 7M3-5Q7 0 5 7M10-4Q13 0 12 5" fill="none" stroke="#9d8063" stroke-width=".7" opacity=".55"/><path d="M-11-3Q0-6 10-2" fill="none" stroke="#fff4d5" stroke-width="1.1" opacity=".7"/><circle cx="17" cy="1" r="1" fill="#725239"/></g>`;
+   return wrap(grub(31,25,-18,false)+grub(59,39,15,key==='maggot_mix')+grub(34,46,4,false));
+ }
+ if(key==='corn'||key==='premium_corn'){
+   const kernel=(x,y,r)=>`<g transform="translate(${x} ${y}) rotate(${r})"><path d="M-8-8Q-4-12 6-8Q12-4 9 6Q6 11-5 8Q-11 6-8-8Z" fill="url(#${g('seed')})" stroke="#a87a2e" stroke-width=".65"/><path d="M-4-7Q-7-1-3 5" fill="none" stroke="#fff1a0" stroke-width="1.3" opacity=".7"/></g>`;
+   return wrap(kernel(27,28,-20)+kernel(49,22,12)+kernel(69,36,-14)+kernel(45,43,20));
+ }
+ if(key.startsWith('feed_')){
+   const type=key.slice(5),accent=type==='premium'?'#cfa94d':type==='normal'?'#83aaa1':'#ab9871';
+   return wrap(`<path d="M25 9H63L69 48Q50 55 24 49L28 19Z" fill="url(#${g('dark')})" stroke="#94a399" stroke-width=".8"/><path d="M25 9H63L62 14H27Z" fill="${accent}"/><path d="M29 19H61L65 42H27Z" fill="${accent}"/><path d="M28 47Q45 50 67 46M31 16L28 45" fill="none" stroke="#e5e2c4" opacity=".25"/><path d="M35 30Q43 20 54 29L60 24V37L54 32Q42 40 35 30Z" fill="#203b32"/><circle cx="39" cy="29" r="1" fill="#e6dfb1"/><text x="46" y="41" text-anchor="middle" font-family="sans-serif" font-size="4.5" font-weight="700" fill="#17372e">${type==='premium'?'PREMIUM':type==='normal'?'MIX':'BASIS'}</text><path d="M64 53Q68 44 76 47Q86 48 87 54Z" fill="#927345"/><g fill="#c5ab77"><circle cx="71" cy="49" r="1.2"/><circle cx="77" cy="51" r="1"/><circle cx="67" cy="53" r=".8"/><circle cx="82" cy="52" r="1.1"/><circle cx="59" cy="54" r="1"/></g>`);
+ }
+ if(key==='mini_boilie')return wrap(`<defs><radialGradient id="${g('ball')}" cx=".28" cy=".2"><stop stop-color="#bd8960"/><stop offset=".55" stop-color="#805331"/><stop offset="1" stop-color="#382619"/></radialGradient></defs><circle cx="35" cy="36" r="15" fill="url(#${g('ball')})"/><circle cx="60" cy="28" r="13" fill="url(#${g('ball')})"/><g fill="#e0ba82" opacity=".6"><circle cx="30" cy="29" r="1"/><circle cx="37" cy="34" r=".7"/><circle cx="31" cy="41" r=".7"/><circle cx="59" cy="24" r="1"/><circle cx="64" cy="29" r=".8"/></g><path d="M49 40L67 41Q78 40 78 47Q76 54 70 48L70 44" fill="none" stroke="url(#${g('steel')})" stroke-width="1.2"/>`);
+ if(key==='sturgeon_pellet')return wrap(`<g stroke="#9a805a" stroke-width=".65"><path d="M21 23L41 19L48 40L27 46Z" fill="#60472e"/><ellipse cx="31" cy="22" rx="10" ry="4.5" transform="rotate(-12 31 22)" fill="#8f724c"/><path d="M49 31L70 25L79 43L57 51Z" fill="#493725"/><ellipse cx="59" cy="28" rx="11" ry="4.5" transform="rotate(-16 59 28)" fill="#93764d"/></g><g fill="#c3a471" opacity=".55"><circle cx="31" cy="31" r="1"/><circle cx="34" cy="38" r=".7"/><circle cx="60" cy="39" r=".8"/><circle cx="68" cy="42" r=".9"/></g>`);
+ if(key.startsWith('rod_')){
+   const shaft=key==='rod_distance'?'#e2e7e4':key==='rod_pro'?'#424c50':'#6a7867';
+   const handle=key==='rod_standard'?'#b39161':'#222d2d';
+   const reel=key==='rod_distance'?'#c7a346':`url(#${g('steel')})`;
+   return wrap(`<path d="M9 51Q47 29 87 10" fill="none" stroke="${shaft}" stroke-width="2.2"/><path d="M28 40L87 10" stroke="#e6ebe4" stroke-width=".45" opacity=".5"/><path d="M10 50L29 40" stroke="#171f20" stroke-width="6" stroke-linecap="round"/><path d="M12 49L25 42" stroke="${handle}" stroke-width="5" stroke-linecap="round"/><path d="M30 41L35 44L37 37" fill="none" stroke="url(#${g('steel')})" stroke-width="1.7"/><ellipse cx="37" cy="44" rx="6" ry="7" fill="url(#${g('dark')})" stroke="#899896" stroke-width=".8"/><ellipse cx="39" cy="42" rx="4.7" ry="3.6" fill="${reel}"/><path d="M34 40Q42 34 44 43M33 46L28 46L26 49" fill="none" stroke="#b6c4bd" stroke-width=".9"/><g fill="none" stroke="#b8c7be" stroke-width=".75"><ellipse cx="48" cy="32" rx="2" ry="2.8"/><ellipse cx="61" cy="25" rx="1.5" ry="2.2"/><ellipse cx="74" cy="18.5" rx="1.2" ry="1.6"/><path d="M88 10Q93 18 88 35" stroke-width=".45" opacity=".65"/></g>`);
+ }
+ if(key==='net_standard'||key==='net_pro'){
+   const rim=key==='net_pro'?'#9faeb0':'#728c80';
+   return wrap(`<defs><clipPath id="${g('mesh')}"><path d="M35 21Q44 10 72 15Q88 19 81 30L65 47Q51 53 42 38Z"/></clipPath><pattern id="${g('weave')}" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 3L3 0L6 3L3 6Z" fill="none" stroke="#91aaa0" stroke-width=".6"/></pattern></defs><path d="M12 55L42 33" stroke="url(#${g('steel')})" stroke-width="3.2"/><path d="M11 55L23 46" stroke="#283431" stroke-width="5" stroke-linecap="round"/><path d="M35 21Q44 10 72 15Q88 19 81 30L65 47Q51 53 42 38Z" fill="#182b27" stroke="#516a5f" stroke-width=".65"/><rect x="32" y="10" width="56" height="42" clip-path="url(#${g('mesh')})" fill="url(#${g('weave')})" opacity=".7"/><ellipse cx="59" cy="24" rx="25" ry="11" transform="rotate(-8 59 24)" fill="none" stroke="${rim}" stroke-width="2.1"/><path d="M37 21Q51 12 69 15" fill="none" stroke="#d1dcd1" stroke-width=".65"/>`);
+ }
+ if(key==='deeper')return wrap(`<circle cx="48" cy="33" r="20" fill="url(#${g('dark')})" stroke="#758783" stroke-width=".8"/><path d="M30 23Q47 13 66 23" fill="none" stroke="#d78035" stroke-width="4"/><path d="M32 35Q49 39 66 33" fill="none" stroke="#667579" stroke-width=".65"/><circle cx="48" cy="10" r="4" fill="none" stroke="url(#${g('steel')})" stroke-width="1.5"/><path d="M36 28Q34 35 38 40" fill="none" stroke="#c1cdc5" opacity=".45" stroke-width="1.6"/><text x="49" y="45" text-anchor="middle" font-family="sans-serif" font-size="4.5" fill="#d6dbd2">DEEPER</text>`);
+ if(key==='baitfish')return wrap(`<defs><linearGradient id="${g('fish')}" x2="0" y2="1"><stop stop-color="#465f65"/><stop offset=".43" stop-color="#a9b7af"/><stop offset=".62" stop-color="#e4e5cf"/><stop offset="1" stop-color="#89988c"/></linearGradient></defs><path d="M17 31Q34 16 69 30L85 20L81 33L85 43L68 35Q37 49 17 31Z" fill="url(#${g('fish')})" stroke="#a7b8ab" stroke-width=".6"/><path d="M44 22L54 13L62 25M46 41L56 49L62 39" fill="#7c928b" opacity=".8"/><path d="M29 25Q35 32 29 39M35 32L68 32" fill="none" stroke="#677c77" stroke-width=".7"/><circle cx="24" cy="30" r="2.6" fill="#d2c796"/><circle cx="24" cy="30" r="1.4" fill="#142324"/>`);
+ return '';
+}
+
 function anglingBaitThumb(key){
  const common='viewBox="0 0 96 64" aria-hidden="true" focusable="false"';
  const uid='abthumb_'+(++anglingBaitThumbUid);
  if(ACZO_LURE_DESIGNS[key])return aczoLureDesignThumb(key,uid);
+ const product=aczoProductThumb(key,uid);if(product)return product;
  const gid=name=>name+'_'+uid;
  const hook='<path d="M78 38c8 0 9 11 2 15-5 3-11 0-11-6" fill="none" stroke="#cfd6d4" stroke-width="2.2" stroke-linecap="round"/>';
  const eye='<circle cx="76" cy="22" r="2.2" fill="#f5f7ef"/><circle cx="76.6" cy="22" r="1" fill="#111"/>';
@@ -28696,9 +28766,9 @@ function renderAnglingBaitBox(){
    const stock=anglingFeedStock(id),unavailable=stock<1;
    feed.grid.appendChild(createAnglingItemCard({
      itemType:'feed',itemId:id,
-     icon:'corn',name:f.name,desc:f.desc,stock,tag:f.tag,
+     icon:'feed_'+id,name:f.name,desc:f.desc,stock,tag:f.tag,
      unavailable,
-     action:unavailable?'Im Tackle-Shop kaufen':'Im Bestand · beim Posenangeln nutzbar',
+     action:unavailable?'Im Tackle-Shop kaufen':'Für Posenangeln verfügbar',
      actionClass:unavailable?'buy':'equip',
      disabled:!unavailable,
      onClick:()=>unavailable?openAnglingShop():null
@@ -28797,7 +28867,7 @@ function renderAnglingShop(){
  Object.entries(ANGLING_FEED_CATALOG).forEach(([id,f])=>{
    feedCat.grid.appendChild(createAnglingItemCard({
      itemType:'feed',itemId:id,
-     icon:'corn',name:f.name,desc:f.desc,stock:anglingFeedStock(id),tag:f.tag,
+     icon:'feed_'+id,name:f.name,desc:f.desc,stock:anglingFeedStock(id),tag:f.tag,
      action:f.price+' EP · 1 Portion',actionClass:'buy',
      disabled:anglingProgress.xp<f.price,onClick:()=>buyAnglingFeed(id)
    }));
