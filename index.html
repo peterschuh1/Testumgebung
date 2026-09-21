@@ -5525,10 +5525,6 @@ let skyLookArmDistance=0;
 let skyLookPointerIsTouch=false;
 const skyLookReturnPosition=new THREE.Vector3();
 const skyLookReturnTarget=new THREE.Vector3();
-// PERF-FINAL: Wiederverwendete Blickvektoren vermeiden zwei kurzlebige
-// Vector3-Objekte pro Bild im Himmelblick (auf iOS sonst regelmaessiger GC-Druck).
-const skyLookDirection=new THREE.Vector3();
-const skyLookTarget=new THREE.Vector3();
 let skyLookHasReturnPose=false;
 // V5.59: eigener Angelmodus. Die Variable steht bewusst bereits vor allen
 // Eingabe-Handlern bereit, damit kein Kartenwerkzeug denselben Touch verarbeitet.
@@ -5712,14 +5708,13 @@ const anglingOnlinePromptLater=document.getElementById('anglingOnlinePromptLater
 function updateSkyLookCamera(){
   if(!skyLookMode) return;
   const cp=Math.cos(skyLookPitch);
-  skyLookDirection.set(
+  const dir=new THREE.Vector3(
     Math.cos(skyLookYaw)*cp,
     Math.sin(skyLookYaw)*cp,
     Math.sin(skyLookPitch)
   );
   camera.up.set(0,0,1);
-  skyLookTarget.copy(camera.position).add(skyLookDirection);
-  camera.lookAt(skyLookTarget);
+  camera.lookAt(camera.position.clone().add(dir));
 }
 
 function enterSkyLookMode(){
@@ -12941,36 +12936,6 @@ function makeRainRippleTexture(){
 const rainRippleTex=makeRainRippleTexture();
 const rainRippleGeo=new THREE.PlaneGeometry(1,1);
 const MAX_RAIN_RIPPLES=84;
-// PERF-FINAL: Die Ringe lebten bisher nur 1-1,7 s, erzeugten dabei aber jedes
-// Mal ein neues Mesh und Material und wurden anschliessend entsorgt. Der Pool
-// behaelt exakt dieselben individuellen Opacity-/Skalierungswerte, vermeidet
-// jedoch Shader-/WebGL-Ressourcenflattern und Garbage-Collection-Spitzen.
-const rainRipplePool=[];
-function acquireRainRippleMesh(){
-  let mesh=rainRipplePool.pop();
-  if(!mesh){
-    const mat=new THREE.MeshBasicMaterial({
-      map:rainRippleTex,
-      transparent:true,
-      depthWrite:false,
-      depthTest:true,
-      opacity:.42,
-      blending:THREE.NormalBlending,
-      side:THREE.DoubleSide
-    });
-    mesh=new THREE.Mesh(rainRippleGeo,mat);
-    mesh.renderOrder=215;
-    rainRippleGroup.add(mesh);
-  }
-  mesh.material.opacity=.42;
-  mesh.visible=true;
-  return mesh;
-}
-function releaseRainRippleMesh(mesh){
-  mesh.visible=false;
-  mesh.material.opacity=0;
-  rainRipplePool.push(mesh);
-}
 
 function spawnRainRipple(){
   // Nur bei eingeschaltetem Wasser, 3D und tatsächlichem Regen.
@@ -13003,10 +12968,21 @@ function spawnRainRipple(){
 
   // FINAL: Ring als echte horizontale Fläche statt kameraorientiertem Sprite.
   // PlaneGeometry liegt standardmäßig in XY und damit exakt parallel zur Wasseroberfläche.
-  const s=acquireRainRippleMesh();
+  const mat=new THREE.MeshBasicMaterial({
+    map:rainRippleTex,
+    transparent:true,
+    depthWrite:false,
+    depthTest:true,
+    opacity:.42,
+    blending:THREE.NormalBlending,
+    side:THREE.DoubleSide
+  });
+  const s=new THREE.Mesh(rainRippleGeo,mat);
   // Die Moseloberfläche liegt konstruktiv etwas höher als die Weiheroberfläche.
   s.position.set(x,y,rippleOnMosel ? .82 : .34);
   s.scale.set(.62,.62,1);
+  s.renderOrder=215;
+  rainRippleGroup.add(s);
   rainRipples.push({
     sprite:s,
     life:0,
@@ -13027,7 +13003,9 @@ function updateRainRipples(dt){
     r.life+=dt;
     const p=r.life/r.maxLife;
     if(p>=1){
-      releaseRainRippleMesh(r.sprite);
+      rainRippleGroup.remove(r.sprite);
+      // Gemeinsame Geometrie bleibt bestehen; nur das individuelle Material entsorgen.
+      r.sprite.material.dispose();
       rainRipples.splice(i,1);
       continue;
     }
@@ -14059,7 +14037,6 @@ let personalHandRod=null;
 let personalLineMat=null;
 const personalCastLines=[];
 const personalTmpDir=new THREE.Vector3();
-const personalSceneTemp=new THREE.Vector3();
 const personalStop=personalCamperRoute[personalCamperRoute.length-1];
 const personalCamperDoorSpot=new THREE.Vector3(personalStop.x+1.35,personalStop.y-.45,.44);
 const personalCatchWaterPoint=new THREE.Vector3(personalFishingSpot.x-.7,personalFishingSpot.y-15,.78);
@@ -14201,14 +14178,12 @@ function smoothPersonalAngle(current,target,t){
 }
 
 function carryPersonalZander(){
-  personalCaughtZander.position.copy(personalAngler.position);
-  personalCaughtZander.position.x+=.48;personalCaughtZander.position.z+=1.08;
+  personalCaughtZander.position.copy(personalAngler.position).add(new THREE.Vector3(.48,0,1.08));
   personalCaughtZander.rotation.set(.36,.12,personalAngler.rotation.z);
 }
 
 function holdPersonalFishingRod(){
-  personalHandRod.position.copy(personalAngler.position);
-  personalHandRod.position.x+=.28;personalHandRod.position.z+=.18;
+  personalHandRod.position.copy(personalAngler.position).add(new THREE.Vector3(.28,0,.18));
   personalHandRod.rotation.set(0,0,personalAngler.rotation.z);
 }
 
@@ -14217,8 +14192,7 @@ function depositPersonalZander(){
   const fish=createPersonalZander();
   const i=personalCatchPile.length;
   const row=Math.floor(i/5),col=i%5;
-  fish.position.copy(personalCatchPileBase);
-  fish.position.x+=col*.46;fish.position.y+=row*.42;fish.position.z+=.02+row*.015;
+  fish.position.copy(personalCatchPileBase).add(new THREE.Vector3(col*.46,row*.42,.02+row*.015));
   fish.rotation.set(.08*(i%2?1:-1),0,(i%3-.8)*.18);
   fish.scale.multiplyScalar(.88+.08*(i%3));
   personalSceneGroup.add(fish);personalCatchPile.push(fish);
@@ -14277,8 +14251,7 @@ function updatePersonalCampScene(dt){
       s.state='to-water';
     }
   }else if(s.state==='to-water'){
-    personalCarryRods.position.copy(personalAngler.position);
-    personalCarryRods.position.x+=.55;personalCarryRods.position.z+=.65;
+    personalCarryRods.position.copy(personalAngler.position).add(new THREE.Vector3(.55,0,.65));
     personalCarryRods.rotation.z=personalAngler.rotation.z;
     if(movePersonalActorToward(personalFishingStand,dt)){
       personalCarryRods.visible=false;personalRodPod.visible=true;
@@ -14301,8 +14274,7 @@ function updatePersonalCampScene(dt){
       personalChair.visible=true;s.state='to-chair';
     }
   }else if(s.state==='to-chair'){
-    personalChair.position.copy(personalAngler.position);
-    personalChair.position.x-=.58;personalChair.position.z+=.15;
+    personalChair.position.copy(personalAngler.position).add(new THREE.Vector3(-.58,0,.15));
     personalChair.rotation.z=personalAngler.rotation.z;
     if(movePersonalActorToward(personalSeatSpot,dt,1.75)){
       personalChair.position.copy(personalSeatSpot);
@@ -14313,7 +14285,7 @@ function updatePersonalCampScene(dt){
       const lookDy=personalFishingSpot.y-personalSeatSpot.y;
       const lookToMosel=Math.atan2(-lookDx,lookDy);
       personalChair.rotation.z=lookToMosel;
-      personalAngler.position.copy(personalSeatSpot);personalAngler.position.y+=.03;
+      personalAngler.position.copy(personalSeatSpot).add(new THREE.Vector3(0,.03,0));
       personalAngler.rotation.z=lookToMosel;
       setPersonalAnglerSeated(personalAngler,true);
       s.state='seated';s.timer=60;
@@ -14342,8 +14314,8 @@ function updatePersonalCampScene(dt){
     if(p>0){
       personalCaughtZander.visible=true;
       const eased=p*p*(3-2*p);
-      personalSceneTemp.copy(personalAngler.position);personalSceneTemp.x+=.48;personalSceneTemp.z+=1.08;
-      personalCaughtZander.position.copy(personalCatchWaterPoint).lerp(personalSceneTemp,eased);
+      const handPos=personalAngler.position.clone().add(new THREE.Vector3(.48,0,1.08));
+      personalCaughtZander.position.copy(personalCatchWaterPoint).lerp(handPos,eased);
       personalCaughtZander.position.z+=Math.sin(p*Math.PI)*1.55;
       personalCaughtZander.rotation.set(.30,.12,personalAngler.rotation.z+Math.sin(p*Math.PI)*.22);
     }
@@ -14372,7 +14344,7 @@ function updatePersonalCampScene(dt){
       const lookDx=personalFishingSpot.x-personalSeatSpot.x;
       const lookDy=personalFishingSpot.y-personalSeatSpot.y;
       const lookToMosel=Math.atan2(-lookDx,lookDy);
-      personalAngler.position.copy(personalSeatSpot);personalAngler.position.y+=.03;
+      personalAngler.position.copy(personalSeatSpot).add(new THREE.Vector3(0,.03,0));
       personalChair.position.z=ACZO_SATELLITE_GROUND_Z+.008;
       personalAngler.rotation.z=personalChair.rotation.z=lookToMosel;
       setPersonalAnglerSeated(personalAngler,true);
@@ -14574,21 +14546,18 @@ function showFishSky(){
   cloudGroup.visible=false;
   cloudReflectionGroup.visible=false;
 }
-const underwaterSunDiscTint=new THREE.Color(0x92c8dc);
-const underwaterMoonDiscTint=new THREE.Color(0x86bdd7);
-const underwaterMoonGlowTint=new THREE.Color(0x70aac8);
 function applyUnderwaterCelestialTint(blend){
   const b=THREE.MathUtils.clamp(blend,0,1);
   if(sunDisc.material){
-    sunDisc.material.color.set(0xffffff).lerp(underwaterSunDiscTint,b*.72);
+    sunDisc.material.color.set(0xffffff).lerp(new THREE.Color(0x92c8dc),b*.72);
     sunDisc.material.opacity=THREE.MathUtils.lerp(1,.66,b);
   }
   if(moonDisc.material){
-    moonDisc.material.color.set(0xffffff).lerp(underwaterMoonDiscTint,b*.70);
+    moonDisc.material.color.set(0xffffff).lerp(new THREE.Color(0x86bdd7),b*.70);
     moonDisc.material.opacity=THREE.MathUtils.lerp(1,.72,b);
   }
   if(moonGlow&&moonGlow.material){
-    moonGlow.material.color.set(0xffffff).lerp(underwaterMoonGlowTint,b*.72);
+    moonGlow.material.color.set(0xffffff).lerp(new THREE.Color(0x70aac8),b*.72);
     moonGlow.material.opacity=THREE.MathUtils.lerp(1,.52,b);
   }
 }
@@ -14600,11 +14569,6 @@ let aczoFishBackgroundAccum=0;
 const fishCameraRight=new THREE.Vector3();
 const fishCameraForward=new THREE.Vector3();
 const fishMoveDelta=new THREE.Vector3();
-const fishMoveForward=new THREE.Vector3();
-const fishMoveRight=new THREE.Vector3();
-const fishMoveVector=new THREE.Vector3();
-const fishMoveDesired=new THREE.Vector3();
-const fishLookTarget=new THREE.Vector3();
 const fishLastSafeCameraPosition=new THREE.Vector3();
 const fishEntryCameraPosition=new THREE.Vector3();
 const fishEntryControlTarget=new THREE.Vector3();
@@ -14884,7 +14848,7 @@ function makeParticlePool(count,color,fadeAlpha=.22,useFog=false){
   geo.setAttribute('pAlpha',new THREE.BufferAttribute(alphas,1));
   const points=new THREE.Points(geo,softPointMaterial(color,useFog));
   points.visible=false;points.renderOrder=4.5;scene.add(points);
-  return {count,positions,sizes,alphas,life,maxLife,vx,vy,vz,geo,points,cursor:0,fadeAlpha,activeCount:0,sizeDirty:false};
+  return {count,positions,sizes,alphas,life,maxLife,vx,vy,vz,geo,points,cursor:0,fadeAlpha};
 }
 // V1.2 BUBBLE STREAM FIX: Lang lebende Gründelblasen dürfen nicht vom nächsten
 // Burst überschrieben werden, bevor sie nach 3–5 m Aufstieg die Oberfläche erreichen.
@@ -15047,11 +15011,9 @@ let nextBubbleAt=2+Math.random()*4,nextSedimentAt=3+Math.random()*4,underwaterFx
 
 function spawnPoolParticle(pool,x,y,z,size,life,vx,vy,vz,alpha){
   const i=pool.cursor++%pool.count,k=i*3;
-  if(pool.life[i]<=0)pool.activeCount++;
   pool.positions[k]=x;pool.positions[k+1]=y;pool.positions[k+2]=z;
   pool.sizes[i]=size;pool.life[i]=life;pool.maxLife[i]=life;
   pool.vx[i]=vx;pool.vy[i]=vy;pool.vz[i]=vz;pool.alphas[i]=alpha;
-  pool.sizeDirty=true;
 }
 
 // Wenige echte Steine für Parallaxe; die dichte Kieswirkung kommt aus der Bodentextur.
@@ -21136,19 +21098,12 @@ function rebuildUnderwaterObjects(){
 }
 
 function updateParticlePool(pool,dt,isBubble){
-  // PERF-FINAL: Leere Pools erzeugen weder 640er Schleifen noch drei nutzlose
-  // Buffer-Uploads. Aktive Blasen laufen ausserhalb der Unterwasseransicht
-  // weiterhin unveraendert bis zur Oberflaeche weiter.
-  if(pool.activeCount<=0)return;
-  let changed=false;
   for(let i=0;i<pool.count;i++){
     if(pool.life[i]<=0) continue;
-    changed=true;
     const k=i*3;
     pool.life[i]-=dt;
     if(pool.life[i]<=0){
-      pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;
-      pool.activeCount=Math.max(0,pool.activeCount-1);continue;
+      pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;continue;
     }
     pool.positions[k]+=pool.vx[i]*dt;
     pool.positions[k+1]+=pool.vy[i]*dt;
@@ -21162,8 +21117,7 @@ function updateParticlePool(pool,dt,isBubble){
           anglingFeedingFxPos.set(pool.positions[k],pool.positions[k+1],surface+.004);
           spawnAnglingSurfaceEffect(anglingFeedingFxPos,.075+Math.random()*.055,.72+Math.random()*.16,1.25+Math.random()*.45,.09+Math.random()*.035,.28+Math.random()*.10);
         }
-        pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;
-        pool.activeCount=Math.max(0,pool.activeCount-1);continue;
+        pool.life[i]=0;pool.alphas[i]=0;pool.positions[k]=-999;continue;
       }
       const age=1-pool.life[i]/Math.max(.01,pool.maxLife[i]);
       pool.alphas[i]=.54*Math.min(1,age*5)*Math.min(1,pool.life[i]/.90);
@@ -21174,21 +21128,9 @@ function updateParticlePool(pool,dt,isBubble){
       pool.vx[i]*=Math.exp(-dt*.42);pool.vy[i]*=Math.exp(-dt*.42);
     }
   }
-  if(changed){
-    pool.geo.getAttribute('position').needsUpdate=true;
-    pool.geo.getAttribute('pAlpha').needsUpdate=true;
-  }
-  if(pool.sizeDirty){
-    pool.geo.getAttribute('pSize').needsUpdate=true;
-    pool.sizeDirty=false;
-  }
-}
-function flushSpawnedParticlePool(pool){
-  if(!pool.sizeDirty)return;
   pool.geo.getAttribute('position').needsUpdate=true;
   pool.geo.getAttribute('pAlpha').needsUpdate=true;
   pool.geo.getAttribute('pSize').needsUpdate=true;
-  pool.sizeDirty=false;
 }
 
 function randomFxPoint(minDepth,maxDepth){
@@ -21255,9 +21197,6 @@ function updateUnderwaterEffects(dt){
     }
     nextBubbleAt=underwaterFxTime+3.8+Math.random()*5.5;
   }
-  // Blasen entstehen nach ihrem Physik-Update; den ersten sichtbaren Zustand
-  // deshalb noch im selben Renderbild hochladen (kein Ein-Bild-Verzug).
-  flushSpawnedParticlePool(bubblePool);
 
   if(underwaterFxTime>=nextSedimentAt){
     const bottomFish=fishActors.filter(f=>{
@@ -21445,40 +21384,14 @@ const fishTextureCache={};
 let fishTexturePendingCount=0;
 function finishFishTextureLoad(){
   fishTexturePendingCount=Math.max(0,fishTexturePendingCount-1);
-  // PERF36: Safari kann das Bild-Load-Ereignis liefern, bevor die letzte
-  // WebP-Dekodierung/GPU-Vorbereitung wirklich abgeschlossen ist. Sobald alle
-  // Fischbilder dekodiert sind, darf ein eventuell zu frueher Warmup deshalb
-  // noch einmal unsichtbar nachgezogen werden.
-  if(fishTexturePendingCount===0&&typeof window.__aczoFishTexturesDecoded==='function'){
-    window.__aczoFishTexturesDecoded();
-  }
 }
 function fishTexture(name){
   if(fishTextureCache[name]) return fishTextureCache[name];
   fishTexturePendingCount++;
-  let settled=false;
-  const settle=()=>{
-    if(settled)return;
-    settled=true;
-    finishFishTextureLoad();
-  };
   const tex=new THREE.TextureLoader().load(fishImageData[name],t=>{
-    t.encoding=THREE.sRGBEncoding;
-    const image=t.image;
-    // HTMLImageElement.decode() zwingt speziell WebKit dazu, die eingebetteten
-    // WebP-Daten jetzt und nicht erst im ersten sichtbaren Unterwasserframe zu
-    // dekodieren. Fehler fallen auf das normale TextureLoader-Verhalten zurueck.
-    if(image&&typeof image.decode==='function'){
-      try{
-        const decoded=image.decode();
-        if(decoded&&typeof decoded.then==='function'){
-          decoded.catch(()=>{}).then(()=>{t.needsUpdate=true;settle();});
-          return;
-        }
-      }catch(err){}
-    }
-    t.needsUpdate=true;settle();
-  },undefined,settle);
+    t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;
+    finishFishTextureLoad();
+  },undefined,finishFishTextureLoad);
   tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
   fishTextureCache[name]=tex;
   return tex;
@@ -21846,6 +21759,8 @@ function randomSpeciesPoint(name,out,options={}){
 const strictBottomFish=new Set(['goby','catfish','sturgeon','zander','eel','tench']);
 function keepFishAboveFloor(f){
   const obj=f.obj;
+  const d=pondDepthAt(obj.position.x,obj.position.y);
+  if(d==null||d<.38) return false;
   const width=Math.abs(obj.userData.baseFishWidth||obj.scale.x||.1);
   const height=Math.abs(obj.userData.baseFishHeight||obj.scale.y||.05);
   const pitchLimit=strictBottomFish.has(obj.userData.species)
@@ -21853,28 +21768,12 @@ function keepFishAboveFloor(f){
   const clearance=Math.max(.055,height*.50+width*.50*Math.sin(pitchLimit)+.028);
   // Auf Böschungen zählt der höchste Bodenpunkt unter der gesamten Fischlänge,
   // nicht nur die Tiefe exakt unter dem Mittelpunkt.
+  let supportDepth=d;
   const radius=Math.max(.04,width*.42);
-  let cache=f.floorSupportCache;
-  let d,supportDepth;
-  if(cache&&cache.x===obj.position.x&&cache.y===obj.position.y&&cache.radius===radius){
-    d=cache.depth;supportDepth=cache.supportDepth;
-  }else{
-    d=pondDepthAt(obj.position.x,obj.position.y);
-    if(d==null||d<.38)return false;
-    supportDepth=d;
-    // Identische Abtastreihenfolge ohne vier Arrays und Callback pro Fisch.
-    let sample=pondDepthAt(obj.position.x+radius,obj.position.y);
-    if(sample!=null)supportDepth=Math.min(supportDepth,sample);
-    sample=pondDepthAt(obj.position.x-radius,obj.position.y);
-    if(sample!=null)supportDepth=Math.min(supportDepth,sample);
-    sample=pondDepthAt(obj.position.x,obj.position.y+radius);
-    if(sample!=null)supportDepth=Math.min(supportDepth,sample);
-    sample=pondDepthAt(obj.position.x,obj.position.y-radius);
-    if(sample!=null)supportDepth=Math.min(supportDepth,sample);
-    if(!cache)cache=f.floorSupportCache={x:0,y:0,radius:0,depth:0,supportDepth:0};
-    cache.x=obj.position.x;cache.y=obj.position.y;cache.radius=radius;
-    cache.depth=d;cache.supportDepth=supportDepth;
-  }
+  [[radius,0],[-radius,0],[0,radius],[0,-radius]].forEach(([dx,dy])=>{
+    const sample=pondDepthAt(obj.position.x+dx,obj.position.y+dy);
+    if(sample!=null) supportDepth=Math.min(supportDepth,sample);
+  });
   const floorZ=-supportDepth*exaggeration;
   if(obj.userData.species==='goby') obj.position.z=floorZ+clearance;
   else if(obj.userData.species==='eel'){
@@ -21886,28 +21785,6 @@ function keepFishAboveFloor(f){
     obj.position.z=THREE.MathUtils.clamp(obj.position.z,eelMin,eelMax);
   }else obj.position.z=Math.max(obj.position.z,floorZ+clearance);
   return true;
-}
-
-// PERF36: Der erste sichtbare Unterwasserframe darf nicht fuer den gesamten
-// Fischbestand erstmals je fuenf Tiefenabfragen ausfuehren. Die exakt gleiche
-// Bodenstuetzberechnung wird waehrend des Start-Ladebildschirms in kleinen
-// Paketen ausgefuehrt. Danach greift keepFishAboveFloor() auf seinen bereits
-// vorhandenen positionsgenauen Cache zu; Verhalten und Fischpositionen bleiben
-// identisch zum bisherigen ersten Simulationsframe.
-let aczoFishRuntimePrimeIndex=0;
-function aczoPrimeFishRuntimeStep(batchSize=48){
-  if(!fishWorldBuilt)return false;
-  const end=Math.min(fishActors.length,aczoFishRuntimePrimeIndex+Math.max(1,batchSize|0));
-  for(;aczoFishRuntimePrimeIndex<end;aczoFishRuntimePrimeIndex++){
-    const actor=fishActors[aczoFishRuntimePrimeIndex];
-    if(!actor||!actor.obj)continue;
-    if(!keepFishAboveFloor(actor)){
-      randomSpeciesPoint(actor.obj.userData.species,actor.obj.position);
-      keepFishAboveFloor(actor);
-    }
-    actor.obj.updateMatrix();
-  }
-  return aczoFishRuntimePrimeIndex>=fishActors.length;
 }
 
 function initialFishFeedSeed(name,index){
@@ -22414,13 +22291,10 @@ function aczoResolveUnderwaterSweep(current,desired,{radius=ACZO_UW_CAMERA_RADIU
   const delta=desired.clone().sub(current);
   const horizontal=Math.hypot(delta.x,delta.y);
   const steps=Math.max(1,Math.ceil(Math.max(horizontal/0.10,Math.abs(delta.z)/0.10)));
-  // goal/slide werden innerhalb des Sweeps wiederverwendet. Zuvor entstanden
-  // in jedem 10-cm-Teilschritt neue Vector3-Objekte.
-  const pos=current.clone(),goal=new THREE.Vector3(),slide=new THREE.Vector3();
-  let moved=false;
+  let pos=current.clone(),moved=false;
   for(let i=1;i<=steps;i++){
     const f=i/steps;
-    goal.copy(current).addScaledVector(delta,f);
+    const goal=current.clone().addScaledVector(delta,f);
     const stepDx=goal.x-pos.x,stepDy=goal.y-pos.y;
     let surf=surfaceFn?surfaceFn(goal.x,goal.y):0;
     let z=aczoFitUnderwaterZ(goal.x,goal.y,goal.z,{radius,floorClearance,topClearance,surfaceZ:surf,travelX:stepDx,travelY:stepDy});
@@ -22431,7 +22305,7 @@ function aczoResolveUnderwaterSweep(current,desired,{radius=ACZO_UW_CAMERA_RADIU
     const frame=aczoMasterBoundaryFrame(goal.x,goal.y)||aczoMasterBoundaryFrame(pos.x,pos.y);
     if(frame){
       const along=stepDx*frame.tx+stepDy*frame.ty;
-      slide.copy(pos);slide.x+=frame.tx*along;slide.y+=frame.ty*along;slide.z=goal.z;
+      const slide=pos.clone();slide.x+=frame.tx*along;slide.y+=frame.ty*along;slide.z=goal.z;
       surf=surfaceFn?surfaceFn(slide.x,slide.y):0;
       z=aczoFitUnderwaterZ(slide.x,slide.y,slide.z,{radius,floorClearance,topClearance,surfaceZ:surf,travelX:slide.x-pos.x,travelY:slide.y-pos.y});
       if(z!=null){slide.z=z;pos.copy(slide);moved=true;continue;}
@@ -22447,10 +22321,7 @@ function aczoClosestPointOnSegment3D(p,a,b,out){
   aczoCollisionV.copy(b).sub(a);
   const len2=aczoCollisionV.lengthSq();
   if(len2<1e-8)return out.copy(a);
-  const t=THREE.MathUtils.clamp(
-    ((p.x-a.x)*aczoCollisionV.x+(p.y-a.y)*aczoCollisionV.y+(p.z-a.z)*aczoCollisionV.z)/len2,
-    0,1
-  );
+  const t=THREE.MathUtils.clamp(p.clone().sub(a).dot(aczoCollisionV)/len2,0,1);
   return out.copy(a).addScaledVector(aczoCollisionV,t);
 }
 function aczoPushCameraOutOfDeadwood(point,reference){
@@ -22605,14 +22476,13 @@ function updateFishView(dt){
     return;
   }
   enforceFishCameraBounds();
-  fishMoveForward.set(
+  const forward=new THREE.Vector3(
     Math.sin(fishYaw)*Math.cos(fishPitch),
     Math.cos(fishYaw)*Math.cos(fishPitch),
     Math.sin(fishPitch)
   );
-  fishMoveRight.set(Math.cos(fishYaw),-Math.sin(fishYaw),0);
-  fishMoveVector.set(0,0,0);
-  const forward=fishMoveForward,right=fishMoveRight,move=fishMoveVector;
+  const right=new THREE.Vector3(Math.cos(fishYaw),-Math.sin(fishYaw),0);
+  const move=new THREE.Vector3();
   if(fishKeys.KeyW||fishKeys.ArrowUp||fishPad.forward) move.add(forward);
   if(fishKeys.KeyS||fishKeys.ArrowDown||fishPad.back) move.sub(forward);
   if(fishKeys.KeyD||fishKeys.ArrowRight||fishPad.right) move.add(right);
@@ -22638,14 +22508,13 @@ function updateFishView(dt){
     const touchBoost=1+Math.min(.65,touchStrength*.48);
     // Ruhige Schwimmgeschwindigkeit statt schneller Kamerafahrt durch den Weiher.
     move.normalize().multiplyScalar(dt*1.72*boost*touchBoost*inputStrength);
-    fishMoveDesired.copy(camera.position).add(move);
-    const resolved=aczoResolveFishMove(camera.position,fishMoveDesired);
+    const desired=camera.position.clone().add(move);
+    const resolved=aczoResolveFishMove(camera.position,desired);
     if(resolved)camera.position.copy(resolved);
   }
   enforceFishCameraBounds();
   camera.up.set(0,0,1);
-  fishLookTarget.copy(camera.position).add(forward);
-  camera.lookAt(fishLookTarget);
+  camera.lookAt(camera.position.clone().add(forward));
   // Sonne und Mond bleiben im Raum vorhanden und verlassen den sichtbaren
   // Ausschnitt erst auf natürliche Weise. Der Tiefentest verhindert weiterhin
   // ein Durchscheinen durch Böschung oder Gewässerboden.
@@ -23024,20 +22893,17 @@ function updateAnglingFeedUnderwaterVisual(dt,lureUnderwaterActive){
 // Rotauge/Rotfeder fliehen zuverlässig; größere Friedfische nur gelegentlich.
 // Räuber werden hier bewusst nicht behandelt, weil ihre vorhandene Köderjagd
 // weiterhin Vorrang hat. Der Stör bleibt neutral und flieht nicht automatisch.
-const ACZO_LURE_PREDATOR_SPECIES=new Set(['pike','zander','perch','catfish']);
-const ACZO_LURE_ACTIVE_STATES=new Set(['lure-retrieving','lure-waiting']);
-const ACZO_FEED_BOTTOM_SPECIES=new Set(['carp','mirrorcarp','tench','bream','sturgeon']);
-const ACZO_LURE_SCARE_PROFILES={
-  roach:{radius:2.00,chance:1.00,distance:[2.8,4.2],duration:[2.0,2.8]},
-  rudd:{radius:2.00,chance:1.00,distance:[2.8,4.2],duration:[2.0,2.8]},
-  bream:{radius:2.00,chance:.42,distance:[2.4,3.6],duration:[1.8,2.6]},
-  carp:{radius:1.05,chance:.28,distance:[2.5,3.8],duration:[1.9,2.8]},
-  mirrorcarp:{radius:1.05,chance:.28,distance:[2.5,3.8],duration:[1.9,2.8]},
-  grasscarp:{radius:1.08,chance:.30,distance:[2.6,4.0],duration:[1.9,2.8]},
-  tench:{radius:.98,chance:.34,distance:[2.2,3.4],duration:[1.8,2.5]}
-};
 function anglingLureScareProfile(species){
-  return ACZO_LURE_SCARE_PROFILES[species]||null;
+  switch(species){
+    case 'roach':      return {radius:2.00,chance:1.00,distance:[2.8,4.2],duration:[2.0,2.8]};
+    case 'rudd':       return {radius:2.00,chance:1.00,distance:[2.8,4.2],duration:[2.0,2.8]};
+    case 'bream':      return {radius:2.00,chance:.42,distance:[2.4,3.6],duration:[1.8,2.6]};
+    case 'carp':       return {radius:1.05,chance:.28,distance:[2.5,3.8],duration:[1.9,2.8]};
+    case 'mirrorcarp': return {radius:1.05,chance:.28,distance:[2.5,3.8],duration:[1.9,2.8]};
+    case 'grasscarp':  return {radius:1.08,chance:.30,distance:[2.6,4.0],duration:[1.9,2.8]};
+    case 'tench':      return {radius:.98,chance:.34,distance:[2.2,3.4],duration:[1.8,2.5]};
+    default:return null;
+  }
 }
 
 function triggerAnglingLureScare(f,cfg){
@@ -23119,12 +22985,6 @@ function updateFishActors(dt){
         f.obj.visible=false;continue;
       }
     }
-    const nearEnough=f.obj.position.distanceToSquared(fishViewCamera.position)<1156;
-    // Unsichtbare Fische werden ohnehin nur in jedem achten Bild bewegt. Die
-    // vorher davor liegenden fünf Boden-/Uferabfragen waren in den sieben
-    // Zwischenbildern wirkungslos, weil sich die Position dort nicht ändert.
-    f.obj.visible=fishVisualActive&&nearEnough;
-    if(!nearEnough&&(fishActorFrame+f.index)%8!==0)continue;
     if(!keepFishAboveFloor(f)){
       randomSpeciesPoint(species,f.obj.position);
       if(!f.schoolTarget) randomSpeciesPoint(species,f.target);
@@ -23139,9 +22999,9 @@ function updateFishActors(dt){
       // P43: Sichtbare Räuber können den real sichtbaren Kunstköder entdecken,
       // drehen und hinterherjagen. Der Biss entsteht dann aus genau diesem Fisch,
       // nicht aus einer neu aus dem Nichts eingeblendeten Zufallsfigur.
-      const aczoVisiblePredator=ACZO_LURE_PREDATOR_SPECIES.has(species);
+      const aczoVisiblePredator=['pike','zander','perch','catfish'].includes(species);
       const aczoCanLureChase=aczoVisiblePredator&&!anglingFastObstaclePull&&lureMoving&&
-        ACZO_LURE_ACTIVE_STATES.has(anglingState)&&
+        ['lure-retrieving','lure-waiting'].includes(anglingState)&&
         !f.obj.userData.hiddenByHunt;
       if(aczoCanLureChase){
         if((f.lureChaseUntil||0)>fishWorldTime){
@@ -23194,6 +23054,12 @@ function updateFishActors(dt){
         }
       }
     }
+    const nearEnough=f.obj.position.distanceToSquared(fishViewCamera.position)<1156;
+    // Außerhalb Fischsicht/Kunstköder-Unterwasserkamera wird die Population nur
+    // simuliert. Die Modelle selbst bleiben im normalen Angelbild unsichtbar.
+    f.obj.visible=fishVisualActive&&nearEnough;
+    // Unsichtbare Fische bewegen sich weiter, aber nur in jedem achten Bild.
+    if(!nearEnough&&(fishActorFrame+f.index)%8!==0) continue;
     const step=nearEnough?dt:dt*8;
     let activity=1;
     if(species==='zander') activity=THREE.MathUtils.lerp(.035,1,aczoLowLight);
@@ -23215,9 +23081,9 @@ function updateFishActors(dt){
     }
     const isHunter=activeHunt&&activeHunt.predator===f;
     const isLureHunter=lureUnderwaterActive&&
-      ACZO_LURE_PREDATOR_SPECIES.has(species)&&
+      ['pike','zander','perch','catfish'].includes(species)&&
       (
-        ((f.lureChaseUntil||0)>fishWorldTime&&ACZO_LURE_ACTIVE_STATES.has(anglingState)) ||
+        ((f.lureChaseUntil||0)>fishWorldTime&&['lure-retrieving','lure-waiting'].includes(anglingState)) ||
         (anglingState==='strike'&&f===anglingVisibleStrikeActor)
       );
     const isFleeing=!isHunter&&!isLureHunter&&f.huntFleeUntil>fishWorldTime&&f.huntFleeTarget;
@@ -23262,10 +23128,7 @@ function updateFishActors(dt){
           f.target.copy(f.feedTargetVec);
           feedSeeking=true;
           if(!nearEnough&&f.obj.position.distanceToSquared(anglingFeedFishTarget)>196&&Math.random()<step*.10){
-            anglingFeedFishRelocate.copy(anglingFeedFishTarget);
-            anglingFeedFishRelocate.x+=(Math.random()-.5)*.30;
-            anglingFeedFishRelocate.y+=(Math.random()-.5)*.30;
-            anglingFeedFishRelocate.z+=(Math.random()-.5)*.04;
+            anglingFeedFishRelocate.copy(anglingFeedFishTarget).add(new THREE.Vector3((Math.random()-.5)*.30,(Math.random()-.5)*.30,(Math.random()-.5)*.04));
             f.obj.position.copy(anglingFeedFishRelocate);
             keepFishAboveFloor(f);
           }
@@ -23293,11 +23156,12 @@ function updateFishActors(dt){
     // sondern auch unabhängig davon gelegentlich am Grund fressen. Karpfen,
     // Brassen, Schleien und Störe wirbeln dabei Sediment auf und setzen kleine
     // Luftblasen aus dem Boden frei.
+    const feedBottomSpecies=['carp','mirrorcarp','tench','bream','sturgeon'];
     // BETA 1.33: Staubwolken und Grundblasen nur noch bei den Arten, die hier
     // tatsächlich als Grundfresser gedacht sind. Rotaugen/Rotfedern am
     // Futterplatz bleiben horizontal und erzeugen keine künstlichen Sedimentwolken.
-    const feedBottomGrazer=feedSeeking&&ACZO_FEED_BOTTOM_SPECIES.has(species);
-    const ambientBottomGrazer=!feedSeeking&&!isHunter&&!isFleeing&&ACZO_FEED_BOTTOM_SPECIES.has(species);
+    const feedBottomGrazer=feedSeeking&&feedBottomSpecies.includes(species);
+    const ambientBottomGrazer=!feedSeeking&&!isHunter&&!isFleeing&&feedBottomSpecies.includes(species);
 
     let ambientBottomReady=false;
     if(ambientBottomGrazer){
@@ -23341,14 +23205,10 @@ function updateFishActors(dt){
         // unter ihrer Körperlänge bleiben. Der frühere feste Wert fishW*.34 war
         // für 45° geometrisch zu klein und ließ Kopf/Schnauze in den Boden laufen.
         const supportRadius=Math.max(.05,fishW*.46);
-        let sd=pondDepthAt(f.obj.position.x+supportRadius,f.obj.position.y);
-        if(sd!=null)supportDepth=Math.min(supportDepth,sd);
-        sd=pondDepthAt(f.obj.position.x-supportRadius,f.obj.position.y);
-        if(sd!=null)supportDepth=Math.min(supportDepth,sd);
-        sd=pondDepthAt(f.obj.position.x,f.obj.position.y+supportRadius);
-        if(sd!=null)supportDepth=Math.min(supportDepth,sd);
-        sd=pondDepthAt(f.obj.position.x,f.obj.position.y-supportRadius);
-        if(sd!=null)supportDepth=Math.min(supportDepth,sd);
+        [[supportRadius,0],[-supportRadius,0],[0,supportRadius],[0,-supportRadius]].forEach(([dx,dy])=>{
+          const sd=pondDepthAt(f.obj.position.x+dx,f.obj.position.y+dy);
+          if(sd!=null)supportDepth=Math.min(supportDepth,sd);
+        });
         const floor=-supportDepth*exaggeration;
         const pitchAbs=Math.abs(f.visualPitch);
         const centerClearance=Math.max(.07,
@@ -23578,14 +23438,12 @@ function updateFishActors(dt){
 
 const fishShadowDummy=new THREE.Object3D();
 const fishShadowCandidates=[];
-const fishShadowCandidatePool=[];
 function updateFishShadows(){
   if(!fishMode){fishShadows.count=0;return;}
   // Weiche Bodenschatten benötigen keine 60 vollständigen Sortierungen pro
   // Sekunde. 30 Hz wirkt bei den langsamen Fischen unverändert flüssig.
   if((fishActorFrame&1)!==0)return;
   fishShadowCandidates.length=0;
-  let candidateCount=0;
   for(const f of fishActors){
     if(!f.obj.visible||f.obj.userData.hiddenByHunt) continue;
     const d=pondDepthAt(f.obj.position.x,f.obj.position.y);
@@ -23595,11 +23453,7 @@ function updateFishShadows(){
     if(clearance<.015||clearance>1.62) continue;
     const cameraD2=f.obj.position.distanceToSquared(camera.position);
     if(cameraD2>900) continue;
-    let candidate=fishShadowCandidatePool[candidateCount];
-    if(!candidate){candidate={f:null,d:0,floor:0,clearance:0,cameraD2:0};fishShadowCandidatePool.push(candidate);}
-    candidate.f=f;candidate.d=d;candidate.floor=floor;
-    candidate.clearance=clearance;candidate.cameraD2=cameraD2;
-    fishShadowCandidates.push(candidate);candidateCount++;
+    fishShadowCandidates.push({f,d,floor,clearance,cameraD2});
   }
   fishShadowCandidates.sort((a,b)=>a.cameraD2-b.cameraD2);
   const cloud=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0)/100;
@@ -25898,6 +25752,12 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldUwSceneActive=!!window.__aczoUnderwaterSceneActive;
   const oldCameraNear=camera.near,oldCameraFov=camera.fov;
   const oldCameraPos=camera.position.clone(),oldCameraQuat=camera.quaternion.clone(),oldCameraUp=camera.up.clone();
+  // C1: Der vorhandene Warmup verwendete die Materialseiten der Kartenkamera.
+  // Die echte mobile Tauchkamera waehlt dagegen eine andere Shader-Variante.
+  // Nur im bestehenden verdeckten Pass synchronisieren; danach exakt restaurieren.
+  const warmSurfaceMaterials=[waterMat,moselWaterMat,aczoPerf2CloudMat];
+  const oldWarmSurfaceSides=warmSurfaceMaterials.map(material=>material.side);
+  const oldWarmWaterSide=aczoPerf9WaterSide,oldWarmCloudSide=aczoPerf9CloudSide;
   try{
     if(!aczoPerf26UwFullTarget)aczoPerf26UwFullTarget=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});
     const start=new THREE.Vector3();centralFishStart(start);
@@ -25923,6 +25783,7 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     ground.visible=true;satEdgeOverlay.visible=false;anglingPhotoHorizon.visible=false;anglingPhotoShadowGroup.visible=false;
     anglingBankGroup.visible=false;anglingMarkerGroup.visible=false;
     setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
+    aczoPerf9UpdateLargeSurfaceSides();
     warmFishSamples.forEach(state=>{state.object.visible=true;state.object.frustumCulled=false;});
     // Freier Tauchmodus verwendet fuer Sonne und Mond eine eigene
     // depthTest/fog-Kombination. Auch diese Variante wird hier vorab erzeugt.
@@ -25957,14 +25818,7 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     renderer.render(scene,camera);
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
     if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined')renderer.render(anglingReelScene,anglingReelMiniCamera);
-    aczoUnderwaterShadersReady=true;
-    aczoPerf24UwRenderWarmReady=true;
-    // Erst als vollstaendig bereit melden, wenn nicht nur Programme und
-    // Geometrie, sondern auch alle WebP-Fischbilder dekodiert sowie deren
-    // Boden-Caches vorbereitet sind. Genau diese beiden Restarbeiten erzeugten
-    // auf iOS den einmaligen Stillstand beim ersten Tauchgang/Kunstkoederwurf.
-    aczoPerf26UwFullWarmReady=fishTexturePendingCount===0&&
-      aczoFishRuntimePrimeIndex>=fishActors.length;
+    aczoUnderwaterShadersReady=true;aczoPerf24UwRenderWarmReady=true;aczoPerf26UwFullWarmReady=true;
   }catch(err){console.warn('PERF26 UW-Full-Prewarm:',err);}
   finally{
     // Erst den Unterwasserzustand verlassen, danach ALLE sichtbaren Karten-
@@ -26012,6 +25866,12 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     aczoPerf2CloudDeck.renderOrder=oldCloudDeckOrder;
     aczoPerf2CloudMat.depthWrite=oldCloudDepthWrite;
     camera.near=oldCameraNear;camera.fov=oldCameraFov;camera.position.copy(oldCameraPos);camera.quaternion.copy(oldCameraQuat);camera.up.copy(oldCameraUp);camera.updateProjectionMatrix();
+    warmSurfaceMaterials.forEach((material,index)=>{
+      if(material.side!==oldWarmSurfaceSides[index]){
+        material.side=oldWarmSurfaceSides[index];material.needsUpdate=true;
+      }
+    });
+    aczoPerf9WaterSide=oldWarmWaterSide;aczoPerf9CloudSide=oldWarmCloudSide;
     renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);renderer.autoClear=oldAutoClear;
     // Die normalen Karten-Layer nach dem Restore einmal sauber synchronisieren,
     // ohne den gespeicherten Sichtbarkeitszustand zu ueberschreiben.
@@ -26038,22 +25898,6 @@ function aczoPerf26ScheduleFullUnderwaterPrewarm(delay=420){
     if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:900});else run();
   },delay);
 }
-
-let aczoPerf36FishTextureRewarmQueued=false;
-window.__aczoFishTexturesDecoded=()=>{
-  if(aczoPerf36FishTextureRewarmQueued||!anglingLureUnderwaterWorldReady||
-     aczoPerf26UwFullWarmReady)return;
-  aczoPerf36FishTextureRewarmQueued=true;
-  // Einen eigenen Frame spaeter rendern: so bleibt der Decode-Callback kurz
-  // und Safari kann die frisch dekodierten Bilder zuerst intern abschliessen.
-  requestAnimationFrame(()=>{
-    aczoPerf36FishTextureRewarmQueued=false;
-    if(document.hidden||fishMode||anglingMode){
-      aczoPerf26ScheduleFullUnderwaterPrewarm(500);return;
-    }
-    aczoPerf26ScheduleFullUnderwaterPrewarm(0);
-  });
-};
 
 function aczoPrewarmUnderwaterWorld(){
   if(aczoUnderwaterShadersReady||document.hidden)return;
@@ -26146,29 +25990,24 @@ function aczoRunStartupUnderwaterPrewarm(){
       anglingLureUnderwaterWorldReady=true;
       aczoStartupUwPrewarmStage=4;
     }else if(aczoStartupUwPrewarmStage===4){
-      // Die spaeter im echten Bild benoetigten Bodenabstaende des gesamten
-      // Fischbestands in kleinen Paketen cachen. Ein Paket bleibt selbst auf
-      // aelteren iPhones kurz genug fuer gleichmaessiges Loader-Rendering.
-      if(aczoPrimeFishRuntimeStep(40))aczoStartupUwPrewarmStage=5;
-    }else if(aczoStartupUwPrewarmStage===5){
       // Die eingebetteten WebP-Fische werden asynchron dekodiert. Der letzte
       // unsichtbare GPU-Lauf wartet kurz darauf, damit diese Kosten nicht erst
       // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
       // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
       if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
-      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<9000){
+      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<1500){
         if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
         aczoScheduleStartupUnderwaterPrewarm(50);
         return;
       }
-      aczoStartupUwPrewarmStage=6;
-    }else if(aczoStartupUwPrewarmStage===6){
+      aczoStartupUwPrewarmStage=5;
+    }else if(aczoStartupUwPrewarmStage===5){
       aczoPerf26ForceFullUnderwaterPrewarm();
-      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=7;
+      if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=6;
       else if(++aczoStartupUwWarmAttempts<4){
         aczoScheduleStartupUnderwaterPrewarm(160);
         return;
-      }else aczoStartupUwPrewarmStage=7;
+      }else aczoStartupUwPrewarmStage=6;
     }else{
       aczoFinishStartupUnderwaterPrewarm();
       return;
@@ -26950,9 +26789,6 @@ const anglingTmpB=new THREE.Vector3();
 const anglingTmpC=new THREE.Vector3();
 const anglingTmpD=new THREE.Vector3();
 const anglingUp=new THREE.Vector3(0,0,1);
-const anglingDeadwoodCollisionResult={segment:null,point:new THREE.Vector3(),radius:0,kind:''};
-const anglingSegmentHitResult={s:0,t:0,distSq:0};
-const anglingExcludedSegments=new Set();
 const anglingWaterPlane=new THREE.Plane(anglingUp,0);
 const anglingPointerStarts=new Map();
 const anglingSpotPressure=new Map();
@@ -32082,7 +31918,7 @@ function anglingCurrentRigHookWorld(out=anglingObstacleHookPoint){
 }
 function findAnglingDeadwoodCollision(point,probeRadius=.06){
   if(!point||!northWoodData?.length)return null;
-  let bestSeg=null,bestKind='',bestRadius=0,bestX=0,bestY=0,bestZ=0,bestDistSq=Infinity;
+  let best=null,bestDistSq=Infinity;
   for(const seg of northWoodData){
     const a=anglingDeadwoodTmpA.set(seg.start.x,seg.start.y,seg.start.z);
     const b=anglingDeadwoodTmpB.set(seg.end.x,seg.end.y,seg.end.z);
@@ -32090,21 +31926,15 @@ function findAnglingDeadwoodCollision(point,probeRadius=.06){
     const ap=anglingDeadwoodTmpD.copy(point).sub(a);
     const denom=Math.max(1e-6,ab.lengthSq());
     const t=THREE.MathUtils.clamp(ap.dot(ab)/denom,0,1);
-    const closestX=a.x+ab.x*t,closestY=a.y+ab.y*t,closestZ=a.z+ab.z*t;
+    const closest=new THREE.Vector3().copy(a).addScaledVector(ab,t);
     const allowed=Math.max(.05,(seg.r||.04)+probeRadius);
-    const dx=point.x-closestX,dy=point.y-closestY,dz=point.z-closestZ;
-    const distSq=dx*dx+dy*dy+dz*dz;
+    const distSq=point.distanceToSquared(closest);
     if(distSq<=allowed*allowed&&distSq<bestDistSq){
-      bestDistSq=distSq;bestSeg=seg;bestRadius=allowed;bestKind=seg.kind||'deadwood';
-      bestX=closestX;bestY=closestY;bestZ=closestZ;
+      bestDistSq=distSq;
+      best={segment:seg,point:closest,radius:allowed,kind:seg.kind||'deadwood'};
     }
   }
-  if(!bestSeg)return null;
-  anglingDeadwoodCollisionResult.segment=bestSeg;
-  anglingDeadwoodCollisionResult.point.set(bestX,bestY,bestZ);
-  anglingDeadwoodCollisionResult.radius=bestRadius;
-  anglingDeadwoodCollisionResult.kind=bestKind;
-  return anglingDeadwoodCollisionResult;
+  return best;
 }
 
 // BETA 1.2: Nächste Punkte zweier endlicher 3D-Segmente.
@@ -32118,9 +31948,7 @@ function closestAnglingSegments3D(p1,q1,p2,q2,outLine,outWood){
 
   if(a<=eps&&e<=eps){
     outLine.copy(p1);outWood.copy(p2);
-    anglingSegmentHitResult.s=0;anglingSegmentHitResult.t=0;
-    anglingSegmentHitResult.distSq=outLine.distanceToSquared(outWood);
-    return anglingSegmentHitResult;
+    return {s:0,t:0,distSq:outLine.distanceToSquared(outWood)};
   }
   if(a<=eps){
     s=0;
@@ -32149,9 +31977,7 @@ function closestAnglingSegments3D(p1,q1,p2,q2,outLine,outWood){
 
   outLine.copy(p1).addScaledVector(d1,s);
   outWood.copy(p2).addScaledVector(d2,t);
-  anglingSegmentHitResult.s=s;anglingSegmentHitResult.t=t;
-  anglingSegmentHitResult.distSq=outLine.distanceToSquared(outWood);
-  return anglingSegmentHitResult;
+  return {s,t,distSq:outLine.distanceToSquared(outWood)};
 }
 
 // Build 1.35: Mehrere Hindernisse können gleichzeitig feste Auflagepunkte
@@ -32262,14 +32088,13 @@ function updateAnglingLineObstacleContact(start,end){
   }
   let guard=0;
   while(anglingLineObstacleContacts.length<ANGLING_MAX_LINE_CONTACTS&&guard++<10){
-    anglingExcludedSegments.clear();
-    for(const contact of anglingLineObstacleContacts)anglingExcludedSegments.add(contact.segment);
+    const excluded=new Set(anglingLineObstacleContacts.map(c=>c.segment));
     let inserted=false;
     for(let i=0;i<=anglingLineObstacleContacts.length;i++){
       const a=i===0?start:(anglingLineObstacleContacts[i-1].visualPoint||anglingLineObstacleContacts[i-1].point);
       const b=i===anglingLineObstacleContacts.length?end:(anglingLineObstacleContacts[i].visualPoint||anglingLineObstacleContacts[i].point);
       if(a.distanceToSquared(b)<.0025)continue;
-      const best=findAnglingLineObstacleCandidate(a,b,anglingExcludedSegments);
+      const best=findAnglingLineObstacleCandidate(a,b,excluded);
       if(!best)continue;
       anglingLineObstacleContacts.splice(i,0,{segment:best.seg,segmentT:best.t,kind:best.seg.kind||'deadwood',point:best.physics.clone(),visualPoint:best.visual.clone()});
       inserted=true;break;
@@ -34489,10 +34314,7 @@ function updateAnglingLiveHud(){
  if(!anglingUi.classList.contains('line-active')||!anglingSelection)return;
  const name=anglingUsesDeeper()?'Deeper':(anglingUsesArtificialLure()?anglingActiveLure().name:(anglingBaitLabels[anglingSelectedBait]||'Köder'));
  const depth=anglingUsesDeeper()?Math.max(.1,pondDepthAt(anglingDeeper.position.x,anglingDeeper.position.y)||.1):(anglingUsesArtificialLure()?Math.max(.1,anglingLureDepth||.1):anglingRigDepth),dist=anglingCurrentTerminalDistance();
- const html='<span class="hud-bait">'+name+'</span> <span class="hud-stock">×'+anglingCurrentBaitStock()+'</span> <span class="hud-meta">· Tiefe '+depth.toFixed(1).replace('.',',')+' m · '+Math.round(dist)+' m</span>';
- // Andere Angelzustände verwenden dasselbe Element vorübergehend als Textzeile.
- // Deshalb den realen DOM-Inhalt vergleichen statt nur einen externen Cache.
- if(anglingLineSummary.innerHTML!==html)anglingLineSummary.innerHTML=html;
+ anglingLineSummary.innerHTML='<span class="hud-bait">'+name+'</span> <span class="hud-stock">×'+anglingCurrentBaitStock()+'</span> <span class="hud-meta">· Tiefe '+depth.toFixed(1).replace('.',',')+' m · '+Math.round(dist)+' m</span>';
 }
 function startAnglingCast(){
   clearAnglingLineObstacleContact();
@@ -35923,7 +35745,7 @@ function setAnglingDrillRodFromPointer(clientX,clientY){
 }
 function updateAnglingDrillUi(){
   const tensionPct=Math.round(anglingDrillTension*100),staminaPct=Math.round(anglingDrillStamina*100);
-  setInlineStyle(anglingTensionFill,'width',tensionPct+'%');setInlineStyle(anglingStaminaFill,'width',staminaPct+'%');
+  anglingTensionFill.style.width=tensionPct+'%';anglingStaminaFill.style.width=staminaPct+'%';
   // Der Fisch darf durch Fluchten weiter weg sein als beim Anhieb.
   // Der Balken bleibt dabei sauber auf 0–100 % begrenzt; die Zahl zeigt
   // weiterhin die tatsächliche Entfernung inklusive gewonnener Schnur.
@@ -35932,7 +35754,7 @@ function updateAnglingDrillUi(){
     (anglingFightDistance-landingDistance)/
     Math.max(.01,anglingFightStartDistance-landingDistance),0,1
   );
-  setInlineStyle(anglingFightDistanceFill,'width',(distanceRemaining*100).toFixed(1)+'%');
+  anglingFightDistanceFill.style.width=(distanceRemaining*100).toFixed(1)+'%';
 
   // Ruhiger Schnurlauf: Richtung erst übernehmen, wenn die Netto-Bewegung
   // eindeutig ist. Kleine Gegenbewegungen lassen die Animation nicht hektisch
@@ -35964,9 +35786,11 @@ function updateAnglingDrillUi(){
   const flowDuration=THREE.MathUtils.clamp(
     1.65/(.72+anglingDistanceUiSpeed*.72),.72,1.75
   );
-  setCssProperty(anglingFightDistanceFill,'--distance-flow-duration',flowDuration.toFixed(3)+'s');
+  anglingFightDistanceFill.style.setProperty(
+    '--distance-flow-duration',flowDuration.toFixed(3)+'s'
+  );
 
-  setElementText(anglingFightDistanceText,anglingFightDistance.toFixed(1).replace('.',',')+' m');
+  anglingFightDistanceText.textContent=anglingFightDistance.toFixed(1).replace('.',',')+' m';
   let tensionWord='gut',color='#49cf62';
   // Durchgehende Belastungsskala: grün -> gelb -> orange -> rot.
   // Die Segmentoptik des bestehenden Balkens bleibt erhalten; nur currentColor
@@ -35975,15 +35799,15 @@ function updateAnglingDrillUi(){
   else if(anglingDrillTension>=.68){tensionWord='hoch';color='#f28a2e';}
   else if(anglingDrillTension>=.46){tensionWord='erhöht';color='#f0cf3d';}
   else if(anglingDrillTension<.18){tensionWord='locker';color='#58c96b';}
-  setInlineStyle(anglingTensionFill,'color',color);setElementText(anglingTensionText,tensionWord);
-  setElementText(anglingStaminaText,staminaPct+' %');
-  setElementText(anglingDrillDirection,anglingDrillTension>.88
+  anglingTensionFill.style.color=color;anglingTensionText.textContent=tensionWord;
+  anglingStaminaText.textContent=staminaPct+' %';
+  anglingDrillDirection.textContent=anglingDrillTension>.88
     ? '⚠ ACHTUNG – Schnur kurz vor dem Reißen!'
     : anglingDrillTension>.78?'⚠ Belastung hoch – loslassen'
     : anglingRunCalloutTime>0?(anglingFishTowardRun?'↙ FISCH KOMMT AUF DICH ZU – SCHNUR AUFNEHMEN!':'⚡ FLUCHT – Bremse beobachten!')
     : anglingDrillAngleQuality>.45?'✓ Guter Rutenwinkel'
     : anglingDrillAngleQuality<-.35?'↔ Rute auf die Gegenseite führen'
-    : anglingDrillReeling?'🎣 Fisch wird eingeholt …':'EINHOLEN gedrückt halten');
+    : anglingDrillReeling?'🎣 Fisch wird eingeholt …':'EINHOLEN gedrückt halten';
 }
 
 function updateAnglingDrill(dt){
@@ -36249,8 +36073,7 @@ function updateAnglingDrill(dt){
   // Entscheidend: Nach der Rotation den hintersten Korkpunkt wieder exakt
   // auf seine Neutralposition setzen. Dadurch bewegt sich nur das freie Ende.
   pinAnglingRodButt();
-  // Die Anzeige wurde nach der letzten Physikänderung bereits oben aktualisiert.
-  // Ein zweiter vollständiger DOM-Durchlauf im selben Bild war redundant.
+  updateAnglingDrillUi();
   if(anglingDrillDangerTime>.72)loseAnglingFish('Schnur gerissen');
   else if(anglingDrillSlackTime>1.35)loseAnglingFish('Fisch ausgeschlitzt');
   else if(
@@ -38257,12 +38080,6 @@ const lensFlareParts=celestialLensFlare ? Array.from(celestialLensFlare.querySel
 function setInlineStyle(el,property,value){
   if(el.style[property]!==value)el.style[property]=value;
 }
-function setCssProperty(el,property,value){
-  if(el.style.getPropertyValue(property)!==value)el.style.setProperty(property,value);
-}
-function setElementText(el,value){
-  if(el.textContent!==value)el.textContent=value;
-}
 function updateCelestialLensFlare(){
   if(!celestialLensFlare)return;
   const useMoon=sceneNightFactor>.48;
@@ -38319,14 +38136,12 @@ let aczoMapGestureFrame=0;
 // PERF4 ENGINE: Nebenberechnungen bekommen eigene Takte. Vor allem im Stillstand
 // darf Safari nicht dauerhaft die komplette Szene verheizen.
 let aczoPerf4LastHeavyAt=0,aczoPerf4LastCelestialAt=0,aczoPerf4LastStaticAt=0;
-let aczoAmbientHeavyVisualDt=0;
 let aczoPerf4Hidden=false;
 document.addEventListener('visibilitychange',()=>{
   aczoPerf4Hidden=document.visibilityState!=='visible';
   if(!aczoPerf4Hidden){
     aczoLastRenderedFrameAt=0;
     aczoPerf4LastHeavyAt=aczoPerf4LastCelestialAt=aczoPerf4LastStaticAt=0;
-    aczoAmbientHeavyVisualDt=0;
     clock.getDelta();
   }
 });
@@ -38388,6 +38203,187 @@ function aczoPerf7Summary(){
 }
 // -------------------------------------------------------------------------
 
+// BEGIN ACZO LOCAL DIAGNOSTICS
+// ACZO56 local diagnostics. No network, storage clearing, gameplay updates or RAF loop.
+// Activate explicitly with ?aczo_diag=1. OFF: return before creating UI/listeners/wrappers.
+(function aczoLocalDiagnostics(){
+  if(new URLSearchParams(location.search).get('aczo_diag')!=='1')return;
+  const label='C1_KANDIDAT';
+  const capacity=18000,intervals=new Float64Array(capacity),times=new Float64Array(capacity);
+  const work=new Float64Array(capacity),calls=new Uint32Array(capacity),triangles=new Float64Array(capacity);
+  let samples=0,lastMainAt=0,current=-1,recording=true,segmentAt=performance.now(),stoppedAt=null;
+  let lastState='',mainCount=0,allRenders=0,offscreenRenders=0;
+  let drawCalls=0,triangleCount=0,renderCpu=0,longTasks=0,longTaskMs=0;
+  let memoryPeak={geometries:0,textures:0,programs:0},resourcesAtStart=null;
+  const phases=[],events=[],cpu=Object.create(null),transitions=[],openTransitions=new Map();
+  const startup={diagnosticInstalledMs:performance.now(),loaderHiddenMs:null,loaderRemovedMs:null};
+  const round=v=>Math.round(v*100)/100;
+  function event(type,detail){
+    if(events.length<300)events.push({at:round(performance.now()),type,detail});
+  }
+  function begin(key){
+    if(!recording)return;
+    openTransitions.set(key,performance.now());event('begin',key);
+  }
+  function finish(key){
+    if(!recording||!openTransitions.has(key))return;
+    const start=openTransitions.get(key);openTransitions.delete(key);
+    if(transitions.length<120)transitions.push({name:key,startMs:round(start),endMs:round(performance.now()),durationMs:round(performance.now()-start)});
+  }
+  function state(){
+    if(fishMode)return fishTransition?'fish-'+fishTransition.type:'fish-swim';
+    if(anglingMode)return 'angling-'+anglingState+'-'+anglingCinematicView;
+    return skyLookMode?'sky':(is2D?'map-2d':'map-3d');
+  }
+  function resources(){
+    return {geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,
+      programs:renderer.info.programs?renderer.info.programs.length:null,fish:fishActors.length};
+  }
+  function summarize(values){
+    const sorted=values.slice().sort((a,b)=>a-b),n=sorted.length;
+    if(!n)return {n:0};
+    const q=p=>round(sorted[Math.max(0,Math.ceil(n*p)-1)]);
+    return {n,medianMs:q(.5),p95Ms:q(.95),p99Ms:q(.99),maxMs:round(sorted[n-1]),
+      over50ms:sorted.filter(v=>v>50).length,over100ms:sorted.filter(v=>v>100).length};
+  }
+  function metrics(){
+    const start=Math.max(0,samples-capacity),dt=[],cpuTimes=[];
+    let dc=0,tr=0;
+    for(let i=start;i<samples;i++){const k=i%capacity;if(intervals[k]>0)dt.push(intervals[k]);cpuTimes.push(work[k]);dc+=calls[k];tr+=triangles[k];}
+    return {mainFrameIntervals:summarize(dt),rendererSubmissionMsPerMainFrame:summarize(cpuTimes),
+      sceneDrawCallsPerRetainedMainFrame:samples?round(dc/Math.min(samples,capacity)):0,
+      trianglesPerRetainedMainFrame:samples?round(tr/Math.min(samples,capacity)):0};
+  }
+  function report(){
+    const endedAt=stoppedAt===null?performance.now():stoppedAt,duration=endedAt-segmentAt;
+    const phaseStats=phases.map((p,i)=>{
+      const end=i+1<phases.length?phases[i+1].at:endedAt,v=[];
+      for(let j=Math.max(0,samples-capacity);j<samples;j++){
+        const k=j%capacity;if(times[k]>=p.at&&times[k]<end&&intervals[k]>0)v.push(intervals[k]);
+      }
+      return {state:p.state,startMs:round(p.at),endMs:round(end),intervals:summarize(v)};
+    });
+    return {label,recording,warning:'Intervals are main-render submission intervals, NOT GPU/presentation times. CPU timings overlap. Diagnostic overhead is included.',
+      environment:{userAgent:navigator.userAgent,width:innerWidth,height:innerHeight,dpr:devicePixelRatio,
+        rendererPixelRatio:renderer.getPixelRatio(),bufferWidth:renderer.domElement.width,bufferHeight:renderer.domElement.height,
+        quality:aczoGraphicsMode,simulationEnabled,nightFactor:sceneNightFactor},
+      startup,segmentStartMs:round(segmentAt),durationMs:round(duration),...metrics(),
+      renders:{main:mainCount,total:allRenders,offscreen:offscreenRenders,drawCalls,triangles:triangleCount,
+        synchronousSubmissionMs:round(renderCpu)},resourcesAtStart,resourcesNow:resources(),resourcePeaks:memoryPeak,
+      longTasks:{supported:!!longTaskObserver,count:longTasks,durationMs:round(longTaskMs)},
+      cpu,transitions,unfinishedTransitions:[...openTransitions.keys()],phases:phaseStats,events,
+      samplesRetained:Math.min(samples,capacity),olderSamplesOverwritten:Math.max(0,samples-capacity)};
+  }
+  const originalRender=renderer.render;
+  renderer.render=function(s,c){
+    if(!recording)return originalRender.apply(this,arguments);
+    const t=performance.now(),offscreen=this.getRenderTarget()!==null;
+    // Inset cameras are different objects; startup weather can also use this main camera.
+    const main=s===scene&&c===camera&&!offscreen;
+    if(main){
+      const nextState=state();
+      if(nextState!==lastState){
+        if(phases.length<200)phases.push({state:nextState,at:t});
+        if(nextState==='fish-swim')finish('dive');
+        if(!fishMode)finish('surface-return');
+        if(anglingCinematicView==='underwater')finish('lure-to-underwater');
+        lastState=nextState;
+      }
+      current=samples++%capacity;times[current]=t;
+      intervals[current]=lastMainAt?t-lastMainAt:0;lastMainAt=t;
+      work[current]=0;calls[current]=0;triangles[current]=0;mainCount++;
+    }
+    const beforeCalls=this.info.render.calls,beforeTriangles=this.info.render.triangles;
+    try{return originalRender.apply(this,arguments);}
+    finally{
+      const ms=performance.now()-t;
+      const dc=this.info.autoReset?this.info.render.calls:Math.max(0,this.info.render.calls-beforeCalls);
+      const tr=this.info.autoReset?this.info.render.triangles:Math.max(0,this.info.render.triangles-beforeTriangles);
+      renderCpu+=ms;allRenders++;if(offscreen)offscreenRenders++;
+      drawCalls+=dc;triangleCount+=tr;
+      if(current>=0&&!offscreen){work[current]+=ms;calls[current]+=dc;triangles[current]+=tr;}
+      const m=resources();
+      memoryPeak.geometries=Math.max(memoryPeak.geometries,m.geometries);
+      memoryPeak.textures=Math.max(memoryPeak.textures,m.textures);
+      memoryPeak.programs=Math.max(memoryPeak.programs,m.programs||0);
+      if(ms>100)event('slow-render',{ms:round(ms),offscreen,state:state()});
+      if(offscreen)event('offscreen-pass',{ms:round(ms),waterSide:waterMat.side,
+        targetEncoding:this.getRenderTarget()?.texture.encoding,outputEncoding:this.outputEncoding});
+    }
+  };
+  function wrap(name,category,onBegin,onEnd){
+    const original=window[name];if(typeof original!=='function')return;
+    window[name]=function(){
+      if(!recording)return original.apply(this,arguments);
+      const t=performance.now();if(onBegin)onBegin();
+      try{return original.apply(this,arguments);}
+      finally{
+        const ms=performance.now()-t;
+        const r=cpu[name]||(cpu[name]={calls:0,totalMs:0,maxMs:0});
+        r.calls++;r.totalMs+=ms;r.maxMs=Math.max(r.maxMs,ms);
+        if(category==='warmup'||ms>100)event(category||'slow-function',{name,ms:round(ms)});
+        if(onEnd)onEnd();
+      }
+    };
+  }
+  ['aczoPerf26ForceFullUnderwaterPrewarm','aczoPerf24ForceUnderwaterRenderWarmup',
+    'aczoCompileUnderwaterShaders','ensureAnglingLureUnderwaterWorld','buildFishWorldStep',
+    'aczoPrimeFishRuntimeStep','rebuildFishPlants','rebuildUnderwaterObjects'].forEach(n=>wrap(n,'warmup'));
+  ['updateFishActors','updateUnderwaterEffects','updateFishView','updateAnglingMode',
+    'renderAnglingFloatCamera','renderAnglingReelCamera','aczoResolveUnderwaterSweep'].forEach(n=>wrap(n,'cpu'));
+  wrap('enterFishView','transition',()=>{if(!fishMode&&!anglingMode)begin('dive');});
+  wrap('leaveFishView','transition',()=>{if(fishMode&&!fishTransition)begin('surface-return');});
+  wrap('startAnglingCast','transition',()=>{
+    if(anglingMode&&anglingState==='ready'&&anglingUsesArtificialLure())begin('lure-to-underwater');
+  },()=>{if(anglingState!=='casting')openTransitions.delete('lure-to-underwater');});
+  const loader=document.getElementById('mapStartupLoader');
+  let loaderObserver=null;
+  if(loader){
+    loaderObserver=new MutationObserver(()=>{
+      if(loader.classList.contains('is-done')&&startup.loaderHiddenMs===null)startup.loaderHiddenMs=round(performance.now());
+      if(!loader.isConnected){startup.loaderRemovedMs=round(performance.now());loaderObserver.disconnect();}
+    });
+    loaderObserver.observe(loader,{attributes:true,attributeFilter:['class']});
+    loaderObserver.observe(loader.parentNode,{childList:true});
+  }
+  let longTaskObserver=null;
+  if(typeof PerformanceObserver!=='undefined'&&PerformanceObserver.supportedEntryTypes?.includes('longtask')){
+    try{longTaskObserver=new PerformanceObserver(list=>{
+      if(!recording)return;for(const e of list.getEntries()){if(e.startTime<segmentAt)continue;longTasks++;longTaskMs+=e.duration;}
+    });longTaskObserver.observe({entryTypes:['longtask']});}catch(e){longTaskObserver=null;}
+  }
+  document.addEventListener('visibilitychange',()=>{
+    lastMainAt=0;current=-1;
+    if(document.hidden){event('hidden','Ongoing transition measurements discarded');openTransitions.clear();}
+  });
+  const panel=document.createElement('details');panel.id='aczo-local-diagnostics';
+  panel.style.cssText='position:fixed;top:4px;left:4px;z-index:2147483647;max-width:90vw;background:#102334;color:white;padding:7px;border:1px solid #89b8cf;border-radius:8px;font:12px system-ui;max-height:65vh;overflow:auto';
+  const summary=document.createElement('summary');summary.textContent='Messung '+label+' · läuft';panel.appendChild(summary);
+  const description=document.createElement('p');description.textContent='Lokal, ohne Upload. Menü beim Spielen schließen. Ergebnis erst nach dem Test öffnen.';panel.appendChild(description);
+  const output=document.createElement('textarea');output.readOnly=true;output.rows=10;output.style.cssText='display:none;width:75vw;max-width:600px';
+  function button(text,fn){const b=document.createElement('button');b.textContent=text;b.type='button';b.style.cssText='margin:4px;padding:8px';b.onclick=fn;panel.appendChild(b);}
+  button('Neue Messung',()=>{
+    samples=0;lastMainAt=0;current=-1;segmentAt=performance.now();lastState='';
+    mainCount=allRenders=offscreenRenders=drawCalls=triangleCount=renderCpu=longTasks=longTaskMs=0;
+    phases.length=events.length=transitions.length=0;openTransitions.clear();
+    for(const key of Object.keys(cpu))delete cpu[key];
+    memoryPeak={geometries:0,textures:0,programs:0};resourcesAtStart=resources();
+    recording=true;stoppedAt=null;output.style.display='none';summary.textContent='Messung '+label+' · läuft';panel.open=false;
+  });
+  button('Stopp / Ergebnis',()=>{
+    recording=false;stoppedAt=performance.now();output.value=JSON.stringify(report(),null,2);output.style.display='block';summary.textContent='Messung '+label+' · gestoppt';
+  });
+  button('JSON speichern',()=>{
+    const blob=new Blob([JSON.stringify(report(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='ACZO56_'+label+'_'+Date.now()+'.json';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  panel.appendChild(output);document.body.appendChild(panel);resourcesAtStart=resources();
+  // Read-only diagnostic access; no game state setters.
+  window.aczoLocalReport=report;
+})();
+
+// END ACZO LOCAL DIAGNOSTICS
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
@@ -38462,7 +38458,6 @@ function aczoPerf7Summary(){
  // Zeitsprung auf einmal in Wolken, Regen, Verkehr und Figuren laufen.
  const dt=Math.min(rawDt,.10);
  const visualDt=dt*anglingTimeLapseVisualScale();
- aczoAmbientHeavyVisualDt+=visualDt;
  // PERF32: Sichtbare Wolken billig und flüssig pro gerendertem Frame bewegen.
  updatePerf32CloudMotion(frameNow);
 
@@ -38478,16 +38473,11 @@ function aczoPerf7Summary(){
   const aczoRunAmbientHeavy=(!aczoPlainMapGesture||(aczoMapGestureFrame%3===0)) && (frameNow-aczoPerf4LastHeavyAt>=aczoHeavyInterval);
   if(aczoRunAmbientHeavy){
     aczoPerf4LastHeavyAt=frameNow;aczoPerf4HeavyTicks++;
-    // Throttling darf nur die Rechenfrequenz, nicht die Animationsgeschwindigkeit
-    // verändern. Zuvor erhielten Regenringe/Schnee/Laub nur das Delta des letzten
-    // Bildes und liefen je nach 120-700-ms-Takt massiv zu langsam.
-    const aczoAmbientDt=Math.min(aczoAmbientHeavyVisualDt,2.5);
-    aczoAmbientHeavyVisualDt=0;
     if(simulationEnabled){
-      updateSkyClouds(aczoAmbientDt);
+      updateSkyClouds(visualDt);
       updateRealCloudReflections();
-      updateRainRipples(aczoAmbientDt);
-      updateSeasonTestVisuals(aczoAmbientDt);
+      updateRainRipples(visualDt*(aczoPlainMapGesture?3:1));
+      updateSeasonTestVisuals(visualDt*(aczoPlainMapGesture?3:1));
     }
   }
   // PERF10: Bewegte Figuren/Fahrzeuge werden auf BEIDEN Profilen in jedem
