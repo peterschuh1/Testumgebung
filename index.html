@@ -27898,6 +27898,12 @@ const aczoRodVisual={model:ACZO_ROD_MODELS.rod_standard,bend:0,side:0,lastBend:N
  down:new THREE.Vector3(),across:new THREE.Vector3(),normal:new THREE.Vector3(),tmp:new THREE.Vector3(),
  matrix:new THREE.Matrix4(),quat:new THREE.Quaternion(),scale:new THREE.Vector3(),axis:new THREE.Vector3(0,1,0),axisZ:new THREE.Vector3(0,0,1),
  length:anglingRodB.distanceTo(anglingRodC),phase:0,cache:{}};
+aczoRodVisual.restDown=new THREE.Vector3(0,-1,0);
+aczoRodVisual.restDown.addScaledVector(aczoRodVisual.forward,-aczoRodVisual.restDown.dot(aczoRodVisual.forward)).normalize();
+aczoRodVisual.bendDirection=aczoRodVisual.restDown.clone();
+aczoRodVisual.lastDirection=new THREE.Vector3(Infinity,Infinity,Infinity);
+aczoRodVisual.pullAim=new THREE.Vector3();aczoRodVisual.pullLocal=new THREE.Vector3();
+
 function aczoReplaceMesh(mesh,geometry,material){
  mesh.geometry.dispose();mesh.geometry=geometry;
  mesh.position.set(0,0,0);mesh.rotation.set(0,0,0);mesh.scale.set(1,1,1);
@@ -28022,13 +28028,15 @@ function aczoApplyRodModel(id){
  v.lastBend=NaN;aczoDeformRod();
 }
 function aczoDeformRod(){
- const v=aczoRodVisual;if(Math.abs(v.bend-v.lastBend)<.00015&&Math.abs(v.side-v.lastSide)<.00015)return;
- v.lastBend=v.bend;v.lastSide=v.side;
- v.down.set(v.side,-1,0);v.down.addScaledVector(v.forward,-v.down.dot(v.forward)).normalize();v.across.crossVectors(v.forward,v.down).normalize();
+ const v=aczoRodVisual;if(Math.abs(v.bend-v.lastBend)<.00015&&v.bendDirection.distanceToSquared(v.lastDirection)<2.25e-8)return;
+ v.lastBend=v.bend;v.lastSide=v.side;v.lastDirection.copy(v.bendDirection);
+ v.down.copy(v.bendDirection).normalize();v.across.crossVectors(v.forward,v.down).normalize();
+ // Kleine Belastung arbeitet in der Spitze, große Belastung bis in die Mitte.
+ const actionExponent=THREE.MathUtils.lerp(3.8,1.05,THREE.MathUtils.smoothstep(v.bend,.22,1.8));
  v.points[0].copy(anglingRodB);
  for(let i=0;i<=32;i++){
-  const a=v.bend*Math.pow(i/32,1.35);v.tangents[i].copy(v.forward).multiplyScalar(Math.cos(a)).addScaledVector(v.down,Math.sin(a));
-  if(i){const mid=v.bend*Math.pow((i-.5)/32,1.35);v.tmp.copy(v.forward).multiplyScalar(Math.cos(mid)).addScaledVector(v.down,Math.sin(mid));v.points[i].copy(v.points[i-1]).addScaledVector(v.tmp,v.length/32);}
+  const a=v.bend*Math.pow(i/32,actionExponent);v.tangents[i].copy(v.forward).multiplyScalar(Math.cos(a)).addScaledVector(v.down,Math.sin(a));
+  if(i){const mid=v.bend*Math.pow((i-.5)/32,actionExponent);v.tmp.copy(v.forward).multiplyScalar(Math.cos(mid)).addScaledVector(v.down,Math.sin(mid));v.points[i].copy(v.points[i-1]).addScaledVector(v.tmp,v.length/32);}
   v.across.set(1,0,0).addScaledVector(v.forward,-v.forward.x).normalize();v.quat.setFromUnitVectors(v.forward,v.tangents[i]);v.across.applyQuaternion(v.quat);v.normal.crossVectors(v.tangents[i],v.across).normalize();
   const r=(.0108*(1-i/32)+.0025*i/32)*v.model.thickness;
   for(let j=0;j<=16;j++){
@@ -28042,31 +28050,44 @@ function aczoDeformRod(){
  for(let i=0;i<4;i++){
   const t=aczoGuideT[i]*32,k=Math.floor(t),f=t-k,g=aczoRodGuides[i];
   v.tmp.copy(v.points[k]).lerp(v.points[Math.min(32,k+1)],f);
-  g.position.copy(v.tmp).addScaledVector(v.down,aczoGuideDrop[i]);
   v.normal.copy(v.tangents[k]).lerp(v.tangents[Math.min(32,k+1)],f).normalize();g.quaternion.setFromUnitVectors(v.axisZ,v.normal);
-  v.across.copy(v.down).addScaledVector(v.normal,-v.down.dot(v.normal)).normalize();v.across.multiplyScalar(-[.022,.013,.008,.0055][i]).add(g.position).sub(v.tmp);const footLength=v.across.length();v.tmp.addScaledVector(v.across,.5);v.quat.setFromUnitVectors(v.axis,v.across.normalize());v.scale.set(.0016,footLength,.0016);v.matrix.compose(v.tmp,v.quat,v.scale);aczoGuideFeet.setMatrixAt(i,v.matrix);
+  v.quat.setFromUnitVectors(v.forward,v.normal);v.scale.copy(v.restDown).applyQuaternion(v.quat);g.position.copy(v.tmp).addScaledVector(v.scale,aczoGuideDrop[i]);
+  v.across.copy(v.scale);v.across.multiplyScalar(-[.022,.013,.008,.0055][i]).add(g.position).sub(v.tmp);const footLength=v.across.length();v.tmp.addScaledVector(v.across,.5);v.quat.setFromUnitVectors(v.axis,v.across.normalize());v.scale.set(.0016,footLength,.0016);v.matrix.compose(v.tmp,v.quat,v.scale);aczoGuideFeet.setMatrixAt(i,v.matrix);
  }
  aczoGuideFeet.instanceMatrix.needsUpdate=true;
  anglingRodTip.position.copy(v.points[32]);
  anglingReelLineLead.position.copy(aczoRodGuides[0].position).lerp(anglingReelBody.position,.42);
  anglingReelLineGuideEntry.position.copy(aczoRodGuides[0].position).lerp(anglingReelLineLead.position,.35);
 }
-function aczoUpdateRodLoad(dt,tension,strength,direction,rodLift=0){
- const v=aczoRodVisual,load=THREE.MathUtils.clamp(tension,0,1);
- const lift=THREE.MathUtils.clamp(rodLift,-1,1);
- const posture=.48+.52*Math.max(0,lift)+.13*Math.min(0,lift);
- // Sanft im normalen Drill; die große Biegung entsteht erst nahe Volllast.
- // Hochhalten verstärkt sie nur bei tatsächlich vorhandener Schnurspannung.
- const target=(.015*load+.50*Math.pow(load,2.8)+.14*Math.pow(load,6)*THREE.MathUtils.clamp(strength,0,1))*posture*v.model.flex;
- const blend=1-Math.exp(-dt*(target>v.bend?6:8));
- v.bend+=(target-v.bend)*blend;v.side+=(THREE.MathUtils.clamp(direction,-1,1)*load*load*.16-v.side)*blend;
+function aczoUpdateRodLoad(dt,tension,strength,direction,rodLift=0,reeling=false,runPower=0,pullLocal=null){
+ const v=aczoRodVisual,load=THREE.MathUtils.clamp(tension,0,1),s=THREE.MathUtils.clamp(strength,0,1.18);
+ const lift=THREE.MathUtils.clamp(rodLift,-1,1),step=Math.max(0,dt);
+ // Tatsächlicher Fischdruck bleibt auch bei Kurbelpause wirksam. Bei loser
+ // Schnur verschwindet die Biegung; die Anzeige verändert keine Drillkräfte.
+ const engagement=1-Math.exp(-load*7);
+ const posture=.82+.46*Math.max(0,lift)+.24*Math.min(0,lift);
+ const pressure=.30+.88*Math.sqrt(load)+.26*THREE.MathUtils.clamp(runPower,0,1.5);
+ const target=THREE.MathUtils.clamp((.20+1.48*Math.pow(s,1.05))*pressure*posture*(reeling?1:.92)*engagement*v.model.flex,0,2.15);
+ const blend=1-Math.exp(-step*(target>v.bend?7:4.2));
+ v.bend+=(target-v.bend)*blend;
+ // Schnurzug im lokalen Koordinatensystem, senkrecht zur unbelasteten Achse.
+ // Kein festes Links/Rechts-Vorzeichen aus der Fisch-KI bei vorhandenem Zugvektor.
+ const aim=v.pullAim;
+ if(pullLocal)aim.copy(pullLocal);else aim.set(THREE.MathUtils.clamp(direction,-1,1)*.7,-1,0);
+ aim.addScaledVector(v.forward,-aim.dot(v.forward));
+ if(aim.lengthSq()<1e-10)aim.copy(v.restDown);else aim.normalize();
+ const turn=1-Math.exp(-step*7);
+ v.bendDirection.lerp(aim,turn);
+ if(v.bendDirection.lengthSq()<1e-10)v.bendDirection.copy(aim);
+ v.side=v.bendDirection.x;
  aczoDeformRod();
 }
 function aczoRelaxRod(dt){
- const v=aczoRodVisual,k=1-Math.exp(-dt*8);v.bend+=(0-v.bend)*k;v.side+=(0-v.side)*k;
- if(v.bend<.0002){v.bend=0;v.side=0;}aczoDeformRod();
+ const v=aczoRodVisual,k=1-Math.exp(-Math.max(0,dt)*6);v.bend+=(0-v.bend)*k;
+ v.bendDirection.lerp(v.restDown,k);v.side=v.bendDirection.x;
+ if(v.bend<.0002){v.bend=0;v.bendDirection.copy(v.restDown);v.side=0;}aczoDeformRod();
 }
-function aczoResetRodCurve(){aczoRodVisual.bend=aczoRodVisual.side=0;aczoDeformRod();}
+function aczoResetRodCurve(){const v=aczoRodVisual;v.bend=v.side=0;v.bendDirection.copy(v.restDown);aczoDeformRod();}
 function aczoAnimateSpinningReel(dt,speed){
  const v=aczoRodVisual;v.phase=(v.phase+dt*4.4*speed)%(Math.PI*20);
  anglingReelCrank.rotation.x=-v.phase;anglingReelCrank.rotation.z=0;
@@ -37107,12 +37128,13 @@ function updateAnglingDrill(dt){
   anglingRodGroup.rotation.x+=(targetRodPitch-anglingRodGroup.rotation.x)*rodMoveBlend;
   anglingRodGroup.rotation.z+=(0-anglingRodGroup.rotation.z)*Math.min(1,dt*11.5);
 
-  // Sichtbare progressive Biegung; Griffsteuerung und Drillphysik bleiben erhalten.
-  aczoUpdateRodLoad(dt,anglingDrillTension,anglingDrillStrength,anglingDrillDirectionValue,anglingDrillRodY);
-
-  // Entscheidend: Nach der Rotation den hintersten Korkpunkt wieder exakt
-  // auf seine Neutralposition setzen. Dadurch bewegt sich nur das freie Ende.
-  pinAnglingRodButt();
+  // Erst die endgültige Rutenhaltung herstellen, dann den Schnurzug lokal messen.
+  pinAnglingRodButt();updateAnglingRodAnchor();
+  aczoRodVisual.pullLocal.copy(anglingHookPoint);
+  anglingRodGroup.worldToLocal(aczoRodVisual.pullLocal);
+  aczoRodVisual.pullLocal.sub(aczoRodVisual.points[32]);
+  aczoUpdateRodLoad(dt,anglingDrillTension,effectiveStrength,anglingDrillDirectionValue,
+    anglingDrillRodY,drillPointerReeling,runPower,aczoRodVisual.pullLocal);
   updateAnglingDrillUi();
   if(anglingDrillDangerTime>.72)loseAnglingFish('Schnur gerissen');
   else if(anglingDrillSlackTime>1.35)loseAnglingFish('Fisch ausgeschlitzt');
