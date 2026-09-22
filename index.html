@@ -4355,6 +4355,61 @@ html,body{
 .aczo-product-head strong{min-width:0;overflow-wrap:anywhere}
 .aczo-product-head button{flex:0 0 44px}
 
+
+/* Hauptmenü: feste Navigation, getrennte Inhalte, Status ohne Überlagerung. */
+#anglingMainMenu{padding:8px!important;backdrop-filter:none}
+#anglingMainMenu *,#anglingRecoveryPanel *{box-sizing:border-box}
+#anglingMainMenu .angling-main-card{display:flex;flex-direction:column;width:min(640px,100%)!important;height:min(690px,calc(100% - 8px));max-height:calc(100% - 8px)!important;min-width:0;padding:0!important;overflow:hidden;border-radius:15px!important}
+#anglingMainMenu .angling-main-head{flex:none;gap:8px!important;padding:10px 12px 7px;margin:0!important;border-bottom:1px solid #526d5540}
+#anglingMainMenu .angling-main-head>div:first-child{min-width:0}
+#anglingMainMenu .angling-main-head strong{font-size:17px!important}
+#anglingMainMenu .angling-main-head p{font-size:10px!important;line-height:1.3!important;margin-top:4px!important}
+#anglingMainMenu .angling-main-head-actions{gap:5px;align-items:center}
+#anglingMainMenu .angling-main-close{order:2;flex:0 0 40px;min-width:40px;min-height:40px;width:40px;height:40px;padding:0}
+#anglingMainMenu .angling-ep-badge{order:1;flex:0 0 auto;min-width:44px;height:36px;gap:3px;margin:0;padding:4px 6px;flex-direction:row;box-shadow:none;border-radius:10px}
+#anglingMainMenu .angling-ep-badge strong{font-size:13px!important}
+#anglingMainRecoveryDetailsBtn{display:flex;align-items:center;gap:10px;flex:none;min-height:52px;width:calc(100% - 20px);max-width:calc(100% - 20px);margin:8px 10px 5px;padding:8px 10px;border:1px solid #baaa69;border-radius:11px;text-decoration:none;text-align:left;white-space:normal;background:linear-gradient(120deg,#344733,#17382c);color:#f6e6ad}
+#anglingMainRecoveryDetailsBtn>span:first-child{font-size:20px;flex:none}
+#anglingMainRecoveryDetailsBtn>span:last-child{min-width:0}
+#anglingMainRecoveryDetailsBtn strong{display:block;font-size:13px;line-height:1.25}
+#anglingMainRecoveryDetailsBtn small{display:block;font-size:10px;line-height:1.3;color:#d3e0ce;margin-top:2px}
+#anglingMainMenu .aczo-main-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;flex:none;padding:5px 10px 8px;border-bottom:1px solid #526d5566}
+#anglingMainMenu .aczo-main-nav button{min-width:0;min-height:40px;padding:5px 3px;font-size:10px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;background:#173c30;border:1px solid #5d7c6266;color:#d8e5d8;border-radius:8px}
+#anglingMainMenu .aczo-main-nav button[aria-pressed="true"]{background:#3a4d35;color:#ffe6a1;border-color:#bfa967}
+#anglingMainMenu .angling-main-grid{display:block!important;flex:1 1 auto;min-height:0;min-width:0;width:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:8px 10px}
+#anglingMainMenu [data-main-page][hidden]{display:none!important}
+#anglingMainMenu .angling-main-section{padding:9px!important;border-radius:11px!important;min-width:0;max-width:100%;margin-bottom:8px}
+#anglingMainMenu .angling-main-section-title{display:block;margin-bottom:7px!important}
+#anglingMainMenu .angling-main-section-title h3{font-size:13px!important;margin:0}
+#anglingMainMenu .angling-main-section-title>p{text-align:left;max-width:100%;font-size:10px!important;line-height:1.35!important;margin:4px 0 0!important}
+#anglingMainMenu [data-main-page="overview"] .angling-main-section-title>p{display:none}
+#anglingMainMenu .angling-main-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px!important}
+#anglingMainMenu .angling-main-btn{min-width:0;max-width:100%;min-height:40px!important;padding:7px 8px!important;font-size:11px!important;line-height:1.25;white-space:normal!important;overflow-wrap:anywhere}
+#anglingMainMenu .angling-main-compact-row{grid-template-columns:minmax(0,1fr);gap:6px}
+#anglingMainMenu input[type="text"]{min-width:0;max-width:100%;font-size:16px!important;min-height:40px;line-height:1.25}
+#anglingMainMenu .angling-main-profile-options{grid-template-columns:1fr;gap:5px!important;margin-top:8px!important}
+#anglingMainMenu .angling-main-profile-options label{padding:8px!important;min-height:38px;font-size:11px!important;line-height:1.3!important}
+#anglingMainMenu .angling-main-profile-options input{width:18px;height:18px}
+#anglingMainMenu .angling-main-recovery-line{grid-template-columns:minmax(0,1fr) auto}
+#anglingMainMenu .angling-main-recovery-line .new-code-btn{grid-column:1/-1}
+#anglingMainMenu .angling-main-recovery-block p{font-size:10px!important;line-height:1.35!important}
+#anglingMainMenu .angling-main-community-wrap{grid-template-columns:1fr}
+#anglingMainMenu .angling-main-community-box h4{font-size:12px}
+#anglingMainMenu .angling-community-item{white-space:normal;overflow-wrap:anywhere}
+#anglingMainStatus{position:static!important;flex:none;max-height:64px;overflow:auto;overscroll-behavior:contain;margin:0!important;padding:7px 10px!important;border-top:1px solid #526d5566;border-radius:0;font-size:10px!important;line-height:1.3!important;background:#092c24}
+#anglingMainStatus:empty{display:none}
+#anglingMainMenu .angling-main-reset-card{margin-top:8px}
+#anglingRecoveryPanel .angling-game-panel-head strong{font-size:14px!important;white-space:normal}
+#anglingRecoveryPanel .angling-recovery-body{min-width:0}
+#anglingRecoveryPanel .angling-recovery-card{min-width:0;max-width:100%}
+#anglingRecoveryPanel .angling-recovery-restore-card{border-color:#b8a36a;background:#254331}
+#anglingRecoveryPanel .angling-recovery-card h3{font-size:13px!important}
+#anglingRecoveryPanel .angling-recovery-card p{font-size:10px!important;line-height:1.4!important}
+#anglingRecoveryPanel .angling-recovery-action{min-height:42px!important;white-space:normal!important;font-size:11px!important}
+#anglingRecoveryPanel .angling-recovery-code-row{min-width:0;max-width:100%}
+#anglingRecoveryPanel .angling-recovery-code-row input{min-width:0;max-width:100%}
+@media(max-height:480px){#anglingMainMenu .angling-main-head p{display:none}#anglingMainRecoveryDetailsBtn{min-height:40px;margin-top:4px;margin-bottom:1px;padding:5px 9px}#anglingMainMenu .aczo-main-nav{padding-bottom:4px}#anglingMainStatus{max-height:38px}}
+
 </style>
 
 
@@ -4549,9 +4604,7 @@ html,body{
            </div>
          </div>
 
-         <div class="angling-main-grid">
-
-           <section class="angling-main-section angling-main-section-play">
+<button id="anglingMainRecoveryDetailsBtn" class="angling-main-link-btn" type="button"><span aria-hidden="true">🔑</span><span><strong>Spielstand wiederherstellen</strong><small>Neues Gerät? Mit deinem privaten Code weiterspielen.</small></span></button><nav class="aczo-main-nav" aria-label="Bereiche im Hauptmenü"><button type="button" data-main-target="overview" aria-controls="aczo-main-overview" aria-pressed="true">Übersicht</button><button type="button" data-main-target="profile" aria-controls="aczo-main-profile" aria-pressed="false">Profil</button><button type="button" data-main-target="community" aria-controls="aczo-main-community" aria-pressed="false">Community</button><button type="button" data-main-target="settings" aria-controls="aczo-main-settings" aria-pressed="false">Einstellungen</button></nav><div class="angling-main-grid"><div id="aczo-main-overview" data-main-page="overview"><section class="angling-main-section angling-main-section-play">
              <div class="angling-main-section-title">
                <div><small>SPIEL</small><h3>🎣 Angeln</h3></div>
                <p>Hier steuerst du nur die aktuelle Angelsitzung.</p>
@@ -4562,9 +4615,19 @@ html,body{
                <button id="anglingMainChangeSpotBtn" class="angling-main-btn">Angelstelle wechseln</button>
                <button id="anglingMainLeaveBtn" class="angling-main-btn danger">Angelspiel verlassen</button>
              </div>
-           </section>
-
-           <section class="angling-main-section">
+           </section><section class="angling-main-section">
+             <div class="angling-main-section-title">
+               <div><small>MEINE DATEN</small><h3>📊 Fänge & Bestenliste</h3></div>
+               <p>Persönliche Fangdaten und öffentliche Rangliste.</p>
+             </div>
+             <div class="angling-main-actions">
+               <button id="anglingMainLogBtn" class="angling-main-btn">📒 Mein Fangbuch</button>
+               <button id="anglingMainLeaderboardBtn" class="angling-main-btn">🏆 Highscore</button>
+               <button id="anglingMainHallOfFameBtn" class="angling-main-btn">✨ Hall of Fame</button>
+               <button id="anglingMainDailyQuestBtn" class="angling-main-btn">🎯 Tagesaufgaben 0/3</button>
+               <button id="anglingMainHelpBtn" class="angling-main-btn alt">❔ Hilfe</button>
+             </div>
+           </section></div><div id="aczo-main-profile" data-main-page="profile" hidden><section class="angling-main-section">
              <div class="angling-main-section-title">
                <div><small>MEIN ANGLER</small><h3>👤 Profil & Spielstand</h3></div>
                <p>Name, Cloud-Sicherung und Gerätewechsel gehören hier zusammen.</p>
@@ -4595,30 +4658,14 @@ html,body{
                  <button id="anglingMainCopyRecoveryBtn" class="angling-main-btn">Kopieren</button>
                  <button id="anglingMainNewRecoveryBtn" class="angling-main-btn warn new-code-btn">Neuen Code</button>
                </div>
-               <button id="anglingMainRecoveryDetailsBtn" class="angling-main-link-btn">Spielstand auf einem anderen Gerät wiederherstellen</button>
+               
              </div>
 
              <details class="angling-main-details">
                <summary>Was wird gespeichert und was ist öffentlich?</summary>
                <p>Cloud-Sicherung speichert EP, Fortschritt, Käufe, Bestände, persönliche Rekorde und die im Unterwasser-Tauchmodus entdeckten Fischarten. Das Fangbuch mit einzelnen Fängen bleibt lokal. Öffentliche Rekorde und dein sichtbarer Online-Name sind zwei getrennte freiwillige Freigaben.</p>
              </details>
-           </section>
-
-           <section class="angling-main-section">
-             <div class="angling-main-section-title">
-               <div><small>MEINE DATEN</small><h3>📊 Fänge & Bestenliste</h3></div>
-               <p>Persönliche Fangdaten und öffentliche Rangliste.</p>
-             </div>
-             <div class="angling-main-actions">
-               <button id="anglingMainLogBtn" class="angling-main-btn">📒 Mein Fangbuch</button>
-               <button id="anglingMainLeaderboardBtn" class="angling-main-btn">🏆 Highscore</button>
-               <button id="anglingMainHallOfFameBtn" class="angling-main-btn">✨ Hall of Fame</button>
-               <button id="anglingMainDailyQuestBtn" class="angling-main-btn">🎯 Tagesaufgaben 0/3</button>
-               <button id="anglingMainHelpBtn" class="angling-main-btn alt">❔ Hilfe</button>
-             </div>
-           </section>
-
-           <section class="angling-main-section">
+           </section></div><div id="aczo-main-community" data-main-page="community" hidden><section class="angling-main-section">
              <div class="angling-main-section-title">
                <div><small>COMMUNITY</small><h3>👥 Am Weiher</h3></div>
                <p>Neue Spieler und Angler, die gerade ebenfalls im Angelspiel aktiv sind.</p>
@@ -4633,9 +4680,7 @@ html,body{
                  <div id="anglingActivePlayers" class="angling-community-list"><div class="angling-community-item"><span>Wird geladen …</span></div></div>
                </div>
              </div>
-           </section>
-
-           <section class="angling-main-section angling-main-section-settings">
+           </section></div><div id="aczo-main-settings" data-main-page="settings" hidden><section class="angling-main-section angling-main-section-settings">
              <div class="angling-main-section-title">
                <div><small>SYSTEM</small><h3>⚙️ Einstellungen</h3></div>
                <p>Seltene Funktionen und Zurücksetzen. Im normalen Spiel brauchst du diesen Bereich kaum.</p>
@@ -4669,12 +4714,7 @@ html,body{
                  <button id="anglingResetNewUserBtn" class="angling-main-btn danger angling-main-open-btn">Komplett neu beginnen</button>
                </div>
              </div>
-           </section>
-
-         </div>
-         <div id="anglingMainStatus"   class="angling-main-status"></div>
-       </div>
-     </div>
+           </section></div></div><div id="anglingMainStatus" class="angling-main-status" role="status" aria-live="polite"></div></div></div>
      <div class="angling-select-panel">
        <div id="anglingSelectTitle" class="angling-select-title">🎣 Angelplatz wählen</div>
        <div id="anglingSelectText" class="angling-select-text">Tippe auf die Uferkante, einen Gitterroststeg, den Nordsteg oder den Bootssteg am Südufer.</div>
@@ -4722,6 +4762,14 @@ html,body{
          <button id="anglingRecoveryClose" class="angling-panel-close" aria-label="Spielstand schließen"><span>‹</span><small>Zurück</small></button>
        </div>
        <div class="angling-recovery-body">
+         <div class="angling-recovery-card angling-recovery-restore-card">
+           <h3>Spielstand auf diesem Gerät laden</h3>
+           <p>Gib den Code deines bisherigen Geräts ein. Der Cloud-Spielstand ersetzt EP, Fortschritt, Bestwerte, Käufe, Bestände und die 3D-Fischsammlung. Das lokale Fangbuch dieses Geräts bleibt unangetastet.</p>
+           <div class="angling-recovery-code-row">
+             <input id="anglingRecoveryInput" type="text" maxlength="29" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" aria-label="Wiederherstellungscode eingeben">
+           </div>
+           <button id="anglingRecoveryRestoreBtn" class="angling-recovery-action">Cloud-Spielstand wiederherstellen</button>
+         </div>
          <div class="angling-recovery-card angling-recovery-own-card">
            <h3>Dein Wiederherstellungscode</h3>
            <p>Mit diesem Code kannst du deinen gespeicherten Spielstand auf einem anderen Gerät laden. Bewahre ihn privat auf.</p>
@@ -4731,14 +4779,6 @@ html,body{
            </div>
            <button id="anglingRecoveryRotateBtn" class="angling-recovery-action danger-lite">Neuen Code erzeugen</button>
            <div class="angling-recovery-warning">Ein neu erzeugter Code macht den bisherigen Code ungültig.</div>
-         </div>
-         <div class="angling-recovery-card angling-recovery-restore-card">
-           <h3>Auf einem anderen Gerät weiterspielen</h3>
-           <p>Gib dort deinen Code ein. Der Cloud-Spielstand ersetzt EP, Fortschritt, Bestwerte, Käufe, Bestände und die 3D-Fischsammlung. Das lokale Fangbuch dieses Geräts bleibt unangetastet.</p>
-           <div class="angling-recovery-code-row">
-             <input id="anglingRecoveryInput" type="text" maxlength="29" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" aria-label="Wiederherstellungscode eingeben">
-           </div>
-           <button id="anglingRecoveryRestoreBtn" class="angling-recovery-action">Cloud-Spielstand wiederherstellen</button>
          </div>
          <div id="anglingRecoveryStatus" class="angling-recovery-status">Cloud-Spielstand wird geprüft …</div>
        </div>
@@ -29692,6 +29732,16 @@ function updateAnglingMainMenuUi(){
 }
 
 
+// Reine Menünavigation: bestehende DOM-Knoten und ihre Ereignisse bleiben erhalten.
+function aczoMainNavigate(page){
+ const valid=['overview','profile','community','settings'];
+ if(!valid.includes(page))page='overview';
+ anglingMainMenu.querySelectorAll('[data-main-page]').forEach(el=>{el.hidden=el.dataset.mainPage!==page;});
+ anglingMainMenu.querySelectorAll('[data-main-target]').forEach(el=>{el.setAttribute('aria-pressed',String(el.dataset.mainTarget===page));});
+ if(page==='settings')anglingMainSettings.style.display='block';
+ const body=anglingMainMenu.querySelector('.angling-main-grid');if(body)body.scrollTop=0;
+}
+
 function openAnglingFirstSetup(){
   openAnglingMainMenu();
 
@@ -29705,10 +29755,11 @@ function openAnglingFirstSetup(){
   anglingMainSaveProfileBtn.style.display='none';
   anglingFirstSetupContinueBtn.style.display='';
   anglingMainSubtitle.textContent='Willkommen beim Angelspiel. Richte einmal kurz dein Spielerprofil und die Speicheroptionen ein.';
-  anglingMainStatus.textContent='Ersteinrichtung: Cloud-Sicherung, öffentliche Rekorde und Namensanzeige sind vorausgewählt. Du kannst jede Option vor dem Speichern abwählen.';
+  anglingMainStatus.textContent='Online-Optionen sind vorausgewählt. Du kannst sie vor dem Speichern abwählen.';
   const playSection=anglingMainPlayBtn.closest('.angling-main-section');
   if(playSection)playSection.style.display='none';
   anglingMainSettings.style.display='none';
+  aczoMainNavigate('profile');
 }
 function finishAnglingSetupAndStart(){
   saveAnglingMainProfile();
@@ -29740,6 +29791,7 @@ function openAnglingMainMenu(){
   document.querySelector('.wrap')?.classList.add('angling-profile-menu-open');
   anglingMainMenu.setAttribute('aria-hidden','false');
   anglingMainSettings.style.display='none';
+  aczoMainNavigate(anglingSetupComplete?'overview':'profile');
   stopAnglingActionHold?.();
   anglingPointerStarts?.clear?.();
 }
@@ -37996,6 +38048,7 @@ anglingMainLogBtn.addEventListener('click',()=>{
 });
 anglingMainHelpBtn.addEventListener('click',()=>openAnglingMainSubpanel(openAnglingGameHelp));
 anglingMainSettingsBtn.addEventListener('click',()=>{anglingMainSettings.style.display=anglingMainSettings.style.display==='none'?'block':'none';});
+anglingMainMenu.querySelectorAll('[data-main-target]').forEach(btn=>btn.addEventListener('click',()=>aczoMainNavigate(btn.dataset.mainTarget)));
 anglingResetFishFoundBtn.addEventListener('click',resetAnglingFoundSpeciesOnly);
 anglingResetAllBtn.addEventListener('click',resetAnglingEverything);
 anglingResetNewUserBtn.addEventListener('click',resetAnglingAsBrandNewUser);
