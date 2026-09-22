@@ -23176,7 +23176,7 @@ function aczoPredatorNew(f,profile){
  return {mode:'idle',velocity:new THREE.Vector3(Math.cos(heading)*f.speed,Math.sin(heading)*f.speed,0),aim:new THREE.Vector3(),
    speed:f.speed,heading,interest:0,aggression:.58+Math.random()*.80,curiosity:.65+Math.random()*.7,
    nextThink:0,lastThink:0,nextAim:0,reactionUntil:0,started:0,stopAt:0,restSince:0,seenPulse:0,closeTime:0,abortUntil:0,
-   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,profile};
+   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,decisive:false,profile};
 }
 function aczoPredatorDisengage(f,b){
  b.mode='abort';b.abortUntil=fishWorldTime+1.3+Math.random()*1.5;
@@ -23198,11 +23198,17 @@ function aczoPredatorStart(f,spontaneous=false){
    b.heading=Math.PI/2+f.shadowYaw;b.speed=f.speed;
    b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
  }
+ // V1.4: Nicht jeder interessierte Räuber soll erst lange um den Köder kreisen.
+ // Ein Teil der Fische entscheidet sich früh für eine geradlinige Verfolgung.
+ // Hecht/Barsch tun das etwas häufiger, Zander/Wels ebenfalls regelmäßig.
+ const decisiveChance=species==='perch'?.38:species==='pike'?.36:species==='zander'?.30:.28;
+ b.decisive=Math.random()<decisiveChance;
  b.mode=spontaneous&&dist<1.65?'burst':'notice';
- b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(.78+Math.random()*.68);
+ b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(b.decisive?(.88+Math.random()*.38):(.78+Math.random()*.68));
  b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;b.seenPulse=l.pulse;
- b.reactionUntil=fishWorldTime+(b.mode==='burst'?.08:p.notice*(.8+Math.random()*2.2));
- b.interest=.48+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);
+ b.reactionUntil=fishWorldTime+(b.mode==='burst'?.08:p.notice*(b.decisive?(.38+Math.random()*.70):(.8+Math.random()*2.2)));
+ b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);
+ if(b.decisive)b.sideAmount=.08+Math.random()*.18;
  b.aim.copy(f.target);b.restSince=0;b.closeTime=0;b.lastDist=dist;
  f.lureChaseUntil=b.stopAt+2;f.pause=0;
  return true;
@@ -23245,7 +23251,13 @@ function aczoPredatorUpdate(f,dt,dist){
    aczoPredatorDisengage(f,b);return false;
  }
  if(b.mode==='notice'||fishWorldTime<b.reactionUntil)return true;
- if(dist<.9){b.closeTime+=elapsed;if(b.mode==='follow')b.mode='inspect';}
+ if(dist<.9){
+   b.closeTime+=elapsed;
+   // Entschlossene Fische bleiben auf Zug und beginnen nicht erst mit dem
+   // typischen Umkreisen/Inspect-Modus. Die übrigen Räuber behalten genau
+   // dieses zögerliche Verhalten, damit beide Charaktere sichtbar bleiben.
+   if(b.mode==='follow'&&!b.decisive)b.mode='inspect';
+ }
  else if(dist>1.65&&b.mode==='inspect')b.mode='follow';
  if(b.mode==='inspect'&&b.closeTime>2.2&&b.interest<.7){aczoPredatorDisengage(f,b);return false;}
  const night=simulationEnabled?sceneNightFactor:0;
@@ -23259,17 +23271,30 @@ function aczoPredatorUpdate(f,dt,dist){
    ?(s==='pike'?1.30:s==='perch'?1.38:s==='catfish'?1.08:.98)
    :(s==='zander'?1.10:s==='perch'?1.20:s==='pike'?1.16:s==='catfish'?1.14:1);
  const actionBonus=highCue?(s==='zander'&&l.kind==='softbait'&&l.bottom?1.55:1.28):1;
- const attackRate=(.082+p.spontaneous*.31)*b.aggression*steadyAttackBoost*actionBonus*(l.rest?.38:1)*
+ // Entschlossene Nachläufer bekommen keinen garantierten Biss, aber eine
+ // deutlich höhere Chance, ihre Verfolgung wirklich in eine Attacke umzusetzen.
+ // Damit sieht man neben den zögerlichen Fischen regelmäßig Räuber, die den
+ // Köder zielstrebig nehmen, ohne dass daraus die separate Schreckattacke wird.
+ const decisiveAttackBoost=b.decisive?2.15:1;
+ const attackRate=(.082+p.spontaneous*.31)*b.aggression*steadyAttackBoost*actionBonus*decisiveAttackBoost*(l.rest?.38:1)*
    (s==='perch'?THREE.MathUtils.lerp(1,.17,night):s==='catfish'?THREE.MathUtils.lerp(.48,1.65,night):1);
- if(b.mode!=='burst'&&dist<(s==='catfish'?2.2:1.55)&&b.interest>.43&&
+ const attackDistance=b.decisive?(s==='catfish'?2.55:1.90):(s==='catfish'?2.2:1.55);
+ const interestGate=b.decisive?.36:.43;
+ if(b.mode!=='burst'&&dist<attackDistance&&b.interest>interestGate&&
     Math.random()<1-Math.exp(-attackRate*elapsed)){
    b.mode='burst';b.reactionUntil=fishWorldTime+p.notice*.2;b.nextAim=fishWorldTime;
  }
  // Maximal einige Wahrnehmungen pro Sekunde; keine unmittelbare Kopie jeder Köderbewegung.
  if(fishWorldTime>=b.nextAim){
    const sight=anglingLure.position;
-   b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,.20,1.08);
-   if(Math.random()<.18)b.side*=-1;
+   if(b.decisive){
+     // Fast direkt hinterher: nur eine kleine natürliche seitliche Abweichung.
+     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,.05,.26);
+     if(Math.random()<.05)b.side*=-1;
+   }else{
+     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,.20,1.08);
+     if(Math.random()<.18)b.side*=-1;
+   }
    const hx=Math.cos(b.heading),hy=Math.sin(b.heading);
    b.aim.set(sight.x-hy*b.side*b.sideAmount,sight.y+hx*b.side*b.sideAmount,sight.z);
    if(s==='zander'&&b.mode!=='burst'){
@@ -23307,7 +23332,7 @@ function aczoPredatorSwim(f,dt){
  if(horizontal>.10)b.heading+=THREE.MathUtils.clamp(delta,-turn,turn);
  let targetSpeed=b.mode==='burst'?p.burst:(b.mode==='notice'?.40:b.mode==='inspect'?.30:b.mode==='abort'?.76:p.cruise);
  if(chase&&aczoPredatorLure.rest&&b.mode!=='burst')targetSpeed*=.42;
- if(chase&&b.mode==='follow')targetSpeed*=THREE.MathUtils.clamp(horizontal/2.0,.54,1.28);
+ if(chase&&b.mode==='follow')targetSpeed*=THREE.MathUtils.clamp(horizontal/2.0,b.decisive?.72:.54,b.decisive?1.48:1.28);
  const diff=targetSpeed-b.speed;
  b.speed+=THREE.MathUtils.clamp(diff,-p.accel*dt*.9,p.accel*dt*(b.mode==='burst'?1.65:1));
  b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
@@ -36467,6 +36492,62 @@ function recalcAnglingAtCurrentTerminal(){
   anglingBiteRate=(.006+.040*total/(total+140))*(.76+Math.random()*.48)*(1-pressure*.50);
 }
 
+// V1.4 Schreckattacke: Sehr selten darf ein Räuber ohne vorherige lange
+// Verfolgungsphase seitlich in die Unterwasseransicht schießen. Diese Attacke
+// ignoriert bewusst Tageszeit, Wetter und Führungsqualität. Sie soll den
+// unberechenbaren Moment echter Räuber simulieren, nicht die normale KI ersetzen.
+function beginAnglingShockLureAttack(){
+  if(!anglingUsesArtificialLure()||anglingState!=='lure-retrieving'||anglingFastObstaclePull||
+     anglingCinematicView!=='underwater')return false;
+  const pool=[];
+  for(const f of fishActors){
+    const sp=f.obj?.userData?.species,p=aczoPredatorProfiles[sp];
+    if(!p||f.obj.userData.hiddenByHunt||activeHunt?.predator===f||activeHunt?.prey===f)continue;
+    pool.push(f);
+  }
+  if(!pool.length)return false;
+
+  // Hecht/Barsch etwas häufiger als Überraschungsjäger, Zander und Wels bleiben
+  // aber ausdrücklich möglich. Keine Umwelt- oder Führungsbedingung fließt ein.
+  const speciesWeight={pike:1.30,perch:1.38,zander:1.02,catfish:.92};
+  let sourceActor=null,total=0;
+  for(const f of pool){
+    const w=speciesWeight[f.obj.userData.species]||1;
+    total+=w;if(Math.random()*total<w)sourceActor=f;
+  }
+  if(!sourceActor)return false;
+
+  const p=aczoPredatorProfiles[sourceActor.obj.userData.species];
+  const right=new THREE.Vector3();
+  camera.getWorldDirection(right);
+  right.set(-right.y,right.x,0);
+  if(right.lengthSq()<.01)right.set(1,0,0);else right.normalize();
+  const forward=new THREE.Vector3(-right.y,right.x,0);
+  const side=Math.random()<.5?-1:1;
+  let placed=false;
+  for(const dist of [6.4,5.6,4.8]){
+    const x=anglingLure.position.x+right.x*side*dist-forward.x*(.4+Math.random()*1.0);
+    const y=anglingLure.position.y+right.y*side*dist-forward.y*(.4+Math.random()*1.0);
+    const depth=pondDepthAt(x,y);
+    if(depth==null||depth<.65)continue;
+    const floor=-depth*exaggeration+.34;
+    sourceActor.obj.position.set(x,y,Math.max(floor,Math.min(-.18,anglingLure.position.z+(.12-Math.random()*.24))));
+    placed=true;break;
+  }
+  if(!placed)return false;
+
+  const b=sourceActor.predatorBrain||(sourceActor.predatorBrain=aczoPredatorNew(sourceActor,p));
+  b.mode='burst';b.started=fishWorldTime;b.stopAt=fishWorldTime+3.2;
+  b.reactionUntil=fishWorldTime;b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;
+  b.interest=1.65;b.aggression=Math.max(1.35,b.aggression||0);b.closeTime=0;b.restSince=0;
+  b.aim.copy(anglingLure.position);
+  const dx=anglingLure.position.x-sourceActor.obj.position.x,dy=anglingLure.position.y-sourceActor.obj.position.y;
+  b.heading=Math.atan2(dy,dx);b.speed=p.burst*1.18;
+  b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
+  sourceActor.predatorCooldown=0;sourceActor.lureChaseUntil=fishWorldTime+5;sourceActor.pause=0;
+  return true;
+}
+
 function beginAnglingLureAttack(sourceActor=null){
   if(!anglingUsesArtificialLure()||!['lure-retrieving','lure-waiting'].includes(anglingState))return false;
 
@@ -38761,8 +38842,15 @@ function updateAnglingMode(dt){
       // verbessern je nach Art nur die Gewichtung und sind keine Pflicht.
       const predatorWeight=anglingCandidateEntries.reduce((a,e)=>a+e.weight,0);
       const predatorPresence=Math.min(1,predatorWeight/180);
-      const lureAttackRate=.020+.050*predatorPresence; // ca. 2,0–7,0 % pro Sekunde aktiver Führung
+      const lureAttackRate=.022+.055*predatorPresence; // ca. 2,2–7,7 % pro Sekunde aktiver Führung
       if(!anglingFastObstaclePull&&Math.random()<1-Math.exp(-lureAttackRate*dt))beginAnglingLureAttack();
+
+      // Seltene Schreckattacke: unabhängig von Wetter, Tageszeit, Grundkontakt
+      // oder perfekter Köderführung. Der Fisch kommt seitlich mit hoher
+      // Geschwindigkeit ins Bild und geht ohne langes Inspizieren direkt drauf.
+      // Mit ~0,35 %/s bleibt das ein besonderer Moment statt Dauerfeuer.
+      const shockAttackRate=.0035;
+      if(!anglingFastObstaclePull&&Math.random()<1-Math.exp(-shockAttackRate*dt))beginAnglingShockLureAttack();
     }
     if(anglingState==='lure-retrieving'&&u>=1){
       // Hat die Schnur einen festen Umlenkpunkt, muss der Köder diesem Weg
