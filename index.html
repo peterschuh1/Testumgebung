@@ -24870,10 +24870,12 @@ function anglingTaperedBetween(a,b,radiusA,radiusB,material,segments=14){
 // Dünner, konischer Carbonblank mit getrenntem Korkgriff statt der bisherigen
 // zwei gleichmäßig dicken Zylinder.
 const anglingRodA=new THREE.Vector3(.38,-.22,-.62);
-const anglingRodGripEnd=new THREE.Vector3(.335,-.13,-1.03);
-const anglingRodB=new THREE.Vector3(.28,-.02,-1.46);
-const anglingRodMid=new THREE.Vector3(.17,.105,-2.22);
-const anglingRodUpper=new THREE.Vector3(.105,.158,-2.70);
+const aczoRodAxisEnd=new THREE.Vector3(.055,.19,-3.08);
+function aczoStraightRodPoint(z){return anglingRodA.clone().lerp(aczoRodAxisEnd,(z-anglingRodA.z)/(aczoRodAxisEnd.z-anglingRodA.z));}
+const anglingRodGripEnd=aczoStraightRodPoint(-1.03);
+const anglingRodB=aczoStraightRodPoint(-1.46);
+const anglingRodMid=aczoStraightRodPoint(-2.22);
+const anglingRodUpper=aczoStraightRodPoint(-2.70);
 const anglingRodC=new THREE.Vector3(.055,.19,-3.08);
 const anglingRodGrip=anglingTaperedBetween(anglingRodA,anglingRodGripEnd,.031,.027,anglingRodCorkMat,18);
 const anglingRodSeat=anglingTaperedBetween(anglingRodGripEnd,anglingRodB,.020,.0135,anglingRodAccentMat,18);
@@ -25547,8 +25549,9 @@ const reelMiniLine=new THREE.MeshStandardMaterial({color:0x262c2f,roughness:.70,
 const reelMiniKnob=new THREE.MeshStandardMaterial({color:0x0e1113,roughness:.54,metalness:.08});
 [reelMiniDark,reelMiniCork,reelMiniMetal,reelMiniAccent,reelMiniLine,reelMiniKnob].forEach(m=>{m.depthTest=true;m.depthWrite=true;m.transparent=false;m.opacity=1;});
 const reelMiniGripA=new THREE.Vector3(.42,-.08,-.10);
-const reelMiniGripB=new THREE.Vector3(.18,.05,-.55);
 const reelMiniBlankC=new THREE.Vector3(.04,.18,-1.55);
+const reelMiniGripB=reelMiniGripA.clone().lerp(reelMiniBlankC,.45/1.45);
+const aczoMiniSeatEnd=reelMiniGripA.clone().lerp(reelMiniBlankC,.68/1.45);
 anglingReelMiniGroup.add(anglingTaperedBetween(reelMiniGripA,reelMiniGripB,.06,.035,reelMiniCork,16));
 anglingReelMiniGroup.add(anglingTaperedBetween(reelMiniGripB,reelMiniBlankC,.025,.007,reelMiniAccent,14));
 
@@ -25647,7 +25650,7 @@ anglingMiniLine.renderOrder=50;
 anglingMiniLine.frustumCulled=false;
 const anglingMiniLineStart=new THREE.Vector3();
 const anglingMiniLineEnd=new THREE.Vector3();
-const anglingMiniLineLocalTip=new THREE.Vector3(.034,.138,-1.47);
+const anglingMiniLineLocalTip=reelMiniBlankC.clone();
 const anglingMiniLineRayPoint=new THREE.Vector3();
 const anglingMiniLineRayDir=new THREE.Vector3();
 // V7.12: Die Vorschau-Schnur darf NICHT Kind der Mini-Rute sein. Sonst dreht
@@ -26449,9 +26452,9 @@ function updateAnglingRodThreadLine3D(active){
   // Die Schnur endet optisch vorne an der Rolle. Zwei kurze Zwischenpunkte
   // ziehen sie dann unter den Blank, bevor sie in die Ringe läuft.
   anglingReelLineExit.getWorldPosition(anglingRodThreadPts[0]);
-  anglingReelLineLead.getWorldPosition(anglingRodThreadPts[1]);
-  anglingReelLineGuideEntry.getWorldPosition(anglingRodThreadPts[2]);
   anglingThreadLocalWorld(anglingRodGuideB,0,0,0,anglingRodThreadPts[3]);
+  anglingRodThreadPts[1].copy(anglingRodThreadPts[0]).lerp(anglingRodThreadPts[3],.4);
+  anglingRodThreadPts[2].copy(anglingRodThreadPts[0]).lerp(anglingRodThreadPts[3],.75);
   anglingThreadLocalWorld(anglingRodGuideMid,0,0,0,anglingRodThreadPts[4]);
   anglingThreadLocalWorld(anglingRodGuideUpper,0,0,0,anglingRodThreadPts[5]);
   anglingThreadLocalWorld(anglingRodGuideTip,0,0,0,anglingRodThreadPts[6]);
@@ -27794,9 +27797,98 @@ function anglingActiveNetId(){
 function anglingNetLandingMultiplier(){return anglingActiveNetId()==='net_pro'?(.92/.72):1;}
 function anglingNetVisualScale(){return anglingActiveNetId()==='net_pro'?.92:.72;}
 
+// Kleine, deterministische Materialkarten; keine Downloads und kein Spiel-Zufall.
+function aczoRodTexture(kind){
+ const size=kind==='cork'?256:128,data=new Uint8Array(size*size*4);
+ let seed=197705;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const i=(y*size+x)*4,n=random()-.5;let r,g,b;
+  if(kind==='cork'){
+   const bands=5*Math.sin(y*.43)+3*Math.sin(y*.079),v=n*20+bands;
+   r=190+v;g=151+v;b=100+v;
+  }else if(kind==='eva'){r=g=b=80+n*30+(random()<.07?-20:0);}
+  else if(kind==='carbon'){
+   const cell=8,tx=Math.floor(x/cell),ty=Math.floor(y/cell),over=((tx-ty+64)%4)<2;
+   const strand=(over?x:y)%cell;
+   const rib=18*Math.sin((strand+.5)/cell*Math.PI),thread=((over?y:x)%3===0)?-7:2;
+   r=g=b=(over?137:96)+rib+thread+n*5;
+  }else{r=g=b=242+n*6+3*Math.sin(x*.14);}
+  data[i]=r;data[i+1]=g;data[i+2]=b;data[i+3]=255;
+ }
+ if(kind==='cork'){
+  for(let p=0;p<1100;p++){
+   const x=Math.floor(random()*size),y=Math.floor(random()*size),w=1+Math.floor(random()*8),h=1+Math.floor(random()*2),dark=random()>.25;
+   for(let j=0;j<h;j++)for(let k=0;k<w;k++){
+    const i=(((y+j)%size)*size+(x+k)%size)*4,delta=dark?(-22-random()*23):(8+random()*10);
+    for(let c=0;c<3;c++)data[i+c]=Math.max(0,Math.min(255,data[i+c]+delta));
+   }
+  }
+ }
+ const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;
+ t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=2;t.encoding=THREE.sRGBEncoding;t.needsUpdate=true;return t;
+}
+const aczoRodTextures={cork:aczoRodTexture('cork'),eva:aczoRodTexture('eva'),carbon:aczoRodTexture('carbon'),varnish:aczoRodTexture('varnish')};
+const aczoBlankMainMat=new THREE.MeshPhysicalMaterial({color:0x43505b,roughness:.27,metalness:.12,clearcoat:1,clearcoatRoughness:.10,envMap:aczoLureEnv,envMapIntensity:.8,map:aczoRodTextures.varnish,depthTest:true,depthWrite:true});
+const aczoBlankMiniMat=aczoBlankMainMat.clone();
+const aczoSeatMainMat=new THREE.MeshPhysicalMaterial({color:0x20262b,roughness:.3,metalness:.28,clearcoat:.7,clearcoatRoughness:.18,envMap:aczoLureEnv,envMapIntensity:.8});
+const aczoSeatMiniMat=aczoSeatMainMat.clone();
+function aczoApplyRodSurfaces(id){
+ const standard=id==='rod_standard',carbon=id==='rod_pro';
+ for(const m of [anglingRodCorkMat,reelMiniCork]){
+  m.map=standard?aczoRodTextures.cork:aczoRodTextures.eva;m.bumpMap=m.map;m.bumpScale=standard?.00016:.00007;
+  m.color.setHex(standard?0xffffff:0x45494b);m.roughness=standard?.94:.97;m.metalness=0;
+ }
+ for(const m of [aczoBlankMainMat,aczoBlankMiniMat]){
+  m.map=carbon?aczoRodTextures.carbon:aczoRodTextures.varnish;
+  m.color.setHex(id==='rod_distance'?0xf4f5f7:carbon?0x8b929a:0x46565e);
+  m.bumpMap=aczoRodTextures.carbon;m.bumpScale=carbon?.000015:0;
+ }
+}
+// Zusammenhängende Außenhaut mit Materialbereichen, ohne doppelte Innenkappen.
+function aczoHandleGeometry(a,gripEnd,b,p,scale=1){
+ const h=a.distanceTo(gripEnd)/a.distanceTo(b),split=p.split;
+ const knots=split===0?[[0,.027,0],[.035,.028,0],[.95,.024,0],[1,.023,2]]:
+ [[0,.027,0],[.035,.028,0],[.19,.026,0],[.22,.024,0],[.245,.015,1],[.195+split,.015,0],[.22+split,.024,0],[1,.023,2]];
+ for(const k of knots)k[0]*=h;
+ knots.push([h+(1-h)*.10,.023,2],[h+(1-h)*.86,.013*p.thickness,2],[1,.0108*p.thickness,2]);
+ const forward=b.clone().sub(a).normalize(),u=new THREE.Vector3(1,0,0);u.addScaledVector(forward,-u.dot(forward)).normalize();
+ const v=new THREE.Vector3().crossVectors(forward,u),positions=[],normals=[],uv=[],indices=[],radial=16;
+ for(let i=0;i<knots.length;i++){
+  const [t,r]=knots[i],center=a.clone().lerp(b,t);
+  for(let j=0;j<=radial;j++){
+   const q=j/radial*Math.PI*2,n=u.clone().multiplyScalar(Math.cos(q)).addScaledVector(v,Math.sin(q));
+   positions.push(center.x+n.x*r*scale,center.y+n.y*r*scale,center.z+n.z*r*scale);normals.push(n.x,n.y,n.z);uv.push(j/radial,t*3);
+  }
+ }
+ const g=new THREE.BufferGeometry();
+ for(let i=0;i<knots.length-1;i++){
+  const start=indices.length;
+  for(let j=0;j<radial;j++){const n=i*(radial+1)+j,k=n+radial+1;indices.push(n,n+1,k,k,n+1,k+1);}
+  const previous=g.groups[g.groups.length-1];
+  if(previous&&previous.materialIndex===knots[i][2])previous.count+=indices.length-start;
+  else g.addGroup(start,indices.length-start,knots[i][2]);
+ }
+ // Nur das hintere Rutenende schließen; alle inneren Übergänge bleiben nahtlos.
+ const centerIndex=positions.length/3;positions.push(a.x,a.y,a.z);normals.push(-forward.x,-forward.y,-forward.z);uv.push(.5,0);
+ const start=indices.length;for(let j=0;j<radial;j++)indices.push(centerIndex,j+1,j);g.addGroup(start,indices.length-start,0);
+ g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();
+ g.userData.knots=knots;return g;
+}
+
+function aczoStraightBlankGeometry(a,b,r0,r1){
+ const forward=b.clone().sub(a).normalize(),u=new THREE.Vector3(1,0,0);u.addScaledVector(forward,-u.dot(forward)).normalize();
+ const v=new THREE.Vector3().crossVectors(forward,u),pos=[],norm=[],uv=[],idx=[];
+ for(let i=0;i<2;i++)for(let j=0;j<=16;j++){
+  const q=j/16*Math.PI*2,n=u.clone().multiplyScalar(Math.cos(q)).addScaledVector(v,Math.sin(q)),p=(i?b:a).clone().addScaledVector(n,i?r1:r0);
+  pos.push(p.x,p.y,p.z);norm.push(n.x,n.y,n.z);uv.push(j/16,i*9);
+ }
+ for(let j=0;j<16;j++)idx.push(j,j+1,j+17,j+17,j+1,j+18);
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(norm,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);return g;
+}
+
 // Modernes Spinngerät: ausschließlich Geometrie und Darstellung.
 const ACZO_ROD_MODELS={
- rod_standard:{flex:1.08,thickness:1,split:.12,reel:1,housing:0xe1e8ed,metal:0xf0f4f7,bodyScale:[1,1,1],line:0xadc1a7},
+ rod_standard:{flex:1.08,thickness:1,split:0,reel:1,housing:0xe1e8ed,metal:0xf0f4f7,bodyScale:[1,1,1],line:0xadc1a7},
  rod_distance:{flex:.94,thickness:.95,split:.40,reel:1.04,housing:0xd8ab45,metal:0xffd16e,bodyScale:[1.05,.95,1.10],line:0xc3cbb2},
  rod_pro:{flex:.80,thickness:.88,split:.58,reel:1.08,housing:0x38434f,metal:0x778590,bodyScale:[.94,.91,1.03],line:0x94afa3}
 };
@@ -27841,12 +27933,15 @@ for(const m of [aczoHousingMain,aczoHousingMini,anglingRodMetalMat,reelMiniMetal
 const aczoGuideMat=anglingRodMetalMat.clone();aczoGuideMat.color.setHex(0xaebac1);aczoGuideMat.roughness=.25;
 // Eine durchgehende, wiederverwendete BufferGeometry statt zweier sichtbarer Knicke.
 const aczoBlankGeometry=new THREE.BufferGeometry();
-const aczoBlankPositions=new Float32Array(33*9*3),aczoBlankNormals=new Float32Array(33*9*3),aczoBlankIndices=[];
-for(let i=0;i<32;i++)for(let j=0;j<8;j++){const a=i*9+j,b=a+9;aczoBlankIndices.push(a,b,a+1,b,b+1,a+1);}
+const aczoBlankPositions=new Float32Array(33*17*3),aczoBlankNormals=new Float32Array(33*17*3),aczoBlankIndices=[];
+for(let i=0;i<32;i++)for(let j=0;j<16;j++){const a=i*17+j,b=a+17;aczoBlankIndices.push(a,a+1,b,b,a+1,b+1);}
 aczoBlankGeometry.setAttribute('position',new THREE.BufferAttribute(aczoBlankPositions,3).setUsage(THREE.DynamicDrawUsage));
 aczoBlankGeometry.setAttribute('normal',new THREE.BufferAttribute(aczoBlankNormals,3).setUsage(THREE.DynamicDrawUsage));
 aczoBlankGeometry.setIndex(aczoBlankIndices);
-aczoReplaceMesh(anglingRodLower,aczoBlankGeometry);anglingRodLower.frustumCulled=false;
+const aczoBlankUV=new Float32Array(33*17*2);
+for(let i=0;i<=32;i++)for(let j=0;j<=16;j++){const k=(i*17+j)*2;aczoBlankUV[k]=j/16;aczoBlankUV[k+1]=i/32*9;}
+aczoBlankGeometry.setAttribute('uv',new THREE.BufferAttribute(aczoBlankUV,2));
+aczoReplaceMesh(anglingRodLower,aczoBlankGeometry,aczoBlankMainMat);anglingRodLower.frustumCulled=false;
 anglingRodFlexSection.parent.remove(anglingRodFlexSection);anglingRodFlexSection.geometry.dispose();
 anglingRodTipSection.parent.remove(anglingRodTipSection);anglingRodTipSection.geometry.dispose();
 const aczoRodGuides=[anglingRodGuideB,anglingRodGuideMid,anglingRodGuideUpper,anglingRodGuideTip];
@@ -27855,11 +27950,11 @@ aczoRodGuides.forEach((g,i)=>{aczoReplaceMesh(g,new THREE.TorusGeometry([.022,.0
 anglingRodGroup.add(anglingRodTip);
 const aczoGuideFeet=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,5),aczoGuideMat,4);
 aczoGuideFeet.instanceMatrix.setUsage(THREE.DynamicDrawUsage);aczoGuideFeet.frustumCulled=false;aczoGuideFeet.renderOrder=1492;anglingRodGroup.add(aczoGuideFeet);
-// Freiliegender Blank zwischen den Griffstücken; derselbe Mesh für alle Modelle.
-const aczoGripCore=aczoTube(anglingRodA,anglingRodGripEnd,.015,.015,anglingRodDarkMat);
-aczoGripCore.renderOrder=1492;anglingRodGroup.add(aczoGripCore);
-const aczoMiniGrip=anglingReelMiniGroup.children[0];
-const aczoMiniCore=aczoTube(reelMiniGripA,reelMiniGripB,.024,.022,reelMiniDark);anglingReelMiniGroup.add(aczoMiniCore);
+// Griff, offene EVA-Zone und Rollenhalter bilden eine gemeinsame Außenhaut.
+const aczoGripCore=new THREE.Mesh(new THREE.BufferGeometry(),aczoBlankMainMat);
+const aczoMiniCore=new THREE.Mesh(new THREE.BufferGeometry(),aczoBlankMiniMat);
+const aczoMiniGrip=anglingReelMiniGroup.children[0],aczoMiniBlank=anglingReelMiniGroup.children[1];
+anglingRodSeat.parent.remove(anglingRodSeat);anglingRodSeat.geometry.dispose();
 
 function aczoShapeReel(parts,metal,housing,line,knob,root,rodStart,rodEnd,scale){
  const [body,stem,foot,rotor,cup,spool,barrel,wind,front,rear,drag,bail,armA,armB,crank,arm,grip]=parts;
@@ -27896,22 +27991,25 @@ function aczoShapeReel(parts,metal,housing,line,knob,root,rodStart,rodEnd,scale)
  crank.position.set(-.031,-.014,.029);
  const roller=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.009,10),metal);roller.rotation.z=Math.PI/2;roller.position.set(.055,0,-.047);rotor.add(roller);
  root.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),rodEnd.clone().sub(rodStart).normalize());
- root.userData.aczoAttach=rodStart.clone().lerp(rodEnd,.30);root.userData.aczoScale=scale;
+ root.userData.aczoAttach=rodStart.clone().lerp(rodEnd,.30).add(new THREE.Vector3(0,-.017,0).applyQuaternion(root.quaternion));root.userData.aczoScale=scale;
 }
 aczoShapeReel([anglingReelHousing,reelStem,reelFoot,anglingReelRotorGroup,anglingReelRotorCup,anglingReelSpool,anglingReelSpoolBarrel,anglingReelSpoolLine,anglingReelLipFront,anglingReelLipRear,anglingReelDragKnob,anglingReelBail,anglingReelBailArmA,anglingReelBailArmB,anglingReelCrank,crankArm,crankKnob],anglingRodMetalMat,aczoHousingMain,anglingReelLineMat,anglingReelKnobMat,anglingReelBody,anglingRodGripEnd,anglingRodB,1);
-aczoShapeReel([anglingMiniHousing,anglingMiniStem,anglingMiniFoot,anglingMiniRotorGroup,anglingMiniRotorCup,anglingMiniSpool,anglingMiniSpoolBarrel,anglingMiniSpoolLine,anglingMiniLipFront,anglingMiniLipRear,anglingMiniDragKnob,anglingMiniBail,anglingMiniBailArmA,anglingMiniBailArmB,anglingMiniCrank,anglingMiniCrankArm,anglingMiniKnobMesh],reelMiniMetal,aczoHousingMini,reelMiniLine,reelMiniKnob,anglingMiniReelBody,reelMiniGripB,reelMiniBlankC,1.65);
+aczoShapeReel([anglingMiniHousing,anglingMiniStem,anglingMiniFoot,anglingMiniRotorGroup,anglingMiniRotorCup,anglingMiniSpool,anglingMiniSpoolBarrel,anglingMiniSpoolLine,anglingMiniLipFront,anglingMiniLipRear,anglingMiniDragKnob,anglingMiniBail,anglingMiniBailArmA,anglingMiniBailArmB,anglingMiniCrank,anglingMiniCrankArm,anglingMiniKnobMesh],reelMiniMetal,aczoHousingMini,reelMiniLine,reelMiniKnob,anglingMiniReelBody,reelMiniGripB,aczoMiniSeatEnd,1.4);
 anglingReelLineExit.position.set(.055,0,-.047);anglingReelRotorGroup.add(anglingReelLineExit);
 anglingReelMiniCamera.position.set(-1.12,-1.25,-.14);anglingReelMiniCamera.lookAt(.10,-.12,-.70);
 function aczoApplyRodModel(id){
  const v=aczoRodVisual,p=ACZO_ROD_MODELS[id]||ACZO_ROD_MODELS.rod_standard;
+ aczoApplyRodSurfaces(id);
  for(const m of [anglingRodMetalMat,reelMiniMetal]){m.color.setHex(p.metal);m.roughness=.115;m.metalness=.98;}
  if(v.currentId===id)return;v.currentId=id;v.model=p;
- if(!v.cache[id])v.cache[id]=[aczoGripGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodCorkMat),aczoGripGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniCork),aczoGapGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodDarkMat,.015),aczoGapGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniDark,.022)];
- if(!anglingRodGrip.userData.aczoCached){anglingRodGrip.geometry.dispose();aczoMiniGrip.geometry.dispose();aczoGripCore.geometry.dispose();aczoMiniCore.geometry.dispose();anglingRodGrip.userData.aczoCached=true;}
- anglingRodGrip.geometry=v.cache[id][0];anglingRodGrip.position.set(0,0,0);anglingRodGrip.rotation.set(0,0,0);
- aczoMiniGrip.geometry=v.cache[id][1];aczoMiniGrip.position.set(0,0,0);aczoMiniGrip.rotation.set(0,0,0);
- aczoGripCore.geometry=v.cache[id][2];aczoGripCore.position.set(0,0,0);aczoGripCore.rotation.set(0,0,0);
- aczoMiniCore.geometry=v.cache[id][3];aczoMiniCore.position.set(0,0,0);aczoMiniCore.rotation.set(0,0,0);
+ if(!v.cache[id]){
+  const miniBlank=aczoStraightBlankGeometry(aczoMiniSeatEnd,reelMiniBlankC,.0108*p.thickness*1.15,.0025*p.thickness*1.15);
+  v.cache[id]=[aczoHandleGeometry(anglingRodA,anglingRodGripEnd,anglingRodB,p),aczoHandleGeometry(reelMiniGripA,reelMiniGripB,aczoMiniSeatEnd,p,1.15),miniBlank];
+ }
+ if(!anglingRodGrip.userData.aczoCached){anglingRodGrip.geometry.dispose();aczoMiniGrip.geometry.dispose();aczoMiniBlank.geometry.dispose();anglingRodGrip.userData.aczoCached=true;}
+ anglingRodGrip.geometry=v.cache[id][0];anglingRodGrip.material=[anglingRodCorkMat,aczoBlankMainMat,aczoSeatMainMat];anglingRodGrip.position.set(0,0,0);anglingRodGrip.rotation.set(0,0,0);
+ aczoMiniGrip.geometry=v.cache[id][1];aczoMiniGrip.material=[reelMiniCork,aczoBlankMiniMat,aczoSeatMiniMat];aczoMiniGrip.position.set(0,0,0);aczoMiniGrip.rotation.set(0,0,0);
+ aczoMiniBlank.geometry=v.cache[id][2];aczoMiniBlank.material=aczoBlankMiniMat;aczoMiniBlank.position.set(0,0,0);aczoMiniBlank.rotation.set(0,0,0);
  aczoHousingMain.color.setHex(p.housing);aczoHousingMini.color.setHex(p.housing);aczoHousingMain.roughness=aczoHousingMini.roughness=.15;
  anglingReelHousing.scale.set(...p.bodyScale);anglingMiniHousing.scale.set(...p.bodyScale);
  anglingReelLineMat.color.setHex(p.line);reelMiniLine.color.setHex(p.line);
@@ -27931,10 +28029,10 @@ function aczoDeformRod(){
  for(let i=0;i<=32;i++){
   const a=v.bend*Math.pow(i/32,1.35);v.tangents[i].copy(v.forward).multiplyScalar(Math.cos(a)).addScaledVector(v.down,Math.sin(a));
   if(i){const mid=v.bend*Math.pow((i-.5)/32,1.35);v.tmp.copy(v.forward).multiplyScalar(Math.cos(mid)).addScaledVector(v.down,Math.sin(mid));v.points[i].copy(v.points[i-1]).addScaledVector(v.tmp,v.length/32);}
-  v.normal.crossVectors(v.across,v.tangents[i]).normalize();
+  v.across.set(1,0,0).addScaledVector(v.forward,-v.forward.x).normalize();v.quat.setFromUnitVectors(v.forward,v.tangents[i]);v.across.applyQuaternion(v.quat);v.normal.crossVectors(v.tangents[i],v.across).normalize();
   const r=(.0108*(1-i/32)+.0025*i/32)*v.model.thickness;
-  for(let j=0;j<=8;j++){
-   const angle=j/8*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle),idx=(i*9+j)*3;
+  for(let j=0;j<=16;j++){
+   const angle=j/16*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle),idx=(i*17+j)*3;
    v.tmp.copy(v.across).multiplyScalar(c).addScaledVector(v.normal,s);
    aczoBlankNormals[idx]=v.tmp.x;aczoBlankNormals[idx+1]=v.tmp.y;aczoBlankNormals[idx+2]=v.tmp.z;
    aczoBlankPositions[idx]=v.points[i].x+r*v.tmp.x;aczoBlankPositions[idx+1]=v.points[i].y+r*v.tmp.y;aczoBlankPositions[idx+2]=v.points[i].z+r*v.tmp.z;
@@ -27946,7 +28044,7 @@ function aczoDeformRod(){
   v.tmp.copy(v.points[k]).lerp(v.points[Math.min(32,k+1)],f);
   g.position.copy(v.tmp).addScaledVector(v.down,aczoGuideDrop[i]);
   v.normal.copy(v.tangents[k]).lerp(v.tangents[Math.min(32,k+1)],f).normalize();g.quaternion.setFromUnitVectors(v.axisZ,v.normal);
-  v.tmp.addScaledVector(v.down,aczoGuideDrop[i]*.5);v.quat.setFromUnitVectors(v.axis,v.down);v.scale.set(.0016,aczoGuideDrop[i],.0016);v.matrix.compose(v.tmp,v.quat,v.scale);aczoGuideFeet.setMatrixAt(i,v.matrix);
+  v.across.copy(v.down).addScaledVector(v.normal,-v.down.dot(v.normal)).normalize();v.across.multiplyScalar(-[.022,.013,.008,.0055][i]).add(g.position).sub(v.tmp);const footLength=v.across.length();v.tmp.addScaledVector(v.across,.5);v.quat.setFromUnitVectors(v.axis,v.across.normalize());v.scale.set(.0016,footLength,.0016);v.matrix.compose(v.tmp,v.quat,v.scale);aczoGuideFeet.setMatrixAt(i,v.matrix);
  }
  aczoGuideFeet.instanceMatrix.needsUpdate=true;
  anglingRodTip.position.copy(v.points[32]);
@@ -27986,8 +28084,52 @@ function aczoUpdateReelLighting(){
  const intensity=THREE.MathUtils.clamp(hemi.intensity*.45+sun.intensity*.65+moonLight.intensity*.16,.025,1.45);
  aczoHousingMain.envMapIntensity=anglingRodMetalMat.envMapIntensity=intensity;
  aczoHousingMini.envMapIntensity=reelMiniMetal.envMapIntensity=intensity;
+ aczoBlankMainMat.envMapIntensity=aczoBlankMiniMat.envMapIntensity=intensity;aczoSeatMainMat.envMapIntensity=aczoSeatMiniMat.envMapIntensity=intensity;
 }
 aczoApplyRodModel('rod_standard');
+
+// Derselbe Tiefenpuffer-Ansatz wie im bestehenden Rollen-Livefenster:
+// nur die Rute wird nach dem Weltbild gezeichnet, mit echter Eigenverdeckung.
+const aczoRodScene=new THREE.Scene();aczoRodScene.add(anglingRodAnchor,anglingRodThreadGroup);
+const aczoRodHemi=new THREE.HemisphereLight(),aczoRodSun=new THREE.DirectionalLight(),aczoRodMoon=new THREE.DirectionalLight();
+aczoRodScene.add(aczoRodHemi,aczoRodSun,aczoRodSun.target,aczoRodMoon,aczoRodMoon.target);
+anglingRodGroup.traverse(o=>{
+ if(!o.isMesh)return;
+ for(const m of (Array.isArray(o.material)?o.material:[o.material])){m.depthTest=true;m.depthWrite=true;m.transparent=false;m.opacity=1;m.needsUpdate=true;}
+});
+anglingRodThreadMat.depthTest=true;anglingRodThreadMat.depthWrite=false;
+function aczoRenderRodOverlay(){
+ if(!anglingMode||!anglingRodGroup.visible||!anglingRodAnchor.visible||!anglingScene.visible)return;
+ updateAnglingRodAnchor();
+ updateAnglingRodThreadLine3D(!!(!anglingTimeShiftActive&&(anglingCinematicView==='shore'||anglingCinematicView==='reset-return')&&((anglingState==='ready'&&!anglingUi.classList.contains('line-active'))||anglingLine.visible)));
+ aczoRodHemi.color.copy(hemi.color);aczoRodHemi.groundColor.copy(hemi.groundColor);aczoRodHemi.intensity=hemi.intensity;aczoRodHemi.visible=hemi.visible;aczoRodHemi.position.copy(hemi.position);
+ aczoRodSun.color.copy(sun.color);aczoRodSun.intensity=sun.intensity;aczoRodSun.visible=sun.visible;sun.getWorldPosition(aczoRodSun.position);sun.target.getWorldPosition(aczoRodSun.target.position);
+ aczoRodMoon.color.copy(moonLight.color);aczoRodMoon.intensity=moonLight.intensity;aczoRodMoon.visible=moonLight.visible;moonLight.getWorldPosition(aczoRodMoon.position);moonLight.target.getWorldPosition(aczoRodMoon.target.position);
+ const clear=renderer.autoClear,shadow=renderer.shadowMap.autoUpdate;renderer.autoClear=false;renderer.shadowMap.autoUpdate=false;
+ try{renderer.clearDepth();markViewerRenderCall();renderer.render(aczoRodScene,camera);}
+ finally{renderer.autoClear=clear;renderer.shadowMap.autoUpdate=shadow;}
+}
+// Die kleine Rute hat nun dieselbe Ringanordnung; ihre Schnur bleibt lokal.
+const aczoMiniGuides=[],aczoMiniGuideParts=[];
+const aczoMiniForward=reelMiniBlankC.clone().sub(aczoMiniSeatEnd).normalize();
+const aczoMiniDown=new THREE.Vector3(0,-1,0);aczoMiniDown.addScaledVector(aczoMiniForward,-aczoMiniDown.dot(aczoMiniForward)).normalize();
+for(let i=0;i<4;i++){
+ const center=aczoMiniSeatEnd.clone().lerp(reelMiniBlankC,aczoGuideT[i]);
+ const drop=aczoGuideDrop[i]*1.15,point=center.clone().addScaledVector(aczoMiniDown,drop);aczoMiniGuides.push(point);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry([.022,.013,.008,.0055][i]*1.15,.0015,5,16),reelMiniMetal);ring.position.copy(point);ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),aczoMiniForward);aczoMiniGuideParts.push(ring);
+ aczoMiniGuideParts.push(aczoTube(center,point.clone().addScaledVector(aczoMiniDown,-[.022,.013,.008,.0055][i]*1.15),.0016,.0016,reelMiniMetal));
+}
+const aczoMiniGuideMesh=new THREE.Mesh(aczoJoinGeometry(aczoMiniGuideParts),reelMiniMetal);anglingReelMiniGroup.add(aczoMiniGuideMesh);
+const aczoMiniThreadGeo=new THREE.BufferGeometry(),aczoMiniThreadPositions=new Float32Array(6*3);
+aczoMiniThreadGeo.setAttribute('position',new THREE.BufferAttribute(aczoMiniThreadPositions,3).setUsage(THREE.DynamicDrawUsage));
+const aczoMiniThread=new THREE.Line(aczoMiniThreadGeo,anglingMiniLineMat);aczoMiniThread.frustumCulled=false;anglingReelMiniGroup.add(aczoMiniThread);
+const aczoMiniThreadTemp=new THREE.Vector3();
+function aczoUpdateMiniThread(){
+ aczoMiniThreadTemp.set(.055,0,-.047);anglingMiniRotorGroup.localToWorld(aczoMiniThreadTemp);anglingReelMiniGroup.worldToLocal(aczoMiniThreadTemp);
+ const a=aczoMiniThreadGeo.attributes.position;a.setXYZ(0,aczoMiniThreadTemp.x,aczoMiniThreadTemp.y,aczoMiniThreadTemp.z);
+ for(let i=0;i<4;i++){const p=aczoMiniGuides[i];a.setXYZ(i+1,p.x,p.y,p.z);}
+ a.setXYZ(5,reelMiniBlankC.x,reelMiniBlankC.y,reelMiniBlankC.z);a.needsUpdate=true;
+}
 
 function anglingApplyActiveRodAppearance(){
   const rodId=anglingActiveRodId();
@@ -37311,6 +37453,7 @@ function renderAnglingReelCamera(){
   // V7.12: Start folgt nur der Rutenspitze. Der zweite Punkt liegt dagegen fest
   // im unteren Wasserbereich des Livefensters und rotiert NICHT mit der Rute.
   anglingReelMiniGroup.updateMatrixWorld(true);
+  aczoUpdateMiniThread();
   anglingReelMiniCamera.updateMatrixWorld(true);
   anglingMiniLineStart.copy(anglingMiniLineLocalTip).applyMatrix4(anglingReelMiniGroup.matrixWorld);
   anglingMiniLineRayPoint.set(.08,-.62,.18).unproject(anglingReelMiniCamera);
@@ -37995,11 +38138,6 @@ function updateAnglingMode(dt){
   }
   updateAnglingRodAnchor();updateAnglingDeeperReadyPose();updateAnglingDeeperPins();
   aczoTickPresentation(dt);
-  updateAnglingRodThreadLine3D(
-    !!(!anglingTimeShiftActive&&anglingMode&&anglingRodGroup.visible&&(anglingCinematicView==='shore'||anglingCinematicView==='reset-return')&&(
-      (anglingState==='ready'&&!anglingUi.classList.contains('line-active'))||anglingLine.visible
-    ))
-  );
   const anglingRodFlexRelax=Math.min(1,dt*7.2);
   if(anglingState!=='drilling'&&anglingState!=='landing'){
     aczoRelaxRod(dt);
@@ -39482,6 +39620,7 @@ function aczoPerf7Summary(){
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
  markViewerRenderCall();renderer.render(scene,camera);
+ aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
    window.__markMapStartupFirstFrame();
