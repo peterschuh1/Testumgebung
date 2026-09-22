@@ -23250,7 +23250,16 @@ function aczoPredatorUpdate(f,dt,dist){
  if(b.mode==='inspect'&&b.closeTime>2.2&&b.interest<.7){aczoPredatorDisengage(f,b);return false;}
  const night=simulationEnabled?sceneNightFactor:0;
  const highCue=l.fall||l.resume||(l.kind==='softbait'&&l.rise&&l.bottom);
- const attackRate=(.055+p.spontaneous*.25)*b.aggression*(highCue?2.3:1)*(l.rest?.32:1)*
+ // V1.4 Kunstköder-Balance: Gleichmäßiges Einholen ist eine vollwertige
+ // Fangmethode. Jiggen/Absinken bleibt vor allem beim Zander ein Bonus, ist
+ // aber keine technische Voraussetzung für eine Attacke. Hecht und Barsch
+ // reagieren auf monoton laufende Blinker besonders gut; auch Wels und Zander
+ // können einen stetig geführten Köder jederzeit nehmen.
+ const steadyAttackBoost=l.kind==='spinner'
+   ?(s==='pike'?1.30:s==='perch'?1.38:s==='catfish'?1.08:.98)
+   :(s==='zander'?1.10:s==='perch'?1.20:s==='pike'?1.16:s==='catfish'?1.14:1);
+ const actionBonus=highCue?(s==='zander'&&l.kind==='softbait'&&l.bottom?1.55:1.28):1;
+ const attackRate=(.082+p.spontaneous*.31)*b.aggression*steadyAttackBoost*actionBonus*(l.rest?.38:1)*
    (s==='perch'?THREE.MathUtils.lerp(1,.17,night):s==='catfish'?THREE.MathUtils.lerp(.48,1.65,night):1);
  if(b.mode!=='burst'&&dist<(s==='catfish'?2.2:1.55)&&b.interest>.43&&
     Math.random()<1-Math.exp(-attackRate*elapsed)){
@@ -36470,11 +36479,18 @@ function beginAnglingLureAttack(sourceActor=null){
          activeHunt?.prey===f||fishWorldTime<(f.predatorCooldown||0)||
          (f.predatorBrain&&f.predatorBrain.mode!=='idle'))continue;
       const d=f.obj.position.distanceTo(anglingLure.position);
-      if(d>Math.min(6,p.range))continue;
-      const weight=(.4+.6*Math.max(0,1-d/6))*
+      // V1.4 Kunstköder-Balance: Ein geeigneter Räuber darf den Köder auch aus
+      // dem äußeren Wahrnehmungsbereich aufnehmen. Dadurch scheitert eine bereits
+      // ausgeloste Köderchance nicht unnötig nur an der früheren starren 6-m-Grenze.
+      const lureReach=Math.min(p.range+1.5,8.0);
+      if(d>lureReach)continue;
+      const steadySpeciesBoost=aczoPredatorLure.kind==='spinner'
+        ?(sp==='pike'?1.28:sp==='perch'?1.35:sp==='catfish'?1.05:.96)
+        :(sp==='zander'?1.08:sp==='perch'?1.18:sp==='pike'?1.15:sp==='catfish'?1.12:1);
+      const weight=(.45+.55*Math.max(0,1-d/lureReach))*
         THREE.MathUtils.lerp(p.day,p.night,night)*
         (aczoPredatorLure.kind==='spinner'?p.spoon:1)*
-        (aczoPredatorLure.bottom?1+p.bottom:1);
+        (aczoPredatorLure.bottom?1+p.bottom:1)*steadySpeciesBoost;
       totalWeight+=weight;
       if(Math.random()*totalWeight<weight)sourceActor=f;
     }
@@ -38740,11 +38756,12 @@ function updateAnglingMode(dt){
     // Nur der bewegte Kunstköder erzeugt eine Bisschance. Jeder Zug ist ein
     // kurzes Fangfenster, wodurch aktives Führen wirklich notwendig ist.
     {
-      // Kunstköder: Bewegung erzeugt nur eine Chance, keinen quasi garantierten Biss.
-      // Selbst bei sehr gutem Räuberbestand bleibt ein großer Teil der Würfe ohne Attacke.
+      // V1.4 Kunstköder-Balance: Spürbar höhere Kontaktchance. Auch eine
+      // monotone Führung ist ausdrücklich fängig; zusätzliche Köderaktionen
+      // verbessern je nach Art nur die Gewichtung und sind keine Pflicht.
       const predatorWeight=anglingCandidateEntries.reduce((a,e)=>a+e.weight,0);
       const predatorPresence=Math.min(1,predatorWeight/180);
-      const lureAttackRate=.008+.032*predatorPresence; // ca. 0,8–4,0 % pro Sekunde aktiver Führung
+      const lureAttackRate=.020+.050*predatorPresence; // ca. 2,0–7,0 % pro Sekunde aktiver Führung
       if(!anglingFastObstaclePull&&Math.random()<1-Math.exp(-lureAttackRate*dt))beginAnglingLureAttack();
     }
     if(anglingState==='lure-retrieving'&&u>=1){
