@@ -2917,11 +2917,20 @@ html,body{
 }
 .angling-ui.is-fishing .angling-fixed-menu-btn{display:block}
 .angling-ui.main-menu-open .angling-fixed-menu-btn{display:none}
-/* Predatorpit Lockpaste Timer */
-.predator-pit-paste-timer{display:none;position:absolute;z-index:1247;top:58px;right:12px;pointer-events:none;min-width:132px;padding:7px 10px;border-radius:11px;border:1px solid rgba(111,255,107,.58);background:rgba(4,34,20,.88);color:#d9ffd4;font-size:10px;font-weight:900;line-height:1.2;text-align:right;box-shadow:0 4px 16px rgba(0,0,0,.30),inset 0 0 14px rgba(69,255,86,.08)}
-.predator-pit-paste-timer.show{display:block}.predator-pit-paste-timer strong{display:block;color:#82ff72;font-size:11px;letter-spacing:.15px}
-.aczo-item-badges .aczo-paste-active{border-color:rgba(91,255,79,.58);background:rgba(18,78,31,.78);color:#aaff91;box-shadow:inset 0 0 8px rgba(91,255,79,.08)}
-@media(max-width:680px){.predator-pit-paste-timer{top:52px;right:7px;min-width:116px;padding:6px 8px;font-size:9px}.predator-pit-paste-timer strong{font-size:10px}}
+/* Predatorpit Lockpaste: kleine, unaufdringliche Restzeitanzeige. Wie der
+   Futterplatz-Timer blendet sie zyklisch ein und aus und verdeckt kein HUD. */
+.predator-pit-paste-timer{
+  display:none;position:absolute;z-index:1247;top:48px;right:9px;pointer-events:none;
+  min-width:0;padding:3px 6px;border-radius:999px;border:1px solid rgba(94,255,80,.38);
+  background:rgba(2,25,13,.58);color:#69ff54;font-size:7.4px;font-weight:1000;line-height:1.05;
+  text-align:right;white-space:nowrap;text-shadow:0 0 5px rgba(74,255,54,.62);
+  box-shadow:0 2px 7px rgba(0,0,0,.18)
+}
+.predator-pit-paste-timer.show{display:block;animation:predatorPitPasteTimerCycle 9s ease-in-out infinite}
+.predator-pit-paste-timer strong{display:inline;color:#75ff5f;font-size:7.4px;letter-spacing:.05px;margin-right:4px}
+@keyframes predatorPitPasteTimerCycle{0%{opacity:0}8%,34%{opacity:.92}43%,100%{opacity:0}}
+.aczo-item-badges .aczo-paste-active{border-color:rgba(91,255,79,.48);background:rgba(10,54,22,.70);color:#8cff74;box-shadow:inset 0 0 6px rgba(91,255,79,.06)}
+@media(max-width:680px){.predator-pit-paste-timer{top:47px;right:6px;padding:2px 5px;font-size:6.8px}.predator-pit-paste-timer strong{font-size:6.8px}}
 .angling-community-toast{
   display:none;position:absolute;z-index:1210;left:50%;top:12px;transform:translateX(-50%);
   max-width:min(76vw,430px);padding:7px 11px;border-radius:12px;
@@ -28487,7 +28496,7 @@ function predatorPitPasteTimeLabel(lureId){const left=Math.max(0,predatorPitPast
 function updatePredatorPitPasteTimer(){
  const now=performance.now();for(const [id,expires] of predatorPitPasteByLure){if(now>=expires)predatorPitPasteByLure.delete(id);}
  const label=predatorPitPasteTimeLabel(anglingSelectedLureId),active=!!label&&anglingUsesArtificialLure();
- if(predatorPitPasteTimer){predatorPitPasteTimer.classList.toggle('show',active&&anglingMode);if(active){const span=predatorPitPasteTimer.querySelector('span');if(span)span.textContent=label+' · '+(ANGLING_LURE_CATALOG[anglingSelectedLureId]?.name||'Kunstköder')+' +';}}
+ if(predatorPitPasteTimer){predatorPitPasteTimer.classList.toggle('show',active&&anglingMode);if(active){const strong=predatorPitPasteTimer.querySelector('strong'),span=predatorPitPasteTimer.querySelector('span');if(strong)strong.textContent='☢ Lockpaste';if(span)span.textContent=label;}}
  // Restzeit direkt auf jedem behandelten Köder in der geöffneten Tacklebox aktualisieren.
  document.querySelectorAll('.angling-item-card[data-product^="lure:"]').forEach(card=>{const lureId=card.dataset.product.slice(5),badges=card.querySelector('.aczo-item-badges');if(!badges)return;let b=badges.querySelector('.aczo-paste-active');const t=predatorPitPasteTimeLabel(lureId);if(t){if(!b){b=document.createElement('span');b.className='aczo-paste-active';badges.append(b);}b.textContent='☢ Lockpaste '+t;}else b?.remove();});
 }
@@ -29250,6 +29259,9 @@ function aczoProductThumb(key,uid){
  if(key==='corn'||key==='premium_corn'){
    const kernel=(x,y,r)=>`<g transform="translate(${x} ${y}) rotate(${r})"><path d="M-8-8Q-4-12 6-8Q12-4 9 6Q6 11-5 8Q-11 6-8-8Z" fill="url(#${g('seed')})" stroke="#a87a2e" stroke-width=".65"/><path d="M-4-7Q-7-1-3 5" fill="none" stroke="#fff1a0" stroke-width="1.3" opacity=".7"/></g>`;
    return wrap(kernel(27,28,-20)+kernel(49,22,12)+kernel(69,36,-14)+kernel(45,43,20));
+ }
+ if(key==='feed_predator_pit_paste'){
+   return wrap(`<defs><linearGradient id="${g('tube')}" x2="0" y2="1"><stop stop-color="#caff78"/><stop offset=".18" stop-color="#263d28"/><stop offset=".78" stop-color="#101c15"/><stop offset="1" stop-color="#79e943"/></linearGradient></defs><path d="M32 7H65L62 13H35Z" fill="#d9ddd6" stroke="#77827b" stroke-width=".7"/><path d="M34 13H63L68 49Q49 55 29 49Z" fill="url(#${g('tube')})" stroke="#83a07d" stroke-width=".8"/><rect x="34" y="48" width="30" height="7" rx="2" fill="#111815" stroke="#607060" stroke-width=".7"/><circle cx="49" cy="30" r="10" fill="#d9ff3f" opacity=".95"/><text x="49" y="34" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#111">☢</text><text x="49" y="44" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.2" font-weight="800" fill="#aaff62">LOCKPASTE</text>`);
  }
  if(key.startsWith('feed_')){
    const type=key.slice(5),accent=type==='premium'?'#cfa94d':type==='normal'?'#83aaa1':'#ab9871';
@@ -36499,84 +36511,15 @@ function attemptAnglingStrike(){
 }
 
 
-// Predatorpit Lockpaste: giftgrüne Uranin-Wolkenspur, die der echten 3D-Köderbahn folgt.
-const PREDATOR_PIT_FX_COUNT=240,predatorPitPasteFxGeo=new THREE.BufferGeometry(),predatorPitPasteFxPos=new Float32Array(PREDATOR_PIT_FX_COUNT*3),predatorPitPasteFxLife=new Float32Array(PREDATOR_PIT_FX_COUNT),predatorPitPasteFxSize=new Float32Array(PREDATOR_PIT_FX_COUNT);
+// Predatorpit Lockpaste: dezente, transparente Uranin-Spur. Kleine Partikel
+// folgen der echten 3D-Köderbahn, verbreitern sich leicht nach hinten und lösen sich auf.
+const PREDATOR_PIT_FX_COUNT=110,predatorPitPasteFxGeo=new THREE.BufferGeometry(),predatorPitPasteFxPos=new Float32Array(PREDATOR_PIT_FX_COUNT*3),predatorPitPasteFxLife=new Float32Array(PREDATOR_PIT_FX_COUNT),predatorPitPasteFxSize=new Float32Array(PREDATOR_PIT_FX_COUNT);
 predatorPitPasteFxGeo.setAttribute('position',new THREE.BufferAttribute(predatorPitPasteFxPos,3));predatorPitPasteFxGeo.setAttribute('aLife',new THREE.BufferAttribute(predatorPitPasteFxLife,1));predatorPitPasteFxGeo.setAttribute('aSize',new THREE.BufferAttribute(predatorPitPasteFxSize,1));
-const predatorPitPasteFxMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,vertexShader:`attribute float aLife;attribute float aSize;varying float vLife;void main(){vLife=aLife;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aSize*(180.0/max(1.0,-mv.z));gl_Position=projectionMatrix*mv;}`,fragmentShader:`varying float vLife;void main(){vec2 p=gl_PointCoord-vec2(.5);float r=length(p);float soft=smoothstep(.50,.06,r);float a=soft*smoothstep(0.0,.18,vLife)*smoothstep(1.0,.45,vLife);vec3 c=mix(vec3(.12,.85,.06),vec3(.58,1.0,.12),1.0-r);gl_FragColor=vec4(c,a*.72);}`});
-const predatorPitPasteFxPoints=new THREE.Points(predatorPitPasteFxGeo,predatorPitPasteFxMat);predatorPitPasteFxPoints.frustumCulled=false;predatorPitPasteFxPoints.renderOrder=78;anglingScene.add(predatorPitPasteFxPoints);
+const predatorPitPasteFxMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.NormalBlending,vertexShader:`attribute float aLife;attribute float aSize;varying float vLife;void main(){vLife=aLife;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aSize*(92.0/max(1.0,-mv.z));gl_Position=projectionMatrix*mv;}`,fragmentShader:`varying float vLife;void main(){vec2 p=gl_PointCoord-vec2(.5);float r=length(p);float soft=1.0-smoothstep(.08,.50,r);float fade=smoothstep(0.0,.20,vLife)*smoothstep(1.0,.36,vLife);vec3 c=mix(vec3(.08,.72,.035),vec3(.38,1.0,.12),soft*.55);gl_FragColor=vec4(c,soft*fade*.19);}`});
+const predatorPitPasteFxPoints=new THREE.Points(predatorPitPasteFxGeo,predatorPitPasteFxMat);predatorPitPasteFxPoints.frustumCulled=false;predatorPitPasteFxPoints.renderOrder=48;anglingScene.add(predatorPitPasteFxPoints);
 const predatorPitPasteFxVel=Array.from({length:PREDATOR_PIT_FX_COUNT},()=>new THREE.Vector3());let predatorPitPasteFxCursor=0,predatorPitPasteFxHasLast=false;const predatorPitPasteFxLast=new THREE.Vector3(),predatorPitPasteFxMove=new THREE.Vector3(),predatorPitPasteFxTmp=new THREE.Vector3();
-function spawnPredatorPitPasteParticle(pos,move){const i=predatorPitPasteFxCursor++%PREDATOR_PIT_FX_COUNT,j=i*3;predatorPitPasteFxPos[j]=pos.x+(Math.random()-.5)*.055;predatorPitPasteFxPos[j+1]=pos.y+(Math.random()-.5)*.055;predatorPitPasteFxPos[j+2]=pos.z+(Math.random()-.5)*.045;predatorPitPasteFxLife[i]=1;predatorPitPasteFxSize[i]=8+Math.random()*9;predatorPitPasteFxVel[i].set(-move.x*.16+(Math.random()-.5)*.055,-move.y*.16+(Math.random()-.5)*.055,-move.z*.10+(Math.random()-.5)*.035);}
-function updatePredatorPitPasteFx(dt){updatePredatorPitPasteTimer();const surface=anglingLure?.visible?anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y):0,active=predatorPitPasteActive(anglingSelectedLureId)&&anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&anglingLure.position.z<surface-.015;if(active){if(!predatorPitPasteFxHasLast){predatorPitPasteFxLast.copy(anglingLure.position);predatorPitPasteFxHasLast=true;}predatorPitPasteFxMove.subVectors(anglingLure.position,predatorPitPasteFxLast);const moved=predatorPitPasteFxMove.length();if(moved>.004){const n=Math.min(9,Math.max(2,Math.ceil(moved/.045)));for(let k=0;k<n;k++){predatorPitPasteFxTmp.copy(predatorPitPasteFxLast).lerp(anglingLure.position,(k+Math.random())/n);spawnPredatorPitPasteParticle(predatorPitPasteFxTmp,predatorPitPasteFxMove);}}predatorPitPasteFxLast.copy(anglingLure.position);}else predatorPitPasteFxHasLast=false;let dirty=false;for(let i=0;i<PREDATOR_PIT_FX_COUNT;i++){if(predatorPitPasteFxLife[i]<=0)continue;dirty=true;predatorPitPasteFxLife[i]=Math.max(0,predatorPitPasteFxLife[i]-dt/(1.45+((i%7)/7)*.8));const j=i*3,v=predatorPitPasteFxVel[i],age=1-predatorPitPasteFxLife[i];v.x*=Math.exp(-.75*dt);v.y*=Math.exp(-.75*dt);v.z+=.010*dt;predatorPitPasteFxPos[j]+=v.x*dt*(1+age*.8);predatorPitPasteFxPos[j+1]+=v.y*dt*(1+age*.8);predatorPitPasteFxPos[j+2]+=v.z*dt;predatorPitPasteFxSize[i]=Math.min(24,predatorPitPasteFxSize[i]+dt*5.5);}if(dirty){predatorPitPasteFxGeo.attributes.position.needsUpdate=true;predatorPitPasteFxGeo.attributes.aLife.needsUpdate=true;predatorPitPasteFxGeo.attributes.aSize.needsUpdate=true;}}
-
-function recalcAnglingAtCurrentTerminal(){
-  const p=anglingUsesDeeper()?anglingDeeper.position:(anglingUsesArtificialLure()?anglingLure.position:anglingBobber.position);
-  anglingCastEnd.copy(p);
-  anglingCastDistance=Math.max(0,Math.hypot(p.x-anglingSelection.shore.x,p.y-anglingSelection.shore.y));
-  if(!anglingUsesArtificialLure()&&!anglingUsesDeeper()){
-    const info=getAnglingRigInfo(p.x,p.y);anglingLocalWaterDepth=info.waterDepth;anglingRigState=info.state;
-  }
-  if(anglingUsesDeeper()){anglingCandidateEntries=[];anglingBiteRate=0;return;}
-  anglingCandidateEntries=buildAnglingCandidates(p.x,p.y);
-  const total=anglingCandidateEntries.reduce((sum,e)=>sum+e.weight,0);
-  const pressure=anglingPressureAt(p.x,p.y);
-  anglingBiteRate=(.006+.040*total/(total+140))*(.76+Math.random()*.48)*(1-pressure*.50);
-}
-
-// V1.4 Schreckattacke: Sehr selten darf ein Räuber ohne vorherige lange
-// Verfolgungsphase seitlich in die Unterwasseransicht schießen. Diese Attacke
-// ignoriert bewusst Tageszeit, Wetter und Führungsqualität. Sie soll den
-// unberechenbaren Moment echter Räuber simulieren, nicht die normale KI ersetzen.
-function beginAnglingShockLureAttack(){
-  if(!anglingUsesArtificialLure()||anglingState!=='lure-retrieving'||anglingFastObstaclePull||
-     anglingCinematicView!=='underwater')return false;
-  const pool=[];
-  for(const f of fishActors){
-    const sp=f.obj?.userData?.species,p=aczoPredatorProfiles[sp];
-    if(!p||f.obj.userData.hiddenByHunt||activeHunt?.predator===f||activeHunt?.prey===f)continue;
-    pool.push(f);
-  }
-  if(!pool.length)return false;
-
-  // Hecht/Barsch etwas häufiger als Überraschungsjäger, Zander und Wels bleiben
-  // aber ausdrücklich möglich. Keine Umwelt- oder Führungsbedingung fließt ein.
-  const speciesWeight={pike:1.30,perch:1.38,zander:1.02,catfish:.92};
-  let sourceActor=null,total=0;
-  for(const f of pool){
-    const w=speciesWeight[f.obj.userData.species]||1;
-    total+=w;if(Math.random()*total<w)sourceActor=f;
-  }
-  if(!sourceActor)return false;
-
-  const p=aczoPredatorProfiles[sourceActor.obj.userData.species];
-  const right=new THREE.Vector3();
-  camera.getWorldDirection(right);
-  right.set(-right.y,right.x,0);
-  if(right.lengthSq()<.01)right.set(1,0,0);else right.normalize();
-  const forward=new THREE.Vector3(-right.y,right.x,0);
-  const side=Math.random()<.5?-1:1;
-  let placed=false;
-  for(const dist of [6.4,5.6,4.8]){
-    const x=anglingLure.position.x+right.x*side*dist-forward.x*(.4+Math.random()*1.0);
-    const y=anglingLure.position.y+right.y*side*dist-forward.y*(.4+Math.random()*1.0);
-    const depth=pondDepthAt(x,y);
-    if(depth==null||depth<.65)continue;
-    const floor=-depth*exaggeration+.34;
-    sourceActor.obj.position.set(x,y,Math.max(floor,Math.min(-.18,anglingLure.position.z+(.12-Math.random()*.24))));
-    placed=true;break;
-  }
-  if(!placed)return false;
-
-  const b=sourceActor.predatorBrain||(sourceActor.predatorBrain=aczoPredatorNew(sourceActor,p));
-  b.mode='burst';b.started=fishWorldTime;b.stopAt=fishWorldTime+3.2;
-  b.reactionUntil=fishWorldTime;b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;
-  b.interest=1.65;b.aggression=Math.max(1.35,b.aggression||0);b.closeTime=0;b.restSince=0;
-  b.aim.copy(anglingLure.position);
-  const dx=anglingLure.position.x-sourceActor.obj.position.x,dy=anglingLure.position.y-sourceActor.obj.position.y;
-  b.heading=Math.atan2(dy,dx);b.speed=p.burst*1.18;
-  b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
-  sourceActor.predatorCooldown=0;sourceActor.lureChaseUntil=fishWorldTime+5;sourceActor.pause=0;
-  return true;
-}
+function spawnPredatorPitPasteParticle(pos,move){const i=predatorPitPasteFxCursor++%PREDATOR_PIT_FX_COUNT,j=i*3;predatorPitPasteFxPos[j]=pos.x+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+1]=pos.y+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+2]=pos.z+(Math.random()-.5)*.020;predatorPitPasteFxLife[i]=1;predatorPitPasteFxSize[i]=2.2+Math.random()*2.4;predatorPitPasteFxVel[i].set(-move.x*.10+(Math.random()-.5)*.018,-move.y*.10+(Math.random()-.5)*.018,-move.z*.07+(Math.random()-.5)*.012);}
+function updatePredatorPitPasteFx(dt){updatePredatorPitPasteTimer();const surface=anglingLure?.visible?anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y):0,active=predatorPitPasteActive(anglingSelectedLureId)&&anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&anglingLure.position.z<surface-.025;if(active){if(!predatorPitPasteFxHasLast){predatorPitPasteFxLast.copy(anglingLure.position);predatorPitPasteFxHasLast=true;}predatorPitPasteFxMove.subVectors(anglingLure.position,predatorPitPasteFxLast);const moved=predatorPitPasteFxMove.length();if(moved>.010){const n=Math.min(4,Math.max(1,Math.ceil(moved/.085)));for(let k=0;k<n;k++){predatorPitPasteFxTmp.copy(predatorPitPasteFxLast).lerp(anglingLure.position,(k+.35+Math.random()*.3)/n);spawnPredatorPitPasteParticle(predatorPitPasteFxTmp,predatorPitPasteFxMove);}}predatorPitPasteFxLast.copy(anglingLure.position);}else predatorPitPasteFxHasLast=false;let dirty=false;for(let i=0;i<PREDATOR_PIT_FX_COUNT;i++){if(predatorPitPasteFxLife[i]<=0)continue;dirty=true;predatorPitPasteFxLife[i]=Math.max(0,predatorPitPasteFxLife[i]-dt/(1.05+((i%7)/7)*.45));const j=i*3,v=predatorPitPasteFxVel[i],age=1-predatorPitPasteFxLife[i];v.x*=Math.exp(-1.15*dt);v.y*=Math.exp(-1.15*dt);v.z+=.004*dt;predatorPitPasteFxPos[j]+=v.x*dt*(1+age*.55);predatorPitPasteFxPos[j+1]+=v.y*dt*(1+age*.55);predatorPitPasteFxPos[j+2]+=v.z*dt;predatorPitPasteFxSize[i]=Math.min(7.2,predatorPitPasteFxSize[i]+dt*1.8);}if(dirty){predatorPitPasteFxGeo.attributes.position.needsUpdate=true;predatorPitPasteFxGeo.attributes.aLife.needsUpdate=true;predatorPitPasteFxGeo.attributes.aSize.needsUpdate=true;}}
 
 function beginAnglingLureAttack(sourceActor=null){
   if(!anglingUsesArtificialLure()||!['lure-retrieving','lure-waiting'].includes(anglingState))return false;
