@@ -4410,6 +4410,48 @@ html,body{
 #anglingRecoveryPanel .angling-recovery-code-row input{min-width:0;max-width:100%}
 @media(max-height:480px){#anglingMainMenu .angling-main-head p{display:none}#anglingMainRecoveryDetailsBtn{min-height:40px;margin-top:4px;margin-bottom:1px;padding:5px 9px}#anglingMainMenu .aczo-main-nav{padding-bottom:4px}#anglingMainStatus{max-height:38px}}
 
+
+/* Neue Hinweise sind Bestandteile bestehender Elemente, keine zusätzlichen Overlays. */
+#anglingBaitBoxBtn[data-aczo-equipped]{border-color:#f0d67e!important;animation:aczo-equipped-pulse .8s ease-out}
+#anglingBaitBoxBtn[data-aczo-equipped] .game-menu-copy small{color:#f6e3a0;letter-spacing:0;white-space:normal;line-height:1.1}
+#anglingBaitBoxBtn[data-aczo-equipped="last"] .game-menu-hint{color:#ffe098!important;font-weight:900}
+@keyframes aczo-equipped-pulse{0%{box-shadow:inset 0 0 14px #e8ca6a66}100%{box-shadow:inset 0 0 0 transparent}}
+#anglingCatchCard{box-sizing:border-box;top:calc(50% + 24px);max-height:calc(100% - 64px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;max-width:calc(100% - 24px)}
+#anglingCatchCard *{box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere}
+#anglingCatchCard .aczo-catch-photo{position:relative;width:min(220px,82%);height:105px;margin:0 auto 6px;overflow:hidden}
+#anglingCatchCard #anglingCatchImage{width:100%;height:100%;margin:0;object-fit:contain}
+#aczoCatchSheen{position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 41%,rgba(236,252,255,.92) 49%,transparent 57%);background-size:260% 100%;opacity:0;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}
+@supports ((mask-image:linear-gradient(white,white)) or (-webkit-mask-image:linear-gradient(white,white))){.aczo-wet-catch #aczoCatchSheen{animation:aczo-wet-sweep 1.1s .35s ease-out both}}
+@keyframes aczo-wet-sweep{0%{background-position:100% 0;opacity:0}25%{opacity:var(--aczo-wet-strength,.2)}75%{opacity:var(--aczo-wet-strength,.2)}100%{background-position:0 0;opacity:0}}
+#aczoCatchRecord{position:relative;margin:0 0 8px;padding:7px 9px;border:1px solid #c3a94e;border-radius:10px;background:#59451955;color:#ffdf80;overflow:hidden}
+#aczoCatchRecord[hidden]{display:none}
+#aczoCatchRecord b{display:block;font-size:12px;line-height:1.3}
+#aczoCatchRecord small{display:block;margin-top:3px;font-size:11px;line-height:1.3;color:#f5e5b5}
+#anglingCatchCard.aczo-personal-record{border-color:#f4d776;animation:anglingCatchReveal .48s cubic-bezier(.2,.8,.2,1) both,aczo-record-glow 1.3s .45s ease-out}
+@keyframes aczo-record-glow{0%,100%{box-shadow:inset 0 0 0 transparent}45%{box-shadow:inset 0 0 18px #f9d97755}}
+#aczoCatchRewards:empty{display:none}
+#aczoCatchRewards #anglingEpPopup{position:static!important;inset:auto!important;transform:none!important;z-index:auto!important;width:100%;max-width:100%;margin:6px 0;padding:7px 8px;box-shadow:none;border-radius:9px;font-size:16px;background:#2b482dcc;white-space:normal;pointer-events:none}
+#aczoCatchRewards #anglingEpPopup.show{animation:aczo-reward-in .35s ease-out both!important}
+#aczoCatchRewards #anglingEpPopup small{font-size:10px;line-height:1.3;max-width:100%;margin:3px 0 0}
+@keyframes aczo-reward-in{from{opacity:0}to{opacity:1}}
+#anglingCatchCard #anglingAgainBtn{min-height:40px;white-space:normal}
+@media(max-width:680px){#anglingCatchCard .aczo-catch-photo{height:82px}#anglingCatchCard{padding:10px}#anglingCatchCard #anglingCatchTitle{font-size:15px}}
+@media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
+@media(prefers-reduced-motion:reduce){#anglingBaitBoxBtn[data-aczo-equipped],#anglingCatchCard.show,#anglingCatchCard.aczo-personal-record,#aczoCatchSheen,#aczoCatchRewards #anglingEpPopup.show{animation:none!important}#aczoCatchSheen{display:none}}
+
+/* Abtropfen bekommt kurz freie Sicht; die Zielsteuerung bleibt unverändert. */
+#anglingUi.aczo-dripping #anglingAimReticle{visibility:hidden!important;opacity:0!important}
+#aczoCatchRewards #anglingEpPopup .aczo-reward-number{display:block;font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums;color:#ffe693}
+#aczoCatchRewards #anglingEpPopup.show .aczo-reward-number{animation:aczo-reward-settle .38s ease-out}
+@keyframes aczo-reward-settle{from{opacity:.4;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+#anglingCatchCard.show .aczo-catch-photo{animation:aczo-fish-settle .75s ease-out both}
+@keyframes aczo-fish-settle{from{transform:translateY(5px) rotate(-2deg)}to{transform:translateY(0) rotate(0)}}
+.aczo-reward-flight{position:absolute;left:0;right:0;bottom:0;overflow:hidden;pointer-events:none!important;z-index:45;contain:layout paint}
+.aczo-reward-flight b{position:absolute;left:0;top:0;white-space:nowrap;padding:4px 9px;font-size:16px;line-height:20px;font-variant-numeric:tabular-nums;color:#ffe998;border:1px solid #e4cb70;border-radius:20px;background:#173e2c;pointer-events:none!important;will-change:transform,opacity}
+#anglingEpBadge.aczo-reward-arrival{animation:aczo-ep-arrival .5s ease-out}
+@keyframes aczo-ep-arrival{0%,100%{box-shadow:inset 0 0 0 transparent}40%{box-shadow:inset 0 0 15px #fff1a2}}
+@media(prefers-reduced-motion:reduce){#anglingCatchCard.show .aczo-catch-photo,#aczoCatchRewards #anglingEpPopup.show .aczo-reward-number,#anglingEpBadge.aczo-reward-arrival{animation:none!important}.aczo-reward-flight{display:none}}
+
 </style>
 
 
@@ -4963,9 +5005,11 @@ html,body{
      </div>
      <div id="anglingCatchSequence" class="angling-catch-sequence">🥅 Sicher im Kescher …</div>
      <div id="anglingCatchCard" class="angling-catch-card">
-       <img id="anglingCatchImage" alt="Gefangener Fisch">
+       <div id="aczoCatchRecord" hidden></div>
+       <div class="aczo-catch-photo"><img id="anglingCatchImage" alt="Gefangener Fisch"><div id="aczoCatchSheen" aria-hidden="true"></div></div>
        <strong id="anglingCatchTitle">Fisch gefangen</strong>
        <span id="anglingCatchText"></span>
+       <div id="aczoCatchRewards"></div>
        <button id="anglingAgainBtn" class="primary">Noch einmal</button>
      </div>
      <div id="anglingLogPanel" class="angling-log-panel" role="dialog" aria-modal="true" aria-label="Fangbuch">
@@ -24747,7 +24791,7 @@ anglingAim3DV.renderOrder=235;anglingAim3DGroup.add(anglingAim3DV);
 keepAboveAnglingPanoramaShadows(anglingAim3DGroup,1442);
 anglingAim3DMat.depthTest=true;anglingAim3DMat.depthWrite=false;anglingAim3DMat.needsUpdate=true;
 function updateAnglingAim3DMarker(){
-  const show=!!(anglingMode&&anglingState==='ready'&&anglingSelection&&!anglingUi.classList.contains('line-active'));
+  const show=!!(anglingMode&&anglingState==='ready'&&anglingSelection&&!anglingUi.classList.contains('line-active')&&!anglingUi.classList.contains('aczo-dripping'));
   anglingAim3DGroup.visible=show;
   if(!show)return;
   const x=anglingSelection.aim.x,y=anglingSelection.aim.y;
@@ -24978,6 +25022,7 @@ function pinAnglingRodButt(){
     .add(anglingRodA).sub(anglingRodButtRotated);
 }
 function resetAnglingRodFlex(){
+  aczoResetRodCurve();
   anglingRodFlexBase.rotation.set(0,0,0);
   anglingRodTipFlex.rotation.set(0,0,0);
   anglingRodGroup.position.copy(anglingRodBasePosition);
@@ -26406,11 +26451,11 @@ function updateAnglingRodThreadLine3D(active){
   anglingReelLineExit.getWorldPosition(anglingRodThreadPts[0]);
   anglingReelLineLead.getWorldPosition(anglingRodThreadPts[1]);
   anglingReelLineGuideEntry.getWorldPosition(anglingRodThreadPts[2]);
-  anglingThreadLocalWorld(anglingRodGuideB,0,-.022,0,anglingRodThreadPts[3]);
-  anglingThreadLocalWorld(anglingRodGuideMid,0,-.018,0,anglingRodThreadPts[4]);
-  anglingThreadLocalWorld(anglingRodGuideUpper,0,-.013,0,anglingRodThreadPts[5]);
-  anglingThreadLocalWorld(anglingRodGuideTip,0,-.009,0,anglingRodThreadPts[6]);
-  anglingThreadLocalWorld(anglingRodTip,0,-.006,0,anglingRodThreadPts[7]);
+  anglingThreadLocalWorld(anglingRodGuideB,0,0,0,anglingRodThreadPts[3]);
+  anglingThreadLocalWorld(anglingRodGuideMid,0,0,0,anglingRodThreadPts[4]);
+  anglingThreadLocalWorld(anglingRodGuideUpper,0,0,0,anglingRodThreadPts[5]);
+  anglingThreadLocalWorld(anglingRodGuideTip,0,0,0,anglingRodThreadPts[6]);
+  anglingThreadLocalWorld(anglingRodTip,0,0,0,anglingRodThreadPts[7]);
 
   for(let i=0;i<anglingRodThreadSegments.length;i++){
     const a=anglingRodThreadPts[i];
@@ -27749,6 +27794,172 @@ function anglingActiveNetId(){
 function anglingNetLandingMultiplier(){return anglingActiveNetId()==='net_pro'?(.92/.72):1;}
 function anglingNetVisualScale(){return anglingActiveNetId()==='net_pro'?.92:.72;}
 
+// Modernes Spinngerät: ausschließlich Geometrie und Darstellung.
+const ACZO_ROD_MODELS={
+ rod_standard:{flex:1.08,thickness:1,split:.12,reel:1,housing:0x263136,line:0xadc1a7},
+ rod_distance:{flex:.94,thickness:.95,split:.40,reel:1.04,housing:0x171f25,line:0xc3cbb2},
+ rod_pro:{flex:.80,thickness:.88,split:.58,reel:1.08,housing:0x222a32,line:0x94afa3}
+};
+const aczoRodVisual={model:ACZO_ROD_MODELS.rod_standard,bend:0,side:0,lastBend:NaN,lastSide:NaN,
+ points:Array.from({length:33},()=>new THREE.Vector3()),tangents:Array.from({length:33},()=>new THREE.Vector3()),
+ forward:new THREE.Vector3().subVectors(anglingRodC,anglingRodB).normalize(),
+ down:new THREE.Vector3(),across:new THREE.Vector3(),normal:new THREE.Vector3(),tmp:new THREE.Vector3(),
+ matrix:new THREE.Matrix4(),quat:new THREE.Quaternion(),scale:new THREE.Vector3(),axis:new THREE.Vector3(0,1,0),axisZ:new THREE.Vector3(0,0,1),
+ length:anglingRodB.distanceTo(anglingRodC),phase:0,cache:{}};
+function aczoReplaceMesh(mesh,geometry,material){
+ mesh.geometry.dispose();mesh.geometry=geometry;
+ mesh.position.set(0,0,0);mesh.rotation.set(0,0,0);mesh.scale.set(1,1,1);
+ if(material)mesh.material=material;
+}
+function aczoTube(a,b,r1,r2,mat){return anglingTaperedBetween(a,b,r1,r2,mat,12);}
+function aczoJoinGeometry(parts){
+ const pos=[],normal=[],uv=[];
+ for(const mesh of parts){
+  mesh.updateMatrix();const geometry=mesh.geometry.toNonIndexed();geometry.applyMatrix4(mesh.matrix);
+  pos.push(...geometry.attributes.position.array);normal.push(...geometry.attributes.normal.array);uv.push(...geometry.attributes.uv.array);
+  geometry.dispose();mesh.geometry.dispose();
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+ g.setAttribute('normal',new THREE.Float32BufferAttribute(normal,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));return g;
+}
+function aczoGripGeometry(a,b,split,mat){
+ const mid=t=>a.clone().lerp(b,t);
+ return aczoJoinGeometry([
+  aczoTube(a,mid(.22),.027,.025,mat),
+  aczoTube(mid(.22+split),b,.023,.024,mat)
+ ]);
+}
+const aczoHousingMain=anglingRodAccentMat.clone(),aczoHousingMini=reelMiniAccent.clone();
+const aczoGuideMat=anglingRodMetalMat.clone();aczoGuideMat.color.setHex(0xaebac1);aczoGuideMat.roughness=.25;
+// Eine durchgehende, wiederverwendete BufferGeometry statt zweier sichtbarer Knicke.
+const aczoBlankGeometry=new THREE.BufferGeometry();
+const aczoBlankPositions=new Float32Array(33*9*3),aczoBlankNormals=new Float32Array(33*9*3),aczoBlankIndices=[];
+for(let i=0;i<32;i++)for(let j=0;j<8;j++){const a=i*9+j,b=a+9;aczoBlankIndices.push(a,b,a+1,b,b+1,a+1);}
+aczoBlankGeometry.setAttribute('position',new THREE.BufferAttribute(aczoBlankPositions,3).setUsage(THREE.DynamicDrawUsage));
+aczoBlankGeometry.setAttribute('normal',new THREE.BufferAttribute(aczoBlankNormals,3).setUsage(THREE.DynamicDrawUsage));
+aczoBlankGeometry.setIndex(aczoBlankIndices);
+aczoReplaceMesh(anglingRodLower,aczoBlankGeometry);anglingRodLower.frustumCulled=false;
+anglingRodFlexSection.parent.remove(anglingRodFlexSection);anglingRodFlexSection.geometry.dispose();
+anglingRodTipSection.parent.remove(anglingRodTipSection);anglingRodTipSection.geometry.dispose();
+const aczoRodGuides=[anglingRodGuideB,anglingRodGuideMid,anglingRodGuideUpper,anglingRodGuideTip];
+const aczoGuideT=[0,.47,.77,.93],aczoGuideDrop=[.033,.023,.016,.010];
+aczoRodGuides.forEach((g,i)=>{aczoReplaceMesh(g,new THREE.TorusGeometry([.022,.013,.008,.0055][i],.0014,5,16),aczoGuideMat);anglingRodGroup.add(g);});
+anglingRodGroup.add(anglingRodTip);
+const aczoGuideFeet=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,5),aczoGuideMat,4);
+aczoGuideFeet.instanceMatrix.setUsage(THREE.DynamicDrawUsage);aczoGuideFeet.frustumCulled=false;aczoGuideFeet.renderOrder=1492;anglingRodGroup.add(aczoGuideFeet);
+// Freiliegender Blank zwischen den Griffstücken; derselbe Mesh für alle Modelle.
+const aczoGripCore=aczoTube(anglingRodA,anglingRodGripEnd,.015,.015,anglingRodDarkMat);
+aczoGripCore.renderOrder=1492;anglingRodGroup.add(aczoGripCore);
+const aczoMiniGrip=anglingReelMiniGroup.children[0];
+const aczoMiniCore=aczoTube(reelMiniGripA,reelMiniGripB,.024,.022,reelMiniDark);anglingReelMiniGroup.add(aczoMiniCore);
+
+function aczoShapeReel(parts,metal,housing,line,knob,root,rodStart,rodEnd,scale){
+ const [body,stem,foot,rotor,cup,spool,barrel,wind,front,rear,drag,bail,armA,armB,crank,arm,grip]=parts;
+ // Getriebekörper im Y/Z-Profil, seitliche Kurbelachse in X.
+ const s=new THREE.Shape();s.moveTo(.008,.015);s.quadraticCurveTo(-.030,.040,-.056,.010);
+ s.quadraticCurveTo(-.078,-.015,-.063,-.057);s.quadraticCurveTo(-.035,-.077,-.013,-.052);s.quadraticCurveTo(.018,-.021,.008,.015);
+ const geo=new THREE.ExtrudeGeometry(s,{depth:.045,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:1,steps:1,curveSegments:5});
+ geo.rotateY(Math.PI/2);geo.translate(-.0225,0,0);aczoReplaceMesh(body,geo,housing);
+ const newStem=aczoTube(new THREE.Vector3(0,.004,.030),new THREE.Vector3(0,.126,.035),.006,.0048,housing);
+ const stemGeo=newStem.geometry;newStem.updateMatrix();stemGeo.applyMatrix4(newStem.matrix);aczoReplaceMesh(stem,stemGeo,housing);
+ aczoReplaceMesh(foot,new THREE.BoxGeometry(.014,.010,.095),housing);foot.position.set(0,.130,.035);
+ rotor.position.set(0,0,-.006);rotor.rotation.set(0,0,0);
+ aczoReplaceMesh(cup,new THREE.CylinderGeometry(.041,.035,.018,20),housing);cup.rotation.x=Math.PI/2;
+ spool.position.set(0,0,-.062);spool.rotation.set(0,0,0);
+ aczoReplaceMesh(barrel,new THREE.CylinderGeometry(.030,.035,.048,24),metal);barrel.rotation.x=Math.PI/2;
+ aczoReplaceMesh(wind,new THREE.CylinderGeometry(.035,.035,.026,24),line);wind.rotation.x=Math.PI/2;
+ aczoReplaceMesh(front,new THREE.TorusGeometry(.038,.0023,5,24),metal);front.position.z=-.026;
+ aczoReplaceMesh(rear,new THREE.TorusGeometry(.036,.002,5,24),metal);rear.position.z=.025;
+ aczoReplaceMesh(drag,new THREE.CylinderGeometry(.014,.018,.012,12),knob);drag.rotation.x=Math.PI/2;drag.position.z=-.032;
+ const points=[];for(let i=0;i<=20;i++){const t=i/20*Math.PI;points.push(new THREE.Vector3(.055*Math.cos(t),.055*Math.sin(t),-.047-.050*Math.sin(t)));}
+ aczoReplaceMesh(bail,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.0018,5,false),metal);
+ for(const [m,sign] of [[armA,1],[armB,-1]]){
+  const part=aczoTube(new THREE.Vector3(sign*.036,0,0),new THREE.Vector3(sign*.055,0,-.047),.0045,.003, housing);part.updateMatrix();part.geometry.applyMatrix4(part.matrix);aczoReplaceMesh(m,part.geometry,housing);
+ }
+ crank.position.set(-.032,-.022,.034);crank.rotation.set(0,0,0);
+ const crankPart=aczoTube(new THREE.Vector3(0,0,0),new THREE.Vector3(-.027,-.050,.019),.0035,.003,metal);
+ crankPart.updateMatrix();crankPart.geometry.applyMatrix4(crankPart.matrix);aczoReplaceMesh(arm,crankPart.geometry,metal);
+ aczoReplaceMesh(grip,new THREE.SphereGeometry(.010,10,8),knob);grip.scale.set(1.6,.85,1.05);grip.position.set(-.038,-.050,.019);
+ const axisCap=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,.008,12),metal);axisCap.rotation.z=Math.PI/2;axisCap.position.copy(crank.position);root.add(axisCap);
+ const roller=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.009,10),metal);roller.rotation.z=Math.PI/2;roller.position.set(.055,0,-.047);rotor.add(roller);
+ root.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),rodEnd.clone().sub(rodStart).normalize());
+ root.userData.aczoAttach=rodStart.clone().lerp(rodEnd,.30);root.userData.aczoScale=scale;
+}
+aczoShapeReel([anglingReelHousing,reelStem,reelFoot,anglingReelRotorGroup,anglingReelRotorCup,anglingReelSpool,anglingReelSpoolBarrel,anglingReelSpoolLine,anglingReelLipFront,anglingReelLipRear,anglingReelDragKnob,anglingReelBail,anglingReelBailArmA,anglingReelBailArmB,anglingReelCrank,crankArm,crankKnob],anglingRodMetalMat,aczoHousingMain,anglingReelLineMat,anglingReelKnobMat,anglingReelBody,anglingRodGripEnd,anglingRodB,1);
+aczoShapeReel([anglingMiniHousing,anglingMiniStem,anglingMiniFoot,anglingMiniRotorGroup,anglingMiniRotorCup,anglingMiniSpool,anglingMiniSpoolBarrel,anglingMiniSpoolLine,anglingMiniLipFront,anglingMiniLipRear,anglingMiniDragKnob,anglingMiniBail,anglingMiniBailArmA,anglingMiniBailArmB,anglingMiniCrank,anglingMiniCrankArm,anglingMiniKnobMesh],reelMiniMetal,aczoHousingMini,reelMiniLine,reelMiniKnob,anglingMiniReelBody,reelMiniGripB,reelMiniBlankC,1.65);
+anglingReelLineExit.position.set(.055,0,-.047);anglingReelRotorGroup.add(anglingReelLineExit);
+anglingReelMiniCamera.position.set(-1.12,-1.25,-.14);anglingReelMiniCamera.lookAt(.10,-.12,-.70);
+function aczoApplyRodModel(id){
+ const v=aczoRodVisual,p=ACZO_ROD_MODELS[id]||ACZO_ROD_MODELS.rod_standard;
+ if(v.currentId===id)return;v.currentId=id;v.model=p;
+ if(!v.cache[id])v.cache[id]=[aczoGripGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodCorkMat),aczoGripGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniCork)];
+ if(!anglingRodGrip.userData.aczoCached){anglingRodGrip.geometry.dispose();aczoMiniGrip.geometry.dispose();anglingRodGrip.userData.aczoCached=true;}
+ anglingRodGrip.geometry=v.cache[id][0];anglingRodGrip.position.set(0,0,0);anglingRodGrip.rotation.set(0,0,0);
+ aczoMiniGrip.geometry=v.cache[id][1];aczoMiniGrip.position.set(0,0,0);aczoMiniGrip.rotation.set(0,0,0);
+ aczoHousingMain.color.setHex(p.housing);aczoHousingMini.color.setHex(p.housing);aczoHousingMain.roughness=aczoHousingMini.roughness=.34;
+ anglingReelLineMat.color.setHex(p.line);reelMiniLine.color.setHex(p.line);
+ for(const root of [anglingReelBody,anglingMiniReelBody]){
+  const scale=root.userData.aczoScale*p.reel;root.scale.setScalar(scale);
+  v.tmp.set(0,.130,.035).multiplyScalar(scale).applyQuaternion(root.quaternion);root.position.copy(root.userData.aczoAttach).sub(v.tmp);
+ }
+ anglingRodGroup.traverse(o=>{if(o.isMesh)o.renderOrder=1492;});
+ v.lastBend=NaN;aczoDeformRod();
+}
+function aczoDeformRod(){
+ const v=aczoRodVisual;if(Math.abs(v.bend-v.lastBend)<.00015&&Math.abs(v.side-v.lastSide)<.00015)return;
+ v.lastBend=v.bend;v.lastSide=v.side;
+ v.down.set(v.side,-1,0);v.down.addScaledVector(v.forward,-v.down.dot(v.forward)).normalize();v.across.crossVectors(v.forward,v.down).normalize();
+ v.points[0].copy(anglingRodB);
+ for(let i=0;i<=32;i++){
+  const a=v.bend*Math.pow(i/32,1.35);v.tangents[i].copy(v.forward).multiplyScalar(Math.cos(a)).addScaledVector(v.down,Math.sin(a));
+  if(i){const mid=v.bend*Math.pow((i-.5)/32,1.35);v.tmp.copy(v.forward).multiplyScalar(Math.cos(mid)).addScaledVector(v.down,Math.sin(mid));v.points[i].copy(v.points[i-1]).addScaledVector(v.tmp,v.length/32);}
+  v.normal.crossVectors(v.across,v.tangents[i]).normalize();
+  const r=(.0108*(1-i/32)+.0025*i/32)*v.model.thickness;
+  for(let j=0;j<=8;j++){
+   const angle=j/8*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle),idx=(i*9+j)*3;
+   v.tmp.copy(v.across).multiplyScalar(c).addScaledVector(v.normal,s);
+   aczoBlankNormals[idx]=v.tmp.x;aczoBlankNormals[idx+1]=v.tmp.y;aczoBlankNormals[idx+2]=v.tmp.z;
+   aczoBlankPositions[idx]=v.points[i].x+r*v.tmp.x;aczoBlankPositions[idx+1]=v.points[i].y+r*v.tmp.y;aczoBlankPositions[idx+2]=v.points[i].z+r*v.tmp.z;
+  }
+ }
+ aczoBlankGeometry.attributes.position.needsUpdate=true;aczoBlankGeometry.attributes.normal.needsUpdate=true;
+ for(let i=0;i<4;i++){
+  const t=aczoGuideT[i]*32,k=Math.floor(t),f=t-k,g=aczoRodGuides[i];
+  v.tmp.copy(v.points[k]).lerp(v.points[Math.min(32,k+1)],f);
+  g.position.copy(v.tmp).addScaledVector(v.down,aczoGuideDrop[i]);
+  v.normal.copy(v.tangents[k]).lerp(v.tangents[Math.min(32,k+1)],f).normalize();g.quaternion.setFromUnitVectors(v.axisZ,v.normal);
+  v.tmp.addScaledVector(v.down,aczoGuideDrop[i]*.5);v.quat.setFromUnitVectors(v.axis,v.down);v.scale.set(.0016,aczoGuideDrop[i],.0016);v.matrix.compose(v.tmp,v.quat,v.scale);aczoGuideFeet.setMatrixAt(i,v.matrix);
+ }
+ aczoGuideFeet.instanceMatrix.needsUpdate=true;
+ anglingRodTip.position.copy(v.points[32]);
+ anglingReelLineLead.position.copy(aczoRodGuides[0].position).lerp(anglingReelBody.position,.42);
+ anglingReelLineGuideEntry.position.copy(aczoRodGuides[0].position).lerp(anglingReelLineLead.position,.35);
+}
+function aczoUpdateRodLoad(dt,tension,strength,direction){
+ const v=aczoRodVisual,load=THREE.MathUtils.clamp(tension,0,1);
+ const target=(.06+.68*Math.pow(load,1.2)+.13*load*THREE.MathUtils.clamp(strength,0,1))*v.model.flex;
+ const blend=1-Math.exp(-dt*9);
+ v.bend+=(target-v.bend)*blend;v.side+=(THREE.MathUtils.clamp(direction,-1,1)*load*.22-v.side)*blend;
+ aczoDeformRod();
+}
+function aczoRelaxRod(dt){
+ const v=aczoRodVisual,k=1-Math.exp(-dt*8);v.bend+=(0-v.bend)*k;v.side+=(0-v.side)*k;
+ if(v.bend<.0002){v.bend=0;v.side=0;}aczoDeformRod();
+}
+function aczoResetRodCurve(){aczoRodVisual.bend=aczoRodVisual.side=0;aczoDeformRod();}
+function aczoAnimateSpinningReel(dt,speed){
+ const v=aczoRodVisual;v.phase=(v.phase+dt*4.4*speed)%(Math.PI*20);
+ anglingReelCrank.rotation.x=v.phase;anglingReelCrank.rotation.z=0;
+ anglingReelRotorGroup.rotation.z=v.phase*5.2;
+ anglingReelSpool.position.z=ANGLING_REEL_SPOOL_BASE_Z+Math.sin(v.phase*1.2)*.0045;
+}
+function aczoSyncMiniReel(){
+ anglingMiniCrank.rotation.x=anglingReelCrank.rotation.x;anglingMiniCrank.rotation.z=0;
+ anglingMiniRotorGroup.rotation.z=anglingReelRotorGroup.rotation.z;
+ anglingMiniSpool.position.z=anglingReelSpool.position.z;
+}
+aczoApplyRodModel('rod_standard');
+
 function anglingApplyActiveRodAppearance(){
   const rodId=anglingActiveRodId();
   const presets={
@@ -27802,6 +28013,7 @@ function anglingApplyActiveRodAppearance(){
   reelMiniMetal.clearcoat=p.miniClear;reelMiniMetal.clearcoatRoughness=p.miniClearRough;
   reelMiniAccent.color.setHex(p.miniAccent);reelMiniAccent.roughness=p.miniAccentRough;reelMiniAccent.metalness=p.miniAccentMetal;
   anglingMiniLineMat.color.setHex(p.line);
+  aczoApplyRodModel(rodId);
 }
 
 const ANGLING_FEED_CATALOG={
@@ -28585,10 +28797,11 @@ function aczoProductThumb(key,uid){
  if(key==='mini_boilie')return wrap(`<defs><radialGradient id="${g('ball')}" cx=".28" cy=".2"><stop stop-color="#bd8960"/><stop offset=".55" stop-color="#805331"/><stop offset="1" stop-color="#382619"/></radialGradient></defs><circle cx="35" cy="36" r="15" fill="url(#${g('ball')})"/><circle cx="60" cy="28" r="13" fill="url(#${g('ball')})"/><g fill="#e0ba82" opacity=".6"><circle cx="30" cy="29" r="1"/><circle cx="37" cy="34" r=".7"/><circle cx="31" cy="41" r=".7"/><circle cx="59" cy="24" r="1"/><circle cx="64" cy="29" r=".8"/></g><path d="M49 40L67 41Q78 40 78 47Q76 54 70 48L70 44" fill="none" stroke="url(#${g('steel')})" stroke-width="1.2"/>`);
  if(key==='sturgeon_pellet')return wrap(`<g stroke="#9a805a" stroke-width=".65"><path d="M21 23L41 19L48 40L27 46Z" fill="#60472e"/><ellipse cx="31" cy="22" rx="10" ry="4.5" transform="rotate(-12 31 22)" fill="#8f724c"/><path d="M49 31L70 25L79 43L57 51Z" fill="#493725"/><ellipse cx="59" cy="28" rx="11" ry="4.5" transform="rotate(-16 59 28)" fill="#93764d"/></g><g fill="#c3a471" opacity=".55"><circle cx="31" cy="31" r="1"/><circle cx="34" cy="38" r=".7"/><circle cx="60" cy="39" r=".8"/><circle cx="68" cy="42" r=".9"/></g>`);
  if(key.startsWith('rod_')){
-   const shaft=key==='rod_distance'?'#e2e7e4':key==='rod_pro'?'#424c50':'#6a7867';
-   const handle=key==='rod_standard'?'#b39161':'#222d2d';
+   const shaft=key==='rod_distance'?'#eff1ed':key==='rod_pro'?'#3e494f':'#52616a';
+   const handle=key==='rod_standard'?'#b39161':'#1c262a';
    const reel=key==='rod_distance'?'#c7a346':`url(#${g('steel')})`;
-   return wrap(`<path d="M9 51Q47 29 87 10" fill="none" stroke="${shaft}" stroke-width="2.2"/><path d="M28 40L87 10" stroke="#e6ebe4" stroke-width=".45" opacity=".5"/><path d="M10 50L29 40" stroke="#171f20" stroke-width="6" stroke-linecap="round"/><path d="M12 49L25 42" stroke="${handle}" stroke-width="5" stroke-linecap="round"/><path d="M30 41L35 44L37 37" fill="none" stroke="url(#${g('steel')})" stroke-width="1.7"/><ellipse cx="37" cy="44" rx="6" ry="7" fill="url(#${g('dark')})" stroke="#899896" stroke-width=".8"/><ellipse cx="39" cy="42" rx="4.7" ry="3.6" fill="${reel}"/><path d="M34 40Q42 34 44 43M33 46L28 46L26 49" fill="none" stroke="#b6c4bd" stroke-width=".9"/><g fill="none" stroke="#b8c7be" stroke-width=".75"><ellipse cx="48" cy="32" rx="2" ry="2.8"/><ellipse cx="61" cy="25" rx="1.5" ry="2.2"/><ellipse cx="74" cy="18.5" rx="1.2" ry="1.6"/><path d="M88 10Q93 18 88 35" stroke-width=".45" opacity=".65"/></g>`);
+   const gap=key==='rod_pro'?9:key==='rod_distance'?6:2;
+   return wrap(`<g transform="translate(8 47) rotate(-26)"><path d="M0 0H88" fill="none" stroke="${shaft}" stroke-width="1.7"/><path d="M3 0H8M${8+gap} 0H21" stroke="${handle}" stroke-width="4.2" stroke-linecap="round"/><path d="M21 0H30" stroke="#111a20" stroke-width="3"/><path d="M22 -1H29" stroke="${reel}" stroke-width=".7"/><path d="M26 2L25 11" stroke="#627077" stroke-width="1.8"/><path d="M19 12Q22 8 28 12L30 18Q28 24 22 22L19 17Z" fill="url(#${g('dark')})" stroke="#66767c" stroke-width=".6"/><path d="M28 11L34 10V19L29 19Z" fill="#35434a"/><path d="M34 10H41V18H34Z" fill="${reel}"/><path d="M35 11H40V17H35Z" fill="#adc0a9"/><ellipse cx="41" cy="14" rx="1.5" ry="4.5" fill="${reel}"/><path d="M30 10Q41 4 44 12Q43 19 31 20" fill="none" stroke="#d7e1de" stroke-width=".85"/><circle cx="24" cy="15" r="2" fill="${reel}"/><path d="M24 15L19 21L16 21" fill="none" stroke="${reel}" stroke-width="1.2"/><ellipse cx="15" cy="21" rx="2.3" ry="1.6" fill="#0c161a"/><g fill="none" stroke="#c2cec9" stroke-width=".65"><path d="M42 1V4M56 1V3M70 0V2M82 0V1"/><ellipse cx="42" cy="6" rx="1.2" ry="2.5"/><ellipse cx="56" cy="4.5" rx="1" ry="1.8"/><ellipse cx="70" cy="3" rx=".8" ry="1.3"/><ellipse cx="82" cy="2" rx=".6" ry="1"/></g></g>`);
  }
  if(key==='net_standard'||key==='net_pro'){
    const rim=key==='net_pro'?'#9faeb0':'#728c80';
@@ -28690,6 +28903,234 @@ function createAnglingItemCard(o){
  return card;
 }
 
+// Ereigniseffekte: keine zusätzliche Renderloop, keine Änderungen an Inventar/EP.
+const aczoMotionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
+let aczoEquipTimer=0;
+function aczoClearEquipFeedback(){
+ window.clearTimeout(aczoEquipTimer);aczoEquipTimer=0;
+ const btn=anglingBaitBoxBtn;
+ btn.removeAttribute('data-aczo-equipped');
+ const label=btn.querySelector('.game-menu-copy small'),hint=btn.querySelector('.game-menu-hint');
+ if(label)label.textContent='Aktuell';if(hint)hint.textContent='Köder wechseln';
+}
+function aczoConfirmBait(kind,id){
+ aczoClearEquipFeedback();aczoStopDrops();
+ const stock=kind==='lure'?anglingLureStock(id):anglingNaturalStock(id);
+ if(stock<1)return;
+ const label=anglingBaitBoxBtn.querySelector('.game-menu-copy small');
+ const hint=anglingBaitBoxBtn.querySelector('.game-menu-hint');
+ // Im bestehenden Köderfeld; der vollständige Ködername steht bereits darunter.
+ if(label)label.textContent='✓ Köder montiert';
+ if(hint)hint.textContent=stock===1?'Letztes Exemplar!':'Köder wechseln';
+ anglingBaitBoxBtn.setAttribute('data-aczo-equipped',stock===1?'last':'ok');
+ aczoEquipTimer=window.setTimeout(aczoClearEquipFeedback,stock===1?4200:2200);
+}
+
+function aczoWetStrength(species){
+ const silver=['roach','rudd','bream','zander','grasscarp'].includes(species);
+ const dark=['catfish','eel','goby','tench'].includes(species);
+ const altitude=Number(sun.userData.astronomicalAltitudeRad);
+ const day=Number.isFinite(altitude)?THREE.MathUtils.smoothstep(altitude,-.08,.22):(sun.visible?1:0);
+ return (silver?.34:dark?.14:.24)*(.20+.80*day);
+}
+function aczoInstallWetGlint(material){
+ const wet={position:{value:-1},strength:{value:0}};
+ material.userData.aczoWet=wet;
+ const previous=material.onBeforeCompile;
+ material.onBeforeCompile=function(shader,renderer){
+   previous.call(this,shader,renderer);
+   shader.uniforms.aczoWetPosition=wet.position;shader.uniforms.aczoWetStrength=wet.strength;
+   shader.fragmentShader='uniform float aczoWetPosition;\nuniform float aczoWetStrength;\n'+shader.fragmentShader;
+   shader.fragmentShader=shader.fragmentShader.replace('#include <tonemapping_fragment>',`
+     #ifdef USE_MAP
+       if(aczoWetStrength>0.0){
+       float wetBand=1.0-smoothstep(0.015,0.085,abs(vUv.x+vUv.y*0.20-aczoWetPosition));
+       float wetFlank=smoothstep(0.08,0.30,vUv.y)*(1.0-smoothstep(0.70,0.94,vUv.y));
+       gl_FragColor.rgb+=vec3(0.86,0.94,1.0)*wetBand*wetFlank*aczoWetStrength;
+       }
+     #endif
+     #include <tonemapping_fragment>`);
+ };
+ material.customProgramCacheKey=()=> 'aczo-catch-wet-v1';
+}
+aczoInstallWetGlint(anglingFishVisualMat);
+
+const aczoDrips={pool:null,items:[],active:false,time:0,tmp:new THREE.Vector3(),matrix:new THREE.Matrix4(),scale:new THREE.Vector3(),quaternion:new THREE.Quaternion()};
+function aczoEnsureDrips(){
+ if(aczoDrips.pool)return;
+ const geo=new THREE.SphereGeometry(.0055,6,4);
+ const mat=new THREE.MeshBasicMaterial({color:0xc7ebf2,transparent:true,opacity:.66,depthWrite:false,depthTest:true});
+ const pool=new THREE.InstancedMesh(geo,mat,6);pool.visible=false;pool.frustumCulled=false;pool.renderOrder=226;
+ pool.instanceMatrix.setUsage(THREE.DynamicDrawUsage);anglingScene.add(pool);aczoDrips.pool=pool;
+ for(let i=0;i<6;i++)aczoDrips.items.push({started:false,done:false,start:0,x:0,y:0,z:0,surface:0,water:false});
+}
+function aczoStopDrops(){
+ anglingUi.classList.remove('aczo-dripping');
+ aczoDrips.active=false;if(aczoDrips.pool)aczoDrips.pool.visible=false;
+}
+function aczoBeginRetrievedDrops(){
+ aczoStopDrops();
+ if(aczoMotionPreference.matches||!anglingMode||anglingState!=='ready'||anglingUsesDeeper()||!anglingSelection)return;
+ aczoEnsureDrips();aczoDrips.time=0;aczoDrips.active=true;
+ anglingUi.classList.add('aczo-dripping');
+ for(let i=0;i<6;i++){
+   const item=aczoDrips.items[i];item.started=false;item.done=false;item.start=i*.115;
+   aczoDrips.matrix.makeScale(0,0,0);aczoDrips.pool.setMatrixAt(i,aczoDrips.matrix);
+ }
+ aczoDrips.pool.instanceMatrix.needsUpdate=true;
+ // Sichtbar ab dem nächsten Ready-Pose-Update, direkt am hängenden Köder.
+}
+function aczoTickDrops(dt){
+ if(!aczoDrips.active)return;
+ if(aczoMotionPreference.matches||!anglingMode||anglingState!=='ready'||anglingGamePanelOpen()||document.hidden){aczoStopDrops();return;}
+ const terminal=anglingUsesArtificialLure()?anglingLure:anglingBobber;
+ if(!terminal.visible){aczoStopDrops();return;}
+ aczoDrips.time+=Math.max(0,dt);
+ if(aczoDrips.time>1.9){aczoStopDrops();return;}
+ terminal.getWorldPosition(aczoDrips.tmp);
+ const originX=aczoDrips.tmp.x,originY=aczoDrips.tmp.y,originZ=aczoDrips.tmp.z;
+ const d=aczoDrips;let alive=false;
+ for(let i=0;i<6;i++){
+   const item=d.items[i],age=d.time-item.start;
+   if(age<0){alive=true;continue;}
+   if(item.done)continue;
+   if(!item.started){
+     item.started=true;item.x=originX+(i%3-1)*.004;item.y=originY;item.z=originZ-.015;
+     item.surface=anglingSurfaceZ(item.x,item.y);
+     item.water=pondDepthAt(item.x,item.y)!=null;
+   }
+   const z=item.z-.12*age-4.905*age*age;
+   if(z<=item.surface+.008){
+     item.done=true;d.matrix.makeScale(0,0,0);
+     // Nur über Wasser; kein Verdrängen eines aktiven Effekts aus dem Pool.
+     if(item.water&&anglingSurfaceEffects.some(e=>e.life<=0)){
+       d.tmp.set(item.x,item.y,item.surface);spawnAnglingSurfaceEffect(d.tmp,.05,1,.40,.08,.06);
+     }
+   }else{
+     alive=true;d.tmp.set(item.x,item.y,z);d.scale.set(1,1,1.65);
+     d.matrix.compose(d.tmp,d.quaternion,d.scale);
+   }
+   d.pool.setMatrixAt(i,d.matrix);
+ }
+ d.pool.instanceMatrix.needsUpdate=true;d.pool.visible=alive;
+ if(!alive)aczoStopDrops();
+}
+function aczoTickPresentation(dt){
+ const wet=anglingFishVisualMat.userData.aczoWet;
+ if(anglingState==='catch-reveal'&&!aczoMotionPreference.matches){
+   const t=THREE.MathUtils.clamp((anglingStateTime-.18)/1.1,0,1);
+   wet.position.value=-.12+t*1.45;
+   wet.strength.value=aczoWetStrength(anglingFishVisual.userData.species)*Math.sin(Math.PI*t);
+ }else wet.strength.value=0;
+ aczoTickDrops(dt);
+}
+function aczoPresentCatch(data){
+ aczoClearReward();aczoReward.gain=Math.max(0,Math.round(Number(data.xpGain)||0));
+ const {caught,isPersonalBest,previousRecord=0}=data;
+ const record=document.getElementById('aczoCatchRecord');
+ record.replaceChildren();record.hidden=!isPersonalBest;
+ if(isPersonalBest){
+   const title=document.createElement('b');title.textContent=previousRecord>0?'🏆 Neuer persönlicher Rekord!':'🏆 Dein erster Bestwert dieser Art';
+   const comparison=document.createElement('small');comparison.textContent=formatAnglingLength(caught.cm)+(previousRecord>0?' · bisher '+formatAnglingLength(previousRecord):' · '+(fishDisplayNames[caught.species]||'Fisch'));
+   record.append(title,comparison);
+ }
+ anglingCatchCard.classList.toggle('aczo-personal-record',!!isPersonalBest);
+ anglingCatchCard.classList.add('aczo-wet-catch');
+ const sheen=document.getElementById('aczoCatchSheen');
+ const mask='url("'+fishImageData[caught.species]+'")';
+ sheen.style.setProperty('-webkit-mask-image',mask);sheen.style.setProperty('mask-image',mask);
+ sheen.style.setProperty('--aczo-wet-strength',String(aczoWetStrength(caught.species)));
+ // Der vorhandene EP-Effekt fließt in der Fangkarte mit, statt darüber zu schweben.
+ document.getElementById('aczoCatchRewards').appendChild(anglingEpPopup);
+}
+function aczoResetPresentation(){
+ aczoClearReward();
+ anglingEpPopup.removeAttribute('aria-label');
+ aczoClearEquipFeedback();aczoStopDrops();
+ anglingFishVisualMat.userData.aczoWet.strength.value=0;
+ anglingCatchCard.classList.remove('aczo-personal-record','aczo-wet-catch');
+ if(anglingEpPopup.parentElement!==anglingUi)anglingUi.appendChild(anglingEpPopup);
+}
+
+// Rein visuelle EP-Rückmeldung. Die Gutschrift bleibt im bestehenden Fangsystem.
+const aczoReward={gain:0,node:null,start:0,last:-1,flight:null};
+function aczoClearReward(){
+ aczoReward.node=null;aczoReward.gain=0;aczoReward.last=-1;
+ if(aczoReward.flight?.layer)aczoReward.flight.layer.remove();
+ aczoReward.flight=null;
+}
+function aczoStartRewardCount(gain){
+ if(anglingEpPopup.parentElement?.id!=='aczoCatchRewards')return false;
+ aczoReward.gain=gain;aczoReward.start=performance.now();aczoReward.last=-1;
+ const number=document.createElement('b');number.className='aczo-reward-number';
+ number.textContent='+'+(aczoMotionPreference.matches?gain:0)+' EP';
+ anglingEpPopup.firstChild.replaceWith(number);aczoReward.node=number;
+ anglingEpPopup.setAttribute('aria-label','Gewonnen: '+gain+' EP');
+ return true;
+}
+function aczoCaptureRewardDeparture(){
+ if(aczoMotionPreference.matches||!anglingMode||anglingState!=='caught'||!anglingCatchCard.classList.contains('show')||aczoReward.gain<=0)return null;
+ const r=document.getElementById('aczoCatchRewards').getBoundingClientRect();
+ const fallback=anglingCatchCard.getBoundingClientRect();
+ const box=r.width&&r.height?r:fallback;
+ return {gain:aczoReward.gain,x:box.left+box.width/2,y:box.top+box.height/2};
+}
+function aczoRewardBlocked(){
+ return document.hidden||!anglingMode||anglingState!=='ready'||anglingHallOfFameActive||anglingGamePanelOpen()
+  ||anglingUi.classList.contains('time-shifting')||anglingUi.classList.contains('main-menu-open')
+  ||!!anglingUi.querySelector('#anglingToast.show,#anglingDailyQuestToast.show,#anglingCommunityToast.show,#anglingOnlinePrompt.show,#anglingSnagPrompt.show');
+}
+function aczoQueueRewardFlight(departure){
+ if(!departure||aczoMotionPreference.matches||aczoRewardBlocked())return;
+ // 400 ms liegen vor den bestehenden Folgehinweisen (frühestens nach 520 ms).
+ aczoReward.flight={...departure,start:performance.now(),layer:null};
+}
+function aczoPulseRewardBadge(){
+ anglingEpBadge.classList.remove('aczo-reward-arrival');
+ void anglingEpBadge.offsetWidth;
+ anglingEpBadge.classList.add('aczo-reward-arrival');
+}
+function aczoTickReward(){
+ if(!aczoReward.node&&!aczoReward.flight)return;
+ const now=performance.now();
+ if(aczoReward.node){
+  const t=aczoMotionPreference.matches?1:Math.min(1,Math.max(0,(now-aczoReward.start)/900));
+  const value=Math.round(aczoReward.gain*(1-Math.pow(1-t,3)));
+  if(value!==aczoReward.last){aczoReward.node.textContent='+'+value+' EP';aczoReward.last=value;}
+  if(t===1)aczoReward.node=null;
+ }
+ const f=aczoReward.flight;if(!f)return;
+ if(aczoMotionPreference.matches||aczoRewardBlocked()){
+  if(f.layer)f.layer.remove();aczoReward.flight=null;return;
+ }
+ const t=Math.min(1,Math.max(0,(now-f.start)/400));
+ if(t>=1){
+  if(f.layer)f.layer.remove();aczoReward.flight=null;aczoPulseRewardBadge();return;
+ }
+ if(!f.layer){
+  const ui=anglingUi.getBoundingClientRect(),badge=anglingEpBadge.getBoundingClientRect();
+  const setup=document.getElementById('anglingSetup').getBoundingClientRect();
+  if(!ui.width||!ui.height||!badge.width||!badge.height||!setup.height){aczoReward.flight=null;return;}
+  const sx=anglingUi.clientWidth/ui.width,sy=anglingUi.clientHeight/ui.height;
+  const top=Math.max(0,(setup.bottom-ui.top)*sy+4);
+  const originY=(f.y-ui.top)*sy;
+  // Bei zu wenig Platz (z.B. Querformat) nur das vorhandene EP-Feld betonen.
+  if(originY<top+28||anglingUi.clientWidth<100){aczoReward.flight=null;aczoPulseRewardBadge();return;}
+  const layer=document.createElement('div');layer.className='aczo-reward-flight';layer.setAttribute('aria-hidden','true');
+  layer.style.top=top+'px';
+  const chip=document.createElement('b');chip.textContent='+'+f.gain+' EP';layer.appendChild(chip);anglingUi.appendChild(layer);
+  f.layer=layer;f.chip=chip;f.width=window.innerWidth;f.height=window.innerHeight;
+  f.x0=THREE.MathUtils.clamp((f.x-ui.left)*sx,48,anglingUi.clientWidth-48);
+  f.y0=originY-top;
+  f.x1=THREE.MathUtils.clamp((badge.left+badge.width/2-ui.left)*sx,48,anglingUi.clientWidth-48);
+  f.y1=-18; // Verschwindet am unteren Menürand, niemals über dessen Buttons.
+ }
+ if(f.width!==window.innerWidth||f.height!==window.innerHeight){f.layer.remove();aczoReward.flight=null;return;}
+ const ease=t*t*(3-2*t),x=f.x0+(f.x1-f.x0)*ease,y=f.y0+(f.y1-f.y0)*ease;
+ f.chip.style.transform='translate('+x.toFixed(2)+'px,'+y.toFixed(2)+'px) translate(-50%,-50%) scale('+(1-.25*t).toFixed(3)+')';
+ f.chip.style.opacity=String(Math.min(1,(1-t)*5));
+}
+
 function equipAnglingNaturalBait(id){
  if(anglingUi.classList.contains('line-active')){
    showAnglingToast('Köder nur vor dem Auswurf wechseln.',1450);
@@ -28702,6 +29143,7 @@ function equipAnglingNaturalBait(id){
  if(anglingSelection&&anglingState==='ready'){
    updateAnglingDeeperReadyPose();
  }
+ aczoConfirmBait('natural',id);
 }
 function equipAnglingLure(id){
  if(anglingUi.classList.contains('line-active')){
@@ -28713,6 +29155,7 @@ function equipAnglingLure(id){
  if(anglingSelection&&anglingState==='ready'){
    updateAnglingDeeperReadyPose();
  }
+ aczoConfirmBait('lure',id);
 }
 function equipAnglingEquipment(id){
  if(anglingUi.classList.contains('line-active')){showAnglingToast('Equipment nur vor dem Auswurf wechseln.',1500);return;}
@@ -32751,6 +33194,7 @@ function showAnglingEpGain(gain,oldXp,newXp,snagged=false,detail='',revealDelay=
       anglingEpPopup.setAttribute('aria-hidden','false');
       void anglingEpPopup.offsetWidth;
       anglingEpPopup.classList.add('show');
+      if(aczoStartRewardCount(safeGain))return; // Fang-EP bleiben bis zum Weiterangeln lesbar.
       anglingEpPopupHideTimer=window.setTimeout(()=>{
         anglingEpPopup.classList.remove('show');
         anglingEpPopup.setAttribute('aria-hidden','true');
@@ -35403,7 +35847,7 @@ function finishAnglingCatch(){
   if(isPersonalBest&&!isLegendaryKoi)labels.push('🏆 Persönlicher Rekord');
   const landingPresentation=perfectLanding?'🥅 Perfekt gekeschert · +5 EP':'🥅 Sicher im Kescher';
   anglingCatchSequence.textContent=(labels.length?labels.join(' · ')+' · ':'')+landingPresentation;
-  anglingCatchRevealData={caught,newlyFound,isPersonalBest,isLegendaryKoi,baitBonus,xpGain};
+  anglingCatchRevealData={caught,newlyFound,isPersonalBest,isLegendaryKoi,baitBonus,xpGain,previousRecord};
   const dir=anglingCurrentDirection(anglingTmpA);
   const side=anglingTmpB.copy(dir).applyAxisAngle(anglingUp,Math.PI/2);
   const target=anglingNetGroup.position.clone();target.z+=.02;
@@ -35436,6 +35880,7 @@ function showAnglingCatchCard(){
       +' · '+anglingFishTemperament+baitBonus+' · +'+xpGain+' EP · Stufe '+anglingLevelForXp(anglingProgress.lifetimeXp);
     setAnglingStatus('Gefangen!','Der Fisch wurde deiner Sammlung hinzugefügt.');
   }
+  aczoPresentCatch(anglingCatchRevealData);
   anglingCatchCard.classList.add('show');
   if(isPersonalBest&&!anglingPlayerProfile.shareRecords){
     deferAnglingOnlineRecordPrompt(caught);
@@ -36061,6 +36506,7 @@ function retrieveAnglingLine(){
 }
 
 function resetAllAnglingUiOverlays(){
+  aczoResetPresentation();
   anglingOnlinePrompt?.classList.remove('show');
   hideAnglingDailyQuestIntro(false);
   anglingDailyQuestToast?.classList.remove('show','complete');
@@ -36098,6 +36544,7 @@ function resetAllAnglingUiOverlays(){
 }
 
 function resetAnglingCast(){
+  const aczoDeparture=aczoCaptureRewardDeparture();
   aczoResetSoftMotion();
   clearAnglingLineObstacleContact();
   anglingFastObstaclePull=false;
@@ -36165,6 +36612,7 @@ function resetAnglingCast(){
     postCatchNoticeDuration=dailySlot.end;
   }
   flushAnglingOnlineRecordPrompt(postCatchNoticeDuration+720);
+  aczoQueueRewardFlight(aczoDeparture);
 }
 
 function setAnglingDrillRodFromPointer(clientX,clientY){
@@ -36488,20 +36936,8 @@ function updateAnglingDrill(dt){
   anglingRodGroup.rotation.x+=(targetRodPitch-anglingRodGroup.rotation.x)*rodMoveBlend;
   anglingRodGroup.rotation.z+=(0-anglingRodGroup.rotation.z)*Math.min(1,dt*11.5);
 
-  // Der mittlere Blank bleibt vollständig in seiner ursprünglichen Form.
-  anglingRodFlexBase.rotation.x+=(0-anglingRodFlexBase.rotation.x)*Math.min(1,dt*13);
-  anglingRodFlexBase.rotation.y+=(0-anglingRodFlexBase.rotation.y)*Math.min(1,dt*13);
-  anglingRodFlexBase.rotation.z+=(0-anglingRodFlexBase.rotation.z)*Math.min(1,dt*13);
-
-  // Nur das allerletzte Spitzenstück darf unter Schnurspannung leicht nachgeben.
-  // Keine Eingabe-Biegung über mehrere Gelenke mehr.
-  const tinyTipLoad=THREE.MathUtils.clamp(.018+anglingDrillTension*.055,0,.075);
-  const tinySideLoad=THREE.MathUtils.clamp(
-    anglingDrillDirectionValue*anglingDrillTension*.022,-.025,.025
-  );
-  anglingRodTipFlex.rotation.x+=(-tinyTipLoad-anglingRodTipFlex.rotation.x)*Math.min(1,dt*12);
-  anglingRodTipFlex.rotation.y+=(tinySideLoad-anglingRodTipFlex.rotation.y)*Math.min(1,dt*12);
-  anglingRodTipFlex.rotation.z+=(0-anglingRodTipFlex.rotation.z)*Math.min(1,dt*12);
+  // Sichtbare progressive Biegung; Griffsteuerung und Drillphysik bleiben erhalten.
+  aczoUpdateRodLoad(dt,anglingDrillTension,anglingDrillStrength,anglingDrillDirectionValue);
 
   // Entscheidend: Nach der Rotation den hintersten Korkpunkt wieder exakt
   // auf seine Neutralposition setzen. Dadurch bewegt sich nur das freie Ende.
@@ -36825,13 +37261,7 @@ function renderAnglingReelCamera(){
   const w=Math.max(1,Math.round((zoomRect.width-4)*sx)),h=Math.max(1,Math.round((zoomRect.height-4)*sy));
 
   const turning=anglingActionHeld||anglingState==='lure-retrieving';
-  if(turning){
-    anglingMiniCrank.rotation.z+=.18;
-    anglingMiniRotorGroup.rotation.z+=.15;
-    anglingMiniSpool.position.z=ANGLING_MINI_SPOOL_BASE_Z+Math.sin(performance.now()*.0085)*.008;
-  }else{
-    anglingMiniSpool.position.z+=(ANGLING_MINI_SPOOL_BASE_Z-anglingMiniSpool.position.z)*.18;
-  }
+  aczoSyncMiniReel(); // dieselbe zeitbasierte Bewegung wie in der Hauptansicht
   const reelPulse=turning?Math.sin(performance.now()*.012)*.012:0;
   // V6.28: Die kleine Unterwasser-Rute reagiert jetzt viel klarer auf die Maus.
   // Maus nach oben  => Rutenspitze deutlich Richtung Himmel.
@@ -37448,10 +37878,11 @@ function updateAnglingCinematicCamera(dt){
 }
 
 function updateAnglingMode(dt){
+  aczoTickReward();
   if(!anglingMode) return;
   // V8.85: Präsentation pausiert den Angelzustand vollständig. Keine Bisszeit,
   // kein Drill, kein Unterwasser-Layer und keine Ufergeometrie werden fortgeschrieben.
-  if(anglingHallOfFameActive){updateAnglingHallOfFame(dt);return;}
+  if(anglingHallOfFameActive){aczoStopDrops();anglingFishVisualMat.userData.aczoWet.strength.value=0;updateAnglingHallOfFame(dt);return;}
   // V8.88: Wird das Menü noch während des letzten Stücks des Überblicksflugs
   // geöffnet, schaltet der HOF-Knopf beim Erreichen der Stellenauswahl sofort
   // frei. Zuvor blieb sein beim Öffnen ermittelter Zustand fälschlich grau.
@@ -37509,7 +37940,7 @@ function updateAnglingMode(dt){
   updateAnglingUpperLayerLureVisibility();
   updateAnglingLiveHud();
   const anglingFeedBusy=updateAnglingFeedSystem(dt);
-  if(anglingFeedBusy){updateAnglingRodAnchor();return;}
+  if(anglingFeedBusy){aczoStopDrops();updateAnglingRodAnchor();return;}
   if(anglingLureEntryTime>0){
     anglingLureEntryTime=Math.max(0,anglingLureEntryTime-dt);
     const fade=.42*(anglingLureEntryTime/.18);
@@ -37534,6 +37965,7 @@ function updateAnglingMode(dt){
     waterUniforms.underwaterView.value=0;scene.fog=null;setFishSubmergedLayers(false);fishGroup.visible=false;
   }
   updateAnglingRodAnchor();updateAnglingDeeperReadyPose();updateAnglingDeeperPins();
+  aczoTickPresentation(dt);
   updateAnglingRodThreadLine3D(
     !!(!anglingTimeShiftActive&&anglingMode&&anglingRodGroup.visible&&(anglingCinematicView==='shore'||anglingCinematicView==='reset-return')&&(
       (anglingState==='ready'&&!anglingUi.classList.contains('line-active'))||anglingLine.visible
@@ -37541,6 +37973,7 @@ function updateAnglingMode(dt){
   );
   const anglingRodFlexRelax=Math.min(1,dt*7.2);
   if(anglingState!=='drilling'&&anglingState!=='landing'){
+    aczoRelaxRod(dt);
     anglingRodFlexBase.rotation.x+=(0-anglingRodFlexBase.rotation.x)*anglingRodFlexRelax;
     anglingRodFlexBase.rotation.y+=(0-anglingRodFlexBase.rotation.y)*anglingRodFlexRelax;
     anglingRodFlexBase.rotation.z+=(0-anglingRodFlexBase.rotation.z)*anglingRodFlexRelax;
@@ -37572,9 +38005,7 @@ function updateAnglingMode(dt){
     const dragAnim=(anglingState==='drilling')
       ?((ANGLING_DRAG_SETTINGS[anglingSelectedDrag]||ANGLING_DRAG_SETTINGS.medium).reelAnimSpeed||1)
       :1;
-    anglingReelCrank.rotation.z+=dt*11.5*dragAnim;
-    anglingReelRotorGroup.rotation.z+=dt*9.6*dragAnim;
-    anglingReelSpool.position.z=ANGLING_REEL_SPOOL_BASE_Z+Math.sin(performance.now()*.0085*dragAnim)*.0045;
+    aczoAnimateSpinningReel(dt,dragAnim);
   }else{
     anglingReelSpool.position.z+=(ANGLING_REEL_SPOOL_BASE_Z-anglingReelSpool.position.z)*Math.min(1,dt*8);
   }
@@ -37761,7 +38192,7 @@ function updateAnglingMode(dt){
       // Ein per "Zum Ufer" gestartetes Posen-Schnelleinholen ist jetzt fertig.
       // Die Sperre muss vor dem normalen Bereitschafts-Reset geloest werden.
       anglingReturnToShorePendingReset=false;
-      resetAnglingCast();
+      resetAnglingCast();aczoBeginRetrievedDrops();
     }
   }else if(anglingState==='retrieving'){
     const u=anglingClamp01(anglingStateTime/Math.max(.1,anglingRetrieveDuration)),eased=anglingEase(u);
@@ -37774,7 +38205,7 @@ function updateAnglingMode(dt){
     anglingFloatCaption.textContent='Entfernung '+metres.toFixed(1).replace('.',',')+' m';
     if(u>=1){
       recalcAnglingAtCurrentTerminal();
-      if(anglingCastDistance<=.75){showAnglingToast('Montage vollständig eingeholt.',780);resetAnglingCast();}
+      if(anglingCastDistance<=.75){showAnglingToast('Montage vollständig eingeholt.',780);resetAnglingCast();aczoBeginRetrievedDrops();}
       else{
         anglingState='waiting';anglingStateTime=0;anglingMotionBoostUntil=performance.now()+4500;
         anglingActionBtn.disabled=false;anglingActionBtn.textContent='Einholen';
@@ -37931,7 +38362,7 @@ function updateAnglingMode(dt){
         camera.position.copy(anglingShoreCameraPos);controls.target.copy(anglingShoreCameraTarget);
         camera.up.set(0,0,1);camera.lookAt(controls.target);
         anglingRodGroup.visible=true;
-        resetAnglingCast();
+        resetAnglingCast();aczoBeginRetrievedDrops();
       }
       else{anglingState='lure-waiting';anglingStateTime=0;anglingLureSinkAnchor.copy(anglingLure.position);anglingActionBtn.disabled=false;anglingActionBtn.textContent='Kurbeln';setAnglingAtmosphericStatus('lure');if(anglingActionHeld)retrieveAnglingLine();}
     }
