@@ -27796,9 +27796,9 @@ function anglingNetVisualScale(){return anglingActiveNetId()==='net_pro'?.92:.72
 
 // Modernes Spinngerät: ausschließlich Geometrie und Darstellung.
 const ACZO_ROD_MODELS={
- rod_standard:{flex:1.08,thickness:1,split:.12,reel:1,housing:0x263136,line:0xadc1a7},
- rod_distance:{flex:.94,thickness:.95,split:.40,reel:1.04,housing:0x171f25,line:0xc3cbb2},
- rod_pro:{flex:.80,thickness:.88,split:.58,reel:1.08,housing:0x222a32,line:0x94afa3}
+ rod_standard:{flex:1.08,thickness:1,split:.12,reel:1,housing:0xe1e8ed,metal:0xf0f4f7,bodyScale:[1,1,1],line:0xadc1a7},
+ rod_distance:{flex:.94,thickness:.95,split:.40,reel:1.04,housing:0xd8ab45,metal:0xffd16e,bodyScale:[1.05,.95,1.10],line:0xc3cbb2},
+ rod_pro:{flex:.80,thickness:.88,split:.58,reel:1.08,housing:0x38434f,metal:0x778590,bodyScale:[.94,.91,1.03],line:0x94afa3}
 };
 const aczoRodVisual={model:ACZO_ROD_MODELS.rod_standard,bend:0,side:0,lastBend:NaN,lastSide:NaN,
  points:Array.from({length:33},()=>new THREE.Vector3()),tangents:Array.from({length:33},()=>new THREE.Vector3()),
@@ -27829,7 +27829,15 @@ function aczoGripGeometry(a,b,split,mat){
   aczoTube(mid(.22+split),b,.023,.024,mat)
  ]);
 }
+function aczoGapGeometry(a,b,split,mat,radius){
+ // Kein innenliegender Zylinder mehr unter den Griffhülsen: dieser würde
+ // beim sortierten Zeichnen ohne Tiefentest wieder über dem Griff liegen.
+ return aczoJoinGeometry([aczoTube(a.clone().lerp(b,.2205),a.clone().lerp(b,.2195+split),radius,radius,mat)]);
+}
 const aczoHousingMain=anglingRodAccentMat.clone(),aczoHousingMini=reelMiniAccent.clone();
+for(const m of [aczoHousingMain,aczoHousingMini,anglingRodMetalMat,reelMiniMetal]){
+ m.envMap=aczoLureEnv;m.envMapIntensity=1.15;m.metalness=.96;m.roughness=.14;m.needsUpdate=true;
+}
 const aczoGuideMat=anglingRodMetalMat.clone();aczoGuideMat.color.setHex(0xaebac1);aczoGuideMat.roughness=.25;
 // Eine durchgehende, wiederverwendete BufferGeometry statt zweier sichtbarer Knicke.
 const aczoBlankGeometry=new THREE.BufferGeometry();
@@ -27856,12 +27864,14 @@ const aczoMiniCore=aczoTube(reelMiniGripA,reelMiniGripB,.024,.022,reelMiniDark);
 function aczoShapeReel(parts,metal,housing,line,knob,root,rodStart,rodEnd,scale){
  const [body,stem,foot,rotor,cup,spool,barrel,wind,front,rear,drag,bail,armA,armB,crank,arm,grip]=parts;
  // Getriebekörper im Y/Z-Profil, seitliche Kurbelachse in X.
- const s=new THREE.Shape();s.moveTo(.008,.015);s.quadraticCurveTo(-.030,.040,-.056,.010);
- s.quadraticCurveTo(-.078,-.015,-.063,-.057);s.quadraticCurveTo(-.035,-.077,-.013,-.052);s.quadraticCurveTo(.018,-.021,.008,.015);
- const geo=new THREE.ExtrudeGeometry(s,{depth:.045,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:1,steps:1,curveSegments:5});
- geo.rotateY(Math.PI/2);geo.translate(-.0225,0,0);aczoReplaceMesh(body,geo,housing);
- const newStem=aczoTube(new THREE.Vector3(0,.004,.030),new THREE.Vector3(0,.126,.035),.006,.0048,housing);
- const stemGeo=newStem.geometry;newStem.updateMatrix();stemGeo.applyMatrix4(newStem.matrix);aczoReplaceMesh(stem,stemGeo,housing);
+ const s=new THREE.Shape();s.moveTo(.010,.009);s.bezierCurveTo(-.002,.026,-.026,.031,-.042,.018);
+ s.bezierCurveTo(-.055,.009,-.068,-.023,-.071,-.041);s.quadraticCurveTo(-.043,-.056,-.020,-.045);
+ s.bezierCurveTo(.002,-.039,.013,-.015,.010,.009);
+ const geo=new THREE.ExtrudeGeometry(s,{depth:.036,bevelEnabled:true,bevelThickness:.005,bevelSize:.004,bevelSegments:2,steps:1,curveSegments:7});
+ geo.rotateY(Math.PI/2);geo.translate(-.018,0,0);aczoReplaceMesh(body,geo,housing);
+ // Geschwungener Hals als Teil einer schlanken modernen Gehäusesilhouette.
+ const neck=new THREE.CubicBezierCurve3(new THREE.Vector3(0,.006,.043),new THREE.Vector3(0,.043,.021),new THREE.Vector3(0,.104,.047),new THREE.Vector3(0,.127,.035));
+ const stemGeo=new THREE.TubeGeometry(neck,12,.006,7,false);stemGeo.scale(.78,1,1);aczoReplaceMesh(stem,stemGeo,housing);
  aczoReplaceMesh(foot,new THREE.BoxGeometry(.014,.010,.095),housing);foot.position.set(0,.130,.035);
  rotor.position.set(0,0,-.006);rotor.rotation.set(0,0,0);
  aczoReplaceMesh(cup,new THREE.CylinderGeometry(.041,.035,.018,20),housing);cup.rotation.x=Math.PI/2;
@@ -27880,7 +27890,10 @@ function aczoShapeReel(parts,metal,housing,line,knob,root,rodStart,rodEnd,scale)
  const crankPart=aczoTube(new THREE.Vector3(0,0,0),new THREE.Vector3(-.027,-.050,.019),.0035,.003,metal);
  crankPart.updateMatrix();crankPart.geometry.applyMatrix4(crankPart.matrix);aczoReplaceMesh(arm,crankPart.geometry,metal);
  aczoReplaceMesh(grip,new THREE.SphereGeometry(.010,10,8),knob);grip.scale.set(1.6,.85,1.05);grip.position.set(-.038,-.050,.019);
- const axisCap=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,.008,12),metal);axisCap.rotation.z=Math.PI/2;axisCap.position.copy(crank.position);root.add(axisCap);
+ // Flacher, gerundeter Getriebedeckel statt kantiger Außenkappe.
+ const capGeo=new THREE.SphereGeometry(1,20,12);capGeo.scale(.005,.027,.027);
+ const axisCap=new THREE.Mesh(capGeo,housing);axisCap.position.set(-.024,-.014,.029);root.add(axisCap);
+ crank.position.set(-.031,-.014,.029);
  const roller=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.009,10),metal);roller.rotation.z=Math.PI/2;roller.position.set(.055,0,-.047);rotor.add(roller);
  root.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),rodEnd.clone().sub(rodStart).normalize());
  root.userData.aczoAttach=rodStart.clone().lerp(rodEnd,.30);root.userData.aczoScale=scale;
@@ -27891,18 +27904,23 @@ anglingReelLineExit.position.set(.055,0,-.047);anglingReelRotorGroup.add(angling
 anglingReelMiniCamera.position.set(-1.12,-1.25,-.14);anglingReelMiniCamera.lookAt(.10,-.12,-.70);
 function aczoApplyRodModel(id){
  const v=aczoRodVisual,p=ACZO_ROD_MODELS[id]||ACZO_ROD_MODELS.rod_standard;
+ for(const m of [anglingRodMetalMat,reelMiniMetal]){m.color.setHex(p.metal);m.roughness=.115;m.metalness=.98;}
  if(v.currentId===id)return;v.currentId=id;v.model=p;
- if(!v.cache[id])v.cache[id]=[aczoGripGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodCorkMat),aczoGripGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniCork)];
- if(!anglingRodGrip.userData.aczoCached){anglingRodGrip.geometry.dispose();aczoMiniGrip.geometry.dispose();anglingRodGrip.userData.aczoCached=true;}
+ if(!v.cache[id])v.cache[id]=[aczoGripGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodCorkMat),aczoGripGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniCork),aczoGapGeometry(anglingRodA,anglingRodGripEnd,p.split,anglingRodDarkMat,.015),aczoGapGeometry(reelMiniGripA,reelMiniGripB,p.split,reelMiniDark,.022)];
+ if(!anglingRodGrip.userData.aczoCached){anglingRodGrip.geometry.dispose();aczoMiniGrip.geometry.dispose();aczoGripCore.geometry.dispose();aczoMiniCore.geometry.dispose();anglingRodGrip.userData.aczoCached=true;}
  anglingRodGrip.geometry=v.cache[id][0];anglingRodGrip.position.set(0,0,0);anglingRodGrip.rotation.set(0,0,0);
  aczoMiniGrip.geometry=v.cache[id][1];aczoMiniGrip.position.set(0,0,0);aczoMiniGrip.rotation.set(0,0,0);
- aczoHousingMain.color.setHex(p.housing);aczoHousingMini.color.setHex(p.housing);aczoHousingMain.roughness=aczoHousingMini.roughness=.34;
+ aczoGripCore.geometry=v.cache[id][2];aczoGripCore.position.set(0,0,0);aczoGripCore.rotation.set(0,0,0);
+ aczoMiniCore.geometry=v.cache[id][3];aczoMiniCore.position.set(0,0,0);aczoMiniCore.rotation.set(0,0,0);
+ aczoHousingMain.color.setHex(p.housing);aczoHousingMini.color.setHex(p.housing);aczoHousingMain.roughness=aczoHousingMini.roughness=.15;
+ anglingReelHousing.scale.set(...p.bodyScale);anglingMiniHousing.scale.set(...p.bodyScale);
  anglingReelLineMat.color.setHex(p.line);reelMiniLine.color.setHex(p.line);
  for(const root of [anglingReelBody,anglingMiniReelBody]){
   const scale=root.userData.aczoScale*p.reel;root.scale.setScalar(scale);
   v.tmp.set(0,.130,.035).multiplyScalar(scale).applyQuaternion(root.quaternion);root.position.copy(root.userData.aczoAttach).sub(v.tmp);
  }
  anglingRodGroup.traverse(o=>{if(o.isMesh)o.renderOrder=1492;});
+ aczoGripCore.renderOrder=1491; // Die Griffhülsen behalten auch an den Übergängen Vorrang.
  v.lastBend=NaN;aczoDeformRod();
 }
 function aczoDeformRod(){
@@ -27935,11 +27953,15 @@ function aczoDeformRod(){
  anglingReelLineLead.position.copy(aczoRodGuides[0].position).lerp(anglingReelBody.position,.42);
  anglingReelLineGuideEntry.position.copy(aczoRodGuides[0].position).lerp(anglingReelLineLead.position,.35);
 }
-function aczoUpdateRodLoad(dt,tension,strength,direction){
+function aczoUpdateRodLoad(dt,tension,strength,direction,rodLift=0){
  const v=aczoRodVisual,load=THREE.MathUtils.clamp(tension,0,1);
- const target=(.06+.68*Math.pow(load,1.2)+.13*load*THREE.MathUtils.clamp(strength,0,1))*v.model.flex;
- const blend=1-Math.exp(-dt*9);
- v.bend+=(target-v.bend)*blend;v.side+=(THREE.MathUtils.clamp(direction,-1,1)*load*.22-v.side)*blend;
+ const lift=THREE.MathUtils.clamp(rodLift,-1,1);
+ const posture=.48+.52*Math.max(0,lift)+.13*Math.min(0,lift);
+ // Sanft im normalen Drill; die große Biegung entsteht erst nahe Volllast.
+ // Hochhalten verstärkt sie nur bei tatsächlich vorhandener Schnurspannung.
+ const target=(.015*load+.50*Math.pow(load,2.8)+.14*Math.pow(load,6)*THREE.MathUtils.clamp(strength,0,1))*posture*v.model.flex;
+ const blend=1-Math.exp(-dt*(target>v.bend?6:8));
+ v.bend+=(target-v.bend)*blend;v.side+=(THREE.MathUtils.clamp(direction,-1,1)*load*load*.16-v.side)*blend;
  aczoDeformRod();
 }
 function aczoRelaxRod(dt){
@@ -27949,7 +27971,7 @@ function aczoRelaxRod(dt){
 function aczoResetRodCurve(){aczoRodVisual.bend=aczoRodVisual.side=0;aczoDeformRod();}
 function aczoAnimateSpinningReel(dt,speed){
  const v=aczoRodVisual;v.phase=(v.phase+dt*4.4*speed)%(Math.PI*20);
- anglingReelCrank.rotation.x=v.phase;anglingReelCrank.rotation.z=0;
+ anglingReelCrank.rotation.x=-v.phase;anglingReelCrank.rotation.z=0;
  anglingReelRotorGroup.rotation.z=v.phase*5.2;
  anglingReelSpool.position.z=ANGLING_REEL_SPOOL_BASE_Z+Math.sin(v.phase*1.2)*.0045;
 }
@@ -27957,6 +27979,13 @@ function aczoSyncMiniReel(){
  anglingMiniCrank.rotation.x=anglingReelCrank.rotation.x;anglingMiniCrank.rotation.z=0;
  anglingMiniRotorGroup.rotation.z=anglingReelRotorGroup.rotation.z;
  anglingMiniSpool.position.z=anglingReelSpool.position.z;
+}
+function aczoUpdateReelLighting(){
+ // Bereits vorhandene kleine Reflexionskarte wiederverwenden; kein zusätzlicher
+ // Spiegelungs-Renderpass. Nachts werden auch die Metallreflexe abgedunkelt.
+ const intensity=THREE.MathUtils.clamp(hemi.intensity*.45+sun.intensity*.65+moonLight.intensity*.16,.025,1.45);
+ aczoHousingMain.envMapIntensity=anglingRodMetalMat.envMapIntensity=intensity;
+ aczoHousingMini.envMapIntensity=reelMiniMetal.envMapIntensity=intensity;
 }
 aczoApplyRodModel('rod_standard');
 
@@ -28799,9 +28828,9 @@ function aczoProductThumb(key,uid){
  if(key.startsWith('rod_')){
    const shaft=key==='rod_distance'?'#eff1ed':key==='rod_pro'?'#3e494f':'#52616a';
    const handle=key==='rod_standard'?'#b39161':'#1c262a';
-   const reel=key==='rod_distance'?'#c7a346':`url(#${g('steel')})`;
+   const reel=key==='rod_distance'?'#dbb758':key==='rod_pro'?'#657380':`url(#${g('steel')})`;
    const gap=key==='rod_pro'?9:key==='rod_distance'?6:2;
-   return wrap(`<g transform="translate(8 47) rotate(-26)"><path d="M0 0H88" fill="none" stroke="${shaft}" stroke-width="1.7"/><path d="M3 0H8M${8+gap} 0H21" stroke="${handle}" stroke-width="4.2" stroke-linecap="round"/><path d="M21 0H30" stroke="#111a20" stroke-width="3"/><path d="M22 -1H29" stroke="${reel}" stroke-width=".7"/><path d="M26 2L25 11" stroke="#627077" stroke-width="1.8"/><path d="M19 12Q22 8 28 12L30 18Q28 24 22 22L19 17Z" fill="url(#${g('dark')})" stroke="#66767c" stroke-width=".6"/><path d="M28 11L34 10V19L29 19Z" fill="#35434a"/><path d="M34 10H41V18H34Z" fill="${reel}"/><path d="M35 11H40V17H35Z" fill="#adc0a9"/><ellipse cx="41" cy="14" rx="1.5" ry="4.5" fill="${reel}"/><path d="M30 10Q41 4 44 12Q43 19 31 20" fill="none" stroke="#d7e1de" stroke-width=".85"/><circle cx="24" cy="15" r="2" fill="${reel}"/><path d="M24 15L19 21L16 21" fill="none" stroke="${reel}" stroke-width="1.2"/><ellipse cx="15" cy="21" rx="2.3" ry="1.6" fill="#0c161a"/><g fill="none" stroke="#c2cec9" stroke-width=".65"><path d="M42 1V4M56 1V3M70 0V2M82 0V1"/><ellipse cx="42" cy="6" rx="1.2" ry="2.5"/><ellipse cx="56" cy="4.5" rx="1" ry="1.8"/><ellipse cx="70" cy="3" rx=".8" ry="1.3"/><ellipse cx="82" cy="2" rx=".6" ry="1"/></g></g>`);
+   return wrap(`<g transform="translate(8 47) rotate(-26)"><path d="M0 0H88" fill="none" stroke="${shaft}" stroke-width="1.7"/><path d="M3 0H8M${8+gap} 0H21" stroke="${handle}" stroke-width="4.2" stroke-linecap="round"/><path d="M21 0H30" stroke="#111a20" stroke-width="3"/><path d="M22 -1H29" stroke="${reel}" stroke-width=".7"/><path d="M26 2L25 11" stroke="#627077" stroke-width="1.8"/><path d="M19 12Q22 8 28 12L30 18Q28 24 22 22L19 17Z" fill="${reel}" stroke="#66767c" stroke-width=".6"/><path d="M28 11L34 10V19L29 19Z" fill="#35434a"/><path d="M34 10H41V18H34Z" fill="${reel}"/><path d="M35 11H40V17H35Z" fill="#adc0a9"/><ellipse cx="41" cy="14" rx="1.5" ry="4.5" fill="${reel}"/><path d="M30 10Q41 4 44 12Q43 19 31 20" fill="none" stroke="#d7e1de" stroke-width=".85"/><circle cx="24" cy="15" r="2" fill="${reel}"/><path d="M24 15L19 21L16 21" fill="none" stroke="${reel}" stroke-width="1.2"/><ellipse cx="15" cy="21" rx="2.3" ry="1.6" fill="#0c161a"/><g fill="none" stroke="#c2cec9" stroke-width=".65"><path d="M42 1V4M56 1V3M70 0V2M82 0V1"/><ellipse cx="42" cy="6" rx="1.2" ry="2.5"/><ellipse cx="56" cy="4.5" rx="1" ry="1.8"/><ellipse cx="70" cy="3" rx=".8" ry="1.3"/><ellipse cx="82" cy="2" rx=".6" ry="1"/></g></g>`);
  }
  if(key==='net_standard'||key==='net_pro'){
    const rim=key==='net_pro'?'#9faeb0':'#728c80';
@@ -36937,7 +36966,7 @@ function updateAnglingDrill(dt){
   anglingRodGroup.rotation.z+=(0-anglingRodGroup.rotation.z)*Math.min(1,dt*11.5);
 
   // Sichtbare progressive Biegung; Griffsteuerung und Drillphysik bleiben erhalten.
-  aczoUpdateRodLoad(dt,anglingDrillTension,anglingDrillStrength,anglingDrillDirectionValue);
+  aczoUpdateRodLoad(dt,anglingDrillTension,anglingDrillStrength,anglingDrillDirectionValue,anglingDrillRodY);
 
   // Entscheidend: Nach der Rotation den hintersten Korkpunkt wieder exakt
   // auf seine Neutralposition setzen. Dadurch bewegt sich nur das freie Ende.
@@ -37998,6 +38027,7 @@ function updateAnglingMode(dt){
 
   // Rollenanimation gilt nicht nur im Drill: auch jeder 0,5-m-Einholschritt
   // und jede Kunstköderführung dreht die sichtbare Kurbel an der großen Rute.
+  aczoUpdateReelLighting();
   const reelTurning=anglingDrillReeling||anglingActionHeld||anglingState==='retrieving'||anglingState==='lure-retrieving'||anglingState==='deeper-retrieving'||anglingState==='fast-retrieving';
   if(reelTurning){
     // P55: Nur im Drill folgt die sichtbare Rollengeschwindigkeit der gewählten Bremse.
