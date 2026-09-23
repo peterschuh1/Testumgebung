@@ -23221,7 +23221,8 @@ function aczoPredatorNew(f,profile){
  return {mode:'idle',velocity:new THREE.Vector3(Math.cos(heading)*f.speed,Math.sin(heading)*f.speed,0),aim:new THREE.Vector3(),
    speed:f.speed,heading,interest:0,aggression:.58+Math.random()*.80,curiosity:.65+Math.random()*.7,
    nextThink:0,lastThink:0,nextAim:0,reactionUntil:0,started:0,stopAt:0,restSince:0,seenPulse:0,closeTime:0,abortUntil:0,
-   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,trackingTime:0,decisive:false,profile};
+   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,trackingTime:0,decisive:false,
+   followTransition:'',pendingSide:0,centerHoldUntil:0,profile};
 }
 function aczoPredatorDisengage(f,b){
  b.mode='abort';b.abortUntil=fishWorldTime+1.3+Math.random()*1.5;
@@ -23333,36 +23334,71 @@ function aczoPredatorUpdate(f,dt,dist){
  const interestGate=b.decisive?.36:.43;
  if(b.mode!=='burst'&&dist<attackDistance&&b.interest>interestGate&&
     Math.random()<1-Math.exp(-attackRate*elapsed)){
-   b.mode='burst';b.reactionUntil=fishWorldTime+p.notice*.2;b.nextAim=fishWorldTime;
+   b.mode='burst';b.followTransition='';b.pendingSide=0;b.centerHoldUntil=0;
+   b.reactionUntil=fishWorldTime+p.notice*.2;b.nextAim=fishWorldTime;
  }
  // Maximal einige Wahrnehmungen pro Sekunde; keine unmittelbare Kopie jeder Köderbewegung.
  if(fishWorldTime>=b.nextAim){
    const sight=anglingLure.position;
    const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
    if(b.decisive){
-     // Große Fotofische brauchen beim sichtbaren Nachlauf einen kleinen stabilen
-     // Seitenversatz. Direkt mittig hinter dem Köder würde ihre auf 48° begrenzte
-     // Billboard-Drehung sonst wie seitliches Geradeausschwimmen wirken.
      const decisiveMinSide=largePhotoFollower?.22:.05;
      b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,decisiveMinSide,.26);
-     if(Math.random()<(largePhotoFollower?.018:.05))b.side*=-1;
    }else{
      const followMinSide=largePhotoFollower?.46:.20;
      b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,followMinSide,1.08);
-     if(Math.random()<(largePhotoFollower?.055:.18))b.side*=-1;
    }
-   // Normale Nachläufer zielen auf einen Punkt HINTER der Köderbahn. Der seitliche
-   // Versatz bleibt klein und natürlich. Nur eine echte Burst-Attacke zielt direkt
-   // auf den Köder. Dadurch kein Überholen/Umkreisen beim Jiggen.
+   // V1.5 Nachlaeufer-Spuren: Zander, Hecht und Wels bleiben links ODER
+   // rechts hinter dem Koeder. Ein Seitenwechsel ist jetzt ein echter Querweg
+   // im Kamerabild: seitlich rueber, dabei leicht zur Kamera, danach ueber die
+   // normale Lenkung weich in die 45-Grad-Nachlaufbahn der Gegenseite einbiegen.
+   if(largePhotoFollower&&b.mode!=='burst'&&!b.followTransition){
+     const switchChance=b.decisive?.012:.032;
+     if(Math.random()<switchChance){
+       b.followTransition='cross';
+       b.pendingSide=-b.side;
+       b.centerHoldUntil=0;
+     }
+   }else if(!largePhotoFollower){
+     // Barsch und andere bestehende Verfolger behalten ihr bewaehrtes freieres
+     // Kreisen und duerfen weiterhin direkt die Seite wechseln.
+     const switchChance=b.decisive?.05:.18;
+     if(Math.random()<switchChance)b.side*=-1;
+   }
    const lureDirX=aczoPredatorLureDir.x,lureDirY=aczoPredatorLureDir.y;
    const trail=b.decisive?(.48+b.sideAmount*.28):(.62+b.sideAmount*.42);
    const lateral=b.decisive?b.sideAmount*.34:b.sideAmount*.46;
-   b.aim.set(sight.x-lureDirX*trail-lureDirY*b.side*lateral,
-             sight.y-lureDirY*trail+lureDirX*b.side*lateral,sight.z);
+   const crossTransition=largePhotoFollower&&b.followTransition==='cross'&&b.mode!=='burst';
+   if(crossTransition){
+     // Querziel relativ zur aktuellen Kamera: Dadurch schwimmt der Fotofisch
+     // sichtbar links/rechts durchs Bild statt diagonal zum Koeder. Ein kleiner
+     // Anteil Richtung Kamera erzeugt die gewuenschte kurze Annaeherung.
+     const camX=camera.position.x,camY=camera.position.y;
+     const viewX=sight.x-camX,viewY=sight.y-camY;
+     const viewLen=Math.max(.001,Math.hypot(viewX,viewY));
+     const rightX=-viewY/viewLen,rightY=viewX/viewLen;
+     const towardCamX=-viewX/viewLen,towardCamY=-viewY/viewLen;
+     const crossSide=b.pendingSide||-b.side;
+     const crossWidth=Math.max(.82,lateral*1.85);
+     const cameraApproach=b.decisive?.34:.48;
+     b.aim.set(sight.x+rightX*crossSide*crossWidth+towardCamX*cameraApproach,
+               sight.y+rightY*crossSide*crossWidth+towardCamY*cameraApproach,sight.z);
+     const crossDistance=f.obj.position.distanceTo(b.aim);
+     if(crossDistance<.38){
+       b.side=crossSide;
+       b.pendingSide=0;
+       b.centerHoldUntil=0;
+       b.followTransition='';
+     }
+   }else{
+     const appliedLateral=b.side*lateral;
+     b.aim.set(sight.x-lureDirX*trail-lureDirY*appliedLateral,
+               sight.y-lureDirY*trail+lureDirX*appliedLateral,sight.z);
+   }
    // V1.5: Große Foto-Räuber sollen beim sichtbaren Nachlauf nicht zwischen
    // Unterwasserkamera und Köder geraten. Der Korridor verändert nur den
    // Follow-/Inspect-Zielpunkt; echte Burst-Angriffe bleiben vollständig frei.
-   if(largePhotoFollower&&b.mode!=='burst'){
+   if(largePhotoFollower&&b.mode!=='burst'&&b.followTransition!=='cross'){
      const camX=camera.position.x,camY=camera.position.y;
      const viewX=sight.x-camX,viewY=sight.y-camY;
      const viewLen=Math.hypot(viewX,viewY);
@@ -23956,7 +23992,9 @@ function updateFishActors(dt){
       const lateralMotion=Math.abs(screenX);
       const depthShare=Math.abs(depthMotion)/Math.max(.001,Math.abs(depthMotion)+lateralMotion);
       const depthTurn=THREE.MathUtils.smoothstep(depthShare,.16,.94);
-      const targetDepthYaw=Math.abs(depthMotion)<.14
+      const crossingSideways=isLureHunter&&['zander','pike','catfish'].includes(species)&&
+        f.predatorBrain?.followTransition==='cross'&&f.predatorBrain.mode!=='burst';
+      const targetDepthYaw=crossingSideways||Math.abs(depthMotion)<.14
         ?0
         :-f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn;
       if(!Number.isFinite(f.visualDepthYaw))f.visualDepthYaw=0;
