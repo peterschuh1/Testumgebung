@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56-Interaktiv-V1.4</title>
+<title>ACZO56-Interaktiv-V1.5</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- V7.83: Kritische Viewer-Ressourcen früh anfordern. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -5119,6 +5119,18 @@ Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser 
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-History</summary>
          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
+           <strong>Version 1.5 · 23.09.2026</strong>
+           <p><strong>Angelspiel &amp; Technik erweitert</strong></p>
+           <ul style="padding-left:20px">
+             <li>Realistischere Raubfisch-KI und Nachläufer bei Gummifisch und Blinker.</li>
+             <li>Überarbeitetes Biss- und Angriffsverhalten sowie verbesserte Kunstköderführung und Jigging.</li>
+             <li>Neue Predatorpit Lockpaste für Gummifisch und Blinker sowie Wurmbündel als spezieller Welsköder.</li>
+             <li>Hänger-, Baumkollisions- und Schnell-Einhol-System weiter verbessert.</li>
+             <li>Tacklebox, Tackle-Shop, Inventar und Cloud-Speicherung erweitert.</li>
+             <li>Zahlreiche Fehlerbehebungen, Detail- und Performance-Optimierungen.</li>
+           </ul>
+         </div>
+         <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
            <strong>Version 1.4 · 22.09.2026</strong>
            <p><strong>Köderbox &amp; Shop</strong></p>
            <ul style="padding-left:20px">
@@ -5206,8 +5218,8 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // V7.75: Der Startlayer ist bereits durch HTML/CSS sichtbar, bevor dieser schwere
 // Three.js-Block ausgeführt wird. Er wird erst nach einem echten Renderbild freigegeben.
-// Öffentliche Version 1.4: vom Nutzer bestätigter Stand vom 22.09.2026.
-const VIEWER_VERSION='ACZO56-Interaktiv-V1.4';
+// Öffentliche Version 1.5: aktualisierter Stand vom 23.09.2026.
+const VIEWER_VERSION='ACZO56-Interaktiv-V1.5';
 const ACZO_INTERNAL_BUILD='1.38';
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -23348,6 +23360,26 @@ function aczoPredatorUpdate(f,dt,dist){
    const lateral=b.decisive?b.sideAmount*.34:b.sideAmount*.46;
    b.aim.set(sight.x-lureDirX*trail-lureDirY*b.side*lateral,
              sight.y-lureDirY*trail+lureDirX*b.side*lateral,sight.z);
+   // V1.5: Große Foto-Räuber sollen beim sichtbaren Nachlauf nicht zwischen
+   // Unterwasserkamera und Köder geraten. Der Korridor verändert nur den
+   // Follow-/Inspect-Zielpunkt; echte Burst-Angriffe bleiben vollständig frei.
+   if(largePhotoFollower&&b.mode!=='burst'){
+     const camX=camera.position.x,camY=camera.position.y;
+     const viewX=sight.x-camX,viewY=sight.y-camY;
+     const viewLen=Math.hypot(viewX,viewY);
+     if(viewLen>.35){
+       const rightX=-viewY/viewLen,rightY=viewX/viewLen;
+       const aimFromCamX=b.aim.x-camX,aimFromCamY=b.aim.y-camY;
+       const signedSide=aimFromCamX*rightX+aimFromCamY*rightY;
+       const cameraCorridor=b.decisive?.58:.72;
+       if(Math.abs(signedSide)<cameraCorridor){
+         const preferredSide=b.side<0?-1:1;
+         const correction=preferredSide*cameraCorridor-signedSide;
+         b.aim.x+=rightX*correction;
+         b.aim.y+=rightY*correction;
+       }
+     }
+   }
    if(s==='zander'&&b.mode!=='burst'){
      const floor=pondDepthAt(b.aim.x,b.aim.y);
      if(floor!=null){const ground=-floor*exaggeration+.33;
