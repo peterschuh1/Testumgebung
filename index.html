@@ -23344,11 +23344,14 @@ function aczoPredatorSwim(f,dt){
    f.pause=0;return false;
  }
  const chase=b.mode!=='abort';
+ // Schreckattacken sind echte Direktangriffe: Der Räuber korrigiert seine Bahn
+ // laufend auf den bewegten Köder, statt nur quer durchs Kamerabild zu schießen.
+ if(b.mode==='burst'&&b.shockAttack)b.aim.copy(anglingLure.position);
  const dx=b.aim.x-position.x,dy=b.aim.y-position.y;
  const horizontal=Math.hypot(dx,dy);
  const desired=Math.atan2(dy,dx);
  const delta=Math.atan2(Math.sin(desired-b.heading),Math.cos(desired-b.heading));
- const turn=p.turn*(b.mode==='burst'?1.36:1)*dt;
+ const turn=p.turn*(b.mode==='burst'?(b.shockAttack?4.2:1.36):1)*dt;
  if(horizontal>.10)b.heading+=THREE.MathUtils.clamp(delta,-turn,turn);
  let targetSpeed=b.mode==='burst'?p.burst:(b.mode==='notice'?.40:b.mode==='inspect'?.30:b.mode==='abort'?.76:p.cruise);
  if(chase&&aczoPredatorLure.rest&&b.mode!=='burst')targetSpeed*=.42;
@@ -23370,8 +23373,19 @@ function aczoPredatorSwim(f,dt){
  if(b.mode==='burst'){
    const hit=position.distanceTo(anglingLure.position);
    const radius=Math.max(.28,Math.min(.55,Math.abs(f.obj.userData.baseFishWidth||.65)*.48));
-   if(hit<radius&&beginAnglingLureAttack(f))return true;
-   if(fishWorldTime>b.stopAt||hit>p.range*1.8)aczoPredatorDisengage(f,b);
+   if(b.shockAttack){
+     // Bei sehr schnellen Seitwärtsattacken kann ein Fisch zwischen zwei Frames
+     // am Köder vorbeispringen. Deshalb wird die gesamte zurückgelegte Strecke
+     // dieses Frames auf Köderkontakt geprüft, nicht nur die Endposition.
+     const sx=position.x-oldX,sy=position.y-oldY,sz=position.z-(position.z-THREE.MathUtils.clamp(desiredZ-(position.z-THREE.MathUtils.clamp(desiredZ-position.z,-climb,climb)),-climb,climb));
+     const segLen2=sx*sx+sy*sy+sz*sz;
+     let t=segLen2>1e-6?((anglingLure.position.x-oldX)*sx+(anglingLure.position.y-oldY)*sy+(anglingLure.position.z-(position.z-sz))*sz)/segLen2:0;
+     t=THREE.MathUtils.clamp(t,0,1);
+     const cx=oldX+sx*t,cy=oldY+sy*t,cz=(position.z-sz)+sz*t;
+     const sweptHit=Math.hypot(anglingLure.position.x-cx,anglingLure.position.y-cy,anglingLure.position.z-cz);
+     if((hit<.72||sweptHit<.68)&&beginAnglingLureAttack(f)){b.shockAttack=false;return true;}
+   }else if(hit<radius&&beginAnglingLureAttack(f))return true;
+   if(fishWorldTime>b.stopAt||hit>p.range*1.8){b.shockAttack=false;aczoPredatorDisengage(f,b);}
  }
  return false;
 }
@@ -36517,13 +36531,13 @@ function attemptAnglingStrike(){
 
 // Predatorpit Lockpaste: dezente, transparente Uranin-Spur. Kleine Partikel
 // folgen der echten 3D-Köderbahn, verbreitern sich leicht nach hinten und lösen sich auf.
-const PREDATOR_PIT_FX_COUNT=110,predatorPitPasteFxGeo=new THREE.BufferGeometry(),predatorPitPasteFxPos=new Float32Array(PREDATOR_PIT_FX_COUNT*3),predatorPitPasteFxLife=new Float32Array(PREDATOR_PIT_FX_COUNT),predatorPitPasteFxSize=new Float32Array(PREDATOR_PIT_FX_COUNT);
+const PREDATOR_PIT_FX_COUNT=80,predatorPitPasteFxGeo=new THREE.BufferGeometry(),predatorPitPasteFxPos=new Float32Array(PREDATOR_PIT_FX_COUNT*3),predatorPitPasteFxLife=new Float32Array(PREDATOR_PIT_FX_COUNT),predatorPitPasteFxSize=new Float32Array(PREDATOR_PIT_FX_COUNT);
 predatorPitPasteFxGeo.setAttribute('position',new THREE.BufferAttribute(predatorPitPasteFxPos,3));predatorPitPasteFxGeo.setAttribute('aLife',new THREE.BufferAttribute(predatorPitPasteFxLife,1));predatorPitPasteFxGeo.setAttribute('aSize',new THREE.BufferAttribute(predatorPitPasteFxSize,1));
-const predatorPitPasteFxMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.NormalBlending,vertexShader:`attribute float aLife;attribute float aSize;varying float vLife;void main(){vLife=aLife;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aSize*(64.0/max(1.0,-mv.z));gl_Position=projectionMatrix*mv;}`,fragmentShader:`varying float vLife;void main(){vec2 p=gl_PointCoord-vec2(.5);float r=length(p);float soft=1.0-smoothstep(.08,.50,r);float fade=smoothstep(0.0,.20,vLife)*smoothstep(1.0,.36,vLife);vec3 c=mix(vec3(.08,.72,.035),vec3(.38,1.0,.12),soft*.55);gl_FragColor=vec4(c,soft*fade*.12);}`});
+const predatorPitPasteFxMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,blending:THREE.NormalBlending,vertexShader:`attribute float aLife;attribute float aSize;varying float vLife;void main(){vLife=aLife;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aSize*(64.0/max(1.0,-mv.z));gl_Position=projectionMatrix*mv;}`,fragmentShader:`varying float vLife;void main(){vec2 p=gl_PointCoord-vec2(.5);float r=length(p);float soft=1.0-smoothstep(.08,.50,r);float fade=smoothstep(0.0,.20,vLife)*smoothstep(1.0,.36,vLife);vec3 c=mix(vec3(.08,.72,.035),vec3(.38,1.0,.12),soft*.55);gl_FragColor=vec4(c,soft*fade*.055);}`});
 const predatorPitPasteFxPoints=new THREE.Points(predatorPitPasteFxGeo,predatorPitPasteFxMat);predatorPitPasteFxPoints.frustumCulled=false;predatorPitPasteFxPoints.renderOrder=48;anglingScene.add(predatorPitPasteFxPoints);
 const predatorPitPasteFxVel=Array.from({length:PREDATOR_PIT_FX_COUNT},()=>new THREE.Vector3());let predatorPitPasteFxCursor=0,predatorPitPasteFxHasLast=false;const predatorPitPasteFxLast=new THREE.Vector3(),predatorPitPasteFxMove=new THREE.Vector3(),predatorPitPasteFxTmp=new THREE.Vector3();
-function spawnPredatorPitPasteParticle(pos,move){const i=predatorPitPasteFxCursor++%PREDATOR_PIT_FX_COUNT,j=i*3;predatorPitPasteFxPos[j]=pos.x+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+1]=pos.y+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+2]=pos.z+(Math.random()-.5)*.020;predatorPitPasteFxLife[i]=1;predatorPitPasteFxSize[i]=1.6+Math.random()*1.7;predatorPitPasteFxVel[i].set(-move.x*.10+(Math.random()-.5)*.018,-move.y*.10+(Math.random()-.5)*.018,-move.z*.07+(Math.random()-.5)*.012);}
-function updatePredatorPitPasteFx(dt){updatePredatorPitPasteTimer();const surface=anglingLure?.visible?anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y):0,active=predatorPitPasteActive(anglingSelectedLureId)&&anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&anglingLure.position.z<surface-.025;if(active){if(!predatorPitPasteFxHasLast){predatorPitPasteFxLast.copy(anglingLure.position);predatorPitPasteFxHasLast=true;}predatorPitPasteFxMove.subVectors(anglingLure.position,predatorPitPasteFxLast);const moved=predatorPitPasteFxMove.length();if(moved>.010){const n=Math.min(4,Math.max(1,Math.ceil(moved/.085)));for(let k=0;k<n;k++){predatorPitPasteFxTmp.copy(predatorPitPasteFxLast).lerp(anglingLure.position,(k+.35+Math.random()*.3)/n);spawnPredatorPitPasteParticle(predatorPitPasteFxTmp,predatorPitPasteFxMove);}}predatorPitPasteFxLast.copy(anglingLure.position);}else predatorPitPasteFxHasLast=false;let dirty=false;for(let i=0;i<PREDATOR_PIT_FX_COUNT;i++){if(predatorPitPasteFxLife[i]<=0)continue;dirty=true;predatorPitPasteFxLife[i]=Math.max(0,predatorPitPasteFxLife[i]-dt/(1.05+((i%7)/7)*.45));const j=i*3,v=predatorPitPasteFxVel[i],age=1-predatorPitPasteFxLife[i];v.x*=Math.exp(-1.15*dt);v.y*=Math.exp(-1.15*dt);v.z+=.004*dt;predatorPitPasteFxPos[j]+=v.x*dt*(1+age*.55);predatorPitPasteFxPos[j+1]+=v.y*dt*(1+age*.55);predatorPitPasteFxPos[j+2]+=v.z*dt;predatorPitPasteFxSize[i]=Math.min(4.8,predatorPitPasteFxSize[i]+dt*1.15);}if(dirty){predatorPitPasteFxGeo.attributes.position.needsUpdate=true;predatorPitPasteFxGeo.attributes.aLife.needsUpdate=true;predatorPitPasteFxGeo.attributes.aSize.needsUpdate=true;}}
+function spawnPredatorPitPasteParticle(pos,move){const i=predatorPitPasteFxCursor++%PREDATOR_PIT_FX_COUNT,j=i*3;predatorPitPasteFxPos[j]=pos.x+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+1]=pos.y+(Math.random()-.5)*.025;predatorPitPasteFxPos[j+2]=pos.z+(Math.random()-.5)*.020;predatorPitPasteFxLife[i]=1;predatorPitPasteFxSize[i]=1.0+Math.random()*1.0;predatorPitPasteFxVel[i].set(-move.x*.10+(Math.random()-.5)*.018,-move.y*.10+(Math.random()-.5)*.018,-move.z*.07+(Math.random()-.5)*.012);}
+function updatePredatorPitPasteFx(dt){updatePredatorPitPasteTimer();const surface=anglingLure?.visible?anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y):0,active=predatorPitPasteActive(anglingSelectedLureId)&&anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&anglingLure.position.z<surface-.025;if(active){if(!predatorPitPasteFxHasLast){predatorPitPasteFxLast.copy(anglingLure.position);predatorPitPasteFxHasLast=true;}predatorPitPasteFxMove.subVectors(anglingLure.position,predatorPitPasteFxLast);const moved=predatorPitPasteFxMove.length();if(moved>.010){const n=Math.min(2,Math.max(1,Math.ceil(moved/.12)));for(let k=0;k<n;k++){predatorPitPasteFxTmp.copy(predatorPitPasteFxLast).lerp(anglingLure.position,(k+.35+Math.random()*.3)/n);spawnPredatorPitPasteParticle(predatorPitPasteFxTmp,predatorPitPasteFxMove);}}predatorPitPasteFxLast.copy(anglingLure.position);}else predatorPitPasteFxHasLast=false;let dirty=false;for(let i=0;i<PREDATOR_PIT_FX_COUNT;i++){if(predatorPitPasteFxLife[i]<=0)continue;dirty=true;predatorPitPasteFxLife[i]=Math.max(0,predatorPitPasteFxLife[i]-dt/(.78+((i%7)/7)*.34));const j=i*3,v=predatorPitPasteFxVel[i],age=1-predatorPitPasteFxLife[i];v.x*=Math.exp(-1.15*dt);v.y*=Math.exp(-1.15*dt);v.z+=.004*dt;predatorPitPasteFxPos[j]+=v.x*dt*(1+age*.55);predatorPitPasteFxPos[j+1]+=v.y*dt*(1+age*.55);predatorPitPasteFxPos[j+2]+=v.z*dt;predatorPitPasteFxSize[i]=Math.min(3.0,predatorPitPasteFxSize[i]+dt*.72);}if(dirty){predatorPitPasteFxGeo.attributes.position.needsUpdate=true;predatorPitPasteFxGeo.attributes.aLife.needsUpdate=true;predatorPitPasteFxGeo.attributes.aSize.needsUpdate=true;}}
 
 
 // Berechnet nach jeder Köderbewegung Distanz, Kandidaten und Bissrate neu.
@@ -36587,12 +36601,12 @@ function beginAnglingShockLureAttack(){
   if(!placed)return false;
 
   const b=sourceActor.predatorBrain||(sourceActor.predatorBrain=aczoPredatorNew(sourceActor,p));
-  b.mode='burst';b.started=fishWorldTime;b.stopAt=fishWorldTime+3.2;
+  b.mode='burst';b.shockAttack=true;b.started=fishWorldTime;b.stopAt=fishWorldTime+4.5;
   b.reactionUntil=fishWorldTime;b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;
   b.interest=1.65;b.aggression=Math.max(1.35,b.aggression||0);b.closeTime=0;b.restSince=0;
   b.aim.copy(anglingLure.position);
   const dx=anglingLure.position.x-sourceActor.obj.position.x,dy=anglingLure.position.y-sourceActor.obj.position.y;
-  b.heading=Math.atan2(dy,dx);b.speed=p.burst*1.18;
+  b.heading=Math.atan2(dy,dx);b.speed=p.burst*1.08;
   b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
   sourceActor.predatorCooldown=0;sourceActor.lureChaseUntil=fishWorldTime+5;sourceActor.pause=0;
   return true;
