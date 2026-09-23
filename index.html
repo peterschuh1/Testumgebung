@@ -23242,7 +23242,7 @@ function aczoPredatorNew(f,profile){
    speed:f.speed,heading,interest:0,aggression:.58+Math.random()*.80,curiosity:.65+Math.random()*.7,
    nextThink:0,lastThink:0,nextAim:0,reactionUntil:0,started:0,stopAt:0,restSince:0,seenPulse:0,closeTime:0,abortUntil:0,
    side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,trackingTime:0,decisive:false,
-   followTransition:'',pendingSide:0,centerHoldUntil:0,profile};
+   followPhase:Math.random()*Math.PI*2,followTrailBase:.72+Math.random()*.34,profile};
 }
 function aczoPredatorDisengage(f,b){
  b.mode='abort';b.abortUntil=fishWorldTime+1.3+Math.random()*1.5;
@@ -23270,7 +23270,14 @@ function aczoPredatorStart(f,spontaneous=false){
  const decisiveChance=species==='perch'?.38:species==='pike'?.36:species==='zander'?.30:.28;
  b.decisive=Math.random()<decisiveChance;
  b.mode=spontaneous&&dist<1.65?'burst':'notice';
- b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(b.decisive?(.88+Math.random()*.38):(.78+Math.random()*.68));
+ const largePhotoFollower=species==='zander'||species==='pike'||species==='catfish';
+ if(largePhotoFollower){
+   // V1.5: Eine Verfolgungsphase bleibt konsequent auf EINER Seite.
+   // Abwechslung entsteht nur ueber Vor-/Zurueckfallen auf dieser Spur.
+   b.sideAmount=b.decisive?(.54+Math.random()*.14):(.64+Math.random()*.22);
+   b.followTrailBase=b.decisive?(.62+Math.random()*.20):(.78+Math.random()*.34);
+ }
+ b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(largePhotoFollower?(1.18+Math.random()*.82):(b.decisive?(.88+Math.random()*.38):(.78+Math.random()*.68)));
  b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;b.seenPulse=l.pulse;
  b.reactionUntil=fishWorldTime+(b.mode==='burst'?.08:p.notice*(b.decisive?(.38+Math.random()*.70):(.8+Math.random()*2.2)));
  b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);b.trackingTime=0;
@@ -23354,71 +23361,42 @@ function aczoPredatorUpdate(f,dt,dist){
  const interestGate=b.decisive?.36:.43;
  if(b.mode!=='burst'&&dist<attackDistance&&b.interest>interestGate&&
     Math.random()<1-Math.exp(-attackRate*elapsed)){
-   b.mode='burst';b.followTransition='';b.pendingSide=0;b.centerHoldUntil=0;
+   b.mode='burst';
    b.reactionUntil=fishWorldTime+p.notice*.2;b.nextAim=fishWorldTime;
  }
- // Maximal einige Wahrnehmungen pro Sekunde; keine unmittelbare Kopie jeder Köderbewegung.
+ // Maximal einige Wahrnehmungen pro Sekunde; keine unmittelbare Kopie jeder Koederbewegung.
  if(fishWorldTime>=b.nextAim){
    const sight=anglingLure.position;
    const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
-   if(b.decisive){
-     const decisiveMinSide=largePhotoFollower?.22:.05;
-     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,decisiveMinSide,.26);
-   }else{
-     const followMinSide=largePhotoFollower?.46:.20;
-     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,followMinSide,1.08);
-   }
-   // V1.5 Nachlaeufer-Spuren: Zander, Hecht und Wels bleiben links ODER
-   // rechts hinter dem Koeder. Ein Seitenwechsel ist jetzt ein echter Querweg
-   // im Kamerabild: seitlich rueber, dabei leicht zur Kamera, danach ueber die
-   // normale Lenkung weich in die 45-Grad-Nachlaufbahn der Gegenseite einbiegen.
-   if(largePhotoFollower&&b.mode!=='burst'&&!b.followTransition){
-     const switchChance=b.decisive?.012:.032;
-     if(Math.random()<switchChance){
-       b.followTransition='cross';
-       b.pendingSide=-b.side;
-       b.centerHoldUntil=0;
-     }
-   }else if(!largePhotoFollower){
-     // Barsch und andere bestehende Verfolger behalten ihr bewaehrtes freieres
-     // Kreisen und duerfen weiterhin direkt die Seite wechseln.
+   if(!largePhotoFollower){
+     // Barsch behaelt sein bewaehrtes freieres Kreisen unveraendert.
+     if(b.decisive)b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,.05,.26);
+     else b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,.20,1.08);
      const switchChance=b.decisive?.05:.18;
      if(Math.random()<switchChance)b.side*=-1;
    }
    const lureDirX=aczoPredatorLureDir.x,lureDirY=aczoPredatorLureDir.y;
-   const trail=b.decisive?(.48+b.sideAmount*.28):(.62+b.sideAmount*.42);
-   const lateral=b.decisive?b.sideAmount*.34:b.sideAmount*.46;
-   const crossTransition=largePhotoFollower&&b.followTransition==='cross'&&b.mode!=='burst';
-   if(crossTransition){
-     // Querziel relativ zur aktuellen Kamera: Dadurch schwimmt der Fotofisch
-     // sichtbar links/rechts durchs Bild statt diagonal zum Koeder. Ein kleiner
-     // Anteil Richtung Kamera erzeugt die gewuenschte kurze Annaeherung.
-     const camX=camera.position.x,camY=camera.position.y;
-     const viewX=sight.x-camX,viewY=sight.y-camY;
-     const viewLen=Math.max(.001,Math.hypot(viewX,viewY));
-     const rightX=-viewY/viewLen,rightY=viewX/viewLen;
-     const towardCamX=-viewX/viewLen,towardCamY=-viewY/viewLen;
-     const crossSide=b.pendingSide||-b.side;
-     const crossWidth=Math.max(.82,lateral*1.85);
-     const cameraApproach=b.decisive?.34:.48;
-     b.aim.set(sight.x+rightX*crossSide*crossWidth+towardCamX*cameraApproach,
-               sight.y+rightY*crossSide*crossWidth+towardCamY*cameraApproach,sight.z);
-     const crossDistance=f.obj.position.distanceTo(b.aim);
-     if(crossDistance<.38){
-       b.side=crossSide;
-       b.pendingSide=0;
-       b.centerHoldUntil=0;
-       b.followTransition='';
-     }
+   let trail,lateral;
+   if(largePhotoFollower&&b.mode!=='burst'){
+     // Feste linke/rechte Nachlaufspur. Kein Kreuzen, kein seitliches Pendeln.
+     // Nur der Abstand hinter dem Koeder veraendert sich langsam: aufholen,
+     // kurz stehen/mitlaufen, wieder etwas abfallen. Bei ruhendem Koeder am
+     // Grund wird die Bewegung kleiner, die Spur selbst bleibt unveraendert.
+     const rhythm=Math.sin(fishWorldTime*(l.rest?.42:.68)+(b.followPhase||0));
+     const secondary=Math.sin(fishWorldTime*.23+(b.followPhase||0)*.57);
+     const amplitude=l.rest?.22:.42;
+     trail=THREE.MathUtils.clamp((b.followTrailBase||.90)+rhythm*amplitude+secondary*.12,.48,1.58);
+     lateral=b.sideAmount;
    }else{
-     const appliedLateral=b.side*lateral;
-     b.aim.set(sight.x-lureDirX*trail-lureDirY*appliedLateral,
-               sight.y-lureDirY*trail+lureDirX*appliedLateral,sight.z);
+     trail=b.decisive?(.48+b.sideAmount*.28):(.62+b.sideAmount*.42);
+     lateral=b.decisive?b.sideAmount*.34:b.sideAmount*.46;
    }
-   // V1.5: Große Foto-Räuber sollen beim sichtbaren Nachlauf nicht zwischen
-   // Unterwasserkamera und Köder geraten. Der Korridor verändert nur den
-   // Follow-/Inspect-Zielpunkt; echte Burst-Angriffe bleiben vollständig frei.
-   if(largePhotoFollower&&b.mode!=='burst'&&b.followTransition!=='cross'){
+   const appliedLateral=b.side*lateral;
+   b.aim.set(sight.x-lureDirX*trail-lureDirY*appliedLateral,
+             sight.y-lureDirY*trail+lureDirX*appliedLateral,sight.z);
+   // Der bestehende Kamerakorridor bleibt nur als Sicherheitsnetz. Er darf die
+   // feste Seite sichern, aber niemals einen Seitenwechsel erzeugen.
+   if(largePhotoFollower&&b.mode!=='burst'){
      const camX=camera.position.x,camY=camera.position.y;
      const viewX=sight.x-camX,viewY=sight.y-camY;
      const viewLen=Math.hypot(viewX,viewY);
@@ -23441,13 +23419,8 @@ function aczoPredatorUpdate(f,dt,dist){
        b.aim.z=ground+(l.fall?Math.min(.48,Math.max(0,sight.z-ground)*.28):l.rise?.07:Math.min(.24,Math.max(0,sight.z-ground)*.20));
      }
    }else if(b.mode!=='burst')b.aim.z=f.obj.position.z+(sight.z-f.obj.position.z)*(s==='catfish'?.34:.52);
-   // V1.5: Follow-/Inspect-Ziel bleibt eine Koerperbahn. Der virtuelle Maulpunkt
-   // wird fuer Distanz/Kontakt und den echten Burst benutzt, aber nicht zum
-   // Zurueckrechnen der normalen Nachlaufposition. Sonst richtet sich der lange
-   // Fotofisch permanent gerade auf den Koeder aus und verliert die 45-Grad-Spur.
+   // Der virtuelle Maulpunkt bleibt ausschliesslich fuer echten Angriff/Kontakt.
    if(b.mode==='burst')aczoPredatorAimBodyForMouth(f,sight,b.aim);
-   // Während echter Verfolgung häufiger auf die neue Köderposition zielen.
-   // Inspect/Notice bleiben bewusst träger, damit nicht jeder Fisch am Köder klebt.
    const aimDelay=b.mode==='burst'?(b.shockAttack?.10:.16):b.mode==='follow'?(b.decisive?.16:.23):(.30+Math.random()*.42);
    b.nextAim=fishWorldTime+aimDelay*(b.mode==='follow'?(.80+Math.random()*.55):1);
  }
@@ -24015,11 +23988,14 @@ function updateFishActors(dt){
       const lateralMotion=Math.abs(screenX);
       const depthShare=Math.abs(depthMotion)/Math.max(.001,Math.abs(depthMotion)+lateralMotion);
       const depthTurn=THREE.MathUtils.smoothstep(depthShare,.16,.94);
-      const crossingSideways=isLureHunter&&['zander','pike','catfish'].includes(species)&&
-        f.predatorBrain?.followTransition==='cross'&&f.predatorBrain.mode!=='burst';
-      const targetDepthYaw=crossingSideways||Math.abs(depthMotion)<.14
-        ?0
-        :-f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn;
+      const fixedLaneFollower=isLureHunter&&['zander','pike','catfish'].includes(species)&&
+        f.predatorBrain?.mode!=='burst'&&f.predatorBrain?.mode!=='abort';
+      // Auf der festen Nachlaufspur bleibt die Fotoperspektive stabil bei der
+      // passenden 45/48-Grad-Ansicht. Kleine Kurskorrekturen duerfen den langen
+      // Fotofisch nicht mehr kreuz und quer drehen. Im Burst ist die Ausrichtung frei.
+      const targetDepthYaw=fixedLaneFollower
+        ?-f.screenSide*(f.predatorBrain?.side||1)*MAX_FISH_DEPTH_YAW
+        :(Math.abs(depthMotion)<.14?0:-f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn);
       if(!Number.isFinite(f.visualDepthYaw))f.visualDepthYaw=0;
       // Tiefendrehung bewusst ruhiger. Kleine Kurskorrekturen dürfen die
       // Billboard-Fläche nicht mehr sichtbar links/rechts schaukeln lassen.
