@@ -36564,7 +36564,15 @@ function loseCurrentArtificialLure(){
  if(!anglingUsesArtificialLure())return '';
  const id=anglingSelectedLureId,stock=anglingLureStock(id);
  if(stock>0)anglingProgress.lureInventory[id]=stock-1;
- saveAnglingProgress();updateAnglingSetupUi();
+ // Lockpaste haftet am verlorenen physischen Kunstköder. Bei Abriss ist sie
+ // deshalb ebenfalls verloren; ein automatisch nachgerüsteter gleicher Köder
+ // aus dem Bestand startet unbehandelt und benötigt eine neue Anwendung.
+ if(predatorPitPasteByLure.has(id)||Object.prototype.hasOwnProperty.call(anglingProgress.predatorPitPasteExpiries||{},id)){
+   predatorPitPasteByLure.delete(id);
+   if(anglingProgress.predatorPitPasteExpiries)delete anglingProgress.predatorPitPasteExpiries[id];
+   predatorPitPasteFxHasLast=false;
+ }
+ saveAnglingProgress();updateAnglingSetupUi();updatePredatorPitPasteTimer();renderAnglingBaitBox();
  return ' · '+anglingActiveLure().name+' verloren';
 }
 function loseAnglingFish(reason){
