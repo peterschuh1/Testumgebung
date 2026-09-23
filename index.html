@@ -2186,6 +2186,8 @@ html,body{
   pointer-events:auto!important;
   z-index:220!important;
 }
+/* V1.4 Drill-Fix: Ein Drill darf nicht ueber den Ufer-/Exit-Button beendet werden. */
+.angling-ui.is-drilling #anglingExitBtn{display:none!important;pointer-events:none!important}
 .angling-ui.is-drilling .angling-drill-panel [data-angling-drag],
 .angling-ui.is-drilling .angling-reel-btn{
   pointer-events:auto!important;
@@ -19376,7 +19378,10 @@ function aczoBirchInstancedSegments(name,segments,material,parent,cast=true){
 function aczoBirchRegisterObstacle(a,b,r){
   northWoodData.push({
     start:{x:a.x,y:a.y,z:a.z},end:{x:b.x,y:b.y,z:b.z},
-    r:Math.max(.025,r),kind:'real-birch'
+    // V1.4: Die sichtbare Weidenkrone bekommt um ihre registrierten Äste eine
+    // kleine, realistische Fangzone. Blätter und tausende Endzweige werden
+    // bewusst NICHT einzeln zu Kollidern, damit Mobilgeräte nicht leiden.
+    r:Math.max(.055,r),kind:'real-birch'
   });
 }
 
@@ -27588,6 +27593,7 @@ function anglingCloudStateForSync(){
     naturalInventory:anglingProgress.naturalInventory&&typeof anglingProgress.naturalInventory==='object'?anglingProgress.naturalInventory:{},
     lureInventory:anglingProgress.lureInventory&&typeof anglingProgress.lureInventory==='object'?anglingProgress.lureInventory:{},
     feedInventory:anglingProgress.feedInventory&&typeof anglingProgress.feedInventory==='object'?anglingProgress.feedInventory:{},
+    predatorPitPasteExpiries:anglingProgress.predatorPitPasteExpiries&&typeof anglingProgress.predatorPitPasteExpiries==='object'?anglingProgress.predatorPitPasteExpiries:{},
     equipmentInventory:anglingProgress.equipmentInventory&&typeof anglingProgress.equipmentInventory==='object'?anglingProgress.equipmentInventory:{},
     selectedBait:anglingProgress.selectedBait||'worm',
     selectedLureId:anglingProgress.selectedLureId||'spinner_basic',
@@ -30191,7 +30197,6 @@ function applyAnglingCloudPlayer(player){
   if(protectMountedBundleInventory)anglingProgress.naturalInventory.dew_worm=mountedBundleDewWorms;
   anglingApplyInventory(anglingProgress.lureInventory,player.lureInventory);
   anglingApplyInventory(anglingProgress.feedInventory,player.feedInventory);anglingApplyInventory(anglingProgress.equipmentInventory,player.equipmentInventory);
-
   if(typeof player.selectedBait==='string'&&player.selectedBait){
     const protectMountedBundle=anglingSelectedBait==='worm_bundle'&&Date.now()-anglingWormBundleMountedAt<15000&&player.selectedBait!=='worm_bundle';
     if(!protectMountedBundle){
@@ -33394,6 +33399,28 @@ function findAnglingDeadwoodCollision(point,probeRadius=.06){
   return best;
 }
 
+
+// V1.4 Abschlusspruefung: Kollisionspruefung fuer die tatsaechlich zurueckgelegte
+// Kunstkoederstrecke. Wird nur beim kurzen Schnell-Einholen benutzt und verhindert,
+// dass "Zum Ufer" einen Ast zwischen zwei Frames ueberspringt.
+function findAnglingDeadwoodSweepCollision(start,end,probeRadius=.075){
+  if(!start||!end||!northWoodData?.length)return null;
+  let best=null,bestS=Infinity;
+  for(const seg of northWoodData){
+    if(anglingReleasedSnagStillBlocked(seg,start,end))continue;
+    anglingLineColP2.set(seg.start.x,seg.start.y,seg.start.z);
+    anglingLineColQ2.set(seg.end.x,seg.end.y,seg.end.z);
+    const hit=closestAnglingSegments3D(start,end,anglingLineColP2,anglingLineColQ2,anglingDeadwoodTmpA,anglingDeadwoodTmpB);
+    const allowed=Math.max(.05,(seg.r||.04)+probeRadius);
+    if(hit.distSq>allowed*allowed||hit.s>=bestS)continue;
+    const x=anglingDeadwoodTmpB.x,y=anglingDeadwoodTmpB.y;
+    if(anglingOwnPierContactIsHarmless(seg,x,y))continue;
+    bestS=hit.s;
+    best={segment:seg,point:anglingDeadwoodTmpA.clone(),visualPoint:anglingDeadwoodTmpB.clone(),woodPoint:anglingDeadwoodTmpB.clone(),radius:allowed,kind:seg.kind||'deadwood'};
+  }
+  return best;
+}
+
 // BETA 1.2: Nächste Punkte zweier endlicher 3D-Segmente.
 // Rückgabe s = Position auf Schnursegment (0 = Ufer/Wassereintritt, 1 = Köder).
 function closestAnglingSegments3D(p1,q1,p2,q2,outLine,outWood){
@@ -33451,10 +33478,31 @@ function anglingObstacleVisualAndPhysicsPoint(seg,t,visualOut,physicsOut){
 
 function anglingReleasedSnagStillBlocked(seg,start=null,end=null){
   const g=anglingReleasedSnagGuard;
-  if(!g||!seg||g.segment!==seg)return false;
+  if(!g||!seg)return false;
 
   const now=performance.now();
-  const minTimeDone=now-g.releasedAt>=3000;
+  const elapsed=now-g.releasedAt;
+  // V1.4 Hänger-Safezone: Nach erfolgreichem Lösen wird nicht nur exakt
+  // derselbe Ast, sondern auch der unmittelbar zusammenhängende Astbereich
+  // kurz ignoriert. So erzeugt ein einzelner Baumstamm nicht drei Hänger
+  // direkt hintereinander. Räumlich getrennte Hindernisse bleiben aktiv.
+  const ga=anglingDeadwoodTmpA.set(seg.start.x,seg.start.y,seg.start.z);
+  const gb=anglingDeadwoodTmpB.set(seg.end.x,seg.end.y,seg.end.z);
+  const gab=anglingDeadwoodTmpC.copy(gb).sub(ga);
+  const gden=Math.max(1e-6,gab.lengthSq());
+  const gp=anglingDeadwoodTmpD.copy(g.position).sub(ga);
+  const gt=THREE.MathUtils.clamp(gp.dot(gab)/gden,0,1);
+  anglingObstacleHookPoint.copy(ga).addScaledVector(gab,gt);
+  const sameSegment=g.segment===seg;
+  const nearbySegment=g.position.distanceToSquared(anglingObstacleHookPoint)<=2.15*2.15;
+  if(!sameSegment&&!nearbySegment)return false;
+  if(elapsed<3600)return true;
+  // Nach der eigentlichen Safezeit bleiben nur das ursprünglich gelöste
+  // Segment und dessen unmittelbare Berührung geschützt, bis die Geometrie
+  // wirklich verlassen wurde.
+  if(!sameSegment)return false;
+
+  const minTimeDone=true;
   const r=Math.max(.28,(seg.r||.04)+.34);
 
   const a=anglingDeadwoodTmpA.set(seg.start.x,seg.start.y,seg.start.z);
@@ -33487,33 +33535,33 @@ function anglingReleasedSnagStillBlocked(seg,start=null,end=null){
 }
 
 function findAnglingLineObstacleCandidate(start,end,excludedSegments){
-  anglingLineColP1.set(start.x,start.y,0);
-  anglingLineColQ1.set(end.x,end.y,0);
   let best=null,bestScore=Infinity;
   for(const seg of northWoodData){
     if(excludedSegments?.has(seg))continue;
     if(anglingReleasedSnagStillBlocked(seg,start,end))continue;
     const r=seg.r||.04;
-    anglingLineColP2.set(seg.start.x,seg.start.y,0);
-    anglingLineColQ2.set(seg.end.x,seg.end.y,0);
+    // V1.4: Echte 3D-Nähe statt einer auf Z=0 projizierten XY-Kollision.
+    // Gerade bei den großen Weiden verhinderte die alte Projektion Hänger
+    // mehrere Meter vor/unter einem optisch freien Ast.
+    anglingLineColP1.copy(start);anglingLineColQ1.copy(end);
+    anglingLineColP2.set(seg.start.x,seg.start.y,seg.start.z);
+    anglingLineColQ2.set(seg.end.x,seg.end.y,seg.end.z);
     const hit=closestAnglingSegments3D(anglingLineColP1,anglingLineColQ1,anglingLineColP2,anglingLineColQ2,anglingDeadwoodTmpA,anglingDeadwoodTmpB);
     const s=THREE.MathUtils.clamp(hit.s,0,1),t=THREE.MathUtils.clamp(hit.t,0,1);
     if(s<=.012||s>=.988)continue;
     const x=THREE.MathUtils.lerp(seg.start.x,seg.end.x,t),y=THREE.MathUtils.lerp(seg.start.y,seg.end.y,t);
     if(anglingOwnPierContactIsHarmless(seg,x,y))continue;
     anglingObstacleVisualAndPhysicsPoint(seg,t,anglingDeadwoodTmpC,anglingDeadwoodTmpD);
-    const distXY=Math.hypot(anglingDeadwoodTmpA.x-anglingDeadwoodTmpB.x,anglingDeadwoodTmpA.y-anglingDeadwoodTmpB.y);
-    const corridor=seg.surfaceContact?Math.max(.15,r+.13):Math.max(.16,r+.18);
-    if(distXY>corridor)continue;
-    const lineZ=THREE.MathUtils.lerp(start.z,end.z,s);
-    if(lineZ>anglingDeadwoodTmpC.z+.075)continue;
+    const dist3D=Math.sqrt(Math.max(0,hit.distSq));
+    const corridor=seg.surfaceContact?Math.max(.12,r+.09):Math.max(.13,r+.11);
+    if(dist3D>corridor)continue;
     let duplicate=false;
     for(const c of anglingLineObstacleContacts){
       const ep=c.visualPoint||c.point;
       if(c.kind===(seg.kind||'deadwood')&&Math.hypot(ep.x-anglingDeadwoodTmpC.x,ep.y-anglingDeadwoodTmpC.y)<.34){duplicate=true;break;}
     }
     if(duplicate)continue;
-    const score=s*4+distXY*2;
+    const score=s*4+dist3D*2;
     if(score<bestScore){bestScore=score;best={seg,s,t,visual:anglingDeadwoodTmpC.clone(),physics:anglingDeadwoodTmpD.clone()};}
   }
   return best;
@@ -33696,9 +33744,10 @@ function resolveAnglingObstacleSnag(){
   }
   anglingObstacleSnag=null;
   clearAnglingLineObstacleContact();
-  // Nur eine sehr kurze globale Entprellung; der eigentliche Schutz ist oben
-  // objektbezogen und endet erst nach Mindestzeit + echtem geometrischem Verlassen.
-  anglingObstacleSnagCooldownUntil=performance.now()+220;
+  // V1.4: Genug Zeit, um nach dem Lösen aus einem Astpaket herauszukommen.
+  // Zusätzlich schützt anglingReleasedSnagGuard nur den lokalen Astbereich;
+  // ein räumlich getrenntes neues Hindernis bleibt danach ein echter Hänger.
+  anglingObstacleSnagCooldownUntil=performance.now()+1100;
   hideAnglingSnagPrompt();
   recalcAnglingAtCurrentTerminal();
   showAnglingMajorNotice('✅ HÄNGER GELÖST!','Du bist wieder frei und kannst weiterfischen.','success',1650);
@@ -38846,7 +38895,12 @@ function updateAnglingMode(dt){
   }else if(anglingState==='fast-retrieving'){
     const u=anglingClamp01(anglingStateTime/Math.max(.1,anglingFastRetrieveDuration)),eased=anglingEase(u);
     const deeper=anglingUsesDeeper(),artificial=anglingUsesArtificialLure(),terminal=deeper?anglingDeeper:(artificial?anglingLure:anglingBobber);
+    if(artificial)anglingLureFrameSweepStart.copy(terminal.position);
     terminal.position.lerpVectors(anglingRetrieveStart,anglingRetrieveEnd,eased);
+    if(artificial){
+      const fastHit=findAnglingDeadwoodSweepCollision(anglingLureFrameSweepStart,terminal.position,.075);
+      if(fastHit){beginAnglingObstacleSnag('artificial',fastHit);return;}
+    }
     if(deeper){const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);terminal.position.z=surface+.035;sampleAnglingDeeper(false);}
     else if(!artificial){
       const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);
@@ -39169,6 +39223,9 @@ anglingConfirmBtn.addEventListener('click',confirmAnglingShore);
 anglingReselectBtn.addEventListener('click',resetAnglingSelection);
 anglingCancelBtn.addEventListener('click',beginLeaveAngling);
 anglingExitBtn.addEventListener('click',()=>{
+  // V1.4 Drill-Fix: Während eines laufenden Drills darf der Ufer-/Exit-Button
+  // den Fang niemals abbrechen. Die UI blendet ihn im Drill zusätzlich aus.
+  if(anglingMode&&anglingState==='drilling')return;
   // V6.24: Der rote Button ist kontextabhängig.
   // Beim Zielwählen wechselt er die Angelstelle und öffnet wieder die 2D-Draufsicht.
   // Liegt eine Montage/Köder bereits im Wasser, holt er uns nur zum Ufer zurück,
