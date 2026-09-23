@@ -23441,12 +23441,10 @@ function aczoPredatorUpdate(f,dt,dist){
        b.aim.z=ground+(l.fall?Math.min(.48,Math.max(0,sight.z-ground)*.28):l.rise?.07:Math.min(.24,Math.max(0,sight.z-ground)*.20));
      }
    }else if(b.mode!=='burst')b.aim.z=f.obj.position.z+(sight.z-f.obj.position.z)*(s==='catfish'?.34:.52);
-   // Die berechnete Follow-Position beschreibt fuer grosse Foto-Raeuber den
-   // gewuenschten Kopf-/Maulpunkt. Der Koerpermittelpunkt bleibt entsprechend
-   // um den artspezifischen Laengenanteil dahinter. Beim echten Querwechsel
-   // bleibt die bestehende Koerperbahn unveraendert.
-   if(largePhotoFollower&&b.mode!=='burst'&&b.followTransition!=='cross')
-     aczoPredatorAimBodyForMouth(f,b.aim,b.aim);
+   // V1.5: Follow-/Inspect-Ziel bleibt eine Koerperbahn. Der virtuelle Maulpunkt
+   // wird fuer Distanz/Kontakt und den echten Burst benutzt, aber nicht zum
+   // Zurueckrechnen der normalen Nachlaufposition. Sonst richtet sich der lange
+   // Fotofisch permanent gerade auf den Koeder aus und verliert die 45-Grad-Spur.
    if(b.mode==='burst')aczoPredatorAimBodyForMouth(f,sight,b.aim);
    // Während echter Verfolgung häufiger auf die neue Köderposition zielen.
    // Inspect/Notice bleiben bewusst träger, damit nicht jeder Fisch am Köder klebt.
