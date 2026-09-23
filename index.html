@@ -23327,12 +23327,18 @@ function aczoPredatorUpdate(f,dt,dist){
  if(fishWorldTime>=b.nextAim){
    const sight=anglingLure.position;
    if(b.decisive){
-     // Fast direkt hinterher: nur eine kleine natürliche seitliche Abweichung.
-     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,.05,.26);
-     if(Math.random()<.05)b.side*=-1;
+     // Große Fotofische brauchen beim sichtbaren Nachlauf einen kleinen stabilen
+     // Seitenversatz. Direkt mittig hinter dem Köder würde ihre auf 48° begrenzte
+     // Billboard-Drehung sonst wie seitliches Geradeausschwimmen wirken.
+     const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
+     const decisiveMinSide=largePhotoFollower?.22:.05;
+     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,decisiveMinSide,.26);
+     if(Math.random()<(largePhotoFollower?.018:.05))b.side*=-1;
    }else{
-     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,.20,1.08);
-     if(Math.random()<.18)b.side*=-1;
+     const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
+     const followMinSide=largePhotoFollower?.46:.20;
+     b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,followMinSide,1.08);
+     if(Math.random()<(largePhotoFollower?.055:.18))b.side*=-1;
    }
    // Normale Nachläufer zielen auf einen Punkt HINTER der Köderbahn. Der seitliche
    // Versatz bleibt klein und natürlich. Nur eine echte Burst-Attacke zielt direkt
