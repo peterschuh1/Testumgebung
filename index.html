@@ -23198,6 +23198,26 @@ const aczoPredatorLure={active:false,fall:false,rise:false,resume:false,moving:f
 // Letzte belastbare horizontale Köderrichtung. Beim Jiggen bleibt sie erhalten,
 // damit Nachläufer hinter dem Köder bleiben statt bei jedem Vertikalsprung umzudrehen.
 const aczoPredatorLureDir=new THREE.Vector2(0,1);
+// V1.5: Virtueller Kopf-/Maulpunkt fuer Kunstkoeder-Raeuber. Die Fischposition
+// bleibt der Koerpermittelpunkt; Follow-Abstand und Koederkontakt beziehen sich
+// auf das vordere Ende des Fisches in seiner realen Schwimmrichtung.
+const aczoPredatorMouthTmp=new THREE.Vector3(),aczoPredatorMouthOldTmp=new THREE.Vector3();
+function aczoPredatorMouthPoint(f,out=aczoPredatorMouthTmp,x=null,y=null,z=null){
+ const b=f?.predatorBrain;
+ const heading=Number.isFinite(b?.heading)?b.heading:(Number.isFinite(f?.shadowYaw)?Math.PI/2+f.shadowYaw:0);
+ const length=Math.max(.08,Math.abs(f?.obj?.userData?.baseFishWidth||f?.obj?.scale?.x||.65));
+ const offset=length*.43;
+ const px=x==null?f.obj.position.x:x,py=y==null?f.obj.position.y:y,pz=z==null?f.obj.position.z:z;
+ return out.set(px+Math.cos(heading)*offset,py+Math.sin(heading)*offset,pz);
+}
+function aczoPredatorAimBodyForMouth(f,target,out){
+ const dx=target.x-f.obj.position.x,dy=target.y-f.obj.position.y;
+ const len=Math.hypot(dx,dy);
+ const heading=len>.001?Math.atan2(dy,dx):(f.predatorBrain?.heading||0);
+ const fishLength=Math.max(.08,Math.abs(f.obj.userData.baseFishWidth||f.obj.scale.x||.65));
+ const offset=fishLength*.43;
+ return out.set(target.x-Math.cos(heading)*offset,target.y-Math.sin(heading)*offset,target.z);
+}
 function aczoPredatorSampleLure(dt,active,previousZ){
  const l=aczoPredatorLure;l.active=active&&['lure-waiting','lure-retrieving'].includes(anglingState)&&!anglingFastObstaclePull;
  if(!l.active){l.lastMoving=false;l.lastFall=false;l.pulse=0;return;}
@@ -23236,7 +23256,7 @@ function aczoPredatorStart(f,spontaneous=false){
  const species=f.obj.userData.species,p=aczoPredatorProfiles[species],l=aczoPredatorLure;
  if(!p||!l.active||f.obj.userData.hiddenByHunt||activeHunt?.predator===f||
      activeHunt?.prey===f||fishWorldTime<(f.predatorCooldown||0))return false;
- const dist=f.obj.position.distanceTo(anglingLure.position);
+ const dist=aczoPredatorMouthPoint(f).distanceTo(anglingLure.position);
  if(dist>p.range+1.8)return false;
  const b=f.predatorBrain||(f.predatorBrain=aczoPredatorNew(f,p));
  if(b.mode!=='idle')return false;
@@ -23421,7 +23441,13 @@ function aczoPredatorUpdate(f,dt,dist){
        b.aim.z=ground+(l.fall?Math.min(.48,Math.max(0,sight.z-ground)*.28):l.rise?.07:Math.min(.24,Math.max(0,sight.z-ground)*.20));
      }
    }else if(b.mode!=='burst')b.aim.z=f.obj.position.z+(sight.z-f.obj.position.z)*(s==='catfish'?.34:.52);
-   if(b.mode==='burst')b.aim.copy(sight);
+   // Die berechnete Follow-Position beschreibt fuer grosse Foto-Raeuber den
+   // gewuenschten Kopf-/Maulpunkt. Der Koerpermittelpunkt bleibt entsprechend
+   // um den artspezifischen Laengenanteil dahinter. Beim echten Querwechsel
+   // bleibt die bestehende Koerperbahn unveraendert.
+   if(largePhotoFollower&&b.mode!=='burst'&&b.followTransition!=='cross')
+     aczoPredatorAimBodyForMouth(f,b.aim,b.aim);
+   if(b.mode==='burst')aczoPredatorAimBodyForMouth(f,sight,b.aim);
    // Während echter Verfolgung häufiger auf die neue Köderposition zielen.
    // Inspect/Notice bleiben bewusst träger, damit nicht jeder Fisch am Köder klebt.
    const aimDelay=b.mode==='burst'?(b.shockAttack?.10:.16):b.mode==='follow'?(b.decisive?.16:.23):(.30+Math.random()*.42);
@@ -23447,7 +23473,7 @@ function aczoPredatorSwim(f,dt){
  const chase=b.mode!=='abort';
  // Schreckattacken sind echte Direktangriffe: Der Räuber korrigiert seine Bahn
  // laufend auf den bewegten Köder, statt nur quer durchs Kamerabild zu schießen.
- if(b.mode==='burst'&&b.shockAttack)b.aim.copy(anglingLure.position);
+ if(b.mode==='burst'&&b.shockAttack)aczoPredatorAimBodyForMouth(f,anglingLure.position,b.aim);
  const dx=b.aim.x-position.x,dy=b.aim.y-position.y;
  const horizontal=Math.hypot(dx,dy);
  const desired=Math.atan2(dy,dx);
@@ -23490,17 +23516,19 @@ function aczoPredatorSwim(f,dt){
  position.z+=THREE.MathUtils.clamp(desiredZ-position.z,-climb,climb);
  keepFishAboveFloor(f);
  if(b.mode==='burst'){
-   const hit=position.distanceTo(anglingLure.position);
-   const radius=Math.max(.28,Math.min(.55,Math.abs(f.obj.userData.baseFishWidth||.65)*.48));
+   const mouthNow=aczoPredatorMouthPoint(f);
+   const hit=mouthNow.distanceTo(anglingLure.position);
+   const radius=Math.max(.18,Math.min(.34,Math.abs(f.obj.userData.baseFishWidth||.65)*.22));
    if(b.shockAttack){
      // Bei sehr schnellen Seitwärtsattacken kann ein Fisch zwischen zwei Frames
      // am Köder vorbeispringen. Deshalb wird die gesamte zurückgelegte Strecke
      // dieses Frames auf Köderkontakt geprüft, nicht nur die Endposition.
-     const sx=position.x-oldX,sy=position.y-oldY,sz=position.z-oldZ;
+     const mouthOld=aczoPredatorMouthPoint(f,aczoPredatorMouthOldTmp,oldX,oldY,oldZ);
+     const sx=mouthNow.x-mouthOld.x,sy=mouthNow.y-mouthOld.y,sz=mouthNow.z-mouthOld.z;
      const segLen2=sx*sx+sy*sy+sz*sz;
-     let t=segLen2>1e-6?((anglingLure.position.x-oldX)*sx+(anglingLure.position.y-oldY)*sy+(anglingLure.position.z-oldZ)*sz)/segLen2:0;
+     let t=segLen2>1e-6?((anglingLure.position.x-mouthOld.x)*sx+(anglingLure.position.y-mouthOld.y)*sy+(anglingLure.position.z-mouthOld.z)*sz)/segLen2:0;
      t=THREE.MathUtils.clamp(t,0,1);
-     const cx=oldX+sx*t,cy=oldY+sy*t,cz=oldZ+sz*t;
+     const cx=mouthOld.x+sx*t,cy=mouthOld.y+sy*t,cz=mouthOld.z+sz*t;
      const sweptHit=Math.hypot(anglingLure.position.x-cx,anglingLure.position.y-cy,anglingLure.position.z-cz);
      if(hit<.78||sweptHit<.72){
       // Die Schreckattacke ist als echter Überraschungsbiss gedacht. Hat der
@@ -23508,10 +23536,7 @@ function aczoPredatorSwim(f,dt){
       // normale 0,55-m-Endpositionsprüfung den bereits erfolgten Kontakt nicht
       // wieder verwerfen. Für die Bissübergabe wird er deshalb unmittelbar an
       // den Köderkontakt gesetzt; danach übernimmt unverändert das normale QTE.
-      const toward=new THREE.Vector3().subVectors(position,anglingLure.position);
-      if(toward.lengthSq()<1e-5)toward.set(Math.cos(b.heading),Math.sin(b.heading),0);
-      toward.normalize();
-      position.copy(anglingLure.position).addScaledVector(toward,.42);
+      aczoPredatorAimBodyForMouth(f,anglingLure.position,position);
       keepFishAboveFloor(f);
       if(beginAnglingLureAttack(f)){b.shockAttack=false;return true;}
     }
@@ -23591,7 +23616,7 @@ function updateFishActors(dt){
 
     const predatorProfile=aczoPredatorProfiles[species];
     if(predatorProfile){
-      const lureDist=f.obj.position.distanceTo(anglingLure.position);
+      const lureDist=aczoPredatorMouthPoint(f).distanceTo(anglingLure.position);
       if(lureUnderwaterActive&&fishNow>=anglingSnagCooldownUntil&&
          ['lure-waiting','lure-retrieving'].includes(anglingState)){
         aczoPredatorUpdate(f,dt,lureDist);
@@ -36857,7 +36882,7 @@ function beginAnglingLureAttack(sourceActor=null){
       if(!p||f.obj.userData.hiddenByHunt||activeHunt?.predator===f||
          activeHunt?.prey===f||fishWorldTime<(f.predatorCooldown||0)||
          (f.predatorBrain&&f.predatorBrain.mode!=='idle'))continue;
-      const d=f.obj.position.distanceTo(anglingLure.position);
+      const d=aczoPredatorMouthPoint(f).distanceTo(anglingLure.position);
       // V1.4 Kunstköder-Balance: Ein geeigneter Räuber darf den Köder auch aus
       // dem äußeren Wahrnehmungsbereich aufnehmen. Dadurch scheitert eine bereits
       // ausgeloste Köderchance nicht unnötig nur an der früheren starren 6-m-Grenze.
@@ -36875,12 +36900,12 @@ function beginAnglingLureAttack(sourceActor=null){
     }
     if(!sourceActor)return false;
     return aczoPredatorStart(sourceActor,
-      sourceActor.obj.position.distanceTo(anglingLure.position)<1.5);
+      aczoPredatorMouthPoint(sourceActor).distanceTo(anglingLure.position)<1.5);
   }
   const species=sourceActor.obj?.userData?.species;
   if(!aczoPredatorProfiles[species]||!sourceActor.predatorBrain||
      sourceActor.predatorBrain.mode!=='burst'||
-     sourceActor.obj.position.distanceTo(anglingLure.position)>.55)return false;
+     aczoPredatorMouthPoint(sourceActor).distanceTo(anglingLure.position)>.55)return false;
   sourceActor.predatorBrain.mode='idle';
 
   const temperament=pickAnglingTemperament();
