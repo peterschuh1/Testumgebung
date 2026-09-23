@@ -2917,23 +2917,24 @@ html,body{
 }
 .angling-ui.is-fishing .angling-fixed-menu-btn{display:block}
 .angling-ui.main-menu-open .angling-fixed-menu-btn{display:none}
-/* Predatorpit Lockpaste: kleine, unaufdringliche Restzeitanzeige. Wie der
+/* FIX3: Schreckattacke wiederhergestellt; Lockpaste-Timer lesbarer und HUD-frei.
+   Predatorpit Lockpaste: kleine, unaufdringliche Restzeitanzeige. Wie der
    Futterplatz-Timer blendet sie zyklisch ein und aus und verdeckt kein HUD. */
 .predator-pit-paste-timer{
-  display:none;position:absolute;z-index:1247;right:9px;pointer-events:none;
-  min-width:0;padding:2px 5px;border-radius:999px;border:1px solid rgba(94,255,80,.30);
-  background:rgba(2,25,13,.44);color:#75ff5f;font-size:6.8px;font-weight:1000;line-height:1;
+  display:none;position:absolute;z-index:1247;right:12px;pointer-events:none;
+  min-width:0;padding:4px 8px;border-radius:999px;border:1px solid rgba(94,255,80,.42);
+  background:rgba(2,25,13,.62);color:#75ff5f;font-size:11.5px;font-weight:1000;line-height:1.08;
   text-align:right;white-space:nowrap;text-shadow:0 0 4px rgba(74,255,54,.52);
   box-shadow:0 2px 6px rgba(0,0,0,.14)
 }
 /* Ufer: bewusst UNTER dem großen Angel-HUD. Unter Wasser darf die Anzeige oben rechts sitzen. */
-.predator-pit-paste-timer.shore{top:194px}
-.predator-pit-paste-timer.underwater{top:48px}
+.predator-pit-paste-timer.shore{top:154px;right:14px}
+.predator-pit-paste-timer.underwater{top:58px;right:14px}
 .predator-pit-paste-timer.show{display:block;animation:predatorPitPasteTimerCycle 10s ease-in-out infinite}
-.predator-pit-paste-timer strong{display:inline;color:#7cff62;font-size:6.8px;letter-spacing:.03px;margin-right:3px}
+.predator-pit-paste-timer strong{display:inline;color:#7cff62;font-size:11.5px;letter-spacing:.03px;margin-right:5px}
 @keyframes predatorPitPasteTimerCycle{0%,58%,100%{opacity:0}7%,36%{opacity:.88}48%{opacity:0}}
 .aczo-item-badges .aczo-paste-active{border-color:rgba(91,255,79,.48);background:rgba(10,54,22,.70);color:#8cff74;box-shadow:inset 0 0 6px rgba(91,255,79,.06)}
-@media(max-width:680px){.predator-pit-paste-timer{right:7px;padding:2px 4px;font-size:6.4px}.predator-pit-paste-timer strong{font-size:6.4px}.predator-pit-paste-timer.shore{top:194px}.predator-pit-paste-timer.underwater{top:47px}}
+@media(max-width:680px){.predator-pit-paste-timer{padding:5px 9px;font-size:11px}.predator-pit-paste-timer strong{font-size:11px}.predator-pit-paste-timer.shore{top:154px;right:10px}.predator-pit-paste-timer.underwater{top:58px;right:10px}}
 .angling-community-toast{
   display:none;position:absolute;z-index:1210;left:50%;top:12px;transform:translateX(-50%);
   max-width:min(76vw,430px);padding:7px 11px;border-radius:12px;
@@ -36540,6 +36541,63 @@ function recalcAnglingAtCurrentTerminal(){
   const pressure=anglingPressureAt(p.x,p.y);
   anglingBiteRate=(.006+.040*total/(total+140))*(.76+Math.random()*.48)*(1-pressure*.50);
 }
+
+// V1.4 Schreckattacke: Sehr selten darf ein Räuber ohne vorherige lange
+// Verfolgungsphase seitlich in die Unterwasseransicht schießen. Diese Attacke
+// ignoriert bewusst Tageszeit, Wetter und Führungsqualität. Sie soll den
+// unberechenbaren Moment echter Räuber simulieren, nicht die normale KI ersetzen.
+function beginAnglingShockLureAttack(){
+  if(!anglingUsesArtificialLure()||anglingState!=='lure-retrieving'||anglingFastObstaclePull||
+     anglingCinematicView!=='underwater')return false;
+  const pool=[];
+  for(const f of fishActors){
+    const sp=f.obj?.userData?.species,p=aczoPredatorProfiles[sp];
+    if(!p||f.obj.userData.hiddenByHunt||activeHunt?.predator===f||activeHunt?.prey===f)continue;
+    pool.push(f);
+  }
+  if(!pool.length)return false;
+
+  // Hecht/Barsch etwas häufiger als Überraschungsjäger, Zander und Wels bleiben
+  // aber ausdrücklich möglich. Keine Umwelt- oder Führungsbedingung fließt ein.
+  const speciesWeight={pike:1.30,perch:1.38,zander:1.02,catfish:.92};
+  let sourceActor=null,total=0;
+  for(const f of pool){
+    const w=speciesWeight[f.obj.userData.species]||1;
+    total+=w;if(Math.random()*total<w)sourceActor=f;
+  }
+  if(!sourceActor)return false;
+
+  const p=aczoPredatorProfiles[sourceActor.obj.userData.species];
+  const right=new THREE.Vector3();
+  camera.getWorldDirection(right);
+  right.set(-right.y,right.x,0);
+  if(right.lengthSq()<.01)right.set(1,0,0);else right.normalize();
+  const forward=new THREE.Vector3(-right.y,right.x,0);
+  const side=Math.random()<.5?-1:1;
+  let placed=false;
+  for(const dist of [6.4,5.6,4.8]){
+    const x=anglingLure.position.x+right.x*side*dist-forward.x*(.4+Math.random()*1.0);
+    const y=anglingLure.position.y+right.y*side*dist-forward.y*(.4+Math.random()*1.0);
+    const depth=pondDepthAt(x,y);
+    if(depth==null||depth<.65)continue;
+    const floor=-depth*exaggeration+.34;
+    sourceActor.obj.position.set(x,y,Math.max(floor,Math.min(-.18,anglingLure.position.z+(.12-Math.random()*.24))));
+    placed=true;break;
+  }
+  if(!placed)return false;
+
+  const b=sourceActor.predatorBrain||(sourceActor.predatorBrain=aczoPredatorNew(sourceActor,p));
+  b.mode='burst';b.started=fishWorldTime;b.stopAt=fishWorldTime+3.2;
+  b.reactionUntil=fishWorldTime;b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;
+  b.interest=1.65;b.aggression=Math.max(1.35,b.aggression||0);b.closeTime=0;b.restSince=0;
+  b.aim.copy(anglingLure.position);
+  const dx=anglingLure.position.x-sourceActor.obj.position.x,dy=anglingLure.position.y-sourceActor.obj.position.y;
+  b.heading=Math.atan2(dy,dx);b.speed=p.burst*1.18;
+  b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
+  sourceActor.predatorCooldown=0;sourceActor.lureChaseUntil=fishWorldTime+5;sourceActor.pause=0;
+  return true;
+}
+
 
 function beginAnglingLureAttack(sourceActor=null){
   if(!anglingUsesArtificialLure()||!['lure-retrieving','lure-waiting'].includes(anglingState))return false;
