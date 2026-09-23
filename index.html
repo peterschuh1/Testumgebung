@@ -23324,7 +23324,10 @@ function aczoPredatorUpdate(f,dt,dist){
      }
    }else if(b.mode!=='burst')b.aim.z=f.obj.position.z+(sight.z-f.obj.position.z)*(s==='catfish'?.34:.52);
    if(b.mode==='burst')b.aim.copy(sight);
-   b.nextAim=fishWorldTime+(.30+Math.random()*.42)*(b.mode==='burst'?.52:1);
+   // Während echter Verfolgung häufiger auf die neue Köderposition zielen.
+   // Inspect/Notice bleiben bewusst träger, damit nicht jeder Fisch am Köder klebt.
+   const aimDelay=b.mode==='burst'?(b.shockAttack?.10:.16):b.mode==='follow'?(b.decisive?.16:.23):(.30+Math.random()*.42);
+   b.nextAim=fishWorldTime+aimDelay*(b.mode==='follow'?(.80+Math.random()*.55):1);
  }
  return true;
 }
@@ -23355,7 +23358,22 @@ function aczoPredatorSwim(f,dt){
  if(horizontal>.10)b.heading+=THREE.MathUtils.clamp(delta,-turn,turn);
  let targetSpeed=b.mode==='burst'?p.burst:(b.mode==='notice'?.40:b.mode==='inspect'?.30:b.mode==='abort'?.76:p.cruise);
  if(chase&&aczoPredatorLure.rest&&b.mode!=='burst')targetSpeed*=.42;
- if(chase&&b.mode==='follow')targetSpeed*=THREE.MathUtils.clamp(horizontal/2.0,b.decisive?.72:.54,b.decisive?1.48:1.28);
+ if(chase&&b.mode==='follow'){
+   // V1.4 Verfolgungs-Balance: Ein Räuber, der sich bereits für den Köder
+   // entschieden hat, muss einen bewegten Kunstköder auch wirklich einholen
+   // können. Die alte reine Distanzskalierung bremste ihn beim Annähern zu
+   // früh ab; dadurch blieb er hinter dem Köder und fiel aus dem Bild.
+   const distanceFactor=THREE.MathUtils.clamp(horizontal/1.75,b.decisive?.86:.70,b.decisive?1.72:1.52);
+   targetSpeed*=distanceFactor;
+   if(aczoPredatorLure.moving&&anglingLureWorldSpeed>.10){
+     // Leichter Geschwindigkeitsüberschuss gegenüber dem sichtbaren Köder.
+     // Artspezifische Profile bleiben erhalten; dies ist nur eine Untergrenze
+     // während einer aktiven Verfolgung, kein permanenter Turbo.
+     const catchup=s==='perch'?1.30:s==='pike'?1.26:s==='zander'?1.22:1.16;
+     const lureCatchSpeed=THREE.MathUtils.clamp(anglingLureWorldSpeed*catchup,p.cruise,p.burst*.82);
+     targetSpeed=Math.max(targetSpeed,lureCatchSpeed);
+   }
+ }
  const diff=targetSpeed-b.speed;
  b.speed+=THREE.MathUtils.clamp(diff,-p.accel*dt*.9,p.accel*dt*(b.mode==='burst'?1.65:1));
  b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
@@ -29035,7 +29053,7 @@ const ANGLING_NATURAL_BAITS=[
  {id:'maggot_mix',name:'Madenmix',icon:'maggot_mix',desc:'Besonders attraktiv für Rotaugen und Rotfedern.',pack:12,price:25,tag:'Rotauge · Rotfeder'},
  {id:'mistworm',name:'Mistwurm',icon:'mistworm',desc:'Kräftiger Köder für Brassen, Schleie und Aal.',pack:10,price:30,tag:'Brasse · Schleie · Aal'},
  {id:'mini_boilie',name:'Mini-Boilie',icon:'mini_boilie',desc:'Gezielter Friedfischköder für Karpfen.',pack:6,price:45,tag:'Karpfen ++'},
- {id:'dew_worm',name:'Tauwurm',icon:'dew_worm',desc:'Großer Köder für Aal, Barsch und gelegentlich Wels.',pack:6,price:45,tag:'Aal · Barsch'},
+ {id:'dew_worm',name:'Tauwurm',icon:'dew_worm',desc:'Großer Köder für Aal, Barsch und gelegentlich Wels.',pack:12,price:45,tag:'Aal · Barsch'},
  {id:'worm_bundle',name:'Wurmbündel',icon:'worm_bundle',desc:'12 Tauwürmer am Haken · ausschließlich für Wels · besonders hohe Welschance.',pack:0,price:0,tag:'Wels +++ · kostet 12 Tauwürmer',virtual:true},
  {id:'sturgeon_pellet',name:'Stör-Pellet',icon:'sturgeon_pellet',desc:'Spezialköder mit sehr hoher Störgewichtung.',pack:5,price:50,tag:'Stör ++'}
 ];
@@ -29290,8 +29308,13 @@ function aczoProductThumb(key,uid){
  <linearGradient id="${g('cream')}" x2=".2" y2="1"><stop stop-color="#fff6d5"/><stop offset=".46" stop-color="#e9d5ab"/><stop offset="1" stop-color="#a58b67"/></linearGradient>
  </defs><ellipse cx="48" cy="55" rx="30" ry="3" fill="#000" opacity=".17"/>${body}</svg>`;
  if(key==='worm_bundle'){
-   const paths=['M9 45C16 22 27 17 35 35S50 50 58 28S74 15 86 31','M12 31C25 45 31 12 43 23S54 49 67 37S76 21 85 18','M18 50C26 35 36 43 42 28S54 13 62 30S72 48 82 39'];
-   return wrap(paths.map((p,i)=>`<path d="${p}" fill="none" stroke="${i===1?'#aa7661':'#53332d'}" stroke-width="${i===1?5.2:7}" stroke-linecap="round" opacity="${i===1?.95:.88}"/>`).join(''));
+   // Wels-Wurmbündel: Drilling mit zwölf deutlich erkennbaren Tauwürmern.
+   const xs=[22,27,32,37,42,47,52,57,62,67,72,77];
+   const worms=xs.map((x,i)=>{
+     const y2=48+(i%3)*3, bend=(i%2?3:-3);
+     return `<path d="M${x} 24 C${x+bend} 31 ${x-bend} 38 ${x} ${y2}" fill="none" stroke="${i%3===1?'#aa7661':'#684038'}" stroke-width="3.1" stroke-linecap="round"/><path d="M${x+.4} 25 C${x+bend+.4} 31 ${x-bend+.4} 38 ${x+.4} ${y2-1}" fill="none" stroke="#d29a7f" stroke-width=".7" opacity=".55"/>`;
+   }).join('');
+   return wrap(`<path d="M48 7v17" stroke="url(#${g('steel')})" stroke-width="3" stroke-linecap="round"/><circle cx="48" cy="7" r="4" fill="none" stroke="#b9c8c5" stroke-width="2"/><path d="M48 22C43 18 38 20 38 26C38 31 43 33 48 27C53 33 58 31 58 26C58 20 53 18 48 22Z" fill="none" stroke="#aebdbb" stroke-width="2.2"/><path d="M38 26l-5-2m25 2 5-2M48 27v6" stroke="#aebdbb" stroke-width="1.8" stroke-linecap="round"/>${worms}`);
  }
  if(['worm','mistworm','dew_worm'].includes(key)){
    const dark=key==='mistworm'?'#643225':key==='dew_worm'?'#53332d':'#743932';
@@ -29369,7 +29392,7 @@ function anglingBaitThumb(key){
    case 'worm':return `<svg ${common}><path d="M12 43 C22 21 37 53 48 28 C58 7 73 38 84 20" fill="none" stroke="#9b3d36" stroke-width="9" stroke-linecap="round"/><path d="M14 41 C24 24 37 50 48 28 C58 12 71 36 82 22" fill="none" stroke="#d46a58" stroke-width="2" stroke-linecap="round" opacity=".65"/></svg>`;
    case 'mistworm':return `<svg ${common}><path d="M11 43 C22 17 38 54 50 27 C61 4 75 39 86 18" fill="none" stroke="#71352c" stroke-width="10" stroke-linecap="round"/><path d="M14 40 C26 22 38 49 50 27 C61 11 73 34 83 21" fill="none" stroke="#b45843" stroke-width="2.2" stroke-linecap="round" opacity=".62"/></svg>`;
    case 'dew_worm':return `<svg ${common}><path d="M7 41 C18 10 35 54 48 31 C62 6 78 45 90 17" fill="none" stroke="#5d302d" stroke-width="11" stroke-linecap="round"/><path d="M10 39 C21 16 35 50 48 31 C61 13 76 40 87 20" fill="none" stroke="#a75b50" stroke-width="2.4" stroke-linecap="round" opacity=".58"/></svg>`;
-   case 'worm_bundle':return `<svg ${common}><path d="M7 43 C17 13 31 55 43 29 C55 5 70 44 89 19" fill="none" stroke="#5d302d" stroke-width="8" stroke-linecap="round"/><path d="M10 25 C23 48 32 11 45 24 C58 38 67 48 86 34" fill="none" stroke="#a75b50" stroke-width="7" stroke-linecap="round"/><path d="M15 49 C27 34 38 44 48 25 C59 8 72 24 83 42" fill="none" stroke="#704039" stroke-width="6" stroke-linecap="round"/></svg>`;
+   case 'worm_bundle':return `<svg ${common}><path d="M48 5v18" stroke="#b8c5c3" stroke-width="3"/><circle cx="48" cy="6" r="4" fill="none" stroke="#b8c5c3" stroke-width="2"/><path d="M48 21C42 17 36 20 38 27C40 32 45 31 48 26C51 31 56 32 58 27C60 20 54 17 48 21Z" fill="none" stroke="#aab9b7" stroke-width="2.2"/><g fill="none" stroke-linecap="round">${[22,27,32,37,42,47,52,57,62,67,72,77].map((x,i)=>`<path d="M${x} 24C${x+(i%2?3:-3)} 33 ${x+(i%2?-3:3)} 43 ${x} ${54+(i%3)}" stroke="${i%3===1?'#aa7661':'#684038'}" stroke-width="3"/>`).join('')}</g></svg>`;
 
    case 'maggot':return `<svg ${common}>
      <g transform="rotate(-12 48 32)"><path d="M19 37 C15 24 26 17 37 22 C45 14 58 18 61 28 C71 25 80 31 77 41 C66 49 54 43 47 41 C36 48 22 47 19 37Z" fill="#e8dfbd" stroke="#b7a979" stroke-width="1.4"/>
@@ -29653,6 +29676,7 @@ function aczoTickReward(){
  f.chip.style.opacity=String(Math.min(1,(1-t)*5));
 }
 
+let anglingWormBundleMountedAt=0;
 function equipAnglingNaturalBait(id){
  if(anglingUi.classList.contains('line-active')){
    showAnglingToast('Köder nur vor dem Auswurf wechseln.',1450);
@@ -29663,11 +29687,15 @@ function equipAnglingNaturalBait(id){
    const worms=Math.max(0,Math.floor(Number(anglingProgress.naturalInventory.dew_worm)||0));
    if(worms<12){showAnglingToast('Wurmbündel benötigt 12 Tauwürmer · '+worms+' vorhanden.',2200);openAnglingShop();return;}
    anglingProgress.naturalInventory.dew_worm=worms-12;
+   // Lokaler Schutz gegen eine bereits laufende, ältere Cloud-Antwort, die direkt
+   // nach dem Montieren sonst wieder den vorherigen Köder auswählen könnte.
+   anglingWormBundleMountedAt=Date.now();
  }
  const stock=anglingNaturalStock(id);
  if(id==='baitfish'&&stock<1){showAnglingToast('Fange zuerst einen Köderfisch.',1500);return;}
  if(id!=='baitfish'&&id!=='worm_bundle'&&stock<1){showAnglingToast(anglingEmptyBaitMessage(id),2200);openAnglingShop();return;}
  anglingProgress.selectedEquipment='';anglingSelectedBait=id;anglingProgress.selectedBait=id;saveAnglingProgress();closeAnglingGamePanels();updateAnglingSetupUi();
+ if(id==='worm_bundle'&&typeof syncAnglingPlayerCloud==='function')syncAnglingPlayerCloud().catch(()=>{});
  if(anglingSelection&&anglingState==='ready'){
    updateAnglingDeeperReadyPose();
  }
@@ -29746,7 +29774,7 @@ function renderAnglingBaitBox(){
    const action=b.id==='baitfish'
      ?(unavailable?'Erst Köderfisch fangen':'Auswählen')
      :b.id==='worm_bundle'
-       ?(unavailable?'Tauwürmer kaufen':'12 Tauwürmer verwenden')
+       ?(unavailable?'Im Tackle-Shop kaufen':'12 Tauwürmer verwenden')
        :(unavailable?'Im Tackle-Shop kaufen':'Auswählen');
    const card=createAnglingItemCard({
      itemType:'natural',itemId:b.id,
@@ -30133,8 +30161,11 @@ function applyAnglingCloudPlayer(player){
   anglingApplyInventory(anglingProgress.feedInventory,player.feedInventory);anglingApplyInventory(anglingProgress.equipmentInventory,player.equipmentInventory);
 
   if(typeof player.selectedBait==='string'&&player.selectedBait){
-    anglingProgress.selectedBait=player.selectedBait;
-    anglingSelectedBait=player.selectedBait;
+    const protectMountedBundle=anglingSelectedBait==='worm_bundle'&&Date.now()-anglingWormBundleMountedAt<15000&&player.selectedBait!=='worm_bundle';
+    if(!protectMountedBundle){
+      anglingProgress.selectedBait=player.selectedBait;
+      anglingSelectedBait=player.selectedBait;
+    }
   }
   if(typeof player.selectedLureId==='string'&&player.selectedLureId){
     anglingProgress.selectedLureId=player.selectedLureId;
