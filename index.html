@@ -23338,16 +23338,15 @@ function aczoPredatorUpdate(f,dt,dist){
  // Maximal einige Wahrnehmungen pro Sekunde; keine unmittelbare Kopie jeder Köderbewegung.
  if(fishWorldTime>=b.nextAim){
    const sight=anglingLure.position;
+   const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
    if(b.decisive){
      // Große Fotofische brauchen beim sichtbaren Nachlauf einen kleinen stabilen
      // Seitenversatz. Direkt mittig hinter dem Köder würde ihre auf 48° begrenzte
      // Billboard-Drehung sonst wie seitliches Geradeausschwimmen wirken.
-     const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
      const decisiveMinSide=largePhotoFollower?.22:.05;
      b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.10,decisiveMinSide,.26);
      if(Math.random()<(largePhotoFollower?.018:.05))b.side*=-1;
    }else{
-     const largePhotoFollower=s==='zander'||s==='pike'||s==='catfish';
      const followMinSide=largePhotoFollower?.46:.20;
      b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,followMinSide,1.08);
      if(Math.random()<(largePhotoFollower?.055:.18))b.side*=-1;
