@@ -23178,6 +23178,9 @@ const aczoPredatorProfiles={
  catfish:{range:5.8,notice:.11,cruise:1.00,burst:3.05,accel:1.42,turn:.85,follow:8.5,rest:2.0,night:1.65,day:.27,bottom:.78,spoon:.65,spontaneous:.11}
 };
 const aczoPredatorLure={active:false,fall:false,rise:false,resume:false,moving:false,bottom:false,rest:false,height:0,lastMoving:false,lastFall:false,kind:'softbait',pulse:0};
+// Letzte belastbare horizontale Köderrichtung. Beim Jiggen bleibt sie erhalten,
+// damit Nachläufer hinter dem Köder bleiben statt bei jedem Vertikalsprung umzudrehen.
+const aczoPredatorLureDir=new THREE.Vector2(0,1);
 function aczoPredatorSampleLure(dt,active,previousZ){
  const l=aczoPredatorLure;l.active=active&&['lure-waiting','lure-retrieving'].includes(anglingState)&&!anglingFastObstaclePull;
  if(!l.active){l.lastMoving=false;l.lastFall=false;l.pulse=0;return;}
@@ -23186,6 +23189,8 @@ function aczoPredatorSampleLure(dt,active,previousZ){
  l.height=depth?Math.max(0,anglingLure.position.z-depth.bottomZ-depth.bottomClearance):1.5;
  l.bottom=l.height<.86;
  l.moving=anglingState==='lure-retrieving'&&anglingLureWorldSpeed>.10;
+ const lureDx=anglingLure.position.x-anglingLureSweepStart.x,lureDy=anglingLure.position.y-anglingLureSweepStart.y;
+ if(lureDx*lureDx+lureDy*lureDy>.0009)aczoPredatorLureDir.set(lureDx,lureDy).normalize();
  const vz=dt>0?(anglingLure.position.z-previousZ)/dt:0;
  l.fall=vz<-.055&&!l.moving;
  l.rise=vz>.065;
@@ -23199,7 +23204,7 @@ function aczoPredatorNew(f,profile){
  return {mode:'idle',velocity:new THREE.Vector3(Math.cos(heading)*f.speed,Math.sin(heading)*f.speed,0),aim:new THREE.Vector3(),
    speed:f.speed,heading,interest:0,aggression:.58+Math.random()*.80,curiosity:.65+Math.random()*.7,
    nextThink:0,lastThink:0,nextAim:0,reactionUntil:0,started:0,stopAt:0,restSince:0,seenPulse:0,closeTime:0,abortUntil:0,
-   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,decisive:false,profile};
+   side:Math.random()<.5?-1:1,sideAmount:.28+Math.random()*.75,lastDist:99,trackingTime:0,decisive:false,profile};
 }
 function aczoPredatorDisengage(f,b){
  b.mode='abort';b.abortUntil=fishWorldTime+1.3+Math.random()*1.5;
@@ -23230,7 +23235,7 @@ function aczoPredatorStart(f,spontaneous=false){
  b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(b.decisive?(.88+Math.random()*.38):(.78+Math.random()*.68));
  b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;b.seenPulse=l.pulse;
  b.reactionUntil=fishWorldTime+(b.mode==='burst'?.08:p.notice*(b.decisive?(.38+Math.random()*.70):(.8+Math.random()*2.2)));
- b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);
+ b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);b.trackingTime=0;
  if(b.decisive)b.sideAmount=.08+Math.random()*.18;
  b.aim.copy(f.target);b.restSince=0;b.closeTime=0;b.lastDist=dist;
  f.lureChaseUntil=b.stopAt+2;f.pause=0;
@@ -23283,6 +23288,9 @@ function aczoPredatorUpdate(f,dt,dist){
  }
  else if(dist>1.65&&b.mode==='inspect')b.mode='follow';
  if(b.mode==='inspect'&&b.closeTime>2.2&&b.interest<.7){aczoPredatorDisengage(f,b);return false;}
+ // Nur echte, nahe Nachläufer bauen Attackenbereitschaft auf; bei Abstand fällt sie wieder ab.
+ if((b.mode==='follow'||b.mode==='inspect')&&dist<2.35)b.trackingTime=Math.min(5,(b.trackingTime||0)+elapsed);
+ else b.trackingTime=Math.max(0,(b.trackingTime||0)-elapsed*.8);
  const night=simulationEnabled?sceneNightFactor:0;
  const highCue=l.fall||l.resume||(l.kind==='softbait'&&l.rise&&l.bottom);
  // V1.4 Kunstköder-Balance: Gleichmäßiges Einholen ist eine vollwertige
@@ -23299,7 +23307,10 @@ function aczoPredatorUpdate(f,dt,dist){
  // Damit sieht man neben den zögerlichen Fischen regelmäßig Räuber, die den
  // Köder zielstrebig nehmen, ohne dass daraus die separate Schreckattacke wird.
  const decisiveAttackBoost=b.decisive?2.15:1;
- const attackRate=(.082+p.spontaneous*.31)*b.aggression*steadyAttackBoost*actionBonus*decisiveAttackBoost*(l.rest?.38:1)*
+ // Ein Räuber, der den Köder bereits sauber verfolgt, soll nicht endlos folgen.
+ // Der Bonus baut sich langsam auf und bleibt gedeckelt; ein Biss wird nie garantiert.
+ const trackingAttackBoost=1+Math.min(.75,(b.trackingTime||0)*.16);
+ const attackRate=(.082+p.spontaneous*.31)*b.aggression*steadyAttackBoost*actionBonus*decisiveAttackBoost*trackingAttackBoost*(l.rest?.38:1)*
    (s==='perch'?THREE.MathUtils.lerp(1,.17,night):s==='catfish'?THREE.MathUtils.lerp(.48,1.65,night):1);
  const attackDistance=b.decisive?(s==='catfish'?2.55:1.90):(s==='catfish'?2.2:1.55);
  const interestGate=b.decisive?.36:.43;
@@ -23318,8 +23329,14 @@ function aczoPredatorUpdate(f,dt,dist){
      b.sideAmount=THREE.MathUtils.clamp(b.sideAmount+(Math.random()-.5)*.46,.20,1.08);
      if(Math.random()<.18)b.side*=-1;
    }
-   const hx=Math.cos(b.heading),hy=Math.sin(b.heading);
-   b.aim.set(sight.x-hy*b.side*b.sideAmount,sight.y+hx*b.side*b.sideAmount,sight.z);
+   // Normale Nachläufer zielen auf einen Punkt HINTER der Köderbahn. Der seitliche
+   // Versatz bleibt klein und natürlich. Nur eine echte Burst-Attacke zielt direkt
+   // auf den Köder. Dadurch kein Überholen/Umkreisen beim Jiggen.
+   const lureDirX=aczoPredatorLureDir.x,lureDirY=aczoPredatorLureDir.y;
+   const trail=b.decisive?(.48+b.sideAmount*.28):(.62+b.sideAmount*.42);
+   const lateral=b.decisive?b.sideAmount*.34:b.sideAmount*.46;
+   b.aim.set(sight.x-lureDirX*trail-lureDirY*b.side*lateral,
+             sight.y-lureDirY*trail+lureDirX*b.side*lateral,sight.z);
    if(s==='zander'&&b.mode!=='burst'){
      const floor=pondDepthAt(b.aim.x,b.aim.y);
      if(floor!=null){const ground=-floor*exaggeration+.33;
@@ -23368,6 +23385,7 @@ function aczoPredatorSwim(f,dt){
    // früh ab; dadurch blieb er hinter dem Köder und fiel aus dem Bild.
    const distanceFactor=THREE.MathUtils.clamp(horizontal/1.75,b.decisive?.86:.70,b.decisive?1.72:1.52);
    targetSpeed*=distanceFactor;
+   if(horizontal<.48)targetSpeed*=THREE.MathUtils.clamp(horizontal/.48,.34,1);
    if(aczoPredatorLure.moving&&anglingLureWorldSpeed>.10){
      // Leichter Geschwindigkeitsüberschuss gegenüber dem sichtbaren Köder.
      // Artspezifische Profile bleiben erhalten; dies ist nur eine Untergrenze
@@ -23375,6 +23393,8 @@ function aczoPredatorSwim(f,dt){
      const catchup=s==='perch'?1.30:s==='pike'?1.26:s==='zander'?1.22:1.16;
      const lureCatchSpeed=THREE.MathUtils.clamp(anglingLureWorldSpeed*catchup,p.cruise,p.burst*.82);
      targetSpeed=Math.max(targetSpeed,lureCatchSpeed);
+     // Direkt am Nachlaufpunkt nicht mit Überschuss durch das Ziel schießen.
+     if(horizontal<.48)targetSpeed=Math.min(targetSpeed,Math.max(p.cruise*.34,anglingLureWorldSpeed*.96));
    }
  }
  const diff=targetSpeed-b.speed;
@@ -28551,7 +28571,9 @@ function predatorPitPasteTimeLabel(lureId){const left=Math.max(0,predatorPitPast
 function updatePredatorPitPasteTimer(){
  const now=Date.now();let changed=false;for(const [id,expires] of predatorPitPasteByLure){if(now>=expires){predatorPitPasteByLure.delete(id);delete anglingProgress.predatorPitPasteExpiries[id];changed=true;}}if(changed)saveAnglingProgress({preserveXpRevision:true,skipCloudSync:true,skipEpSync:true});
  const label=predatorPitPasteTimeLabel(anglingSelectedLureId),active=!!label&&anglingUsesArtificialLure();
- if(predatorPitPasteTimer){const underwater=anglingCinematicView==='underwater';predatorPitPasteTimer.classList.toggle('underwater',underwater);predatorPitPasteTimer.classList.toggle('shore',!underwater);predatorPitPasteTimer.classList.toggle('show',active&&anglingMode);if(active){const strong=predatorPitPasteTimer.querySelector('strong'),span=predatorPitPasteTimer.querySelector('span');if(strong)strong.textContent='☢ Lockpaste';if(span)span.textContent=label;}}
+ const pasteTimerFishingState=['casting','lure-waiting','lure-retrieving','lure-attack','lure-missed'].includes(anglingState);
+ const pasteTimerUiClear=!anglingUi.classList.contains('main-menu-open')&&!anglingUi.classList.contains('game-panel-open')&&!anglingUi.classList.contains('is-drilling')&&!anglingUi.classList.contains('is-landing')&&!anglingUi.classList.contains('is-caught')&&!anglingUi.classList.contains('is-catch-sequence');
+ if(predatorPitPasteTimer){const underwater=anglingCinematicView==='underwater';predatorPitPasteTimer.classList.toggle('underwater',underwater);predatorPitPasteTimer.classList.toggle('shore',!underwater);predatorPitPasteTimer.classList.toggle('show',active&&anglingMode&&pasteTimerFishingState&&pasteTimerUiClear);if(active){const strong=predatorPitPasteTimer.querySelector('strong'),span=predatorPitPasteTimer.querySelector('span');if(strong)strong.textContent='☢ Lockpaste';if(span)span.textContent=label;}}
  // Restzeit direkt auf jedem behandelten Köder in der geöffneten Tacklebox aktualisieren.
  document.querySelectorAll('.angling-item-card[data-product^="lure:"]').forEach(card=>{const lureId=card.dataset.product.slice(5),badges=card.querySelector('.aczo-item-badges');if(!badges)return;let b=badges.querySelector('.aczo-paste-active');const t=predatorPitPasteTimeLabel(lureId);if(t){if(!b){b=document.createElement('span');b.className='aczo-paste-active';badges.append(b);}b.textContent='☢ Lockpaste '+t;}else b?.remove();});
 }
