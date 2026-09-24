@@ -9036,7 +9036,6 @@ function applyNeutralDayScene(){
   if(typeof cloudReflectionGroup!=='undefined')cloudReflectionGroup.visible=false;
   if(typeof directCelestialReflectionGroup!=='undefined')directCelestialReflectionGroup.visible=false;
   if(typeof seasonSnowPoints!=='undefined')seasonSnowPoints.visible=false;
-  if(typeof seasonLeafPoints!=='undefined')seasonLeafPoints.visible=false;
   if(typeof aczoStructureShadowLight!=='undefined'){
     aczoStructureShadowLight.intensity=0;
     aczoStructureShadowLight.visible=false;
@@ -26640,6 +26639,11 @@ let anglingFastRetrieveDuration=.75;
 let anglingCinematicView='shore',anglingCinematicBlend=0;
 let anglingReturnToShorePendingReset=false;
 const anglingCinematicPos=new THREE.Vector3(),anglingCinematicTarget=new THREE.Vector3();
+// P63: Beim Kunstkoeder-Schnelleinholen bleibt die Unterwasserkamera in einer
+// einmal festgelegten Nachlaufperspektive. Sie wird nur mit dem Koeder verschoben.
+const anglingFastCameraDir=new THREE.Vector3(0,1,0);
+const anglingFastCameraSide=new THREE.Vector3(1,0,0);
+let anglingFastCameraLocked=false;
 const anglingShoreCameraPos=new THREE.Vector3(),anglingShoreCameraTarget=new THREE.Vector3();
 let anglingLureDepth=.18;
 let anglingLureGrounded=false;
@@ -36508,6 +36512,7 @@ function beginFastAnglingRetrieve(){
   anglingQte.classList.remove('show','now','second-lap');
   const artificial=anglingUsesArtificialLure();
   anglingFastObstaclePull=false;
+  anglingFastCameraLocked=false;
   const terminal=anglingUsesDeeper()?anglingDeeper:(artificial?anglingLure:anglingBobber);
   anglingRetrieveStart.copy(terminal.position);
 
@@ -36573,6 +36578,18 @@ function beginFastAnglingRetrieve(){
     // bis kurz vors Ufer. Erst dort springt die Ansicht sauber zum Angelplatz.
     const startSurface=anglingSurfaceZ(anglingRetrieveStart.x,anglingRetrieveStart.y);
     anglingLureRetrieveStartDepth=Math.max(.12,startSurface-anglingRetrieveStart.z);
+    // P63: Die Rueckholrichtung genau einmal einfrieren. Dadurch bleibt die
+    // Kamera waehrend des kompletten Unterwasser-Rueckwegs fest hinter dem
+    // Koeder, statt ihre Perspektive pro Frame neu zum Ufer auszurichten.
+    anglingFastCameraDir.set(
+      anglingRetrieveEnd.x-anglingRetrieveStart.x,
+      anglingRetrieveEnd.y-anglingRetrieveStart.y,
+      0
+    );
+    if(anglingFastCameraDir.lengthSq()<1e-6)anglingFastCameraDir.set(0,1,0);
+    else anglingFastCameraDir.normalize();
+    anglingFastCameraSide.copy(anglingFastCameraDir).applyAxisAngle(anglingUp,Math.PI/2).normalize();
+    anglingFastCameraLocked=true;
     anglingCinematicView='underwater';anglingCinematicBlend=0;
     anglingLureEntryTime=0;
     anglingRodGroup.visible=false;
@@ -37981,6 +37998,21 @@ function updateAnglingCinematicCamera(dt){
      anglingCinematicPos.z=Math.min(surfaceHere-.20,anglingLure.position.z-.10);
      anglingCinematicTarget.copy(snagPoint);
      constrainAnglingUnderwaterColumn(anglingCinematicPos,anglingLure.position,'camera');
+   }else if(anglingState==='fast-retrieving'&&anglingUsesArtificialLure()&&anglingFastCameraLocked){
+     // P63: Starre Nachlaufkamera beim Schnelleinholen. Horizontaler Winkel,
+     // Abstand und Blickrichtung bleiben konstant; nur Koeder und Kamera fahren
+     // gemeinsam zum Ufer. Erst beim finalen Auftauchen darf der Blick leicht
+     // nach oben folgen, ohne seitliches Drehen oder Herumschwenken.
+     const surfaceHere=anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y);
+     anglingCinematicPos.copy(anglingLure.position)
+       .addScaledVector(anglingFastCameraDir,-3.05)
+       .addScaledVector(anglingFastCameraSide,.30);
+     anglingCinematicPos.z=Math.min(surfaceHere-.18,anglingLure.position.z+.56);
+     anglingCinematicTarget.copy(anglingLure.position)
+       .addScaledVector(anglingFastCameraDir,2.75);
+     anglingCinematicTarget.z=anglingLure.position.z-.14;
+     constrainAnglingUnderwaterColumn(anglingCinematicPos,anglingLure.position,'camera');
+     constrainAnglingUnderwaterColumn(anglingCinematicTarget,anglingLure.position,'target');
    }else{
    const lureSurface=anglingSurfaceZ(anglingLure.position.x,anglingLure.position.y);
    const lureDepthNow=Math.max(.15,lureSurface-anglingLure.position.z);
@@ -38480,6 +38512,7 @@ function updateAnglingMode(dt){
       anglingUnderwaterEntry.classList.remove('show');anglingLureEntryTime=0;anglingCinematicView='shore';
       camera.position.copy(anglingShoreCameraPos);controls.target.copy(anglingShoreCameraTarget);camera.up.set(0,0,1);camera.lookAt(controls.target);
       anglingRodGroup.visible=true;
+      anglingFastCameraLocked=false;
       // Ein per "Zum Ufer" gestartetes Posen-Schnelleinholen ist jetzt fertig.
       // Die Sperre muss vor dem normalen Bereitschafts-Reset geloest werden.
       anglingReturnToShorePendingReset=false;
@@ -39296,10 +39329,10 @@ function updateCelestialLensFlare(){
 
 // ---------------- Jahreszeiten- und Wetterdarstellung ----------------
 const seasonParticleGroup=new THREE.Group();scene.add(seasonParticleGroup);
-const seasonFlakeCount=1100,seasonLeafCount=180;
+const seasonFlakeCount=1100;
 function makeSeasonPoints(count,color,size){const arr=new Float32Array(count*3);for(let i=0;i<count;i++){arr[i*3]=(Math.random()-.5)*D.sceneW;arr[i*3+1]=(Math.random()-.5)*D.sceneH;arr[i*3+2]=2+Math.random()*55;}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(arr,3));const mat=new THREE.PointsMaterial({color,size,transparent:true,opacity:.72,depthWrite:false,sizeAttenuation:true});const pts=new THREE.Points(geo,mat);pts.visible=false;pts.renderOrder=80;seasonParticleGroup.add(pts);return pts;}
-const seasonSnowPoints=makeSeasonPoints(seasonFlakeCount,0xf2f7ff,.42),seasonLeafPoints=makeSeasonPoints(seasonLeafCount,0xc28a3a,.18);
-function updateSeasonTestVisuals(dt){const now=viewerNow(),day=seasonDayOfDate(now),p=seasonVisualProfile(day),winterFactor=seasonWinterFactor(day),winterBrown=seasonWinterBrownStrength();if(typeof satUniforms!=='undefined'){const targetR=THREE.MathUtils.lerp(.66,.54,winterBrown);const targetG=THREE.MathUtils.lerp(.58,.40,winterBrown);const targetB=THREE.MathUtils.lerp(.46,.28,winterBrown);const tintR=THREE.MathUtils.lerp(p.tint[0],targetR,winterFactor*.98);const tintG=THREE.MathUtils.lerp(p.tint[1],targetG,winterFactor*1.00);const tintB=THREE.MathUtils.lerp(p.tint[2],targetB,winterFactor*.96);satUniforms.seasonTint.value.setRGB(tintR,tintG,tintB);satUniforms.seasonStrength.value=THREE.MathUtils.clamp(p.strength+winterFactor*(.16+.18*winterBrown),0,.88);satUniforms.seasonSnow.value=seasonTestMode?seasonTestSnowCover/100:0;}const snowing=seasonTestSnowing(),snowIntensity=snowing?Math.min(1,Math.max(.18,(liveWeather.precipitation||0)/2.2)):0;seasonSnowPoints.visible=!is2D&&snowIntensity>.01;seasonSnowPoints.material.opacity=.42+.48*snowIntensity;if(seasonSnowPoints.visible){const a=seasonSnowPoints.geometry.attributes.position.array;for(let i=0;i<seasonFlakeCount;i++){const k=i*3;a[k+2]-=dt*(3.0+snowIntensity*5.4);a[k]+=cloudWindWorld.x*dt*(.42+cloudWindWorldSpeed*1.15);a[k+1]+=cloudWindWorld.y*dt*(.42+cloudWindWorldSpeed*1.15);if(a[k+2]<.4){a[k]=(Math.random()-.5)*D.sceneW;a[k+1]=(Math.random()-.5)*D.sceneH;a[k+2]=42+Math.random()*34;}}seasonSnowPoints.geometry.attributes.position.needsUpdate=true;}const leafIntensity=p.leaves*(seasonTestMode?Math.min(1,.25+liveWeather.windSpeed/18):1);seasonLeafPoints.visible=!is2D&&leafIntensity>.08&&!snowing;seasonLeafPoints.material.opacity=.18+.55*leafIntensity;if(seasonLeafPoints.visible){const a=seasonLeafPoints.geometry.attributes.position.array;for(let i=0;i<seasonLeafCount;i++){const k=i*3;a[k+2]-=dt*(.25+leafIntensity*.65);a[k]+=cloudWindWorld.x*dt*(.6+cloudWindWorldSpeed*1.2)+Math.sin(waterUniforms.time.value+i)*dt*.15;a[k+1]+=cloudWindWorld.y*dt*(.6+cloudWindWorldSpeed*1.2);if(a[k+2]<.35){a[k]=(Math.random()-.5)*D.sceneW;a[k+1]=(Math.random()-.5)*D.sceneH;a[k+2]=5+Math.random()*18;}}seasonLeafPoints.geometry.attributes.position.needsUpdate=true;}}
+const seasonSnowPoints=makeSeasonPoints(seasonFlakeCount,0xf2f7ff,.42);
+function updateSeasonTestVisuals(dt){const now=viewerNow(),day=seasonDayOfDate(now),p=seasonVisualProfile(day),winterFactor=seasonWinterFactor(day),winterBrown=seasonWinterBrownStrength();if(typeof satUniforms!=='undefined'){const targetR=THREE.MathUtils.lerp(.66,.54,winterBrown);const targetG=THREE.MathUtils.lerp(.58,.40,winterBrown);const targetB=THREE.MathUtils.lerp(.46,.28,winterBrown);const tintR=THREE.MathUtils.lerp(p.tint[0],targetR,winterFactor*.98);const tintG=THREE.MathUtils.lerp(p.tint[1],targetG,winterFactor*1.00);const tintB=THREE.MathUtils.lerp(p.tint[2],targetB,winterFactor*.96);satUniforms.seasonTint.value.setRGB(tintR,tintG,tintB);satUniforms.seasonStrength.value=THREE.MathUtils.clamp(p.strength+winterFactor*(.16+.18*winterBrown),0,.88);satUniforms.seasonSnow.value=seasonTestMode?seasonTestSnowCover/100:0;}const snowing=seasonTestSnowing(),snowIntensity=snowing?Math.min(1,Math.max(.18,(liveWeather.precipitation||0)/2.2)):0;seasonSnowPoints.visible=!is2D&&snowIntensity>.01;seasonSnowPoints.material.opacity=.42+.48*snowIntensity;if(seasonSnowPoints.visible){const a=seasonSnowPoints.geometry.attributes.position.array;for(let i=0;i<seasonFlakeCount;i++){const k=i*3;a[k+2]-=dt*(3.0+snowIntensity*5.4);a[k]+=cloudWindWorld.x*dt*(.42+cloudWindWorldSpeed*1.15);a[k+1]+=cloudWindWorld.y*dt*(.42+cloudWindWorldSpeed*1.15);if(a[k+2]<.4){a[k]=(Math.random()-.5)*D.sceneW;a[k+1]=(Math.random()-.5)*D.sceneH;a[k+2]=42+Math.random()*34;}}seasonSnowPoints.geometry.attributes.position.needsUpdate=true;}}
 
 const clock=new THREE.Clock();
 let aczoLastRenderedFrameAt=0;
