@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>ACZO56-Interaktiv-V1.5</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
+<!-- ACZO56 V1.5 ALLE ANIMATIONEN: Bewegungsreduktion für Spiel-/UI-Animationen vollständig entfernt. -->
 <!-- V7.83: Kritische Viewer-Ressourcen früh anfordern. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://geo4.service24.rlp.de" crossorigin>
@@ -4241,11 +4242,6 @@ html,body{
   48%,68%{transform:translateX(var(--aczo-phone-pan-end,0px))}
   100%{transform:translateX(var(--aczo-phone-pan-start,0px))}
 }
-@media(prefers-reduced-motion:reduce){
-  .aczo-phone-layout .aczo-phone-text-pan>.aczo-phone-text-track{
-    animation:none!important;transform:none!important;max-width:100%;overflow:hidden;text-overflow:ellipsis
-  }
-}
 
 
 /* P63: In der reinen Wurfziel-/Stellenauswahl keine untere Infozeile.
@@ -4351,7 +4347,6 @@ html,body{
 @media(max-width:680px){#anglingBaitBoxBody .angling-category-grid,#anglingShopBody .angling-category-grid{grid-template-columns:1fr}#anglingBaitBoxBody,#anglingShopBody{padding:8px 10px 14px}.aczo-commerce-filter>span{font-size:10px}}
 @media(max-width:360px){#anglingBaitBoxPanel .angling-game-panel-head strong,#anglingShopPanel .angling-game-panel-head strong{font-size:15px!important}#anglingShopPanel .angling-shop-head-right{gap:4px}#anglingShopPanel .angling-shop-head-right>span{font-size:10px}}
 @media(max-height:480px){#aczo-product-dialog{max-height:calc(100dvh - 16px)}.aczo-product-art{height:85px}.aczo-product-art svg{height:82px}.aczo-product-head{padding:4px 12px}}
-@media(prefers-reduced-motion:reduce){#aczo-product-dialog,.aczo-product-art.aczo-spoon::after{animation:none!important}.aczo-product-art.aczo-spoon::after{display:none}}
 
 /* Begrenzung gegen intrinsische Breiten und die globale button-nowrap-Regel. */
 #anglingBaitBoxPanel,#anglingShopPanel,#aczo-product-dialog{box-sizing:border-box;min-width:0}
@@ -4460,7 +4455,6 @@ html,body{
 #anglingCatchCard #anglingAgainBtn{min-height:40px;white-space:normal}
 @media(max-width:680px){#anglingCatchCard .aczo-catch-photo{height:82px}#anglingCatchCard{padding:10px}#anglingCatchCard #anglingCatchTitle{font-size:15px}}
 @media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
-@media(prefers-reduced-motion:reduce){#anglingBaitBoxBtn[data-aczo-equipped],#anglingCatchCard.show,#anglingCatchCard.aczo-personal-record,#aczoCatchSheen,#aczoCatchRewards #anglingEpPopup.show{animation:none!important}#aczoCatchSheen{display:none}}
 
 /* Abtropfen bekommt kurz freie Sicht; die Zielsteuerung bleibt unverändert. */
 #anglingUi.aczo-dripping #anglingAimReticle{visibility:hidden!important;opacity:0!important}
@@ -4473,7 +4467,6 @@ html,body{
 .aczo-reward-flight b{position:absolute;left:0;top:0;white-space:nowrap;padding:4px 9px;font-size:16px;line-height:20px;font-variant-numeric:tabular-nums;color:#ffe998;border:1px solid #e4cb70;border-radius:20px;background:#173e2c;pointer-events:none!important;will-change:transform,opacity}
 #anglingEpBadge.aczo-reward-arrival{animation:aczo-ep-arrival .5s ease-out}
 @keyframes aczo-ep-arrival{0%,100%{box-shadow:inset 0 0 0 transparent}40%{box-shadow:inset 0 0 15px #fff1a2}}
-@media(prefers-reduced-motion:reduce){#anglingCatchCard.show .aczo-catch-photo,#aczoCatchRewards #anglingEpPopup.show .aczo-reward-number,#anglingEpBadge.aczo-reward-arrival{animation:none!important}.aczo-reward-flight{display:none}}
 
 </style>
 
@@ -20385,7 +20378,7 @@ const aczoSurveyManualTreeObjects=ACZO_SURVEY_DATA.objects.filter(o=>o.type==='d
 // Markanter Laubbaum aus dem Uferfoto: zwischen der dritten und vierten
 // Süduferbirke, dabei rund einen Meter zum Weiher vorgezogen. Er wird vor dem
 // Wald-Batching erzeugt und bleibt dadurch ebenso performant wie alle Kronen.
-const ACZO_SOUTH_LIFEBUOY_TREE={x:17.762,y:-55.189,type:'deciduous',height:17.2,crownRadius:3.75,crownDepth:3.48,trunkRadius:.34,seed:aczoSurveySeed(17.762,-55.189,1956),species:aczoSurveySpecies[4],filler:false,toneBand:1,hueShift:.018,satShift:-.015,lightShift:.135};
+const ACZO_SOUTH_LIFEBUOY_TREE={x:12.581,y:-56.005,type:'deciduous',height:17.2,crownRadius:3.75,crownDepth:3.48,trunkRadius:.34,seed:aczoSurveySeed(12.581,-56.005,1956),species:aczoSurveySpecies[4],filler:false,toneBand:1,hueShift:.018,satShift:-.015,lightShift:.135};
 const aczoSurveyManualTreePoints=aczoSurveyManualTreeObjects.map(o=>[o.x,o.y]);
 aczoSurveyManualTreePoints.push([ACZO_SOUTH_LIFEBUOY_TREE.x,ACZO_SOUTH_LIFEBUOY_TREE.y]);
 // P32: Nord-, West- und Ostufer enthalten keine Poly-Ersatzbaeume mehr.
@@ -22103,9 +22096,9 @@ function addFishPopulation(name,count,options={}){
   }
 }
 
-// Etwas dichtere Unterwasserwelt, ohne die Raubfischmenge oder den einzigartigen
-// goldenen Koi zu vervielfachen. Auf Mobilgeraeten bleibt der Aufschlag bewusst
-// kleiner; Desktop bekommt durch die groessere Leistungsreserve mehr Schwarmtiere.
+// Etwas dichtere Unterwasserwelt. Die Raubfischbestaende sind auf Mobilgeraeten
+// und Desktop identisch; nur friedliche Schwarm-/Kleinfische duerfen fuer die
+// Performance weiterhin unterschiedliche Dichten verwenden. Der goldene Koi bleibt einmalig.
 const fishWorldDesktopDensity=!(
   (window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)||
   window.innerWidth<=700
@@ -22114,8 +22107,8 @@ const fishWorldCount=(mobileCount,desktopCount)=>fishWorldDesktopDensity?desktop
 const fishWorldBuildPlan=[
   ['roach',fishWorldCount(112,120),{schools:fishWorldCount(8,9)}],
   ['rudd',fishWorldCount(78,84),{schools:7}],
-  ['pike',10,{exactSizes:[.62,.70,.76,.84,.92,1.00,1.08,1.16,1.24,1.32]}],
-  ['catfish',5,{exactSizes:[.86,1.00,1.10,1.22,1.34]}],
+  ['pike',16,{exactSizes:[.62,.66,.70,.74,.78,.82,.86,.90,.94,.98,1.04,1.10,1.16,1.22,1.27,1.32]}],
+  ['catfish',9,{exactSizes:[.86,.92,.98,1.04,1.10,1.16,1.22,1.28,1.34]}],
   ['carp',fishWorldCount(11,12),{schools:2}],
   ['mirrorcarp',fishWorldCount(11,12),{schools:2}],
   ['grasscarp',3,{exactSizes:[1.00,1.15,1.30]}],
@@ -22125,7 +22118,7 @@ const fishWorldBuildPlan=[
   ['tench',fishWorldCount(22,24)],
   ['bream',fishWorldCount(34,36),{schools:5}],
   ['koi',1],
-  ['perch',fishWorldCount(56,60),{schools:8,loners:6}],
+  ['perch',60,{schools:8,loners:6}],
   ['sunfish',fishWorldCount(79,84),{schools:10}],
   // Grosser Bestand, aber durch Sichtweiten-Culling und die bestehende
   // Acht-Frame-Simulation entfernter Tiere weiterhin leichtgewichtig.
@@ -23189,10 +23182,10 @@ function triggerAnglingLureScare(f,cfg){
 
 // Kunstköder sind Reize. Jeder Räuber behält seine eigene Geschwindigkeit und sein eigenes Sichtziel.
 const aczoPredatorProfiles={
- zander:{range:6.6,notice:.23,cruise:1.12,burst:3.45,accel:2.0,turn:1.30,follow:17,rest:3.0,night:.78,day:.64,bottom:.82,spoon:.78,spontaneous:.10},
+ zander:{range:7.4,notice:.20,cruise:1.14,burst:3.45,accel:1.9,turn:1.02,follow:20.5,rest:3.2,night:.82,day:.68,bottom:.82,spoon:.82,spontaneous:.12},
  perch:{range:5.2,notice:.30,cruise:1.70,burst:3.65,accel:3.6,turn:2.70,follow:9,rest:1.25,night:.13,day:1.15,bottom:.45,spoon:1.20,spontaneous:.16},
- pike:{range:6.3,notice:.18,cruise:1.28,burst:4.65,accel:3.2,turn:1.65,follow:7.5,rest:1.8,night:.86,day:1.0,bottom:.18,spoon:1.42,spontaneous:.18},
- catfish:{range:5.8,notice:.11,cruise:1.00,burst:3.05,accel:1.42,turn:.85,follow:8.5,rest:2.0,night:1.65,day:.27,bottom:.78,spoon:.65,spontaneous:.11}
+ pike:{range:7.0,notice:.16,cruise:1.30,burst:4.65,accel:3.0,turn:1.28,follow:10.5,rest:1.9,night:.90,day:1.04,bottom:.18,spoon:1.46,spontaneous:.20},
+ catfish:{range:6.5,notice:.10,cruise:1.02,burst:3.05,accel:1.36,turn:.68,follow:11.0,rest:2.2,night:1.70,day:.30,bottom:.82,spoon:.68,spontaneous:.12}
 };
 const aczoPredatorLure={active:false,fall:false,rise:false,resume:false,moving:false,bottom:false,rest:false,height:0,lastMoving:false,lastFall:false,kind:'softbait',pulse:0};
 // Letzte belastbare horizontale Köderrichtung. Beim Jiggen bleibt sie erhalten,
@@ -23202,6 +23195,21 @@ const aczoPredatorLureDir=new THREE.Vector2(0,1);
 // bleibt der Koerpermittelpunkt; Follow-Abstand und Koederkontakt beziehen sich
 // auf das vordere Ende des Fisches in seiner realen Schwimmrichtung.
 const aczoPredatorMouthTmp=new THREE.Vector3(),aczoPredatorMouthOldTmp=new THREE.Vector3();
+const aczoPredatorCameraRightTmp=new THREE.Vector2();
+function aczoPredatorCameraRight2D(out=aczoPredatorCameraRightTmp){
+ const viewX=anglingLure.position.x-camera.position.x,viewY=anglingLure.position.y-camera.position.y;
+ const viewLen=Math.hypot(viewX,viewY);
+ if(viewLen>.20)return out.set(-viewY/viewLen,viewX/viewLen);
+ return out.set(-aczoPredatorLureDir.y,aczoPredatorLureDir.x);
+}
+function aczoPredatorAssignVisualSide(f,b){
+ const right=aczoPredatorCameraRight2D();
+ const relX=f.obj.position.x-anglingLure.position.x,relY=f.obj.position.y-anglingLure.position.y;
+ const lateral=relX*right.x+relY*right.y;
+ if(Math.abs(lateral)>.12)b.side=lateral<0?-1:1;
+ else if(!Number.isFinite(b.side)||b.side===0)b.side=Math.random()<.5?-1:1;
+ return b.side;
+}
 function aczoPredatorMouthPoint(f,out=aczoPredatorMouthTmp,x=null,y=null,z=null){
  const b=f?.predatorBrain;
  const heading=Number.isFinite(b?.heading)?b.heading:(Number.isFinite(f?.shadowYaw)?Math.PI/2+f.shadowYaw:0);
@@ -23253,16 +23261,16 @@ function aczoPredatorDisengage(f,b){
  // zieht er diagonal ueber/vor den Koeder und verschwindet anschliessend in der Tiefe.
  const species=f.obj?.userData?.species;
  if(species==='zander'||species==='pike'||species==='catfish'){
-   const sight=anglingLure.position;
-   const viewX=sight.x-camera.position.x,viewY=sight.y-camera.position.y;
-   const viewLen=Math.hypot(viewX,viewY);
-   let rightX=-aczoPredatorLureDir.y,rightY=aczoPredatorLureDir.x;
-   if(viewLen>.20){rightX=-viewY/viewLen;rightY=viewX/viewLen;}
-   const inward=b.side<0?1:-1;
-   const forward=3.8+Math.random()*1.5,across=3.0+Math.random()*1.2;
-   b.aim.set(sight.x+aczoPredatorLureDir.x*forward+rightX*inward*across,
-             sight.y+aczoPredatorLureDir.y*forward+rightY*inward*across,
-             f.obj.position.z-.12-Math.random()*.20);
+   // V1.53: Abbruch IMMER vorwärts aus der aktuellen Körperachse. Damit kann
+   // kein großer Räuber beim Interessenverlust rückwärts zum Köder gezogen werden.
+   // Linke Nachläufer biegen nach rechts ab, rechte entsprechend nach links.
+   const hx=Math.cos(b.heading),hy=Math.sin(b.heading);
+   const leftX=-hy,leftY=hx;
+   const forward=4.4+Math.random()*1.8,across=2.6+Math.random()*1.4;
+   const turnSign=b.side<0?-1:1;
+   b.aim.set(f.obj.position.x+hx*forward+leftX*turnSign*across,
+             f.obj.position.y+hy*forward+leftY*turnSign*across,
+             f.obj.position.z-.10-Math.random()*.18);
  }else{
    const angle=b.heading+b.side*(.75+Math.random()*.55);
    b.aim.set(f.obj.position.x+Math.cos(angle)*3.8,f.obj.position.y+Math.sin(angle)*3.8,f.obj.position.z);
@@ -23288,18 +23296,38 @@ function aczoPredatorStart(f,spontaneous=false){
  b.mode=spontaneous&&dist<1.65?'burst':'notice';
  const largePhotoFollower=species==='zander'||species==='pike'||species==='catfish';
  if(largePhotoFollower){
+   // V1.53: Ein großer Räuber darf eine normale Nachlaufphase nur beginnen,
+   // wenn er bereits hinter bzw. höchstens seitlich am Köder liegt. Ein Fisch
+   // VOR dem Köder würde sonst rückwärts auf den Ankerpunkt gezogen. Solche
+   // Tiere schwimmen normal weiter, bis der Köder sie passiert; nur ein echter
+   // unmittelbarer Spontanangriff darf aus kurzer Distanz direkt einschwenken.
+   const relX=f.obj.position.x-anglingLure.position.x,relY=f.obj.position.y-anglingLure.position.y;
+   const ahead=relX*aczoPredatorLureDir.x+relY*aczoPredatorLureDir.y;
+   if(ahead>.18&&!spontaneous){
+     // Start wurde noch nicht wirklich angenommen: Brain vollständig in den
+     // Normalzustand zurücksetzen, sonst würde ein abgelehnter Frontfisch als
+     // halbfertiger 'notice'-Verfolger weitergesteuert.
+     b.mode='idle';b.interest=0;b.trackingTime=0;b.reactionUntil=0;
+     b.speed=f.speed;b.velocity.set(Math.cos(b.heading)*b.speed,Math.sin(b.heading)*b.speed,0);
+     f.lureChaseUntil=0;
+     f.predatorCooldown=Math.max(f.predatorCooldown||0,fishWorldTime+.34+Math.random()*.32);
+     return false;
+   }
    // V1.5: Eine Verfolgungsphase bleibt konsequent auf EINER Seite.
    // Abwechslung entsteht nur ueber Vor-/Zurueckfallen auf dieser Spur.
    // V1.51: Zander, Hecht und Wels bekommen beim Start genau EINE feste
    // Bildschirmseite. Der seitliche Abstand ist bewusst deutlich genug, damit
    // sie niemals optisch auf die Mittellinie direkt hinter dem Köder rutschen.
-   b.sideAmount=.92+Math.random()*.42;
-   b.followTrailBase=.72+Math.random()*.38;
+   aczoPredatorAssignVisualSide(f,b);
+   b.sideAmount=1.02+Math.random()*.48;
+   b.followTrailBase=.82+Math.random()*.34;
  }
  b.started=fishWorldTime;b.stopAt=fishWorldTime+p.follow*(largePhotoFollower?(1.18+Math.random()*.82):(b.decisive?(.88+Math.random()*.38):(.78+Math.random()*.68)));
  b.nextThink=fishWorldTime;b.lastThink=fishWorldTime;b.nextAim=fishWorldTime;b.seenPulse=l.pulse;
  b.reactionUntil=fishWorldTime+(b.mode==='burst'?.08:p.notice*(b.decisive?(.38+Math.random()*.70):(.8+Math.random()*2.2)));
- b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);b.trackingTime=0;
+ b.interest=(b.decisive?.78:.48)+b.curiosity*.18+(l.fall?.13:0)+(l.bottom?.08:0);
+ if(largePhotoFollower)b.interest=Math.max(b.interest,.82+b.curiosity*.16);
+ b.trackingTime=0;
  b.aim.copy(f.target);b.restSince=0;b.closeTime=0;b.lastDist=dist;
  f.lureChaseUntil=b.stopAt+2;f.pause=0;
  return true;
@@ -23318,7 +23346,8 @@ function aczoPredatorUpdate(f,dt,dist){
    const depthFactor=l.bottom?(1+p.bottom):(s==='zander'?.65:1);
    const cue=l.fall?1.50:(l.resume?1.48:l.rise?1.25:(l.moving?1:l.rest?.22:.55));
    const bait=l.kind==='spinner'?p.spoon:1;
-   const rate=.075*dayFactor*depthFactor*cue*bait*(1+Math.max(0,1-dist/p.range));
+   const visualFollowerBoost=(s==='zander'||s==='pike'||s==='catfish')?(l.moving?1.85:(l.fall||l.resume?1.55:1.18)):1;
+   const rate=.075*dayFactor*depthFactor*cue*bait*visualFollowerBoost*(1+Math.max(0,1-dist/p.range));
    if(Math.random()<1-Math.exp(-Math.max(0,rate)*dt))return aczoPredatorStart(f,dist<1.6&&Math.random()<p.spontaneous*2.0);
    return false;
  }
@@ -23397,14 +23426,24 @@ function aczoPredatorUpdate(f,dt,dist){
    const lureDirX=aczoPredatorLureDir.x,lureDirY=aczoPredatorLureDir.y;
    let trail,lateral;
    if(largePhotoFollower&&b.mode!=='burst'){
+     // V1.53: Harte Vorwärtsregel auch während einer laufenden Verfolgung.
+     // Gerät der Fisch durch Köderstopp/Tempoänderung vor den Köder, wird er
+     // niemals rückwärts auf die Nachlaufspur gezogen, sondern löst sich in
+     // einem großen Vorwärtsbogen aus der Situation.
+     const relAheadX=f.obj.position.x-sight.x,relAheadY=f.obj.position.y-sight.y;
+     const aheadNow=relAheadX*lureDirX+relAheadY*lureDirY;
+     if(aheadNow>.24){
+       aczoPredatorDisengage(f,b);
+       return false;
+     }
      // V1.51 ANKERSEIL: Der Nachlaufpunkt liegt fest links ODER rechts im Bild.
      // Die Seite wird waehrend der gesamten Verfolgung niemals gewechselt.
      // Nur der Abstand entlang der Koederbahn pulsiert: aufholen, mitlaufen,
      // kurz stoppen und wieder abfallen. Es gibt keine Mittellinie und kein Kreuzen.
-     const rhythm=Math.sin(fishWorldTime*(l.rest?.38:.62)+(b.followPhase||0));
-     const secondary=Math.sin(fishWorldTime*.19+(b.followPhase||0)*.61);
-     const amplitude=l.rest?.18:.38;
-     trail=THREE.MathUtils.clamp((b.followTrailBase||.90)+rhythm*amplitude+secondary*.10,.50,1.48);
+     const rhythm=Math.sin(fishWorldTime*(l.rest?.32:.54)+(b.followPhase||0));
+     const secondary=Math.sin(fishWorldTime*.14+(b.followPhase||0)*.61);
+     const amplitude=l.rest?.14:.26;
+     trail=THREE.MathUtils.clamp((b.followTrailBase||.96)+rhythm*amplitude+secondary*.06,.62,1.56);
      lateral=b.sideAmount;
 
      // Bildschirm-Rechtsvektor aus der echten Unterwasserkamera. Damit bleibt
@@ -23446,6 +23485,7 @@ function aczoPredatorSwim(f,dt){
  if(b.mode==='idle')return false;
  if(b.mode==='abort'&&fishWorldTime>=b.abortUntil){
    b.mode='idle';f.predatorCooldown=fishWorldTime+3+Math.random()*5;
+   f.swimHeading=b.heading;
    // Schulziele gehören mehreren Barschen: beim Rückweg nie den gemeinsamen
    // Schulvektor überschreiben oder den Schwarm unbeabsichtigt umlenken.
    if(!f.schoolTarget){
@@ -23457,6 +23497,7 @@ function aczoPredatorSwim(f,dt){
    f.pause=0;return false;
  }
  const chase=b.mode!=='abort';
+ const largeArcFollower=['zander','pike','catfish'].includes(s);
  // Schreckattacken sind echte Direktangriffe: Der Räuber korrigiert seine Bahn
  // laufend auf den bewegten Köder, statt nur quer durchs Kamerabild zu schießen.
  if(b.mode==='burst'&&b.shockAttack)aczoPredatorAimBodyForMouth(f,anglingLure.position,b.aim);
@@ -23464,7 +23505,8 @@ function aczoPredatorSwim(f,dt){
  const horizontal=Math.hypot(dx,dy);
  const desired=Math.atan2(dy,dx);
  const delta=Math.atan2(Math.sin(desired-b.heading),Math.cos(desired-b.heading));
- const turn=p.turn*(b.mode==='burst'?(b.shockAttack?4.2:1.36):1)*dt;
+ const turnFactor=b.mode==='burst'?(b.shockAttack?4.2:1.36):(largeArcFollower?(b.mode==='follow'?.66:b.mode==='notice'?.72:b.mode==='abort'?.62:.82):1);
+ const turn=p.turn*turnFactor*dt;
  if(horizontal>.10)b.heading+=THREE.MathUtils.clamp(delta,-turn,turn);
  let targetSpeed=b.mode==='burst'?p.burst:(b.mode==='notice'?.40:b.mode==='inspect'?.30:b.mode==='abort'?.76:p.cruise);
  if(chase&&aczoPredatorLure.rest&&b.mode!=='burst')targetSpeed*=.42;
@@ -23504,34 +23546,69 @@ function aczoPredatorSwim(f,dt){
  if(b.mode==='burst'){
    const mouthNow=aczoPredatorMouthPoint(f);
    const hit=mouthNow.distanceTo(anglingLure.position);
-   const radius=Math.max(.18,Math.min(.34,Math.abs(f.obj.userData.baseFishWidth||.65)*.22));
-   if(b.shockAttack){
-     // Bei sehr schnellen Seitwärtsattacken kann ein Fisch zwischen zwei Frames
-     // am Köder vorbeispringen. Deshalb wird die gesamte zurückgelegte Strecke
-     // dieses Frames auf Köderkontakt geprüft, nicht nur die Endposition.
-     const mouthOld=aczoPredatorMouthPoint(f,aczoPredatorMouthOldTmp,oldX,oldY,oldZ);
-     const sx=mouthNow.x-mouthOld.x,sy=mouthNow.y-mouthOld.y,sz=mouthNow.z-mouthOld.z;
-     const segLen2=sx*sx+sy*sy+sz*sz;
-     let t=segLen2>1e-6?((anglingLure.position.x-mouthOld.x)*sx+(anglingLure.position.y-mouthOld.y)*sy+(anglingLure.position.z-mouthOld.z)*sz)/segLen2:0;
-     t=THREE.MathUtils.clamp(t,0,1);
-     const cx=mouthOld.x+sx*t,cy=mouthOld.y+sy*t,cz=mouthOld.z+sz*t;
-     const sweptHit=Math.hypot(anglingLure.position.x-cx,anglingLure.position.y-cy,anglingLure.position.z-cz);
-     if(hit<.78||sweptHit<.72){
-      // Die Schreckattacke ist als echter Überraschungsbiss gedacht. Hat der
-      // Räuber den Köder auf seiner schnellen Bahn erreicht, darf die strengere
-      // normale 0,55-m-Endpositionsprüfung den bereits erfolgten Kontakt nicht
-      // wieder verwerfen. Für die Bissübergabe wird er deshalb unmittelbar an
-      // den Köderkontakt gesetzt; danach übernimmt unverändert das normale QTE.
-      aczoPredatorAimBodyForMouth(f,anglingLure.position,position);
-      keepFishAboveFloor(f);
-      if(beginAnglingLureAttack(f)){b.shockAttack=false;return true;}
-    }
-   }else if(hit<radius&&beginAnglingLureAttack(f))return true;
+   const radius=Math.max(.22,Math.min(.42,Math.abs(f.obj.userData.baseFishWidth||.65)*.24));
+
+   // V1.54: JEDE Attacke verwendet eine Swept-Collision des Mauls. Die alte
+   // Bahnprüfung galt nur für die seltene Schreckattacke; normale Hechte,
+   // Zander und Welse konnten deshalb zwischen zwei Frames vollständig durch
+   // den Köder schießen. Geprüft wird weiterhin nur die Maulbahn, nicht der
+   // ganze Fischkörper, damit bloßes Streifen keinen Biss erzeugt.
+   const mouthOld=aczoPredatorMouthPoint(f,aczoPredatorMouthOldTmp,oldX,oldY,oldZ);
+   const sx=mouthNow.x-mouthOld.x,sy=mouthNow.y-mouthOld.y,sz=mouthNow.z-mouthOld.z;
+   const segLen2=sx*sx+sy*sy+sz*sz;
+   let t=segLen2>1e-6?((anglingLure.position.x-mouthOld.x)*sx+(anglingLure.position.y-mouthOld.y)*sy+(anglingLure.position.z-mouthOld.z)*sz)/segLen2:0;
+   t=THREE.MathUtils.clamp(t,0,1);
+   const cx=mouthOld.x+sx*t,cy=mouthOld.y+sy*t,cz=mouthOld.z+sz*t;
+   const sweptHit=Math.hypot(anglingLure.position.x-cx,anglingLure.position.y-cy,anglingLure.position.z-cz);
+   const contactRadius=b.shockAttack?.72:Math.max(.30,Math.min(.48,radius+.09));
+
+   if(hit<contactRadius||sweptHit<contactRadius){
+     // Kontakt ist erfolgt. Den Fisch nicht anhand der bereits überschossenen
+     // Position neu zum Köder ausrichten, denn das könnte seine Richtung um
+     // 180 Grad drehen. Stattdessen bleibt seine aktuelle Vorwärtsachse erhalten
+     // und das Maul wird exakt auf den Köder gesetzt.
+     const h=b.heading;
+     const fishLength=Math.max(.08,Math.abs(f.obj.userData.baseFishWidth||f.obj.scale.x||.65));
+     const mouthOffset=fishLength*.43;
+     position.set(
+       anglingLure.position.x-Math.cos(h)*mouthOffset,
+       anglingLure.position.y-Math.sin(h)*mouthOffset,
+       anglingLure.position.z
+     );
+     keepFishAboveFloor(f);
+     if(beginAnglingLureAttack(f)){b.shockAttack=false;return true;}
+   }
    if(fishWorldTime>b.stopAt||hit>p.range*1.8){b.shockAttack=false;aczoPredatorDisengage(f,b);}
  }
  return false;
 }
 
+// V1.52: Allgemeine Vorwaertsregel fuer die komplette Fischwelt.
+// Normale Zielwechsel duerfen die Bewegungsrichtung nicht mehr hart umdrehen.
+// Jeder Fisch besitzt deshalb eine echte horizontale Schwimmrichtung und
+// schwenkt mit artspezifischem Kurvenradius auf neue Ziele ein.
+function aczoFishBaseTurnRate(species){
+  if(species==='catfish')return .46;
+  if(species==='sturgeon')return .50;
+  if(species==='zander')return .58;
+  if(species==='pike')return .64;
+  if(species==='grasscarp')return .62;
+  if(species==='carp'||species==='mirrorcarp')return .70;
+  if(species==='eel')return .72;
+  if(species==='tench'||species==='bream')return .82;
+  if(species==='perch')return 1.18;
+  if(species==='goby')return 1.05;
+  if(species==='roach'||species==='rudd'||species==='sunfish')return 1.42;
+  return .92;
+}
+function aczoFishTurnToward(f,desiredHeading,maxTurn){
+  if(!Number.isFinite(f.swimHeading))f.swimHeading=desiredHeading;
+  const delta=Math.atan2(Math.sin(desiredHeading-f.swimHeading),Math.cos(desiredHeading-f.swimHeading));
+  f.swimHeading+=THREE.MathUtils.clamp(delta,-maxTurn,maxTurn);
+  // Winkel klein halten, damit nach langen Sessions keine unnoetig grossen Werte entstehen.
+  f.swimHeading=Math.atan2(Math.sin(f.swimHeading),Math.cos(f.swimHeading));
+  return delta;
+}
 function updateFishActors(dt){
   const fishNow=performance.now();
   // P30: Der Kunstkoederflug ueber Wasser braucht keine 516-koepfige Unterwasser-
@@ -23587,7 +23664,7 @@ function updateFishActors(dt){
         randomSpeciesPoint(species,f.obj.position);
         if(!f.schoolTarget) randomSpeciesPoint(species,f.target);
         f.obj.userData.hiddenByHunt=false;
-        f.visualPitch=0;f.visualDepthYaw=0;
+        f.visualPitch=0;f.visualDepthYaw=0;f.swimHeading=NaN;
         f.pause=.4+Math.random()*.8;
       }else{
         f.obj.visible=false;continue;
@@ -23596,7 +23673,7 @@ function updateFishActors(dt){
     if(!keepFishAboveFloor(f)){
       randomSpeciesPoint(species,f.obj.position);
       if(!f.schoolTarget) randomSpeciesPoint(species,f.target);
-      f.visualPitch=0;f.visualDepthYaw=0;
+      f.visualPitch=0;f.visualDepthYaw=0;f.swimHeading=NaN;
       keepFishAboveFloor(f);
     }
 
@@ -23649,6 +23726,48 @@ function updateFishActors(dt){
       f.obj.rotateY(Number.isFinite(f.visualDepthYaw)?f.visualDepthYaw:0);
       f.obj.scale.x=f.screenSide*f.obj.userData.baseFishWidth;
       f.obj.scale.y=f.obj.userData.baseFishHeight;
+    }
+
+    // V1.54 QTE-Bisshaltung: Der sichtbare Räuber bleibt mit dem Maul am
+    // Kunstköder, bis der Spieler den Anhieb trifft oder verpasst. Keine normale
+    // Zielsuche, kein Überschießen und vor allem kein Weiter-Schwimmen im QTE.
+    if(anglingState==='strike'&&f===anglingVisibleStrikeActor){
+      const h=Number.isFinite(f.strikeHoldHeading)?f.strikeHoldHeading:
+        (Number.isFinite(f.predatorBrain?.heading)?f.predatorBrain.heading:0);
+      if(f.predatorBrain){
+        f.predatorBrain.heading=h;f.predatorBrain.speed=0;
+        f.predatorBrain.velocity.set(0,0,0);
+      }
+      const fishLength=Math.max(.08,Math.abs(f.obj.userData.baseFishWidth||f.obj.scale.x||.65));
+      const mouthOffset=fishLength*.43;
+      f.obj.position.set(
+        anglingLure.position.x-Math.cos(h)*mouthOffset,
+        anglingLure.position.y-Math.sin(h)*mouthOffset,
+        anglingLure.position.z
+      );
+      keepFishAboveFloor(f);
+      f.swimHeading=h;f.shadowYaw=Math.PI/2-h;f.visualPitch=0;
+      const hx=Math.cos(h),hy=Math.sin(h);
+      const screenX=hx*fishCameraRight.x+hy*fishCameraRight.y;
+      if(Math.abs(screenX)>.045)f.screenSide=screenX>0?-1:1;
+      const depthMotion=hx*fishCameraForward.x+hy*fishCameraForward.y;
+      const lateralMotion=Math.abs(screenX);
+      const depthShare=Math.abs(depthMotion)/Math.max(.001,Math.abs(depthMotion)+lateralMotion);
+      const depthTurn=THREE.MathUtils.smoothstep(depthShare,.16,.94);
+      f.visualDepthYaw=Math.abs(depthMotion)<.10?0:
+        -f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn;
+      if(f.obj.userData.fishBillboard){
+        f.obj.quaternion.copy(fishViewCamera.quaternion);
+        f.obj.rotateY(f.visualDepthYaw);
+        f.obj.scale.x=f.screenSide*f.obj.userData.baseFishWidth;
+        f.obj.scale.y=f.obj.userData.baseFishHeight;
+      }else{
+        f.obj.rotation.z=Math.atan2(-hx,hy);
+        f.obj.rotation.x=0;
+      }
+      f.phase+=step*1.7;
+      if(f.obj.userData.tail)f.obj.userData.tail.rotation.z=Math.sin(f.phase)*.055;
+      continue;
     }
     const isHunter=activeHunt&&activeHunt.predator===f;
     if(isHunter&&f.predatorBrain&&f.predatorBrain.mode!=='idle'){
@@ -23711,7 +23830,6 @@ function updateFishActors(dt){
     }
     if(f.pause>0&&!isHunter&&!predatorSteering&&!isFleeing&&!feedSeeking){f.pause-=step;continue;}
     if(predatorSteering)fishMoveDelta.copy(f.predatorBrain.aim);
-    else if(anglingState==='strike'&&f===anglingVisibleStrikeActor)fishMoveDelta.copy(anglingLure.position);
     else if(isHunter) fishMoveDelta.copy(activeHunt.prey.obj.position);
     else if(isFleeing) fishMoveDelta.copy(f.huntFleeTarget);
     else{
@@ -23889,24 +24007,56 @@ function updateFishActors(dt){
       if(f.predatorBrain.mode==='idle')continue;
       fishMoveDelta.copy(f.predatorBrain.velocity).normalize();
     }else{
-    // Fische steigen und sinken nur in einem flachen Winkel. Liegt ein Ziel
-    // nahezu senkrecht über/unter ihnen, wird stattdessen ein neues Ziel gewählt.
-    const horizontalDistance=Math.hypot(fishMoveDelta.x,fishMoveDelta.y);
-    if(horizontalDistance<.06&&Math.abs(fishMoveDelta.z)>.06){
-      randomSpeciesPoint(species,f.target);
+    // V1.52: Zielvektor und reale Schwimmrichtung sind jetzt zwei getrennte Dinge.
+    // Der Zielpunkt darf springen; der Fisch selbst kann nur vorwaerts fahren und
+    // muss mit einem echten Bogen auf die neue Richtung einschwenken.
+    const targetDx=fishMoveDelta.x,targetDy=fishMoveDelta.y,targetDz=fishMoveDelta.z;
+    const horizontalDistance=Math.hypot(targetDx,targetDy);
+    if(horizontalDistance<.06&&Math.abs(targetDz)>.06){
+      if(!isHunter&&!isFleeing&&!feedSeeking)randomSpeciesPoint(species,f.target);
       continue;
     }
-    const maxVertical=horizontalDistance*Math.tan(MAX_FISH_PITCH);
-    fishMoveDelta.z=THREE.MathUtils.clamp(fishMoveDelta.z,-maxVertical,maxVertical);
-    if(fishMoveDelta.lengthSq()<.000001) continue;
-    fishMoveDelta.normalize();
+    if(horizontalDistance<.00001)continue;
+
+    const desiredHeading=Math.atan2(targetDy,targetDx);
+    let turnRate=aczoFishBaseTurnRate(species);
+    // Jagd und Flucht brauchen mehr Wendigkeit, bleiben aber echte Vorwaertskurven.
+    if(isHunter)turnRate*=2.25;
+    else if(isFleeing)turnRate*=2.55;
+    else if(feedSeeking)turnRate*=1.22;
+    else if(anglingState==='strike'&&f===anglingVisibleStrikeActor)turnRate*=2.8;
+    aczoFishTurnToward(f,desiredHeading,turnRate*Math.max(.001,step));
+
+    const pitchLimit=strictBottomFish.has(species)?THREE.MathUtils.degToRad(8):MAX_FISH_PITCH;
+    const verticalSlope=THREE.MathUtils.clamp(
+      targetDz/Math.max(.10,horizontalDistance),
+      -Math.tan(pitchLimit),Math.tan(pitchLimit)
+    );
+    fishMoveDelta.set(Math.cos(f.swimHeading),Math.sin(f.swimHeading),verticalSlope).normalize();
+
     const huntSpeed=species==='pike'?3.15:species==='zander'?2.65:species==='catfish'?2.20:1.85;
     const feedSpeed=feedSeeking?(anglingFeedRuleForSpecies(species)?.group==='edge'?Math.max(f.speed*1.20,.72):Math.max(f.speed*1.18,.42)):0;
     const strikeSpeed=species==='pike'?3.55:species==='zander'?3.00:species==='catfish'?2.35:2.10;
     const actualSpeed=isLureHunter?strikeSpeed:(isHunter?huntSpeed:
       (isFleeing?Math.max(1.25,f.speed*3.4):(feedSeeking?feedSpeed:f.speed*activity)));
-    f.obj.position.addScaledVector(fishMoveDelta,Math.min(dist,actualSpeed*step));
-    keepFishAboveFloor(f);
+    const moveStep=Math.min(dist,actualSpeed*step);
+    const nextX=f.obj.position.x+fishMoveDelta.x*moveStep;
+    const nextY=f.obj.position.y+fishMoveDelta.y*moveStep;
+    const nextDepth=pondDepthAt(nextX,nextY);
+    if(nextDepth==null||nextDepth<.38){
+      // Am Ufer nicht rueckwaerts springen und auch nicht teleportieren. Der Fisch
+      // nimmt die Innenkurve, bis seine Nase wieder sicher ins Wasser zeigt.
+      const frame=aczoMasterBoundaryFrame(f.obj.position.x,f.obj.position.y);
+      if(frame){
+        const inwardHeading=Math.atan2(frame.ny,frame.nx);
+        aczoFishTurnToward(f,inwardHeading,turnRate*Math.max(.001,step)*1.35);
+        fishMoveDelta.set(Math.cos(f.swimHeading),Math.sin(f.swimHeading),0);
+      }
+      if(!isHunter&&!isFleeing&&!feedSeeking&&!f.schoolTarget)randomSpeciesPoint(species,f.target);
+    }else{
+      f.obj.position.addScaledVector(fishMoveDelta,moveStep);
+      keepFishAboveFloor(f);
+    }
       // Zander finden nach einer Beutejagd wieder zum vermessenen Weihergrund.
       if(species==='zander'&&!isHunter&&!feedSeeking){
         const depth=pondDepthAt(f.obj.position.x,f.obj.position.y);
@@ -23933,28 +24083,55 @@ function updateFishActors(dt){
       // der Fisch schnell genug drehen, sonst schwimmt die Fototextur sichtbar
       // rückwärts. Nahe der Frontalansicht bleibt die bisherige Seite dagegen
       // stabil und kann nicht frameweise hin und her springen.
-      const desiredSide=screenX>.18?-1:(screenX<-.18?1:0);
-      const wantsFlip=desiredSide!==0&&desiredSide!==f.screenSide;
-      const strongOpposite=Math.abs(screenX)>.42;
+      const lockedVisualFollower=isLureHunter&&['zander','pike','catfish'].includes(species)&&
+        f.predatorBrain?.mode!=='burst'&&f.predatorBrain?.mode!=='abort';
+      let lockedFollowerLookScreenX=0,lockedFollowerLookDepth=0;
+      if(lockedVisualFollower){
+        // V1.54: Die Kopfseite wird NICHT mehr aus dem abstrakten Spur-Flag
+        // abgeleitet. Entscheidend ist ausschließlich die reale Sichtlinie
+        // vom Fisch zum Kunstköder. Links im Bild -> Nase nach rechts zum Köder,
+        // rechts im Bild -> Nase nach links. Damit kann die 45-Grad-Perspektive
+        // nicht mehr versehentlich vom Köder weg zeigen.
+        const lookX=anglingLure.position.x-f.obj.position.x;
+        const lookY=anglingLure.position.y-f.obj.position.y;
+        const lookLen=Math.hypot(lookX,lookY)||1;
+        const nx=lookX/lookLen,ny=lookY/lookLen;
+        lockedFollowerLookScreenX=nx*fishCameraRight.x+ny*fishCameraRight.y;
+        lockedFollowerLookDepth=nx*fishCameraForward.x+ny*fishCameraForward.y;
+        if(Math.abs(lockedFollowerLookScreenX)>.018){
+          f.screenSide=lockedFollowerLookScreenX>0?-1:1;
+        }
+        f.sideFlipCandidate=0;
+        f.sideFlipCandidateSince=0;
+        f.sideFlipCooldownUntil=fishWorldTime+.12;
+      }else{
+        // V1.52: Mit echter Kurvenfahrt kann die Kopfseite viel naeher am
+        // frontalen Moment wechseln. Dadurch bleibt die Nase stets auf der Seite
+        // der realen Vorwaertsbewegung, ohne lange "Schwanz voraus" zu zeigen.
+        const largeFish=['pike','zander','catfish','sturgeon','carp','mirrorcarp','grasscarp'].includes(species);
+        const desiredSide=screenX>.055?-1:(screenX<-.055?1:0);
+        const wantsFlip=desiredSide!==0&&desiredSide!==f.screenSide;
+        const strongOpposite=Math.abs(screenX)>.28;
 
-      if(wantsFlip){
-        if(f.sideFlipCandidate!==desiredSide){
-          f.sideFlipCandidate=desiredSide;
-          f.sideFlipCandidateSince=fishWorldTime;
-        }else if(
-          fishWorldTime>=f.sideFlipCooldownUntil &&
-          fishWorldTime-f.sideFlipCandidateSince>=(strongOpposite?.12:.28)
-        ){
-          f.screenSide=desiredSide;
-          f.sideFlipCooldownUntil=fishWorldTime+(strongOpposite?.32:.55);
+        if(wantsFlip){
+          if(f.sideFlipCandidate!==desiredSide){
+            f.sideFlipCandidate=desiredSide;
+            f.sideFlipCandidateSince=fishWorldTime;
+          }else if(
+            fishWorldTime>=f.sideFlipCooldownUntil &&
+            fishWorldTime-f.sideFlipCandidateSince>=(strongOpposite?(largeFish?.035:.045):(largeFish?.080:.105))
+          ){
+            f.screenSide=desiredSide;
+            f.sideFlipCooldownUntil=fishWorldTime+(largeFish?.14:.18);
+            f.sideFlipCandidate=0;
+            f.sideFlipCandidateSince=0;
+          }
+        }else if(Math.abs(screenX)>.035){
+          // Nur bei einer wirklich erkennbaren Bewegungsrichtung Kandidaten löschen.
+          // Im frontalen Totbereich bleibt die aktuelle Kopfseite unangetastet.
           f.sideFlipCandidate=0;
           f.sideFlipCandidateSince=0;
         }
-      }else if(Math.abs(screenX)>.08){
-        // Nur bei einer wirklich erkennbaren Bewegungsrichtung Kandidaten löschen.
-        // Im frontalen Totbereich bleibt die aktuelle Kopfseite unangetastet.
-        f.sideFlipCandidate=0;
-        f.sideFlipCandidateSince=0;
       }
       f.obj.scale.x=f.screenSide*f.obj.userData.baseFishWidth;
       f.obj.scale.y=f.obj.userData.baseFishHeight;
@@ -24003,13 +24180,15 @@ function updateFishActors(dt){
       const lateralMotion=Math.abs(screenX);
       const depthShare=Math.abs(depthMotion)/Math.max(.001,Math.abs(depthMotion)+lateralMotion);
       const depthTurn=THREE.MathUtils.smoothstep(depthShare,.16,.94);
-      const fixedLaneFollower=isLureHunter&&['zander','pike','catfish'].includes(species)&&
-        f.predatorBrain?.mode!=='burst'&&f.predatorBrain?.mode!=='abort';
-      // Auf der festen Nachlaufspur bleibt die Fotoperspektive stabil bei der
-      // passenden 45/48-Grad-Ansicht. Kleine Kurskorrekturen duerfen den langen
-      // Fotofisch nicht mehr kreuz und quer drehen. Im Burst ist die Ausrichtung frei.
+      const fixedLaneFollower=lockedVisualFollower;
+      // V1.54: Auch die Tiefendrehung schaut auf den REALEN Ködervektor statt
+      // auf b.side. Die Nachläufer bekommen dadurch zuverlässig ihre gewünschte
+      // ca. 45-Grad-Haltung ZUM Köder. Nur wenn Köder und Fisch fast exakt auf
+      // gleicher Kameratiefe liegen, bleibt die Fläche nahezu seitlich.
+      const followerDepthAngle=THREE.MathUtils.degToRad(43);
       const targetDepthYaw=fixedLaneFollower
-        ?-f.screenSide*(f.predatorBrain?.side||1)*MAX_FISH_DEPTH_YAW
+        ?(Math.abs(lockedFollowerLookDepth)<.045?0:
+          -f.screenSide*Math.sign(lockedFollowerLookDepth)*followerDepthAngle)
         :(Math.abs(depthMotion)<.14?0:-f.screenSide*Math.sign(depthMotion)*MAX_FISH_DEPTH_YAW*depthTurn);
       if(!Number.isFinite(f.visualDepthYaw))f.visualDepthYaw=0;
       // Tiefendrehung bewusst ruhiger. Kleine Kurskorrekturen dürfen die
@@ -28146,7 +28325,7 @@ function anglingSafeLandCamera(shore,inward){
 
 
 const ANGLING_POPULATION={
-  roach:100,rudd:70,pike:10,catfish:5,carp:10,mirrorcarp:10,grasscarp:3,
+  roach:100,rudd:70,pike:16,catfish:9,carp:10,mirrorcarp:10,grasscarp:3,
   sturgeon:3,zander:4,eel:8,tench:20,bream:30,koi:1,perch:50,sunfish:70,goby:160
 };
 const ANGLING_LURE_CATALOG={
@@ -29237,7 +29416,7 @@ function aczoClearCommerceEffects(){
   aczoCommerceFlights.clear();
 }
 function aczoCommercePurchaseEffect(o,count,from){
-  if(!from||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  if(!from)return;
   const target=anglingBaitBoxBtn?.getBoundingClientRect();if(!target||!target.width)return;
   const f=document.createElement('div');f.className='aczo-commerce-fly';f.setAttribute('aria-hidden','true');
   f.innerHTML=anglingBaitThumb(o.icon);const n=document.createElement('span');n.textContent='+'+count;f.append(n);
@@ -29573,7 +29752,6 @@ function createAnglingItemCard(o){
 }
 
 // Ereigniseffekte: keine zusätzliche Renderloop, keine Änderungen an Inventar/EP.
-const aczoMotionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
 let aczoEquipTimer=0;
 function aczoClearEquipFeedback(){
  window.clearTimeout(aczoEquipTimer);aczoEquipTimer=0;
@@ -29639,7 +29817,7 @@ function aczoStopDrops(){
 }
 function aczoBeginRetrievedDrops(){
  aczoStopDrops();
- if(aczoMotionPreference.matches||!anglingMode||anglingState!=='ready'||anglingUsesDeeper()||!anglingSelection)return;
+ if(!anglingMode||anglingState!=='ready'||anglingUsesDeeper()||!anglingSelection)return;
  aczoEnsureDrips();aczoDrips.time=0;aczoDrips.active=true;
  anglingUi.classList.add('aczo-dripping');
  for(let i=0;i<6;i++){
@@ -29651,7 +29829,7 @@ function aczoBeginRetrievedDrops(){
 }
 function aczoTickDrops(dt){
  if(!aczoDrips.active)return;
- if(aczoMotionPreference.matches||!anglingMode||anglingState!=='ready'||anglingGamePanelOpen()||document.hidden){aczoStopDrops();return;}
+ if(!anglingMode||anglingState!=='ready'||anglingGamePanelOpen()||document.hidden){aczoStopDrops();return;}
  const terminal=anglingUsesArtificialLure()?anglingLure:anglingBobber;
  if(!terminal.visible){aczoStopDrops();return;}
  aczoDrips.time+=Math.max(0,dt);
@@ -29686,7 +29864,7 @@ function aczoTickDrops(dt){
 }
 function aczoTickPresentation(dt){
  const wet=anglingFishVisualMat.userData.aczoWet;
- if(anglingState==='catch-reveal'&&!aczoMotionPreference.matches){
+ if(anglingState==='catch-reveal'){
    const t=THREE.MathUtils.clamp((anglingStateTime-.18)/1.1,0,1);
    wet.position.value=-.12+t*1.45;
    wet.strength.value=aczoWetStrength(anglingFishVisual.userData.species)*Math.sin(Math.PI*t);
@@ -29732,13 +29910,13 @@ function aczoStartRewardCount(gain){
  if(anglingEpPopup.parentElement?.id!=='aczoCatchRewards')return false;
  aczoReward.gain=gain;aczoReward.start=performance.now();aczoReward.last=-1;
  const number=document.createElement('b');number.className='aczo-reward-number';
- number.textContent='+'+(aczoMotionPreference.matches?gain:0)+' EP';
+ number.textContent='+0 EP';
  anglingEpPopup.firstChild.replaceWith(number);aczoReward.node=number;
  anglingEpPopup.setAttribute('aria-label','Gewonnen: '+gain+' EP');
  return true;
 }
 function aczoCaptureRewardDeparture(){
- if(aczoMotionPreference.matches||!anglingMode||anglingState!=='caught'||!anglingCatchCard.classList.contains('show')||aczoReward.gain<=0)return null;
+ if(!anglingMode||anglingState!=='caught'||!anglingCatchCard.classList.contains('show')||aczoReward.gain<=0)return null;
  const r=document.getElementById('aczoCatchRewards').getBoundingClientRect();
  const fallback=anglingCatchCard.getBoundingClientRect();
  const box=r.width&&r.height?r:fallback;
@@ -29750,7 +29928,7 @@ function aczoRewardBlocked(){
   ||!!anglingUi.querySelector('#anglingToast.show,#anglingDailyQuestToast.show,#anglingCommunityToast.show,#anglingOnlinePrompt.show,#anglingSnagPrompt.show');
 }
 function aczoQueueRewardFlight(departure){
- if(!departure||aczoMotionPreference.matches||aczoRewardBlocked())return;
+ if(!departure||aczoRewardBlocked())return;
  // 400 ms liegen vor den bestehenden Folgehinweisen (frühestens nach 520 ms).
  aczoReward.flight={...departure,start:performance.now(),layer:null};
 }
@@ -29763,13 +29941,13 @@ function aczoTickReward(){
  if(!aczoReward.node&&!aczoReward.flight)return;
  const now=performance.now();
  if(aczoReward.node){
-  const t=aczoMotionPreference.matches?1:Math.min(1,Math.max(0,(now-aczoReward.start)/900));
+  const t=Math.min(1,Math.max(0,(now-aczoReward.start)/900));
   const value=Math.round(aczoReward.gain*(1-Math.pow(1-t,3)));
   if(value!==aczoReward.last){aczoReward.node.textContent='+'+value+' EP';aczoReward.last=value;}
   if(t===1)aczoReward.node=null;
  }
  const f=aczoReward.flight;if(!f)return;
- if(aczoMotionPreference.matches||aczoRewardBlocked()){
+ if(aczoRewardBlocked()){
   if(f.layer)f.layer.remove();aczoReward.flight=null;return;
  }
  const t=Math.min(1,Math.max(0,(now-f.start)/400));
@@ -30121,7 +30299,7 @@ function saveAnglingPlayerProfile(){try{localStorage.setItem(ANGLING_PLAYER_KEY,
 // NICHT synchronisiert wird ausschließlich das Fangbuch (anglingProgress.catches)
 // sowie flüchtige Sitzungszustände wie aktueller Drill, Wurfposition oder Futterplatz.
 let anglingCloudSyncTimer=null,anglingCloudSyncInFlight=false,anglingCloudSyncPending=false,anglingCloudSyncPromise=null;
-const ANGLING_CLOUD_STATE_VERSION=6;
+const ANGLING_CLOUD_STATE_VERSION=7;
 
 function normalizeAnglingRecoveryCode(value){
   const raw=String(value||'').toUpperCase().replace(/[^A-F0-9]/g,'').slice(0,24);
@@ -34791,6 +34969,7 @@ function startAnglingMode(){
 }
 
 function resetAnglingUnderwaterState(restoreMap=false){
+  if(anglingVisibleStrikeActor)anglingVisibleStrikeActor.strikeHoldHeading=NaN;
   anglingVisibleStrikeActor=null;
   // Kunstköder-Unterwasserzustand vollständig beenden. Wichtig: NICHT
   // setFishSubmergedLayers(false) verwenden, weil dessen gespeicherte Werte
@@ -36648,17 +36827,17 @@ function missArtificialLureStrike(reason='Reaktion verpasst'){
   // sichtbar und der Kunstköder kann sofort weitergeführt werden.
   if(anglingVisibleStrikeActor){
     const f=anglingVisibleStrikeActor;
-    const away=anglingTmpA.copy(f.obj.position).sub(anglingLure.position);
-    if(away.lengthSq()<.0001)away.set(
-      anglingLure.position.x-anglingSelection.shore.x,
-      anglingLure.position.y-anglingSelection.shore.y,0
-    );
-    if(away.lengthSq()<.0001)away.set(1,0,0);
-    away.normalize();
-    const side=anglingTmpB.copy(away).applyAxisAngle(anglingUp,Math.PI/2);
+    // V1.53: Fehlanschlag ebenfalls ausschließlich vorwärts. Der Fisch startet
+    // aus der beim Biss gespeicherten Kopfachse und zieht in einem weiten Bogen
+    // weg; niemals Schwanz-voran vom Köder wegschieben.
+    const h=Number.isFinite(f.strikeHoldHeading)?f.strikeHoldHeading:
+      (Number.isFinite(f.predatorBrain?.heading)?f.predatorBrain.heading:0);
+    const forward=anglingTmpA.set(Math.cos(h),Math.sin(h),0);
+    const side=anglingTmpB.copy(forward).applyAxisAngle(anglingUp,Math.PI/2);
+    const turnSign=Math.random()<.5?-1:1;
     f.huntFleeTarget=f.obj.position.clone()
-      .addScaledVector(away,4.2+Math.random()*2.5)
-      .addScaledVector(side,(Math.random()-.5)*2.0);
+      .addScaledVector(forward,4.8+Math.random()*2.3)
+      .addScaledVector(side,turnSign*(1.6+Math.random()*1.5));
     const fd=pondDepthAt(f.huntFleeTarget.x,f.huntFleeTarget.y);
     if(fd!=null){
       const floor=-fd*exaggeration;
@@ -36667,6 +36846,12 @@ function missArtificialLureStrike(reason='Reaktion verpasst'){
     f.huntFleeUntil=fishWorldTime+2.4+Math.random()*.9;
     f.lureChaseUntil=0;
     f.visualPitch=0;
+    f.swimHeading=h;
+    if(f.predatorBrain){
+      f.predatorBrain.mode='idle';f.predatorBrain.heading=h;f.predatorBrain.speed=f.speed;
+      f.predatorBrain.velocity.set(Math.cos(h)*f.speed,Math.sin(h)*f.speed,0);
+    }
+    f.strikeHoldHeading=NaN;
     f.pause=0;
     anglingVisibleStrikeActor=null;
   }
@@ -36721,6 +36906,7 @@ function finishAnglingStrike(success,reason=''){
     a.obj.userData.huntRespawnAt=fishWorldTime+18;
     a.obj.visible=false;
     a.lureChaseUntil=0;
+    a.strikeHoldHeading=NaN;
     anglingVisibleStrikeActor=null;
   }
   // Sobald der Fisch sauber gehakt ist, ist Wurm/Made/Mais verbraucht.
@@ -36895,7 +37081,22 @@ function beginAnglingLureAttack(sourceActor=null){
   if(!aczoPredatorProfiles[species]||!sourceActor.predatorBrain||
      sourceActor.predatorBrain.mode!=='burst'||
      aczoPredatorMouthPoint(sourceActor).distanceTo(anglingLure.position)>.55)return false;
+  // V1.53: Ab jetzt hat der Fisch den Köder tatsächlich im Maul. Seine
+  // Schwimm-KI wird gestoppt und die aktuelle Vorwärtsrichtung für die gesamte
+  // QTE-Phase eingefroren. So schwimmt der sichtbare Hecht/Zander/Wels nicht
+  // nach dem eingeblendeten Quicktime-Event einfach weiter.
+  sourceActor.strikeHoldHeading=sourceActor.predatorBrain.heading;
   sourceActor.predatorBrain.mode='idle';
+  sourceActor.predatorBrain.speed=0;
+  sourceActor.predatorBrain.velocity.set(0,0,0);
+  const holdLength=Math.max(.08,Math.abs(sourceActor.obj.userData.baseFishWidth||sourceActor.obj.scale.x||.65));
+  const holdOffset=holdLength*.43;
+  sourceActor.obj.position.set(
+    anglingLure.position.x-Math.cos(sourceActor.strikeHoldHeading)*holdOffset,
+    anglingLure.position.y-Math.sin(sourceActor.strikeHoldHeading)*holdOffset,
+    anglingLure.position.z
+  );
+  keepFishAboveFloor(sourceActor);
 
   const temperament=pickAnglingTemperament();
   let catchCm=anglingSizeForSpecies(species);
