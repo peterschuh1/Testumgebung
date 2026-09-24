@@ -26609,8 +26609,32 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     renderer.render(scene,camera);
     anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
+    // P58 PERFORMANCE: Der Kunstkoeder startet nach dem Wasserkontakt zusaetzlich
+    // die zweite Live-Uferkamera des Ruten-/Rollenfensters. Dieser Renderpfad
+    // benutzt auf Mobilgeraeten eigene Wasser-Materialvarianten und war bisher
+    // NICHT Bestandteil des Start-Prewarms. Genau deren erste Shader-/GPU-
+    // Initialisierung konnte deshalb noch beim ersten Kunstkoeder-Eintauchen
+    // eine kurze Pause verursachen. Ein winziger unsichtbarer Render unter dem
+    // Startloader bereitet jetzt auch diesen echten Livefenster-Pfad vor.
+    if(typeof anglingReelLiveShoreCamera!=='undefined'&&typeof aczoRenderLightweightAnglingInset==='function'){
+      const warmSurfaceZ=anglingSurfaceZ(start.x,start.y);
+      anglingReelLiveShoreCamera.position.set(start.x-8,start.y-10,Math.max(warmSurfaceZ+2.2,2.4));
+      anglingReelLiveShoreCamera.up.set(0,0,1);
+      anglingReelLiveShoreCamera.fov=46;anglingReelLiveShoreCamera.aspect=1;
+      anglingReelLiveShoreCamera.lookAt(start.x,start.y,warmSurfaceZ+.25);
+      anglingReelLiveShoreCamera.updateProjectionMatrix();
+      anglingReelLiveShoreCamera.updateMatrixWorld(true);
+      aczoRenderLightweightAnglingInset(anglingReelLiveShoreCamera);
+    }
+
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
-    if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined')renderer.render(anglingReelScene,anglingReelMiniCamera);
+    // Wie im echten Livefenster wird vorher nur der Tiefenpuffer geloescht; damit
+    // ist auch der spaetere Zwei-Pass-Aufbau bereits einmal gelaufen.
+    if(typeof anglingReelScene!=='undefined'&&typeof anglingReelMiniCamera!=='undefined'){
+      renderer.autoClear=false;renderer.clearDepth();
+      renderer.render(anglingReelScene,anglingReelMiniCamera);
+      renderer.autoClear=true;
+    }
     aczoUnderwaterShadersReady=true;aczoPerf24UwRenderWarmReady=true;aczoPerf26UwFullWarmReady=true;
   }catch(err){console.warn('PERF26 UW-Full-Prewarm:',err);}
   finally{
@@ -37357,7 +37381,7 @@ function beginFastAnglingRetrieve(){
   anglingRetrieveEnd.set(shore.x+ux*.45,shore.y+uy*.45,terminal.position.z);
   const surface=anglingSurfaceZ(anglingRetrieveEnd.x,anglingRetrieveEnd.y);
   anglingRetrieveEnd.z=anglingUsesDeeper()?surface+.035:(anglingUsesArtificialLure()?surface-.12:surface-.005);
-  anglingFastRetrieveDuration=THREE.MathUtils.clamp(.48+dist*.012,.52,1.15);
+  anglingFastRetrieveDuration=THREE.MathUtils.clamp(.78+dist*.016,.88,1.55);
   anglingState='fast-retrieving';anglingStateTime=0;
   // V8.52: Beim Rechtsklick/Schnelleinholen verschwinden beide Livefenster
   // SOFORT. Nur CSS reicht hier nicht, weil ältere !important-Regeln das
@@ -37369,9 +37393,10 @@ function beginFastAnglingRetrieve(){
   anglingReelZoom.setAttribute('aria-hidden','true');
   if(artificial){
     anglingCinematicView='reset-return';anglingCinematicBlend=0;
-    // Die Rute steht weiterhin am Ufer und wird beim Abbruch sofort wieder
-    // sichtbar. So entsteht beim Eintreffen der Rückflugkamera kein Leerbild.
-    anglingRodGroup.visible=true;
+    // P59: Die Rute ist ein kameragebundenes First-Person-Modell. Beim
+    // Doppeltipp-/Rechtsklick-Rueckflug darf sie nicht mit der Unterwasserkamera
+    // zum Ufer fliegen. Sie erscheint erst wieder im fertigen Uferbild.
+    anglingRodGroup.visible=false;
   }
   setAnglingStatus('Schnell einholen','');
 }
@@ -38840,12 +38865,19 @@ function updateAnglingCinematicCamera(dt){
      return false;
    }
 
-   anglingCinematicBlend=Math.min(1,anglingCinematicBlend+dt/.70);
+   // P59: Beim Kunstkoeder-Schnelleinholen folgt die Kamera jetzt dem Tempo
+   // des zuruecklaufenden Koeders statt immer schon nach 0,70 s am Ufer zu sein.
+   // Damit bleibt der Rueckflug schnell, wirkt aber nicht mehr wie ein Sprung.
+   const resetReturnDuration=(anglingState==='fast-retrieving'&&anglingUsesArtificialLure())
+     ?Math.max(.88,anglingFastRetrieveDuration)
+     :.70;
+   anglingCinematicBlend=Math.min(1,anglingCinematicBlend+dt/resetReturnDuration);
    const u=anglingEase(anglingCinematicBlend);
 
-   // Während des Rückflugs bleibt die kameragebundene Rute komplett aus.
-   // Erst resetAnglingCast() am fertigen Uferbild blendet sie wieder ein.
-   anglingRodGroup.visible=!anglingReturnToShorePendingReset;
+   // Während des Kunstkoeder-Rückflugs bleibt die kameragebundene Rute komplett
+   // aus. Erst resetAnglingCast() am fertigen Uferbild blendet sie wieder ein.
+   const artificialFastReturn=anglingUsesArtificialLure()&&anglingState==='fast-retrieving';
+   anglingRodGroup.visible=artificialFastReturn?false:!anglingReturnToShorePendingReset;
    camera.position.copy(aczoSafeAnglingReturnPosition(u));controls.target.lerp(anglingShoreCameraTarget,u);camera.up.set(0,0,1);camera.lookAt(controls.target);
    // V8.96: Beim Rechtsklick beginnt der Rückflug noch unter Wasser. Solange
    // die Kamera die bewegte Oberfläche nicht wirklich verlassen hat, muss der
