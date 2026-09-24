@@ -11612,8 +11612,9 @@ function celestialVector(pos,radius){
 // den vorhandenen DirectionalLights/SunCalc-Werten. Nur die sichtbaren Scheiben
 // werden auf einen festen, weit entfernten Radius um den Weiher gesetzt. Dadurch
 // bleiben sie beim Dolly/Zoom an ihrer Weltposition und kleben nicht am Displayrand.
-// Der Radius bleibt innerhalb der 2000-m-Farplane, selbst bei grossem Orbit-Abstand.
-const ACZO_CELESTIAL_DISC_WORLD_RADIUS=900;
+// 840 m liegt bewusst innerhalb der 900-m-Himmelskugel und der 2000-m-Farplane.
+// Dadurch kann die Sky-Sphere die sichtbaren Scheiben nicht im Tiefenpuffer verschlucken.
+const ACZO_CELESTIAL_DISC_WORLD_RADIUS=840;
 const celestialDiscWorldDirection=new THREE.Vector3();
 function positionCelestialDiscAtWorldDirection(disc,light){
   if(!disc||!light||!light.target)return;
