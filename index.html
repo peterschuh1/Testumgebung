@@ -9634,7 +9634,9 @@ const waterMat=new THREE.ShaderMaterial({
      float stars=0.0;
      if(nightFactor>.001 && diagnosticStars>.001 && surfaceOnly>.001){
        stars=reflectedStars(reflectedView)*nightFactor*diagnosticStars
-         *(1.0-cloudAmount*.92)*surfaceOnly;
+         // Gleiche Wolkentransmission wie der reale Sternhimmel: keine widerspruechliche
+         // Situation mehr mit sichtbaren Sternen oben und verschwundenem Reflex unten.
+         *(1.0-cloudAmount*.76)*surfaceOnly;
      }
      // Einzelne, durch die Wellen gebrochene Sternpunkte statt einer glatten
      // Aufhellung. Die Position folgt weiterhin dem echten reflektierten Himmelsstrahl.
@@ -11508,7 +11510,10 @@ function pointInWaterStarStructureMask(x,y){
 function updateWaterStarReflectionPoints(dt){
   waterStarPhase+=dt;
   const cloud=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0)/100;
-  const opacity=(simulationEnabled?sceneNightFactor:0)*(1-cloud*.84);
+  // Sternreflexion folgt derselben Wolkendaempfung wie der sichtbare Sternhimmel.
+  // Bei 100 % gemeldeter Bewoelkung bleiben damit dieselben dezenten 24 % uebrig,
+  // statt dass der Himmel Sterne zeigt, die Wasserflaeche aber praktisch keine.
+  const opacity=(simulationEnabled?sceneNightFactor:0)*(1-cloud*.76);
   const active=waterVisible&&!is2D&&!(typeof fishMode!=='undefined'&&fishMode)&&opacity>.035;
   waterStarHalos.visible=waterStarCores.visible=active;
   if(!active){
@@ -11734,11 +11739,11 @@ function updateAstronomy(){
         0,1
       )
     : 0;
-  const moonVisualScale=THREE.MathUtils.lerp(24,19.5,moonDaylight);
+  const moonVisualScale=THREE.MathUtils.lerp(34,29,moonDaylight);
   moonDisc.userData.visualOpacity=moonVisualOpacity;
   moonDisc.scale.set(moonVisualScale,moonVisualScale,1);
   if(typeof moonGlow!=='undefined'){
-    const moonGlowScale=THREE.MathUtils.lerp(51,36,moonDaylight);
+    const moonGlowScale=THREE.MathUtils.lerp(70,50,moonDaylight);
     moonGlow.userData.visualOpacity=moonVisualOpacity*THREE.MathUtils.lerp(.82,.12,moonDaylight);
     moonGlow.scale.set(moonGlowScale,moonGlowScale,1);
   }
