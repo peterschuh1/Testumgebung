@@ -5774,6 +5774,10 @@ let skyLookHasReturnPose=false;
 // V5.59: eigener Angelmodus. Die Variable steht bewusst bereits vor allen
 // Eingabe-Handlern bereit, damit kein Kartenwerkzeug denselben Touch verarbeitet.
 let anglingMode=false;
+// FIX11: fishMode muss ebenfalls vor Astronomie-/Wetter-Initialisierung existieren.
+// Mehrere Startup-Prewarm-Pfade fragen den Zustand bereits ab, bevor die
+// eigentliche Fischwelt weiter unten aufgebaut wird.
+let fishMode=false;
 let anglingState='idle';
 const anglingStartBtn=document.getElementById('anglingStartBtn');
 const anglingWelcomeBack=document.getElementById('anglingWelcomeBack');
@@ -14875,7 +14879,7 @@ function updateFishMiniMap(force=false){
 const fishGroup=new THREE.Group();
 fishGroup.visible=false;
 scene.add(fishGroup);
-let fishMode=false;
+// fishMode wird bewusst bereits bei den globalen Viewer-Zustaenden deklariert.
 let fishWorldBuilt=false;
 let fishYaw=0;
 let fishPitch=-.05;
@@ -26673,6 +26677,14 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldLureQuaternion=anglingLure.quaternion.clone();
   const oldLureScale=anglingLure.scale.clone();
   const oldLureRenderOrder=anglingLure.renderOrder;
+  // FIX11: Alle acht Kunstkoeder-Geometrien werden im Startbildschirm einmal
+  // zur GPU geschickt. Bisher waren nur die aktuell an den beiden sichtbaren
+  // Meshes haengenden Basisgeometrien warm; ein spaeterer Koederwechsel konnte
+  // deshalb beim ersten Wasserkontakt noch einen Buffer-Upload ausloesen.
+  const oldSpoonGeometry=spoon.geometry;
+  const oldSpoonStripeGeometry=spoonStripe.geometry;
+  const oldSpoonMarksGeometry=spoonAccentPlate.geometry;
+  const oldSoftGeometry=softCore.geometry;
   const oldAnglingModeForWarm=anglingMode;
   const oldAnglingCinematicViewForWarm=anglingCinematicView;
   const oldAnglingWaterForWarm=waterUniforms.anglingView.value;
@@ -26752,10 +26764,29 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     anglingScene.visible=true;anglingLure.visible=true;
     anglingLure.position.set(start.x+3.2,start.y+.8,start.z-.05);
     anglingLure.rotation.set(Math.PI/2,0,0);anglingLure.scale.setScalar(.72);
-    anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
-    renderer.render(scene,camera);
-    anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
-    renderer.render(scene,camera);
+
+    // FIX11: Nicht nur je EIN Blinker/Gummifisch, sondern jede vorhandene
+    // Koedergeometrie einmal wirklich rendern. Materialien sind geteilt; damit
+    // werden die spaeter wechselnden Vertex-/Indexbuffer vor dem Spiel geladen.
+    if(typeof aczoLureGeometryCache!=='undefined'&&typeof ACZO_LURE_DESIGNS!=='undefined'){
+      for(const [warmLureId,warmDesign] of Object.entries(ACZO_LURE_DESIGNS)){
+        const warmGeometry=aczoLureGeometryCache[warmLureId];
+        if(!warmGeometry)continue;
+        if(warmDesign.family==='spoon'){
+          spoon.geometry=warmGeometry.body;
+          spoonStripe.geometry=warmGeometry.accent;
+          spoonAccentPlate.geometry=warmGeometry.marks;
+          anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
+        }else{
+          softCore.geometry=warmGeometry.body;
+          anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
+        }
+        renderer.render(scene,camera);
+      }
+    }else{
+      anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;renderer.render(scene,camera);
+      anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;renderer.render(scene,camera);
+    }
 
     // Exakt den echten Kunstkoeder-Unterwasserzweig nachbilden, jedoch ohne
     // updateAnglingMode() und damit ohne Timer, Fanglogik oder Spielzustandslauf.
@@ -26814,6 +26845,10 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       material.depthTest=state.depthTest;material.depthWrite=state.depthWrite;material.needsUpdate=true;
     });
     warmLureMeshes.forEach(state=>state.object.renderOrder=state.renderOrder);
+    spoon.geometry=oldSpoonGeometry;
+    spoonStripe.geometry=oldSpoonStripeGeometry;
+    spoonAccentPlate.geometry=oldSpoonMarksGeometry;
+    softCore.geometry=oldSoftGeometry;
     anglingLure.renderOrder=oldLureRenderOrder;
     anglingScene.children.forEach((child,index)=>child.visible=oldAnglingChildVisibility[index]);
     anglingScene.visible=oldAnglingSceneVisible;
@@ -26969,13 +27004,14 @@ function aczoRunStartupUnderwaterPrewarm(){
       // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
       // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
       if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
-      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<1500){
+      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<2600){
         if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
         aczoScheduleStartupUnderwaterPrewarm(50);
         return;
       }
       aczoStartupUwPrewarmStage=5;
     }else if(aczoStartupUwPrewarmStage===5){
+      if(startupText)startupText.textContent='Unterwasser-Shader und Kunstköder werden vorgewärmt …';
       aczoPerf26ForceFullUnderwaterPrewarm();
       if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=6;
       else if(++aczoStartupUwWarmAttempts<4){
