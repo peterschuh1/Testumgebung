@@ -8515,11 +8515,11 @@ const aczoPerf2CloudMat=new THREE.ShaderMaterial({
       float raw=texture2D(map,uv).r;
       // PERF5: 35 % Bewoelkung muss sichtbar bleiben. Der alte Threshold
       // war bei der kompakten Canvas-Textur zu aggressiv und verwarf fast alles.
-      float density=smoothstep(.08,.52,raw);
-      float cloud=density*(.20+.68*amount);
+      float density=smoothstep(.06,mix(.52,.39,amount),raw);
+      float cloud=density*(.22+.72*amount);
       float cloudCutoff=mix(.012,.006,clamp(underwater,0.0,1.0));
       if(cloud<cloudCutoff)discard;
-      // V8.172: Nachtwolken etwas dunkler als bisher. Dadurch verdecken sie helle
+      // V8.173: Nachtwolken und geschlossene Bewoelkung realistischer.\n      // V8.172: Nachtwolken etwas dunkler als bisher. Dadurch verdecken sie helle
       // Sterne/Mond auch optisch, statt sie nur grau einzufaerben.
       vec3 topCol=mix(vec3(.96,.975,.99),vec3(.20,.23,.30),night);
       vec3 underCol=mix(vec3(.70,.76,.82),vec3(.085,.105,.15),night);
@@ -8530,8 +8530,8 @@ const aczoPerf2CloudMat=new THREE.ShaderMaterial({
       vec3 col=gl_FrontFacing?topCol:mix(underCol,underWaterCol,clamp(underwater,0.0,1.0));
 
       // Geschlossener leichter Grundschleier erst bei sehr hoher Bewoelkung.
-      float veil=smoothstep(.72,1.0,amount)*.10;
-      float body=cloud*(.46+.26*smoothstep(.16,.64,raw));
+      float veil=smoothstep(.68,1.0,amount)*.18;
+      float body=cloud*(.50+.30*smoothstep(.14,.60,raw));
       float alpha=veil+body*(1.0-veil);
       alpha*=mix(1.0,1.08,clamp(underwater,0.0,1.0));
       float alphaCutoff=mix(.012,.008,clamp(underwater,0.0,1.0));
@@ -8594,12 +8594,32 @@ function aczoMoonPhaseLightFactor(fraction){
   // 25 % nur rund 5 %. Das trennt helle und dunkle Naechte deutlich.
   return Math.pow(f,2.20);
 }
-function aczoGeneralMoonVisualTransmission(){return THREE.MathUtils.lerp(1.00,.94,aczoWeatherCloudCoverage());}
-function aczoGeneralSunVisualTransmission(){return THREE.MathUtils.lerp(1.00,.94,aczoWeatherCloudCoverage());}
-function aczoGeneralStarTransmission(){return THREE.MathUtils.lerp(1.00,.72,aczoWeatherCloudCoverage());}
-function aczoGeneralMoonLightTransmission(){return THREE.MathUtils.lerp(1.00,.72,aczoWeatherCloudCoverage());}
-function aczoGeneralSunDirectTransmission(){return THREE.MathUtils.lerp(1.00,.58,aczoWeatherCloudCoverage());}
-function aczoGeneralAmbientTransmission(){return THREE.MathUtils.lerp(1.00,.84,aczoWeatherCloudCoverage());}
+function aczoGeneralMoonVisualTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  return THREE.MathUtils.lerp(1.00,.86,Math.pow(c,1.05));
+}
+function aczoGeneralSunVisualTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  return THREE.MathUtils.lerp(1.00,.88,Math.pow(c,1.05));
+}
+function aczoGeneralStarTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  // V8.173: Vollstaendig bedeckter Himmel zeigt nur noch die allerhellsten
+  // Sterne schwach. Bei mittlerer Bewoelkung bleibt deutlich mehr erhalten.
+  return THREE.MathUtils.lerp(1.00,.12,Math.pow(c,1.18));
+}
+function aczoGeneralMoonLightTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  return THREE.MathUtils.lerp(1.00,.55,Math.pow(c,1.08));
+}
+function aczoGeneralSunDirectTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  return THREE.MathUtils.lerp(1.00,.45,Math.pow(c,1.05));
+}
+function aczoGeneralAmbientTransmission(){
+  const c=aczoWeatherCloudCoverage();
+  return THREE.MathUtils.lerp(1.00,.72,Math.pow(c,1.08));
+}
 
 function aczoCelestialCloudTransmissionForDisc(disc){
   if(!disc||!camera||!simulationEnabled||is2D||!aczoPerf2CloudPixelData||!aczoPerf2CloudDeck.visible)return 1;
@@ -8643,18 +8663,17 @@ function updateCelestialCloudLighting(){
   // Unterwasser-Lichtlogik unveraendert.
   const underwater=(typeof fishMode!=='undefined'&&fishMode)
     ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
-  if(!underwater){
-    const activeT=sceneNightFactor>.48?moonT:sunT;
-    const ambientFactor=THREE.MathUtils.lerp(.36,1.0,activeT); // dichter Wolkenkern: rund ein Drittel weniger lokale Nacht-/Tagesstimmung
-    if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity*ambientFactor;
-    if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
-      satUniforms.dayLight.value=Math.max(.10,satUniforms.cloudBaseDayLight*ambientFactor);
-    }
-  }else{
-    if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity;
-    if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
-      satUniforms.dayLight.value=satUniforms.cloudBaseDayLight;
-    }
+  const activeT=sceneNightFactor>.48?moonT:sunT;
+  // V8.173: Die lokale Wolke muss nicht nur die Scheibe, sondern auch die
+  // wahrgenommene Szenenhelligkeit veraendern. Unter Wasser etwas sanfter,
+  // an Land deutlicher. Bei maximaler Wolke bleiben ~60 % (Land) bzw. ~72 %
+  // der lokalen Grundstimmung uebrig.
+  const ambientFactor=underwater
+    ? THREE.MathUtils.lerp(.44,1.0,activeT)
+    : THREE.MathUtils.lerp(.20,1.0,activeT);
+  if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity*ambientFactor;
+  if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
+    satUniforms.dayLight.value=Math.max(.075,satUniforms.cloudBaseDayLight*ambientFactor);
   }
 }
 
@@ -21633,6 +21652,20 @@ function updateUnderwaterEffects(dt){
   const localSunT=Number.isFinite(sunDisc.userData.cloudTransmission)?THREE.MathUtils.clamp(sunDisc.userData.cloudTransmission,.50,1):1;
   const moonNightLight=moonPhaseLight*aczoGeneralMoonLightTransmission()*localMoonT;
   const sunDayLight=aczoGeneralSunDirectTransmission()*localSunT;
+  // V8.173: Der Unterwassernebel ist der groesste Helligkeitstraeger der
+  // Fischsicht. Deshalb folgt auch seine Farbe dem realen Himmelslicht.
+  // Vollmond ohne Wolke bleibt beim bisherigen Blau; Sichel, geschlossene
+  // Bewoelkung und eine Wolke direkt vor dem Mond machen die Wassersaeule
+  // sichtbar dunkler, ohne abrupt schwarz zu werden.
+  if(typeof fishUnderwaterFog!=='undefined'&&fishUnderwaterFog&&fishUnderwaterFog.color){
+    if(night>.48){
+      const uwLight=THREE.MathUtils.clamp(.28+.72*moonNightLight,0,1);
+      fishUnderwaterFog.color.set(0x0b2937).lerp(new THREE.Color(0x174f68),uwLight);
+    }else{
+      const uwDay=THREE.MathUtils.clamp(.58+.42*sunDayLight,0,1);
+      fishUnderwaterFog.color.set(0x124459).lerp(new THREE.Color(0x1a5a73),uwDay);
+    }
+  }
   // Unter Wasser gilt dieselbe Physik wie oben: Vollmond deutlich heller,
   // Halbmond viel schwächer, Sichel fast nur noch sichtbar statt beleuchtend.
   fishCausticUniforms.intensity.value=(1-night)*(1.16*sunDayLight)+night*(.06+.34*moonNightLight);
