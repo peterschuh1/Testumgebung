@@ -7875,7 +7875,7 @@ const sunDisc=new THREE.Sprite(
  })
 );
 sunDisc.position.copy(sun.position);
-sunDisc.scale.set(48,48,1);
+sunDisc.scale.set(56,56,1);
 sunDisc.renderOrder=CELESTIAL_DISC_RENDER_ORDER;
 scene.add(sunDisc);
 
@@ -9120,7 +9120,7 @@ function applyNeutralDayScene(){
   else sunDisc.position.copy(sun.position);
   sunDisc.userData.astronomicallyVisible=true;
   sunDisc.visible=!is2D&&celestialDiscAllowedForView();
-  sunDisc.scale.set(48,48,1);
+  sunDisc.scale.set(56,56,1);
   if(sunDisc.material){
     sunDisc.material.opacity=1.0;
     sunDisc.material.depthTest=true;
@@ -11734,11 +11734,11 @@ function updateAstronomy(){
         0,1
       )
     : 0;
-  const moonVisualScale=THREE.MathUtils.lerp(19.2,15.6,moonDaylight);
+  const moonVisualScale=THREE.MathUtils.lerp(24,19.5,moonDaylight);
   moonDisc.userData.visualOpacity=moonVisualOpacity;
   moonDisc.scale.set(moonVisualScale,moonVisualScale,1);
   if(typeof moonGlow!=='undefined'){
-    const moonGlowScale=THREE.MathUtils.lerp(40.8,28.8,moonDaylight);
+    const moonGlowScale=THREE.MathUtils.lerp(51,36,moonDaylight);
     moonGlow.userData.visualOpacity=moonVisualOpacity*THREE.MathUtils.lerp(.82,.12,moonDaylight);
     moonGlow.scale.set(moonGlowScale,moonGlowScale,1);
   }
