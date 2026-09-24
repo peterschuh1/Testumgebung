@@ -9102,7 +9102,15 @@ function applyNeutralDayScene(){
   simulationEnabled=false;
   sun.visible=true;
   const sunnySpan=Math.max(D.sceneW,D.sceneH);
-  sun.position.set(sunnySpan*.28,sunnySpan*.62,sunnySpan*.82);
+  // NEUTRAL-Testsonne bewusst tief ueber dem Suedufer: ca. 18 Grad Hoehe.
+  // Dadurch kann ihr Verhalten beim Dolly/Zoom zusammen mit Horizont und Baeumen
+  // kontrolliert werden. LIVE bleibt davon vollstaendig unberuehrt und folgt SunCalc.
+  const neutralSunAltitude=THREE.MathUtils.degToRad(18);
+  sun.position.set(
+    0,
+    -Math.cos(neutralSunAltitude)*sunnySpan,
+    Math.sin(neutralSunAltitude)*sunnySpan
+  );
   sun.target.position.set(0,0,-2);
   sun.intensity=1.48;
   sun.color.set(0xfff2cf);
