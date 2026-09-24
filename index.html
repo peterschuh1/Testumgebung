@@ -5620,107 +5620,14 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible')resetViewerGestureState();
 });
 
-// BETA 1: Debug-/Profiler-Modus vollständig deaktiviert.
-const viewerDebugEnabled=false;
-let viewerDebugPanel=null;
-let viewerDebugFrames=0,viewerDebugLongFrames=0,viewerDebugMaxFrameMs=0;
-let viewerDebugRenderCalls=0,viewerDebugShadowUpdates=0;
+// Produktionszustand: deaktivierte Debug-/A/B-Profiler entfernt.
 let aczoPerf1BatchStats={sourceBoxes:0,batches:0,drawcallsSaved:0};
 let aczoPerf3CylinderBatchStats={sourceCylinders:0,batches:0,drawcallsSaved:0};
 let aczoPerf4State='ACTIVE',aczoPerf4IdleFrames=0,aczoPerf4HeavyTicks=0;
-// BETA 1: A/B-Profiler ist im öffentlichen Beta-Build deaktiviert.
-const aczoPerf5ProfilerEnabled=false;
-let aczoPerf5Phase='NORMAL',aczoPerf5PhaseStarted=performance.now(),aczoPerf5PhaseIndex=0;
-let aczoPerf5PhaseFrames=0,aczoPerf5PhaseMs=0,aczoPerf5PhaseLong33=0,aczoPerf5PhaseLong50=0,aczoPerf5PhaseLong100=0;
-const aczoPerf5Results=[];
-let aczoPerf5SavedWater=null;
-let aczoPerf5LastFrameStamp=performance.now();
-// PERF6: dieselbe Homepage, aber zwei Renderprofile. Keine getrennte Spielversion.
-const ACZO_PERF6_MOBILE=ACZO_MOBILE_PERF; // PERF10: dieselbe robuste Geraeteklasse wie der Hauptrenderer
-let aczoPerf6SunReflectionEnabled=true;
+const ACZO_PERF6_MOBILE=ACZO_MOBILE_PERF;
+const aczoPerf6SunReflectionEnabled=true;
 let aczoPerf6LastReflectionUpdate=0;
-let viewerDebugLastUpdate=performance.now();
-function markViewerRenderCall(){ /* Beta: kein Debug-Counter */ }
-function requestViewerShadowUpdate(){
-  renderer.shadowMap.needsUpdate=true;
-}
-if(viewerDebugEnabled){
-  viewerDebugPanel=document.createElement('div');
-  viewerDebugPanel.setAttribute('aria-hidden','true');
-  Object.assign(viewerDebugPanel.style,{
-    position:'absolute',left:'6px',top:'6px',zIndex:'9999',pointerEvents:'none',
-    padding:'5px 7px',borderRadius:'6px',background:'rgba(0,0,0,.72)',
-    color:'#fff',font:'10px/1.3 monospace',whiteSpace:'pre'
-  });
-  host.appendChild(viewerDebugPanel);
-}
-
-function aczoPerf5SetPhase(idx){
-  // PERF28: gezielter Wasser-/Reflexions-A/B-Test. Jede Phase dauert 5 s.
-  if(aczoPerf5SavedWater!==null){
-    try{syncWaterVisibility(aczoPerf5SavedWater);}catch(e){}
-    aczoPerf5SavedWater=null;
-  }
-  if(typeof waterUniforms!=='undefined'&&waterUniforms.reflectionLite){
-    waterUniforms.reflectionLite.value=0;
-  }
-  aczoPerf5PhaseFrames=0;aczoPerf5PhaseMs=0;aczoPerf5PhaseLong33=0;aczoPerf5PhaseLong50=0;aczoPerf5PhaseLong100=0;
-  aczoPerf5PhaseStarted=performance.now();aczoPerf5PhaseIndex=idx;
-  aczoPerf6SunReflectionEnabled=true;
-
-  if(idx===0){
-    aczoPerf5Phase='NORMAL';
-  }else if(idx===1){
-    aczoPerf5Phase='DIRECT REFLECT OFF';
-    aczoPerf6SunReflectionEnabled=false;
-  }else if(idx===2){
-    aczoPerf5Phase='WATER REFLECTION LITE';
-    aczoPerf6SunReflectionEnabled=false;
-    if(typeof waterUniforms!=='undefined'&&waterUniforms.reflectionLite){
-      waterUniforms.reflectionLite.value=1;
-    }
-  }else if(idx===3){
-    aczoPerf5Phase='WATER OFF';
-    aczoPerf5SavedWater=waterVisible;
-    try{syncWaterVisibility(false);}catch(e){}
-  }else{
-    aczoPerf5Phase='DONE';
-    if(typeof waterUniforms!=='undefined'&&waterUniforms.reflectionLite){
-      waterUniforms.reflectionLite.value=0;
-    }
-  }
-}
-function aczoPerf5ProfilerTick(frameMs){
-  if(!aczoPerf5ProfilerEnabled||aczoPerf5Phase==='DONE')return;
-  aczoPerf5PhaseFrames++;aczoPerf5PhaseMs+=frameMs;
-  if(frameMs>33)aczoPerf5PhaseLong33++;if(frameMs>50)aczoPerf5PhaseLong50++;if(frameMs>100)aczoPerf5PhaseLong100++;
-  const now=performance.now();
-  if(now-aczoPerf5PhaseStarted>=5000){
-    const secs=Math.max(.001,aczoPerf5PhaseMs/1000);
-    aczoPerf5Results.push({name:aczoPerf5Phase,fps:aczoPerf5PhaseFrames/secs,avg:aczoPerf5PhaseMs/Math.max(1,aczoPerf5PhaseFrames),p33:aczoPerf5PhaseLong33,p50:aczoPerf5PhaseLong50,p100:aczoPerf5PhaseLong100});
-    aczoPerf5SetPhase(aczoPerf5PhaseIndex+1);
-  }
-}
-function aczoPerf5Summary(){
-  if(!aczoPerf5ProfilerEnabled)return 'PERF5 Profiler AUS (mit &profile=1 starten)';
-  if(!aczoPerf5Results.length)return `PERF5 ${aczoPerf5Phase} · sammelt...`;
-
-  // PERF28.2: Auf Mobil werden die vier A/B-Ergebnisse untereinander
-  // ausgegeben, damit nichts rechts aus dem Debugfeld herausläuft.
-  const lines=aczoPerf5Results.map(r=>
-    `${r.name}  ${r.fps.toFixed(1)} fps / ${r.avg.toFixed(0)} ms`
-  );
-  return `PERF5 ${aczoPerf5Phase}\n`+lines.join('\n');
-}
-// PERF28.1 STARTFIX:
- // Der Profiler wird erst nach Ende des synchronen Seitenaufbaus gestartet.
- // waterUniforms ist ein später deklariertes const; ein sofortiger Aufruf hier
- // lief bei ?profile=1 in dessen Temporal Dead Zone und brach den Viewer ab.
- if(aczoPerf5ProfilerEnabled){
-   window.setTimeout(()=>aczoPerf5SetPhase(0),0);
- }
-
-function updateViewerDebug(rawDt){ /* BETA 1: Debug-Modus entfernt */ }
+function requestViewerShadowUpdate(){renderer.shadowMap.needsUpdate=true;}
 
 const controls=new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;
@@ -6086,13 +5993,6 @@ let touch2DRotating=false;
 const exaggeration=1; // V2.3.0: fester realer Tiefenmaßstab ohne dynamische Überhöhung.
 let is2D=false;
 
-function boostDepthColor(col){
- const hsl={h:0,s:0,l:0};
- col.getHSL(hsl);
- hsl.s=THREE.MathUtils.clamp(hsl.s*1.14+.05,0,1);
- hsl.l=THREE.MathUtils.clamp(hsl.l*1.03+(hsl.l<.5?.015:.006),0,1);
- return col.setHSL(hsl.h,hsl.s,hsl.l);
-}
 
 
 // V2.3.0: Farbverlauf exakt aus dem ursprünglichen ReefMaster-Farbshader und Tiefenfeld offline geglaettet; Mikro-Huegel entfernt.
@@ -8394,10 +8294,6 @@ scene.add(cloudGroup);
 
 // FINAL V4.3: unregelmäßige, transparente Wolkenfelder statt weißer Kugelwolken.
 // Jede Wolke besitzt Kern-, Rand- und leichte Mond-/Sonnen-Highlight-Bereiche.
-function cloudRand(seed){
-  const x=Math.sin(seed*12.9898+78.233)*43758.5453;
-  return x-Math.floor(x);
-}
 
 function addCloudField(x,y,z,s,seed,layer=1){
   // PERF2: Die frueheren 27 Wolkenfelder aus vielen transparenten Kugel-/Instanzteilen
@@ -8669,11 +8565,6 @@ function pointInsidePondMask(x,y){
 
 }
 
-function pointInsideWaterMask(x,y){
-  // Gemeinsame Maske für Weiher und die exakt eingezeichnete Moselfläche.
-  return pointInsidePondMask(x,y) ||
-    (typeof pointInMosel==='function' && pointInMosel(x,y));
-}
 
 function updateRealCloudReflections(){
   // PERF33: Legacy-Sprite-Spiegelungen komplett stillgelegt.
@@ -8730,14 +8621,6 @@ setSeasonTimeAnchor(seasonStartupNow);
 // PERF-Benchmark: ?debug=1 startet reproduzierbar am selben Kalendertag um 14:00 Uhr.
 // Ohne Debug bleibt die echte Uhrzeit unverändert. So vergleichen wir die teure
 // Tagdarstellung statt nachts versehentlich den leichteren Zustand zu messen.
-if(viewerDebugEnabled){
-  const perfDayDate=new Date(seasonStartupNow);
-  perfDayDate.setHours(14,0,0,0);
-  seasonTestMode=true;
-  seasonTestDay=seasonDayOfDate(perfDayDate);
-  seasonTestHour=14;
-  setSeasonTimeAnchor(perfDayDate);
-}
 function seasonTestSnowing(){return seasonTestMode&&seasonTestPrecipType==='snow'&&Number(liveWeather.precipitation||0)>0.01;}
 function seasonTestRaining(){return Number(liveWeather.precipitation||liveWeather.rain||0)>0.01&&!seasonTestSnowing();}
 function seasonWinterBrownStrength(){return seasonTestMode?THREE.MathUtils.clamp(seasonTestWinterBrown/100,0,1):.72;}
@@ -8750,8 +8633,6 @@ function seasonWinterFactor(day){
 }
 
 // In der Online-Fassung bleiben alle geprüften Ebenen dauerhaft aktiv.
-const diagnosticState={mirror:true,alpha:true,spec:true,relief:true,lift:true,disc:true,baseWaves:true,lane:true,depthSpots:true,waterObject:true,pondObject:true,extraObjects:true,stars:true,solarScatter:true};
-function applyDiagnosticLayers(){}
 
 
 
@@ -8997,8 +8878,7 @@ function applyWeatherScene(){
         &&!!moonDisc.userData.astronomicallyVisible;
       moonLight.intensity=(moonSceneAllowed?moonStrength:0)
         *(.075+.78*moonFraction)
-        *cloudTransmission
-        *((typeof diagnosticState==='undefined'||diagnosticState.relief)?1:0);
+        *cloudTransmission;
 
       // Tagsüber warmes gerichtetes Relieflicht aus der echten Sonnenposition.
       if(typeof dayReliefLight!=='undefined'){
@@ -9040,16 +8920,7 @@ function loadLiveWeather(){
   // PERF-Benchmark: fester Tageszustand mit leichter bis mittlerer Bewoelkung,
   // damit auch Wolken, Wolkenreflexion und Lichtdaempfung reproduzierbar in den
   // Vergleich eingehen. Nur ?debug=1 ist betroffen.
-  if(viewerDebugEnabled){
-    liveWeather={temperature:20,humidity:55,precipitation:0,rain:0,weatherCode:2,cloud:35,windSpeed:8,windDirection:245};
-    seasonRealWeather={...liveWeather};
-    simulationEnabled=true;
-    updateSimulationButton();
-    updateWeatherText();
-    updateAstronomy();
-    return Promise.resolve(liveWeather);
-  }
-  if(liveWeatherRequestInFlight)return liveWeatherRequestInFlight;
+    if(liveWeatherRequestInFlight)return liveWeatherRequestInFlight;
   const request=(async()=>{
     const controller=new AbortController();
     const timeout=window.setTimeout(()=>controller.abort(),12000);
@@ -11745,8 +11616,7 @@ function updateAstronomy(){
   // Mondlicht bleibt in heller Daemmerung/bei Tag dezent; nur die Scheibe darf
   // sichtbar sein. Dadurch entsteht kein kuenstlicher Nacht-Look vor Sonnenuntergang.
   const moonLightDayFade=THREE.MathUtils.lerp(1,.16,moonDaylight);
-  moonLight.intensity=(moonDisplayAllowed ? (0.10+0.35*moonIll.fraction)*moonLightDayFade : 0)
-    *((typeof diagnosticState==='undefined'||diagnosticState.relief)?1:0);
+  moonLight.intensity=(moonDisplayAllowed ? (0.10+0.35*moonIll.fraction)*moonLightDayFade : 0);
 
   // V36: kontinuierliche Helligkeit statt nur drei optischer Zustände.
   // Von ca. 6° Sonnenhöhe bis zur bürgerlichen Dämmerung wird das Luftbild
@@ -16886,37 +16756,6 @@ function aczoAddWindow(parent,x,y,z,w,h,side,name){
   else aczoFacilityBox(parent,[.070,w+.10,.028],[x-.012,y,z],barMat,name+'_GITTER_H');
   return win;
 }
-function aczoBuildGableHouse(parent,width,depth,wallH,ridgeH,prefix,wallMat=aczoBuildingWoodMat,seamMat=aczoBuildingWoodDarkMat){
-  aczoFacilityBox(parent,[width,depth,wallH],[0,0,wallH*.5],wallMat,prefix+'_WANDBLOCK');
-  const triPos=[-width*.5,0,wallH,width*.5,0,wallH,0,0,ridgeH];
-  for(const side of [-1,1]){
-    const geo=new THREE.BufferGeometry();
-    geo.setAttribute('position',new THREE.Float32BufferAttribute(triPos.map((v,i)=>i%3===1?side*depth*.5:v),3));
-    geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,.5,1],2));
-    geo.setIndex(side<0?[0,2,1]:[0,1,2]);geo.computeVertexNormals();
-    aczoFacilityMesh(parent,new THREE.Mesh(geo,aczoBuildingSlateMat),prefix+'_SCHIEFERGIEBEL_'+(side<0?'VORN':'HINTEN'));
-  }
-  const overhang=.34,run=width*.5+overhang,rise=ridgeH-wallH;
-  const slope=Math.hypot(run,rise),angle=Math.atan2(rise,run);
-  for(const side of [-1,1]){
-    const roof=new THREE.Mesh(new THREE.BoxGeometry(slope,depth+overhang*2,.13),aczoBuildingSlateMat);
-    roof.position.set(side*run*.5,0,wallH+rise*.5+.03);
-    // Linke und rechte Dachflaeche steigen jeweils ZUM First hin an. Die alte
-    // Vorzeichenfolge hob die Aussenkanten an und erzeugte die Origami-Form.
-    roof.rotation.y=side<0?-angle:angle;
-    aczoFacilityMesh(parent,roof,prefix+'_DACH_'+(side<0?'WEST':'OST'));
-  }
-  // Feine horizontale Fugen lassen die wettergegerbte Holzverschalung auch
-  // aus mittlerer Entfernung als echte Bretterfassade erkennen.
-  for(let z=.30;z<wallH;z+=.34){
-    aczoFacilityBox(parent,[width+.025,.025,.018],[0,-depth*.5-.014,z],seamMat,prefix+'_FASSADENFUGE_V');
-    aczoFacilityBox(parent,[width+.025,.025,.018],[0, depth*.5+.014,z],seamMat,prefix+'_FASSADENFUGE_H');
-    aczoFacilityBox(parent,[.025,depth+.025,.018],[-width*.5-.014,0,z],seamMat,prefix+'_FASSADENFUGE_W');
-    aczoFacilityBox(parent,[.025,depth+.025,.018],[ width*.5+.014,0,z],seamMat,prefix+'_FASSADENFUGE_O');
-  }
-  for(const x of [-width*.5-.035,width*.5+.035])for(const y of [-depth*.5-.035,depth*.5+.035])
-    aczoFacilityBox(parent,[.10,.10,wallH+.08],[x,y,wallH*.5],seamMat,prefix+'_ECKBRETT');
-}
 
 // Giebelhaus mit First entlang der lokalen X-Achse. Beim Vereinsheim ist
 // -X die Nordwand und +/-Y sind West/Ost; damit verläuft der First wie auf
@@ -16982,108 +16821,6 @@ function aczoAddTerraceChair(parent,x,y,yaw,name){
   aczoFacilityBox(chair,[.50,.055,.68],[0,.225,.84],aczoBuildingBlackMeshMat,name+'_LEHNE');
   for(const dx of [-.20,.20])for(const dy of [-.20,.20])aczoFacilityPole(chair,dx,dy,.05,.47,.018,aczoBuildingStainlessMat,name+'_BEIN');
   for(const dx of [-.25,.25])aczoFacilityBox(chair,[.025,.42,.035],[dx,0,.68],aczoBuildingStainlessMat,name+'_ARMLEHNE');
-}
-function aczoBuildMainClubhouseV2314(){
-  // Die Drohnenaufnahme ist gegenueber der geographischen Kartenansicht
-  // gedreht. Der direkte WMS-Abgleich setzt das Hauptdach deshalb korrekt
-  // auf das oestliche Vereinsgelaende bei rund +69.5 / +20.8 m.
-  const site=aczoFacilitySite('VEREINSHEIM_HAUPTBAU',69.45,20.70,-.72);
-  // Der leicht vergroesserte reale Baukoerper deckt die komplette, im
-  // Orthofoto sichtbare Dach- und Terrassenflaeche ab.
-  const width=8.20,depth=8.90,wallH=3.05,ridgeH=5.58;
-  aczoBuildGableHouse(site,width,depth,wallH,ridgeH,'VEREINSHEIM');
-  const clubSideDoor=aczoAddFacilityDoor(site,-1.75,-depth*.5-.065,1.08,1.10,2.05,'front','VEREINSHEIM_WEISSE_METALLTUER',aczoBuildingWhiteDoorMat);
-  aczoFacilityBox(clubSideDoor,[.34,.025,.46],[.55,-.070,1.62],aczoBuildingGlassMat,'VEREINSHEIM_TUERFENSTER');
-  aczoAddWindow(site,.15,-depth*.5-.07,1.72,1.48,1.10,'front','VEREINSHEIM_FRONTFENSTER');
-  // Der in der bisherigen Fassung fehlende Haupteingang rechts am Giebel.
-  const clubMainDoor=aczoAddFacilityDoor(site,2.55,-depth*.5-.075,1.08,1.02,2.06,'front','VEREINSHEIM_HAUPTEINGANG_RECHTS',aczoBuildingWhiteDoorMat);
-  aczoFacilityBox(clubMainDoor,[.38,.025,.52],[.51,-.062,1.63],aczoBuildingGlassMat,'VEREINSHEIM_HAUPTEINGANG_FENSTER');
-  // Bewegungsmelder und warmweiße Außenleuchte über dem Haupteingang.
-  aczoFacilityBox(site,[.42,.22,.24],[2.55,-depth*.5-.18,2.83],aczoBuildingRoofEdgeMat,'VEREINSHEIM_BEWEGUNGSMELDER_GEHAEUSE');
-  aczoMainEntranceLampLens=aczoFacilityBox(site,[.29,.035,.13],[2.55,-depth*.5-.305,2.84],aczoMainEntranceLampLensMat,'VEREINSHEIM_BEWEGUNGSMELDER_LAMPENGLAS');
-  const sensor=new THREE.Mesh(new THREE.SphereGeometry(.085,12,8),aczoBuildingLightGreyMat);
-  sensor.scale.set(1,.48,.68);sensor.position.set(2.55,-depth*.5-.34,2.68);
-  aczoFacilityMesh(site,sensor,'VEREINSHEIM_BEWEGUNGSMELDER_SENSOR',false,true);
-  aczoMainEntranceLamp=new THREE.PointLight(0xffc56d,0,15,1.72);
-  aczoMainEntranceLamp.name='VEREINSHEIM_BEWEGUNGSMELDER_LICHT';
-  aczoMainEntranceLamp.position.set(2.55,-depth*.5-.72,2.72);
-  aczoMainEntranceLamp.castShadow=false;site.add(aczoMainEntranceLamp);
-  aczoAddWindow(site,width*.5+.07,-1.45,1.70,1.38,1.08,'side','VEREINSHEIM_SEITENFENSTER_SUED');
-  aczoAddWindow(site,width*.5+.07,1.52,1.70,1.38,1.08,'side','VEREINSHEIM_SEITENFENSTER_NORD');
-  aczoAddWindow(site,-width*.5-.07,.35,1.67,1.30,1.00,'side','VEREINSHEIM_RUECKFENSTER');
-  // Kleines dunkles Lueftungsfenster im verschieferten Giebel.
-  aczoFacilityBox(site,[.62,.06,.48],[0,-depth*.5-.075,4.25],aczoBuildingGlassMat,'VEREINSHEIM_GIEBEL_LUEFTUNG');
-  // Kleines Eingangsvordach der Referenzaufnahme.
-  const entranceCanopy=aczoFacilityBox(site,[2.25,1.18,.12],[2.55,-depth*.5-.42,2.45],aczoBuildingSlateMat,'VEREINSHEIM_EINGANGSVORDACH');
-  entranceCanopy.rotation.x=.10;
-  aczoFacilityPole(site,1.70,-depth*.5-.82,.02,2.43,.055,aczoBuildingSteelMat,'VEREINSHEIM_VORDACHSTUETZE_L');
-  aczoFacilityPole(site,3.40,-depth*.5-.82,.02,2.43,.055,aczoBuildingSteelMat,'VEREINSHEIM_VORDACHSTUETZE_R');
-  // Gemauerter Kamin knapp westlich des Firsts.
-  aczoFacilityBox(site,[.58,.66,1.38],[-1.40,.72,5.18],aczoBuildingStoneMat,'VEREINSHEIM_KAMIN');
-  aczoFacilityBox(site,[.72,.80,.10],[-1.40,.72,5.89],aczoBuildingRoofEdgeMat,'VEREINSHEIM_KAMINABDECKUNG');
-  // Dachrinnen und Firstleiste.
-  for(const x of [-width*.5-.28,width*.5+.28])aczoFacilityBox(site,[.08,depth+.64,.08],[x,0,wallH+.01],aczoBuildingRoofEdgeMat,'VEREINSHEIM_DACHRINNE');
-  aczoFacilityBox(site,[.10,depth+.68,.10],[0,0,ridgeH+.08],aczoBuildingRoofEdgeMat,'VEREINSHEIM_FIRST');
-  // Zwei flache Dachfenster entsprechend Luft- und Nahaufnahme.
-  const roofRun=width*.5+.34,roofRise=ridgeH-wallH,roofAngle=Math.atan2(roofRise,roofRun);
-  for(const p of [[-1.38,-1.05],[-1.38,1.05]]){
-    const roofZ=ridgeH-roofRise*Math.abs(p[0])/roofRun+.12;
-    const skylight=aczoFacilityBox(site,[1.02,.72,.075],[p[0],p[1],roofZ],aczoBuildingGlassMat,'VEREINSHEIM_DACHFENSTER');
-    skylight.rotation.y=-roofAngle;
-    aczoFacilityBox(site,[1.16,.86,.035],[p[0],p[1],roofZ-.055],aczoBuildingLightGreyMat,'VEREINSHEIM_DACHFENSTER_RAHMEN').rotation.y=-roofAngle;
-  }
-  // Lange massive Holzbank an der Seitenwand wie in der Nahaufnahme.
-  aczoFacilityBox(site,[.42,2.80,.16],[width*.5+.34,.52,.55],aczoBuildingWoodLightMat,'VEREINSHEIM_HOLZBANK_SITZ');
-  for(const y of [-.52,1.55])aczoFacilityBox(site,[.32,.18,.50],[width*.5+.28,y,.27],aczoBuildingWoodDarkMat,'VEREINSHEIM_HOLZBANK_FUSS');
-
-  // Offene, burgunderfarbene Terrassenkonstruktion an der zum Weiher
-  // gerichteten Giebelseite. Die hintere Dachkante sitzt jetzt ohne den
-  // bisherigen Zwischenraum direkt auf der Hauptfassade.
-  const terrace=new THREE.Group();terrace.name='VEREINSHEIM_UEBERDACHTE_TERRASSE';
-  terrace.position.set(-.72,-7.38,0);site.add(terrace);
-  aczoFacilityBox(terrace,[6.35,5.85,.10],[0,0,.05],aczoBuildingFloorMat,'TERRASSE_PFLASTER');
-  const terraceRoof=aczoFacilityBox(terrace,[6.70,6.06,.15],[0,0,2.76],aczoBuildingSlateMat,'TERRASSE_FLACHDACH');
-  terraceRoof.rotation.x=.045;
-  // Nur die freie Vorderkante benoetigt Stuetzen; die Rueckseite ist direkt
-  // am Hauptgebaeude verschraubt.
-  for(const x of [-2.95,0,2.95])
-    aczoFacilityPole(terrace,x,-2.68,.05,2.63,.065,aczoBuildingSteelMat,'TERRASSE_FRONTSTUETZE');
-  for(const y of [-2.72,2.72])aczoFacilityBox(terrace,[6.30,.10,.12],[0,y,2.68],aczoBuildingSteelMat,'TERRASSE_RANDTRAEGER');
-  for(let x=-2.75;x<=2.76;x+=.78)aczoFacilityBox(terrace,[.075,5.82,.10],[x,0,2.67],aczoBuildingWoodDarkMat,'TERRASSE_DACHSPARREN');
-  aczoFacilityBox(terrace,[6.38,.13,.18],[0,2.88,2.72],aczoBuildingRoofEdgeMat,'TERRASSE_WANDANSCHLUSS');
-  // Dauerhafte lange Tafel und schwarze Mesh-Gartenstuehle unter dem Dach.
-  aczoFacilityBox(terrace,[4.35,1.02,.10],[0,-.15,.79],aczoBuildingWoodLightMat,'TERRASSE_LANGE_TAFEL');
-  for(const x of [-1.72,1.72])for(const y of [-.38,.10])aczoFacilityPole(terrace,x,y,.05,.74,.035,aczoBuildingSteelMat,'TERRASSE_TAFELBEIN');
-  for(const x of [-1.58,-.52,.52,1.58]){
-    aczoAddTerraceChair(terrace,x,-.98,0,'TERRASSE_STUHL_WASSERSEITE');
-    aczoAddTerraceChair(terrace,x,.70,Math.PI,'TERRASSE_STUHL_HAUSSEITE');
-  }
-  aczoAddTerraceChair(terrace,-2.55,-.15,-Math.PI*.5,'TERRASSE_STUHL_STIRN_LINKS');
-  aczoAddTerraceChair(terrace,2.55,-.15,Math.PI*.5,'TERRASSE_STUHL_STIRN_RECHTS');
-
-  // Sanitärbau: Die Hinterkante ist nun exakt bündig zur Hausrückseite.
-  const annexW=4.35,annexD=4.15;
-  const annex=new THREE.Group();annex.name='VEREINSHEIM_SANITAERANBAU';annex.position.set(3.55,depth*.5-annexD*.5,0);site.add(annex);
-  aczoFacilityBox(annex,[annexW,annexD,2.45],[0,0,1.225],aczoBuildingGreyMat,'SANITAER_WANDBLOCK');
-  const annexRoof=aczoFacilityBox(annex,[4.66,4.46,.16],[0,.03,2.53],aczoBuildingSlateMat,'SANITAER_FLACHDACH');annexRoof.rotation.x=.025;
-  // Zwei getrennte Sanitärtüren und das kleine Fenster der Originalfassade.
-  aczoAddFacilityDoor(annex,-1.18,-annexD*.5-.055,1.00,.86,1.96,'front','SANITAER_TUER_DAMEN');
-  aczoAddFacilityDoor(annex,.38,-annexD*.5-.055,1.00,.86,1.96,'front','SANITAER_TUER_HERREN');
-  aczoAddWindow(annex,1.55,-annexD*.5-.065,1.58,.62,.70,'front','SANITAER_FRONTFENSTER');
-  // Weitere Tür um die Gebäudeecke sowie zwei hoch gesetzte Sanitärfenster.
-  aczoAddFacilityDoor(annex,annexW*.5+.055,.92,1.00,.86,1.96,'side','SANITAER_ECKTUER');
-  aczoAddWindow(annex,annexW*.5+.07,-.66,1.75,.66,.62,'side','SANITAER_SEITENFENSTER_1');
-  aczoAddWindow(annex,annexW*.5+.07,.02,1.75,.54,.62,'side','SANITAER_SEITENFENSTER_2');
-
-  aczoRegisterVisitorBuilding('Hauptgebäude',site,width,depth,[
-    {side:'yMin',center:-1.75,half:.62,name:'Nebentür'},
-    {side:'yMin',center:2.55,half:.58,name:'Haupteingang'}
-  ]);
-  // Am angebauten Sanitärteil ist die Tür um die freie Außenecke der sicher
-  // erreichbare Durchgang; die beiden Fronttüren bleiben optisch erhalten.
-  aczoRegisterVisitorBuilding('Sanitäranbau',annex,annexW,annexD,[
-    {side:'xMax',center:.92,half:.50,name:'Sanitär-Seitentür'}
-  ]);
 }
 
 // V8.142 – Die Luftaufnahme zeigt den First entlang der langen Hausachse.
@@ -17210,56 +16947,6 @@ function aczoBuildMainClubhouse(){
   ]);
 }
 
-function aczoBuildStorageShedV2314(){
-  // Abgesetzte weiss-graue Garage auf dem hellen Luftbildgrundriss. Das
-  // breite Tor sitzt an der Stirnseite; die ehemalige Torseite wird wie im
-  // Original zur gefliesten, ueberdachten Aussenkueche.
-  const shed=aczoFacilitySite('RUECKWAERTIGER_LAGERBAU',80.25,29.05,-.72);
-  const width=6.80,depth=4.00,wallH=2.48,ridgeH=3.72;
-  aczoBuildGableHouse(shed,width,depth,wallH,ridgeH,'LAGER',aczoBuildingLightGreyMat,aczoBuildingGreyMat);
-  for(const x of [-width*.5-.27,width*.5+.27])aczoFacilityBox(shed,[.075,depth+.58,.075],[x,0,wallH+.01],aczoBuildingRoofEdgeMat,'LAGER_DACHRINNE');
-  aczoFacilityBox(shed,[.09,depth+.64,.09],[0,0,ridgeH+.06],aczoBuildingRoofEdgeMat,'LAGER_FIRST');
-
-  // Korrektes Garagentor an der vorderen Stirnseite (+X).
-  aczoFacilityBox(shed,[.085,2.58,2.15],[width*.5+.052,0,1.10],aczoBuildingWhiteDoorMat,'LAGER_GARAGENTOR_STIRN');
-  for(let z=.28;z<2.08;z+=.34)aczoFacilityBox(shed,[.035,2.46,.024],[width*.5+.105,0,z],aczoBuildingGreyMat,'LAGER_GARAGENTOR_QUERFUGE');
-  for(const y of [-1.34,1.34])aczoFacilityBox(shed,[.055,.075,2.27],[width*.5+.095,y,1.13],aczoBuildingDoorMat,'LAGER_GARAGENTOR_RAHMEN');
-  aczoFacilityBox(shed,[.055,2.72,.075],[width*.5+.095,0,2.22],aczoBuildingDoorMat,'LAGER_GARAGENTOR_STURZ');
-  aczoFacilityBox(shed,[.035,.34,.055],[width*.5+.125,.70,.92],aczoBuildingRoofEdgeMat,'LAGER_GARAGENTOR_GRIFF');
-
-  // Seitlicher Dachueberstand mit schieferverkleideter Blende. Die
-  // Dachflaeche faellt von der Garagenwand nach aussen ab.
-  const kitchenRoof=aczoFacilityBox(shed,[6.35,2.48,.15],[0,-2.78,2.72],aczoBuildingSlateMat,'AUSSENKUECHE_SCHIEFERDACH');
-  kitchenRoof.rotation.x=.115;
-  aczoFacilityBox(shed,[6.34,.14,.34],[0,-3.98,2.45],aczoBuildingSlateMat,'AUSSENKUECHE_DACHBLENDE');
-  for(const x of [-2.92,2.92])aczoFacilityPole(shed,x,-3.88,.02,2.47,.065,aczoBuildingSteelMat,'AUSSENKUECHE_STUETZE');
-  for(let x=-2.75;x<=2.76;x+=.78)aczoFacilityBox(shed,[.075,2.36,.10],[x,-2.78,2.61],aczoBuildingWoodDarkMat,'AUSSENKUECHE_DACHSPARREN');
-
-  // Geflieste Rueckwand mit sichtbaren Fugen.
-  aczoFacilityBox(shed,[5.62,.055,1.86],[0,-depth*.5-.038,1.25],aczoBuildingTileMat,'AUSSENKUECHE_FLIESENWAND');
-  for(let x=-2.62;x<=2.63;x+=.35)aczoFacilityBox(shed,[.012,.018,1.82],[x,-depth*.5-.073,1.25],aczoBuildingTileJointMat,'AUSSENKUECHE_FLIESENFUGE_V');
-  for(let z=.39;z<=2.12;z+=.29)aczoFacilityBox(shed,[5.58,.018,.012],[0,-depth*.5-.073,z],aczoBuildingTileJointMat,'AUSSENKUECHE_FLIESENFUGE_H');
-
-  // Arbeitszeile, Edelstahlspuele, Armatur und zwei grosse Braeter.
-  aczoFacilityBox(shed,[5.36,.70,.10],[0,-2.10,.91],aczoBuildingStoneMat,'AUSSENKUECHE_ARBEITSPLATTE');
-  for(const x of [-2.35,2.35])aczoFacilityBox(shed,[.18,.56,.82],[x,-2.08,.46],aczoBuildingGreyMat,'AUSSENKUECHE_UNTERGESTELL');
-  aczoFacilityBox(shed,[1.02,.48,.11],[-1.78,-2.10,.96],aczoBuildingStainlessMat,'AUSSENKUECHE_SPUELE');
-  aczoFacilityBox(shed,[.75,.30,.07],[-1.78,-2.10,.975],aczoBuildingRoofEdgeMat,'AUSSENKUECHE_SPUELE_BECKEN');
-  aczoFacilityPole(shed,-1.78,-1.82,.98,1.42,.025,aczoBuildingStainlessMat,'AUSSENKUECHE_WASSERHAHN');
-  const tap=aczoFacilityBox(shed,[.035,.27,.035],[-1.78,-1.94,1.42],aczoBuildingStainlessMat,'AUSSENKUECHE_WASSERHAHN_AUSLAUF');tap.rotation.x=.18;
-  for(const x of [-.48,.80]){
-    aczoFacilityBox(shed,[1.05,.58,.26],[x,-2.10,1.08],aczoBuildingStainlessMat,'AUSSENKUECHE_BRAETER');
-    aczoFacilityBox(shed,[.91,.48,.035],[x,-2.10,1.22],aczoBuildingRoofEdgeMat,'AUSSENKUECHE_BRATFLAECHE');
-  }
-  // Fensterband und Seitentuer auf der geschuetzten Kuechenseite.
-  aczoAddWindow(shed,-2.05,-depth*.5-.075,1.76,.78,.65,'front','AUSSENKUECHE_FENSTER_LINKS');
-  aczoAddWindow(shed,2.15,-depth*.5-.075,1.76,.78,.65,'front','AUSSENKUECHE_FENSTER_RECHTS');
-  aczoAddFacilityDoor(shed,-width*.5-.055,.72,1.00,.86,1.96,'side','LAGER_SEITENTUER',aczoBuildingWhiteDoorMat);
-  aczoRegisterVisitorBuilding('Garage',shed,width,depth,[
-    {side:'xMax',center:0,half:1.36,name:'Garagentor',pedestrian:false},
-    {side:'xMin',center:.72,half:.50,name:'Seitentür'}
-  ]);
-}
 
 // Garage: First entlang der Nord-Süd-Längsachse. Das Tor sitzt am
 // nördlichen Giebel; die östliche Dachfläche geht flacher in den
@@ -18244,20 +17931,6 @@ function aczoPointInsideVisitorBuilding(x,y,pad=.28){
   }
   return false;
 }
-function aczoPlaceVisitorOnOpenGround(out,x,y){
-  out.set(x,y,ACZO_VISITOR_GROUND_Z);
-  if(!aczoPointInsideVisitorBuilding(x,y,.20))return out;
-  // Falls eine Fahrzeugseite innerhalb eines großzügig gerechneten
-  // Gebäudegrundrisses liegt, wird nur der Startpunkt auf den nächsten freien
-  // Geländepunkt gesetzt. Danach läuft die Figur ohne Teleportation weiter.
-  for(const radius of [.45,.75,1.10,1.55,2.10,2.80]){
-    for(let i=0;i<16;i++){
-      const a=i*Math.PI*2/16,cx=x+Math.cos(a)*radius,cy=y+Math.sin(a)*radius;
-      if(!aczoPointInsideVisitorBuilding(cx,cy,.20))return out.set(cx,cy,ACZO_VISITOR_GROUND_Z);
-    }
-  }
-  return out;
-}
 function aczoVehicleFootprintBlocked(x,y,dir,pad=.22){
   if(!aczoVisitorBuildings.length)return false;
   const len=4.65,wid=2.08;
@@ -18286,26 +17959,6 @@ function aczoFindContainingVisitorBuilding(x,y,pad=-.08){
     if(aczoVisitorLocalInside(building,p,pad))return building;
   }
   return null;
-}
-function aczoDoorPermitsBoundaryCrossing(building,a,b,pad=.28){
-  const hx=building.width*.5+pad,hy=building.depth*.5+pad;
-  const crossings=[];
-  const pushCross=(side,t,coord)=>{
-    if(t>=-.001&&t<=1.001)crossings.push({side,t,coord});
-  };
-  const dx=b.x-a.x,dy=b.y-a.y;
-  if(Math.abs(dy)>1e-7){
-    let t=(-hy-a.y)/dy;pushCross('yMin',t,a.x+dx*t);
-    t=(hy-a.y)/dy;pushCross('yMax',t,a.x+dx*t);
-  }
-  if(Math.abs(dx)>1e-7){
-    let t=(-hx-a.x)/dx;pushCross('xMin',t,a.y+dy*t);
-    t=(hx-a.x)/dx;pushCross('xMax',t,a.y+dy*t);
-  }
-  crossings.sort((u,v)=>u.t-v.t);
-  return crossings.some(cross=>building.doors.some(door=>
-    door.side===cross.side&&Math.abs(cross.coord-door.center)<=door.half+.10
-  ));
 }
 // V1.2 BESUCHER-KOLLISION:
 function aczoVisitorSegmentHitsRect(a,b,hx,hy){
@@ -20350,13 +20003,6 @@ function aczoP13TreeProtected(x,y){
   if(aczoP13NearBuildings(x,y))return true; // Gebaeude und direkte Umgebung
   return false;
 }
-function aczoP13RemoteTreeKeep(x,y,salt=0){
-  if(aczoP13TreeProtected(x,y))return true;
-  // Stabiler Orts-Hash: identischer Bestand bei jedem Laden, kein visuelles Flattern.
-  let h=(Math.imul(Math.round((x+180)*100),73856093)^Math.imul(Math.round((y+180)*100),19349663)^Math.imul((salt|0)+1,83492791))>>>0;
-  h^=h>>>16;h=Math.imul(h,0x7feb352d)>>>0;h^=h>>>15;
-  return (h>>>0)/4294967296<.22;
-}
 // P33: Zwei vom Nutzer markierte Fernbereiche werden zusaetzlich beruhigt.
 // Die direkte Uferkulisse bleibt erhalten; Sued/Mosel (y<=-42) bleibt komplett
 // nach P32 als hochwertige Vegetation inklusive Schatten bestehen.
@@ -20602,21 +20248,6 @@ function aczoSurveyBuildLowPolyBush(object,index){
 // P22: Unterwuchs fuer dichte Mischwaelder. Ein einzelner 20-Tri-Poly-Lappen
 // pro Position reicht, um aus Augenhoehe die sonst weissen Luecken zwischen
 // den Staemmen zu schliessen. Bewusst schattenfrei und statisch instanziert.
-function aczoSurveyBuildForestUnderstory(x,y,index,forestDepth){
-  if(forestDepth<8)return; // erste Uferreihe optisch unveraendert lassen
-  const rnd=aczoSurveyRandom(aczoSurveySeed(x,y,index+22900)),baseZ=ACZO_SATELLITE_GROUND_Z;
-  const species=aczoSurveySpecies[Math.floor(rnd()*aczoSurveySpecies.length)];
-  const toneBand=Math.floor(rnd()*aczoSurveyToneProfiles.length),tone=aczoSurveyToneProfiles[toneBand];
-  const height=1.8+rnd()*2.7;
-  const radius=1.15+rnd()*1.25;
-  aczoSurveyForestUnderstoryItems.push({
-    p:new THREE.Vector3(x,y,baseZ+height*.43),
-    scale:new THREE.Vector3(radius*(.90+rnd()*.24),radius*(.82+rnd()*.24),height*.43),
-    rot:new THREE.Euler(rnd()*.16,rnd()*.16,rnd()*Math.PI),
-    species,toneBand,variation:(rnd()-.5)*.28,
-    hueShift:tone.h,satShift:tone.s,lightShift:(tone.l||0)-.035
-  });
-}
 
 // P32: Keine Poly-Buesche mehr an Nord-, West- oder Ostufer.
 // Vermessene Buesche ausserhalb der direkten Uferkante werden nur an der
@@ -21414,18 +21045,27 @@ function randomFxPoint(minDepth,maxDepth){
   return null;
 }
 
+let aczoBubbleTransitAccumulator=0;
 function updateUnderwaterEffects(dt){
   const anglingUnderwater=anglingMode&&anglingCinematicView==='underwater';
-  // V1.2 BUBBLE TRANSIT: Grundelblasen muessen unabhaengig von der Kamera
-  // weiterlaufen. Beim Posenangeln steht die Kamera ueber Wasser, die Blasen
-  // steigen darunter aber real weiter und erzeugen erst beim Auftreffen den Ring.
-  // Unter Wasser wird derselbe Pool sichtbar gerendert.
+  // P62: Grundelblasen laufen auch bei einer Kamera ueber Wasser weiter, muessen
+  // dort aber nicht den 640er Pool in jedem Renderframe aktualisieren. 8 Hz
+  // reichen fuer die unsichtbare Transitphysik und erhalten die Oberflaechenringe.
+  if(!fishMode&&!anglingUnderwater){
+    aczoBubbleTransitAccumulator+=dt;
+    if(aczoBubbleTransitAccumulator>=.125){
+      updateParticlePool(bubblePool,aczoBubbleTransitAccumulator,true);
+      aczoBubbleTransitAccumulator=0;
+    }
+    bubblePool.points.visible=false;
+    return;
+  }
+  if(aczoBubbleTransitAccumulator>0){
+    updateParticlePool(bubblePool,aczoBubbleTransitAccumulator,true);
+    aczoBubbleTransitAccumulator=0;
+  }
   updateParticlePool(bubblePool,dt,true);
-  // Mehrere Kamera-/Angel-Übergänge setzen den Pool bewusst auf invisible.
-  // Für die aktive Unterwasseransicht muss er deshalb hier jedes Bild wieder
-  // eindeutig freigegeben werden. Von Land läuft nur die Physik weiter.
-  bubblePool.points.visible=!!(fishMode||anglingUnderwater);
-  if(!fishMode&&!anglingUnderwater) return;
+  bubblePool.points.visible=true;
   // PERF14: In der Kunstkoederkamera laufen die additiven Caustics deutlich
   // langsamer. Das verhindert das regelmaessige globale Hell/Dunkel-Pumpen,
   // ohne die Unterwasserwelt statisch wirken zu lassen.
@@ -21922,22 +21562,6 @@ function createFishMesh(name){
 }
 
 
-function deadwoodSpeciesAffinity(name){
-  switch(name){
-    case 'perch':return {chance:.80,radius:.95};
-    case 'sunfish':return {chance:.74,radius:.88};
-    case 'roach':return {chance:.55,radius:1.20};
-    case 'rudd':return {chance:.50,radius:1.26};
-    case 'bream':return {chance:.34,radius:1.12};
-    case 'tench':return {chance:.44,radius:.96};
-    case 'carp':case 'mirrorcarp':return {chance:.34,radius:1.36};
-    case 'pike':return {chance:.72,radius:.92};
-    case 'zander':return {chance:.60,radius:.96};
-    case 'eel':return {chance:.50,radius:.82};
-    case 'catfish':return {chance:.42,radius:1.08};
-    default:return null;
-  }
-}
 function randomDeadwoodFishPoint(name,out,options={}){
   if(options.avoidCover||!ACZO_COVER_PREDATORS.has(name)||!aczoFishCoverSites.length)return false;
   const lowLight=aczoFishLowLightFactor();
@@ -22173,9 +21797,8 @@ function centralFishStart(out){
 
 function enterFishView(){
   if(fishMode||anglingMode) return;
-  // PERF24: Gemeinsame Unterwasserwelt ist normalerweise bereits inklusive
-  // echtem Erst-Render vorgewärmt. Falls der Nutzer extrem früh klickt, wird der
-  // kleine Warmup wenigstens vor dem eigentlichen Tauchflug nachgezogen.
+  // P62: Die gemeinsame Unterwasserwelt wird bereits unter dem Startloader aufgebaut.
+  // Bei extrem frühem Zugriff wird nur derselbe Full-Warmup nachgeplant.
   ensureAnglingLureUnderwaterWorld();
   // PERF26: Kein synchroner GPU-Warmup mehr exakt auf dem ersten Klick. Falls
   // der Hintergrund-Prewarm wider Erwarten noch nicht fertig ist, wird er nur
@@ -24463,24 +24086,6 @@ function anglingShoreHasSafeLocalAxis(shore,inward){
   return anglingMaxCastDistance(yaw,shore)>=ANGLING_MIN_CAST_DISTANCE;
 }
 
-function createAnglingShorePhotoMaterial(tex){
-  // V7.02: Die Panoramafotos sind echte Hintergrundgeometrie.
-  // Sie laufen im OPAKEN Renderpass mit Alpha-Test und schreiben Tiefe.
-  // Dadurch können transparente Foto-Flächen niemals nachträglich Rute oder Schnur übermalen.
-  const mat=new THREE.MeshBasicMaterial({
-    map:tex,
-    color:0xffffff,
-    transparent:false,
-    opacity:1,
-    side:THREE.DoubleSide,
-    depthWrite:true,
-    depthTest:true,
-    fog:false,
-    alphaTest:.06
-  });
-  mat.toneMapped=false;
-  return mat;
-}
 
 function getAnglingShoreNumberFromPosition(shore,sample=null){
   if(!shore)return 0;
@@ -24501,60 +24106,7 @@ function getAnglingShoreNumberFromPosition(shore,sample=null){
   return 4;
 }
 
-function anglingWallSideName(wallNumber){
-  if(wallNumber===1)return 'bottom';
-  if(wallNumber===2)return 'top';
-  if(wallNumber===3)return 'right';
-  return 'left';
-}
 
-function makeAnglingWallPhotoGeometry(wallNumber,tex){
-  const side=anglingWallSideName(wallNumber);
-  const cx=(typeof anglingPondCenter!=='undefined'?anglingPondCenter.x:0);
-  const cy=(typeof anglingPondCenter!=='undefined'?anglingPondCenter.y:0);
-
-  // V6.96: Das komplette Panorama-Rechteck liegt bewusst deutlich HINTER
-  // dem eigentlichen Ufer. Die Angelkamera kann dadurch auch in den Ecken
-  // nicht mehr an/in eine Fotowand geraten. Gleichzeitig werden die Waende
-  // um denselben Betrag verlaengert, damit sich die vier Seiten hinter den
-  // Ecken sauber ueberlappen und keine Luecke entsteht.
-  const overscan=1.25;
-  const wallBackOffset=9.0;
-  const yEdge=D.pondH*.5+wallBackOffset;
-  const xEdge=D.pondW*.5+wallBackOffset;
-  const span=(side==='top'||side==='bottom')
-    ? D.pondW+wallBackOffset*2+overscan*2
-    : D.pondH+wallBackOffset*2+overscan*2;
-
-  const imgW=Math.max(1,Number(tex?.image?.width)||1800);
-  const imgH=Math.max(1,Number(tex?.image?.height)||500);
-  const naturalHeight=span*(imgH/imgW);
-
-  const stripHeight=THREE.MathUtils.clamp(naturalHeight*.58,6.2,12.2);
-
-  // Nur minimal unter die Wasserlinie fuer einen sauberen optischen Anschluss.
-  const zBottom=-.08;
-  const zTop=zBottom+stripHeight;
-  const halfSpan=span*.5;
-
-  let p;
-  if(side==='top'){
-    p=[cx-halfSpan,cy+yEdge,zBottom, cx+halfSpan,cy+yEdge,zBottom, cx+halfSpan,cy+yEdge,zTop, cx-halfSpan,cy+yEdge,zTop];
-  }else if(side==='bottom'){
-    p=[cx+halfSpan,cy-yEdge,zBottom, cx-halfSpan,cy-yEdge,zBottom, cx-halfSpan,cy-yEdge,zTop, cx+halfSpan,cy-yEdge,zTop];
-  }else if(side==='right'){
-    p=[cx+xEdge,cy+halfSpan,zBottom, cx+xEdge,cy-halfSpan,zBottom, cx+xEdge,cy-halfSpan,zTop, cx+xEdge,cy+halfSpan,zTop];
-  }else{
-    p=[cx-xEdge,cy-halfSpan,zBottom, cx-xEdge,cy+halfSpan,zBottom, cx-xEdge,cy+halfSpan,zTop, cx-xEdge,cy-halfSpan,zTop];
-  }
-
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
-  geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,1,1,0,1],2));
-  geo.setIndex([0,1,2,0,2,3]);
-  geo.computeVertexNormals();
-  return geo;
-}
 
 
 function clearAnglingPhotoShadowMeshes(){
@@ -24570,193 +24122,9 @@ function clearAnglingPhotoShadowMeshes(){
   anglingPhotoShadowMeshes.length=0;
 }
 
-function makeGreyAnglingShadowTexture(tex){
-  try{
-    const img=tex&&tex.image;
-    if(!img)return tex;
-    const w=img.naturalWidth||img.videoWidth||img.width||1024;
-    const h=img.naturalHeight||img.videoHeight||img.height||512;
-    const canvas=document.createElement('canvas');
-    canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    if(!ctx)return tex;
-    ctx.clearRect(0,0,w,h);
-    ctx.drawImage(img,0,0,w,h);
-    const id=ctx.getImageData(0,0,w,h),d=id.data;
-    for(let i=0;i<d.length;i+=4){
-      const a=d[i+3]/255;
-      const lum=(d[i]*.2126+d[i+1]*.7152+d[i+2]*.0722);
-      // Nur dunklere, kompakte Bildbereiche (Bäume/Ufer) sollen Schatten werfen,
-      // nicht die farbige Panoramaoberfläche selbst.
-      const silhouette=Math.max(0,Math.min(1,(172-lum)/86));
-      const mask=Math.round(255*a*silhouette);
-      d[i]=mask;d[i+1]=mask;d[i+2]=mask;d[i+3]=255;
-    }
-    ctx.putImageData(id,0,0);
-    // V7.63: Schattenränder deutlich stärker auswaschen, ohne Form, Richtung oder Projektionslänge zu verändern.
-    // Fast die gesamte Maske kommt aus der weichgezeichneten Variante; nur ein sehr kleiner Rest der Originalkante
-    // bleibt erhalten, damit die Baumstruktur nicht vollständig zu einem grauen Nebelfleck zerläuft.
-    const soft=document.createElement('canvas');soft.width=w;soft.height=h;
-    const sctx=soft.getContext('2d');
-    if(sctx){
-      const blurPx=Math.max(6,Math.min(14,Math.round(w/220)));
-      sctx.clearRect(0,0,w,h);
-      sctx.filter='blur('+blurPx+'px)';
-      sctx.drawImage(canvas,0,0);
-      sctx.filter='none';
-      ctx.clearRect(0,0,w,h);
-      ctx.globalAlpha=.95;ctx.drawImage(soft,0,0);
-      ctx.globalAlpha=.05;ctx.drawImage(canvas,0,0);
-      ctx.globalAlpha=1;
-    }
-    const maskTex=new THREE.CanvasTexture(canvas);
-    maskTex.colorSpace=THREE.NoColorSpace;
-    maskTex.wrapS=THREE.ClampToEdgeWrapping;
-    maskTex.wrapT=THREE.ClampToEdgeWrapping;
-    maskTex.minFilter=THREE.LinearMipmapLinearFilter;
-    maskTex.magFilter=THREE.LinearFilter;
-    maskTex.generateMipmaps=true;
-    maskTex.needsUpdate=true;
-    return maskTex;
-  }catch(_err){
-    return tex;
-  }
-}
 
-function createAnglingPhotoShadowMaterial(tex){
-  const shadowMask=makeGreyAnglingShadowTexture(tex);
-  const shadowColor=new THREE.Color(0x4f5459);
-  const uniforms={
-    shadowMask:{value:shadowMask},
-    shadowColor:{value:shadowColor},
-    shadowOpacity:{value:0},
-    waveInfluence:{value:.35},
-    time:waterUniforms.time,
-    cloudWindDir:waterUniforms.cloudWindDir,
-    cloudWindSpeed:waterUniforms.cloudWindSpeed,
-    windStrength:waterUniforms.windStrength
-  };
-  const mat=new THREE.ShaderMaterial({
-    uniforms,
-    transparent:true,
-    depthWrite:false,
-    depthTest:true,
-    side:THREE.FrontSide,
-    blending:THREE.MultiplyBlending,
-    vertexShader:`
-      varying vec2 vUv;
-      varying vec3 vWorldPos;
-      void main(){
-        vUv=uv;
-        vec4 world=modelMatrix*vec4(position,1.0);
-        vWorldPos=world.xyz;
-        gl_Position=projectionMatrix*viewMatrix*world;
-      }
-    `,
-    fragmentShader:`
-      uniform sampler2D shadowMask;
-      uniform vec3 shadowColor;
-      uniform float shadowOpacity;
-      uniform float waveInfluence;
-      uniform float time;
-      uniform vec2 cloudWindDir;
-      uniform float cloudWindSpeed;
-      uniform float windStrength;
-      varying vec2 vUv;
-      varying vec3 vWorldPos;
 
-      // Exakt dieselben Funktionen wie im Wasser-Shader.
-      float waveBands(vec2 p){
-        vec2 dir=normalize(length(cloudWindDir)>.01 ? cloudWindDir : vec2(0.0,-1.0));
-        vec2 side=vec2(-dir.y,dir.x);
-        float speed=.62+cloudWindSpeed*.72;
-        float along=dot(p,dir)-time*speed;
-        float across=dot(p,side);
-        float curve=across+sin(along*.15)*1.25+sin(along*.061+2.2)*1.75;
-        float a=sin(curve*.47-along*.08);
-        float b=sin((curve+sin(along*.23)*.75)*.79-along*.11+1.7);
-        float c=sin((curve-sin(along*.18+1.1)*.55)*1.18-along*.15+3.8);
-        float breaks=.38+.62*smoothstep(-.35,.45,
-          sin(along*.34+sin(across*.12)*1.4)*sin(across*.19+along*.08+1.3));
-        return (a*.48+b*.32+c*.20)*breaks;
-      }
 
-      float surfaceRipples(vec2 p){
-        vec2 dir=normalize(length(cloudWindDir)>.01 ? cloudWindDir : vec2(0.0,-1.0));
-        vec2 side=vec2(-dir.y,dir.x);
-        float along=dot(p,dir);
-        float across=dot(p,side);
-        float speed=.78+cloudWindSpeed*.86;
-        along-=time*speed;
-        float curve=across+sin(along*.17)*.95+sin(along*.075+2.5)*1.25;
-        float r1=sin(curve*.78-along*.10);
-        float r2=sin((curve+sin(along*.25)*.65)*1.16-along*.14+1.9);
-        float r3=sin((curve-sin(along*.20)*.45)*1.63-along*.18+4.1);
-        float segments=.30+.70*smoothstep(-.42,.38,sin(along*.41+across*.16));
-        float n=(r1*.48+r2*.33+r3*.19)*segments;
-        return .5+.5*n;
-      }
-
-      void main(){
-        float mask=texture2D(shadowMask,vUv).r;
-        if(mask<.008)discard;
-
-        // Die Schattenposition bleibt fest. Nur die Deckung wird an exakt denselben
-        // Wellenzügen moduliert, die auch die sichtbare Wasseroberfläche erzeugen.
-        float ripples=surfaceRipples(vWorldPos.xy);
-        float bands=.5+.5*waveBands(vWorldPos.xy);
-        float physicalWave=mix(ripples,bands,.28);
-        float windFactor=mix(.55,1.0,clamp(windStrength,0.0,1.0));
-        float crestLift=smoothstep(.58,.92,physicalWave);
-        float troughDeep=1.0-smoothstep(.18,.48,physicalWave);
-        float modulation=1.0
-          - crestLift*(.16*waveInfluence*windFactor)
-          + troughDeep*(.045*waveInfluence*windFactor);
-
-        float a=clamp(mask*shadowOpacity*modulation,0.0,.88);
-        gl_FragColor=vec4(shadowColor,a);
-      }
-    `
-  });
-  mat.toneMapped=false;
-  mat.color=shadowColor;
-  mat.alphaMap=shadowMask;
-  Object.defineProperty(mat,'opacity',{
-    configurable:true,
-    get(){return uniforms.shadowOpacity.value;},
-    set(v){uniforms.shadowOpacity.value=v;}
-  });
-  mat.userData.shadowMap=shadowMask!==tex?shadowMask:null;
-  mat.userData.waveInfluence=uniforms.waveInfluence;
-  return mat;
-}
-
-function makeAnglingPhotoShadowGeometry(){
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute([
-    0,0,.03,
-    1,0,.03,
-    1,1,.03,
-    0,1,.03
-  ],3));
-  geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,1,1,0,1],2));
-  geo.setIndex([0,1,2,0,2,3]);
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function createAnglingPhotoShadowMesh(wallNumber,tex,imageKey){
-  const mat=createAnglingPhotoShadowMaterial(tex);
-  const mesh=new THREE.Mesh(makeAnglingPhotoShadowGeometry(),mat);
-  mesh.visible=false;
-  mesh.frustumCulled=false;
-  mesh.renderOrder=12;
-  mesh.userData.wallNumber=wallNumber;
-  mesh.userData.sourceShore=imageKey;
-  anglingPhotoShadowGroup.add(mesh);
-  anglingPhotoShadowMats.push(mat);
-  anglingPhotoShadowMeshes.push(mesh);
-}
 
 function updateAnglingPhotoShadowGeometry(mesh,shadowDir,length){
   if(!mesh||!mesh.geometry)return;
@@ -24933,36 +24301,6 @@ function updateAnglingPhotoBackdropEffects(photoSurfaceView,night,cloud,moonLigh
   }
 }
 
-function buildAnglingFixedPhotoWalls(){
-  while(anglingPhotoHorizon.children.length){
-    const child=anglingPhotoHorizon.children[0];
-    anglingPhotoHorizon.remove(child);
-    if(child.geometry)child.geometry.dispose();
-  }
-  anglingPhotoHorizonMats.length=0;
-  anglingPhotoHorizonMeshes.length=0;
-  clearAnglingPhotoShadowMeshes();
-
-  [1,2,3,4].forEach(wallNumber=>{
-    const tex=anglingShorePhotoTextures[wallNumber];
-    if(!tex)return;
-    const imageKey=ANGLING_FIXED_WALL_IMAGE_BY_WALL[wallNumber];
-    const mat=createAnglingShorePhotoMaterial(tex);
-    const mesh=new THREE.Mesh(makeAnglingWallPhotoGeometry(wallNumber,tex),mat);
-    mesh.visible=false;
-    mesh.frustumCulled=false;
-    mesh.renderOrder=2;
-    mesh.userData.wallNumber=wallNumber;
-    mesh.userData.sourceShore=imageKey;
-    mesh.userData.horizonLabel=`Wand ${wallNumber} · Bild ${imageKey}`;
-    anglingPhotoHorizon.add(mesh);
-    anglingPhotoHorizonMats.push(mat);
-    anglingPhotoHorizonMeshes.push(mesh);
-    createAnglingPhotoShadowMesh(wallNumber,tex,imageKey);
-  });
-  anglingPhotoHorizon.position.set(0,0,0);
-  anglingPhotoHorizon.rotation.set(0,0,0);
-}
 
 function setAnglingPhotoHorizonForSelection(){
   // V2.3.32 Test: Die vier alten Foto-Panoramen werden weder geladen noch
@@ -26297,7 +25635,7 @@ anglingReelMiniCamera.position.set(1.28,-1.48,-.18);anglingReelMiniCamera.lookAt
 const anglingFloatBufferSize=new THREE.Vector2();
 // V5.79: Das Kunstköderfenster rendert nicht mehr eine künstliche Nahszene,
 // sondern exakt dieselbe Unterwasserwelt wie die freie Fischsicht.
-let anglingLureUnderwaterWorldReady=false,aczoUnderwaterShadersReady=false;
+let anglingLureUnderwaterWorldReady=false;
 function ensureAnglingLureUnderwaterWorld(){
   if(anglingLureUnderwaterWorldReady){
     // V2.3.34 PERFORMANCE: Dieser Aufruf liegt auch im normalen
@@ -26318,148 +25656,30 @@ function ensureAnglingLureUnderwaterWorld(){
 }
 
 let aczoAnglingUwPrewarmHandle=0;
+// P62: Ein einziger Fallback fuer die Startvorbereitung. Der regulaere Loader
+// baut die Unterwasserwelt und fuehrt den vollstaendigen GPU-Warmup aus. Nur
+// falls dieser beim sehr fruehen Benutzerzugriff noch nicht fertig ist, wird
+// derselbe Full-Warmup in einer Leerlaufphase nachgeholt. Keine gestapelten
+// Compile-/96px-/Geometrie-Warmups mehr.
 function scheduleAnglingLureUnderwaterPrewarm(){
-  if(aczoUnderwaterShadersReady||aczoAnglingUwPrewarmHandle)return;
-
-  const schedule=(fn,timeout=900)=>{
-    if('requestIdleCallback' in window){
-      aczoAnglingUwPrewarmHandle=requestIdleCallback(fn,{timeout});
-    }else{
-      aczoAnglingUwPrewarmHandle=window.setTimeout(()=>fn({timeRemaining:()=>12,didTimeout:true}),120);
-    }
-  };
-
-  // P53: Zwei getrennte Leerlaufphasen. Erst Geometrie/Fischwelt bauen, danach
-  // in einem spaeteren ruhigen Slot die Shader vorbereiten. Dadurch landet die
-  // teure Erstinitialisierung nicht mehr genau auf dem Wasser-Einschlag.
-  const compileLater=()=>{
+  if(anglingLureUnderwaterWorldReady&&aczoPerf26UwFullWarmReady)return;
+  if(typeof aczoStartupUwPrewarmFinished!=='undefined'&&!aczoStartupUwPrewarmFinished){
+    aczoScheduleStartupUnderwaterPrewarm(0);
+    return;
+  }
+  if(aczoAnglingUwPrewarmHandle)return;
+  const run=()=>{
     aczoAnglingUwPrewarmHandle=0;
-    if(aczoUnderwaterShadersReady||document.hidden)return;
-    if(!anglingMode||anglingUi.classList.contains('line-active')||
-       !['ready','selecting'].includes(anglingState)){
-      // Niemals waehrend Auswurf/Drill/Unterwasserfahrt kompilieren.
+    if(document.hidden||viewerInputBusy()||fishMode||(anglingMode&&anglingUi.classList.contains('line-active'))){
+      window.setTimeout(scheduleAnglingLureUnderwaterPrewarm,420);
       return;
     }
-    try{aczoCompileUnderwaterShaders();}catch(err){
-      console.warn('UW-Shader-Prewarm uebersprungen',err);
-    }
+    try{ensureAnglingLureUnderwaterWorld();}catch(err){console.warn('UW-Fallback-Prewarm:',err);return;}
+    aczoPerf26ScheduleFullUnderwaterPrewarm(0);
   };
-
-  const buildFirst=()=>{
-    aczoAnglingUwPrewarmHandle=0;
-    if(document.hidden)return;
-    if(anglingUi.classList.contains('line-active'))return;
-    try{ensureAnglingLureUnderwaterWorld();}catch(err){
-      console.warn('UW-Prewarm uebersprungen',err);return;
-    }
-    schedule(compileLater,1200);
-  };
-
-  if(!anglingLureUnderwaterWorldReady)schedule(buildFirst,700);
-  else schedule(compileLater,900);
+  if(typeof requestIdleCallback==='function')aczoAnglingUwPrewarmHandle=requestIdleCallback(run,{timeout:1000});
+  else aczoAnglingUwPrewarmHandle=window.setTimeout(run,80);
 }
-
-function aczoCompileUnderwaterShaders(){
-  if(aczoUnderwaterShadersReady||!anglingLureUnderwaterWorldReady)return;
-  // Unsichtbare Objekte überspringt WebGLRenderer.compile(). Deshalb werden
-  // ausschließlich die Unterwasser-Layer für die Dauer des Compile-Passes
-  // sichtbar gesetzt und danach exakt wiederhergestellt. Kein Bild wird dabei
-  // ausgegeben; der Auftreff-Frame muss später keine Shader mehr übersetzen.
-  const objects=[fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,underwaterStones,northWood,deadwoodContactShadow,fishGroup].filter(Boolean);
-  const visibility=objects.map(o=>o.visible),oldFog=scene.fog;
-  try{
-    objects.forEach(o=>o.visible=true);scene.fog=fishUnderwaterFog;
-    renderer.compile(scene,camera);aczoUnderwaterShadersReady=true;
-  }finally{
-    objects.forEach((o,i)=>o.visible=visibility[i]);scene.fog=oldFog;
-  }
-}
-// PERF20: Shader ebenfalls VOR dem ersten sichtbaren Abtauchen kompilieren.
-// Die Geometrie war seit PERF14 bereits vorgebaut, der erste echte Renderpfad
-// musste aber weiterhin die Unterwasser-Shader synchron erzeugen. Deshalb war
-// der erste Einstieg zaeh, waehrend der zweite fluessig lief.
-let aczoPerf20UwCompileScheduled=false;
-function aczoPerf20ScheduleUnderwaterShaderPrewarm(delay=220){
-  if(aczoUnderwaterShadersReady||aczoPerf20UwCompileScheduled)return;
-  aczoPerf20UwCompileScheduled=true;
-  const tryCompile=()=>{
-    aczoPerf20UwCompileScheduled=false;
-    if(aczoUnderwaterShadersReady)return;
-    if(document.hidden||!anglingLureUnderwaterWorldReady||viewerInputBusy()||fishMode||
-       (anglingMode&&anglingUi.classList.contains('line-active'))){
-      window.setTimeout(()=>aczoPerf20ScheduleUnderwaterShaderPrewarm(0),500);return;
-    }
-    try{aczoCompileUnderwaterShaders();}
-    catch(err){console.warn('PERF20 UW-Shader-Prewarm:',err);window.setTimeout(()=>aczoPerf20ScheduleUnderwaterShaderPrewarm(0),900);}
-  };
-  window.setTimeout(()=>{
-    if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(tryCompile,{timeout:1800});
-    else tryCompile();
-  },delay);
-}
-// V2.3.34: Die bisher beim ersten Kunstköder-Abtauchen gebündelte Erzeugung
-// von Bodentextur, Fischen, Uferwand und Unterwasserobjekten wird in eine echte
-// Leerlaufphase vorgezogen und einschließlich Shadern vorgewärmt.
-// PERF24: renderer.compile() allein lädt in Safari nicht zuverlässig alle
-// Texturen/Programme des ersten tatsächlich sichtbaren Unterwasserframes hoch.
-// Ein winziger unsichtbarer 64x64-Renderpass erledigt diese Erstkosten deshalb
-// schon nach dem Seitenstart. Die sichtbare Kamera und der Rendererzustand
-// werden vollständig wiederhergestellt.
-let aczoPerf24UwRenderWarmReady=false,aczoPerf24UwRenderWarmBusy=false,aczoPerf24UwRenderWarmScheduled=false;
-let aczoPerf24UwWarmTarget=null,aczoPerf24UwWarmCamera=null;
-function aczoPerf24ForceUnderwaterRenderWarmup(){
-  if(aczoPerf24UwRenderWarmReady||aczoPerf24UwRenderWarmBusy||document.hidden)return;
-  if(!anglingLureUnderwaterWorldReady)return;
-  aczoPerf24UwRenderWarmBusy=true;
-  const warmObjects=[fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,
-    fishCaustics,fishLightGlow,suspendedWater,bubblePool.points,sedimentPool.points,underwaterStones,
-    northWood,deadwoodContactShadow,fishGroup].filter(Boolean);
-  const oldVis=warmObjects.map(o=>o.visible),oldFog=scene.fog;
-  const oldUnder=waterUniforms.underwaterView.value;
-  const oldTarget=renderer.getRenderTarget();
-  const oldViewport=renderer.getViewport(new THREE.Vector4());
-  const oldScissor=renderer.getScissor(new THREE.Vector4());
-  const oldScissorTest=renderer.getScissorTest();
-  try{
-    if(!aczoPerf24UwWarmTarget)aczoPerf24UwWarmTarget=new THREE.WebGLRenderTarget(96,96,{depthBuffer:true,stencilBuffer:false});
-    if(!aczoPerf24UwWarmCamera)aczoPerf24UwWarmCamera=new THREE.PerspectiveCamera(56,1,.05,420);
-    const start=new THREE.Vector3();centralFishStart(start);
-    aczoPerf24UwWarmCamera.position.copy(start);
-    aczoPerf24UwWarmCamera.lookAt(start.x+7,start.y+3,start.z-.35);
-    warmObjects.forEach(o=>o.visible=true);
-    deadwoodContactShadow.visible=simulationEnabled;
-    waterUniforms.underwaterView.value=1;
-    scene.fog=fishUnderwaterFog;
-    renderer.setRenderTarget(aczoPerf24UwWarmTarget);
-    renderer.setViewport(0,0,96,96);renderer.setScissor(0,0,96,96);renderer.setScissorTest(false);
-    renderer.render(scene,aczoPerf24UwWarmCamera);
-    renderer.render(scene,aczoPerf24UwWarmCamera);
-    aczoUnderwaterShadersReady=true;
-    aczoPerf24UwRenderWarmReady=true;
-  }catch(err){console.warn('PERF24 UW-Render-Warmup:',err);}
-  finally{
-    warmObjects.forEach((o,i)=>o.visible=oldVis[i]);
-    waterUniforms.underwaterView.value=oldUnder;scene.fog=oldFog;
-    renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);
-    aczoPerf24UwRenderWarmBusy=false;
-  }
-}
-function aczoPerf24ScheduleUnderwaterRenderWarmup(delay=120){
-  if(aczoPerf24UwRenderWarmReady||aczoPerf24UwRenderWarmBusy||aczoPerf24UwRenderWarmScheduled)return;
-  aczoPerf24UwRenderWarmScheduled=true;
-  window.setTimeout(()=>{
-    const run=()=>{
-      aczoPerf24UwRenderWarmScheduled=false;
-      if(document.hidden||viewerInputBusy()||fishMode||(anglingMode&&anglingUi.classList.contains('line-active'))){
-        aczoPerf24ScheduleUnderwaterRenderWarmup(420);return;
-      }
-      if(!anglingLureUnderwaterWorldReady){aczoPerf24ScheduleUnderwaterRenderWarmup(320);return;}
-      aczoPerf24ForceUnderwaterRenderWarmup();
-    };
-    if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:900});else run();
-  },delay);
-}
-
 
 // PERF26: Vollstaendiger Unterwasser-Prewarm fuer beide echten Einstiegspfade.
 // Neben Shadern/Geometrie werden die spaeteren Layer-Schalter, Wolkenreihenfolge,
@@ -26570,6 +25790,24 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
 
+    // P62: Auch alle im Shop vorhandenen Kunstkoeder-Geometrien einmal auf die
+    // GPU schicken. Die Geometrien existieren ohnehin bereits im Cache; damit
+    // verursacht der erste Wechsel auf einen Spezialblinker/-gummifisch spaeter
+    // keinen erstmaligen Buffer-Upload mitten im Angelbetrieb.
+    const warmSpoonBody=spoon.geometry,warmSpoonAccent=spoonStripe.geometry,warmSpoonMarks=spoonAccentPlate.geometry;
+    const warmSoftBodyGeometry=softCore.geometry;
+    for(const [warmId,warmDesign] of Object.entries(ACZO_LURE_DESIGNS)){
+      const warmGeometry=aczoLureGeometryCache[warmId];
+      if(warmDesign.family==='spoon'){
+        spoon.geometry=warmGeometry.body;spoonStripe.geometry=warmGeometry.accent;spoonAccentPlate.geometry=warmGeometry.marks;
+        anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
+      }else{
+        softCore.geometry=warmGeometry.body;anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
+      }
+      renderer.render(scene,camera);
+    }
+    spoon.geometry=warmSpoonBody;spoonStripe.geometry=warmSpoonAccent;spoonAccentPlate.geometry=warmSpoonMarks;softCore.geometry=warmSoftBodyGeometry;
+
     // Exakt den echten Kunstkoeder-Unterwasserzweig nachbilden, jedoch ohne
     // updateAnglingMode() und damit ohne Timer, Fanglogik oder Spielzustandslauf.
     anglingMode=true;anglingCinematicView='underwater';waterUniforms.anglingView.value=1;
@@ -26635,7 +25873,7 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       renderer.render(anglingReelScene,anglingReelMiniCamera);
       renderer.autoClear=true;
     }
-    aczoUnderwaterShadersReady=true;aczoPerf24UwRenderWarmReady=true;aczoPerf26UwFullWarmReady=true;
+    aczoPerf26UwFullWarmReady=true;
   }catch(err){console.warn('PERF26 UW-Full-Prewarm:',err);}
   finally{
     // Erst den Unterwasserzustand verlassen, danach ALLE sichtbaren Karten-
@@ -26710,49 +25948,6 @@ function aczoPerf26ScheduleFullUnderwaterPrewarm(delay=420){
   },delay);
 }
 
-function aczoPrewarmUnderwaterWorld(){
-  if(aczoUnderwaterShadersReady||document.hidden)return;
-  if(typeof viewerInputBusy==='function'&&viewerInputBusy()){
-    window.setTimeout(aczoPrewarmUnderwaterWorld,650);return;
-  }
-  try{ensureAnglingLureUnderwaterWorld();aczoCompileUnderwaterShaders();}catch(err){console.warn('Unterwasser-Vorbereitung wird beim ersten Einstieg nachgeholt:',err);}
-}
-// P30: Kein automatischer Unterwasser-Build/Shader-Compile mehr im normalen Kartenbetrieb.
-// renderer.compile() kann Safari fuer mehrere Sekunden synchron blockieren und damit Touch-Gesten einfrieren.
-// Die Unterwasserwelt wird erst beim bewussten Start/Auswaehlen des Kunstkoeders aufgebaut.
-
-// PERF14: Geometrie/Fischwelt in kleinen Leerlaufstufen vorbereiten. Anders als
-// renderer.compile() blockiert das nicht absichtlich den Browser in einem grossen
-// synchronen Schritt. So sind freier Tauchmodus und Kunstkoeder-Einschlag bereits
-// aufgebaut, bevor die Kamera sichtbar ins Wasser geht.
-let aczoPerf14UwPrewarmStage=0,aczoPerf14UwPrewarmScheduled=false;
-function aczoPerf14ScheduleUnderwaterGeometryPrewarm(delay=900){
-  if(aczoPerf14UwPrewarmScheduled||anglingLureUnderwaterWorldReady)return;
-  aczoPerf14UwPrewarmScheduled=true;
-  const run=()=>{
-    aczoPerf14UwPrewarmScheduled=false;
-    if(document.hidden||viewerInputBusy()||fishMode||(anglingMode&&anglingUi.classList.contains('line-active'))){
-      window.setTimeout(()=>aczoPerf14ScheduleUnderwaterGeometryPrewarm(0),500);return;
-    }
-    try{
-      if(aczoPerf14UwPrewarmStage===0){ensureUnderwaterStaticAssets();syncFishPondGeometryFromPond();rebuildFishBankWall();}
-      else if(aczoPerf14UwPrewarmStage===1){buildFishWorld();}
-      else if(aczoPerf14UwPrewarmStage===2){rebuildFishPlants();}
-      else if(aczoPerf14UwPrewarmStage===3){
-        rebuildUnderwaterObjects();anglingLureUnderwaterWorldReady=true;
-        aczoPerf20ScheduleUnderwaterShaderPrewarm(80);
-        aczoPerf24ScheduleUnderwaterRenderWarmup(120);
-        return;
-      }
-      aczoPerf14UwPrewarmStage++;
-    }catch(err){console.warn('PERF14 UW-Geometrie-Prewarm:',err);return;}
-    aczoPerf14ScheduleUnderwaterGeometryPrewarm(0);
-  };
-  window.setTimeout(()=>{
-    if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(run,{timeout:1200});
-    else run();
-  },delay);
-}
 // iPhone-Startkoordination: Der vorhandene Ladebildschirm bleibt sichtbar,
 // während die später benötigte Unterwasserwelt artweise aufgebaut und einmal
 // unsichtbar gerendert wird. Dadurch entstehen die Erstkosten weder mitten in
@@ -26806,7 +26001,7 @@ function aczoRunStartupUnderwaterPrewarm(){
       // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
       // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
       if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
-      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<1500){
+      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<2200){
         if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
         aczoScheduleStartupUnderwaterPrewarm(50);
         return;
@@ -28577,18 +27772,6 @@ function aczoJoinGeometry(parts){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
  g.setAttribute('normal',new THREE.Float32BufferAttribute(normal,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));return g;
 }
-function aczoGripGeometry(a,b,split,mat){
- const mid=t=>a.clone().lerp(b,t);
- return aczoJoinGeometry([
-  aczoTube(a,mid(.22),.027,.025,mat),
-  aczoTube(mid(.22+split),b,.023,.024,mat)
- ]);
-}
-function aczoGapGeometry(a,b,split,mat,radius){
- // Kein innenliegender Zylinder mehr unter den Griffhülsen: dieser würde
- // beim sortierten Zeichnen ohne Tiefentest wieder über dem Griff liegen.
- return aczoJoinGeometry([aczoTube(a.clone().lerp(b,.2205),a.clone().lerp(b,.2195+split),radius,radius,mat)]);
-}
 const aczoHousingMain=anglingRodAccentMat.clone(),aczoHousingMini=reelMiniAccent.clone();
 for(const m of [aczoHousingMain,aczoHousingMini,anglingRodMetalMat,reelMiniMetal]){
  m.envMap=aczoLureEnv;m.envMapIntensity=1.15;m.metalness=.96;m.roughness=.14;m.needsUpdate=true;
@@ -28784,7 +27967,7 @@ function aczoRenderRodOverlay(){
  aczoRodSun.color.copy(sun.color);aczoRodSun.intensity=sun.intensity;aczoRodSun.visible=sun.visible;sun.getWorldPosition(aczoRodSun.position);sun.target.getWorldPosition(aczoRodSun.target.position);
  aczoRodMoon.color.copy(moonLight.color);aczoRodMoon.intensity=moonLight.intensity;aczoRodMoon.visible=moonLight.visible;moonLight.getWorldPosition(aczoRodMoon.position);moonLight.target.getWorldPosition(aczoRodMoon.target.position);
  const clear=renderer.autoClear,shadow=renderer.shadowMap.autoUpdate;renderer.autoClear=false;renderer.shadowMap.autoUpdate=false;
- try{renderer.clearDepth();markViewerRenderCall();renderer.render(aczoRodScene,camera);}
+ try{renderer.clearDepth();renderer.render(aczoRodScene,camera);}
  finally{renderer.autoClear=clear;renderer.shadowMap.autoUpdate=shadow;}
 }
 // Die kleine Rute hat nun dieselbe Ringanordnung; ihre Schnur bleibt lokal.
@@ -32950,18 +32133,7 @@ function setAnglingAimFromPointer(clientX,clientY,panView=false,moveX=0,pointerT
   applyAnglingStraightShoreCamera(false);
 }
 
-function anglingCenterInwardForShore(shore,out=new THREE.Vector2()){
-  // Kompatibilitaetsfunktion fuer aeltere Aufrufer: auch hier dieselbe lokale
-  // 90-Grad-Ufernormale verwenden, niemals eine Kartenachse oder den Mittelpunkt.
-  const hit=nearestAnglingBoundary(shore);
-  if(hit&&hit.sample)return anglingLocalPerpendicularInward(hit.sample,out);
-  return out.set(anglingPondCenter.x-shore.x,anglingPondCenter.y-shore.y).normalize();
-}
 
-function anglingCenterLookTarget(z=.18,out=new THREE.Vector3()){
-  buildAnglingBoundary();
-  return out.set(anglingPondCenter.x,anglingPondCenter.y,z);
-}
 
 // V6.98: Die Uferkamera speichert keine Ziel-Koordinate mehr als eigentliche
 // Blicklogik. Entscheidend ist ausschließlich DERSELBE Richtungsvektor wie beim
@@ -36145,7 +35317,7 @@ function startAnglingCast(){
   if(!anglingMode||anglingState!=='ready'||!anglingSelection) return;
   aczoResetSoftMotion();
   if(anglingUsesArtificialLure()&&!anglingLureUnderwaterWorldReady) scheduleAnglingLureUnderwaterPrewarm();
-  if(anglingUsesArtificialLure()&&!aczoPerf24UwRenderWarmReady)aczoPerf24ScheduleUnderwaterRenderWarmup(0);
+  if(anglingUsesArtificialLure()&&!aczoPerf26UwFullWarmReady)aczoPerf26ScheduleFullUnderwaterPrewarm(0);
   resetAnglingFastTap();
   if(!anglingAimLocked){showAnglingToast('Zuerst die Angelstelle mit einem Tipp festlegen.');return;}
   if(anglingUsesArtificialLure()&&anglingLureStock(anglingSelectedLureId)<1){
@@ -37396,10 +36568,13 @@ function beginFastAnglingRetrieve(){
   anglingReelZoom.style.display='none';
   anglingReelZoom.setAttribute('aria-hidden','true');
   if(artificial){
-    anglingCinematicView='reset-return';anglingCinematicBlend=0;
-    // P59: Die Rute ist ein kameragebundenes First-Person-Modell. Beim
-    // Doppeltipp-/Rechtsklick-Rueckflug darf sie nicht mit der Unterwasserkamera
-    // zum Ufer fliegen. Sie erscheint erst wieder im fertigen Uferbild.
+    // P62: Kein kuenstlicher Kameraflug mehr ueber die Wasseroberflaeche.
+    // Die Unterwasserkamera bleibt am Koeder und folgt seinem schnellen Weg
+    // bis kurz vors Ufer. Erst dort springt die Ansicht sauber zum Angelplatz.
+    const startSurface=anglingSurfaceZ(anglingRetrieveStart.x,anglingRetrieveStart.y);
+    anglingLureRetrieveStartDepth=Math.max(.12,startSurface-anglingRetrieveStart.z);
+    anglingCinematicView='underwater';anglingCinematicBlend=0;
+    anglingLureEntryTime=0;
     anglingRodGroup.visible=false;
   }
   setAnglingStatus('Schnell einholen','');
@@ -38060,7 +37235,7 @@ function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
     waterUniforms.viewportOrigin.value.set(ws.viewport.x,ws.viewport.y);
     setProjectedCelestialScreen(sunDisc,waterUniforms.sunScreen,simulationEnabled&&sun.visible,cam);
     setProjectedCelestialScreen(moonDisc,waterUniforms.moonScreen,simulationEnabled&&!!moonDisc.userData.astronomicallyVisible,cam);
-    markViewerRenderCall();renderer.render(scene,cam);
+    renderer.render(scene,cam);
   }finally{
     waterSurface.material=savedPondMaterial;moselWaterSurface.material=savedRiverMaterial;
     waterUniforms.viewportSize.value.copy(ws.size);waterUniforms.viewportOrigin.value.copy(ws.origin);
@@ -38450,7 +37625,7 @@ function renderAnglingReelCamera(){
     // Hintergrund erhalten; Rute und Rolle werden transparent daruebergelegt.
     renderer.autoClear=false;
     renderer.clearDepth();
-    markViewerRenderCall();renderer.render(anglingReelScene,anglingReelMiniCamera);
+    renderer.render(anglingReelScene,anglingReelMiniCamera);
   }finally{
     anglingReelLiveVisObjects.forEach((o,i)=>{if(o)o.visible=anglingReelLiveSavedVis[i];});
     waterUniforms.underwaterView.value=liveSavedUnderwater;
@@ -38881,12 +38056,7 @@ function updateAnglingCinematicCamera(dt){
      return false;
    }
 
-   // P59: Beim Kunstkoeder-Schnelleinholen folgt die Kamera jetzt dem Tempo
-   // des zuruecklaufenden Koeders statt immer schon nach 0,70 s am Ufer zu sein.
-   // Damit bleibt der Rueckflug schnell, wirkt aber nicht mehr wie ein Sprung.
-   const resetReturnDuration=(anglingState==='fast-retrieving'&&anglingUsesArtificialLure())
-     ?Math.max(.88,anglingFastRetrieveDuration)
-     :.70;
+   const resetReturnDuration=.70;
    anglingCinematicBlend=Math.min(1,anglingCinematicBlend+dt/resetReturnDuration);
    const u=anglingEase(anglingCinematicBlend);
 
@@ -38896,18 +38066,6 @@ function updateAnglingCinematicCamera(dt){
    anglingRodGroup.visible=artificialFastReturn?false:!anglingReturnToShorePendingReset;
    camera.position.copy(aczoSafeAnglingReturnPosition(u));
    controls.target.lerp(anglingShoreCameraTarget,u);
-   // P61: Erst kurz vor dem Ufer den Blick deutlich nach unten auf eine nahe
-   // Wasserstelle drehen. So bleibt der eigentliche Rückflug sichtbar, aber in
-   // den letzten Metern sieht man nicht auf den noch leeren Angler-/Rutenplatz.
-   // Nach Abschluss stellt resetAnglingCast() die normale Uferkamera samt Rute
-   // atomar wieder her.
-   if(artificialFastReturn&&u>.76&&anglingSelection?.shore&&anglingSelection?.inward){
-     const turn=THREE.MathUtils.smoothstep(u,.76,.97);
-     const waterLookX=anglingSelection.shore.x+anglingSelection.inward.x*2.25;
-     const waterLookY=anglingSelection.shore.y+anglingSelection.inward.y*2.25;
-     anglingTmpC.set(waterLookX,waterLookY,anglingSurfaceZ(waterLookX,waterLookY)+.015);
-     controls.target.lerp(anglingTmpC,turn);
-   }
    camera.up.set(0,0,1);camera.lookAt(controls.target);
    // V8.96: Beim Rechtsklick beginnt der Rückflug noch unter Wasser. Solange
    // die Kamera die bewegte Oberfläche nicht wirklich verlassen hat, muss der
@@ -39277,10 +38435,27 @@ function updateAnglingMode(dt){
     const deeper=anglingUsesDeeper(),artificial=anglingUsesArtificialLure(),terminal=deeper?anglingDeeper:(artificial?anglingLure:anglingBobber);
     if(artificial)anglingLureFrameSweepStart.copy(terminal.position);
     else if(!deeper)anglingCurrentRigHookWorld(anglingFastRigSweepStart);
-    terminal.position.lerpVectors(anglingRetrieveStart,anglingRetrieveEnd,eased);
     if(artificial){
+      // P62: Der Koeder wird wirklich unter Wasser schnell eingeholt. Horizontal
+      // folgt er dem direkten Rueckweg; seine Tiefe bleibt bis in Ufernaehe
+      // weitgehend erhalten und steigt erst in den letzten Metern zur Oberflaeche.
+      terminal.position.x=THREE.MathUtils.lerp(anglingRetrieveStart.x,anglingRetrieveEnd.x,eased);
+      terminal.position.y=THREE.MathUtils.lerp(anglingRetrieveStart.y,anglingRetrieveEnd.y,eased);
+      const fastSurface=anglingSurfaceZ(terminal.position.x,terminal.position.y);
+      const fastLimits=anglingLureDepthLimits(terminal.position.x,terminal.position.y);
+      const rise=THREE.MathUtils.smoothstep(eased,.72,.94);
+      let fastDepth=THREE.MathUtils.lerp(Math.max(.12,anglingLureRetrieveStartDepth),.12,rise);
+      if(fastLimits)fastDepth=THREE.MathUtils.clamp(fastDepth,fastLimits.minDepth,fastLimits.maxDepth);
+      terminal.position.z=fastSurface-fastDepth;
+      // Erst unmittelbar am Ufer den Koeder sichtbar aus dem Wasser ziehen.
+      if(eased>.94){
+        const exit=THREE.MathUtils.smoothstep(eased,.94,1);
+        terminal.position.z=THREE.MathUtils.lerp(terminal.position.z,fastSurface+.075,exit);
+      }
       const fastHit=findAnglingDeadwoodSweepCollision(anglingLureFrameSweepStart,terminal.position,.075);
       if(fastHit){beginAnglingObstacleSnag('artificial',fastHit);return;}
+    }else{
+      terminal.position.lerpVectors(anglingRetrieveStart,anglingRetrieveEnd,eased);
     }
     if(deeper){const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);terminal.position.z=surface+.035;sampleAnglingDeeper(false);}
     else if(!artificial){
@@ -39297,7 +38472,7 @@ function updateAnglingMode(dt){
       const fastRigHit=findAnglingDeadwoodSweepCollision(anglingFastRigSweepStart,anglingFastRigSweepEnd,.05);
       if(fastRigHit){beginAnglingObstacleSnag('natural',fastRigHit);return;}
     }
-    else{const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);anglingLureDepth=Math.max(.10,surface-terminal.position.z);}
+    else{const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);anglingLureDepth=Math.max(0,surface-terminal.position.z);}
     const metres=Math.max(0,Math.hypot(terminal.position.x-anglingSelection.shore.x,terminal.position.y-anglingSelection.shore.y));
     anglingLineSummary.textContent=(deeper?'📡 Deeper · ':(artificial?'🌀 ':'🎣 ')+(anglingBaitLabels[anglingSelectedBait]||'Köder')+' · ')+metres.toFixed(1).replace('.',',')+' m';
     if(u>=1){
@@ -40050,7 +39225,6 @@ function updateCelestialDepthLighting(){
   const anglingUnderwater=typeof anglingCinematicView!=='undefined'
     &&anglingMode&&anglingCinematicView==='underwater';
   const active=waterVisible&&(!is2D||allowIn2D)&&simulationEnabled
-    &&(typeof diagnosticState==='undefined'||diagnosticState.depthSpots)
     &&!(typeof fishMode!=='undefined'&&fishMode)&&!anglingUnderwater
     &&(!anglingMode||hallOfFameSurface);
   pondCelestialDepthLift.visible=active;
@@ -40144,61 +39318,6 @@ document.addEventListener('visibilitychange',()=>{
 });
 
 
-// PERF7 CPU/SCENE PROFILER -------------------------------------------------
-// BETA 1: CPU-Profiler deaktiviert.
-const aczoPerf7CpuEnabled=false;
-const aczoPerf7Cpu={};
-function aczoPerf7Record(name,ms){
-  let r=aczoPerf7Cpu[name];
-  if(!r)r=aczoPerf7Cpu[name]={ms:0,calls:0,max:0};
-  r.ms+=ms;r.calls++;if(ms>r.max)r.max=ms;
-}
-function aczoPerf7Wrap(name,label){
-  if(!aczoPerf7CpuEnabled)return;
-  const fn=globalThis[name];
-  if(typeof fn!=='function'||fn.__aczoPerf7Wrapped)return;
-  const wrapped=function(...args){
-    const t=performance.now();
-    try{return fn.apply(this,args);}finally{aczoPerf7Record(label,performance.now()-t);}
-  };
-  wrapped.__aczoPerf7Wrapped=true;
-  try{globalThis[name]=wrapped;}catch(e){}
-}
-if(aczoPerf7CpuEnabled){
-  [
-    ['updateSkyClouds','Clouds'],['updateRealCloudReflections','CloudRefl'],
-    ['updateRainRipples','Rain'],['updateBirds','Birds'],['updateTraffic','Traffic'],
-    ['updateAczoPropertyVisitScheduler','Visits'],['updateCarVisit','Visits'],
-    ['updateBmwX3Visit','Visits'],['updateGolfFamilyVisit','Visits'],
-    ['updateAczoSurveyForestLod','ForestLOD'],['updateAczoRealBirchFineLod','BirchLOD'],
-    ['updateAczoWildBoars','Wildlife'],['updateClubFlagPole','Flag'],
-    ['updateFishView','Fish'],['updateFishActors','Fish'],['updateFishShadows','Fish'],
-    ['updateUnderwaterEffects','Underwater'],['updateAnglingMode','Angling'],
-    ['updateAnglingClockDisplay','AnglingUI'],['updateDirectCelestialWaterReflections','SunReflect'],
-    ['positionCelestialDiscsForMainCamera','Celestial'],['enforceCelestialDiscVisibility','Celestial'],
-    ['updateCelestialReflectionScreens','Celestial'],['updateCelestialDepthLighting','Celestial'],
-    ['updateCelestialLensFlare','Celestial'],['updateContourDistanceLod','Contours'],
-    ['updateWaterStarReflectionPoints','Celestial'],['updateCompass','UI'],
-    ['applyDiagnosticLayers','StaticChecks'],['updateCleanOverhangVisibility','StaticChecks'],
-    ['aczoRefreshAboveWaterShadowCasters','ShadowChecks'],['updateUnderwaterObstacleShadows','ShadowChecks'],
-    ['updateAnglingAmbientStatus','Angling'],['renderAnglingFloatCamera','ExtraRender'],
-    ['renderAnglingReelCamera','ExtraRender'],['drawAnglingDeeperSonar','Sonar']
-  ].forEach(([n,l])=>aczoPerf7Wrap(n,l));
-  // OrbitControls ist kein globaler Funktionsname; dessen Update separat messen.
-  const _cu=controls.update.bind(controls);
-  controls.update=function(...args){const t=performance.now();try{return _cu(...args);}finally{aczoPerf7Record('Controls',performance.now()-t);}};
-  // CPU-submit-Zeit aller Three.js Renderaufrufe. Das ist KEINE echte GPU-Zeit,
-  // zeigt aber sehr gut, ob der Hauptthread im Renderer festhaengt.
-  const _rr=renderer.render.bind(renderer);
-  renderer.render=function(...args){const t=performance.now();try{return _rr(...args);}finally{aczoPerf7Record('RendererCPU',performance.now()-t);}};
-}
-function aczoPerf7Summary(){
-  if(!aczoPerf7CpuEnabled)return 'PERF7 CPU AUS · mit &cpu=1 starten';
-  const rows=Object.entries(aczoPerf7Cpu).map(([name,r])=>({name,ms:r.ms,calls:r.calls,max:r.max})).sort((a,b)=>b.ms-a.ms).slice(0,8);
-  if(!rows.length)return 'PERF7 CPU sammelt…';
-  return rows.map(r=>`${r.name} ${r.ms.toFixed(0)}ms/${r.calls} max${r.max.toFixed(1)}`).join('\n');
-}
-// -------------------------------------------------------------------------
 
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
@@ -40215,8 +39334,7 @@ function aczoPerf7Summary(){
  // funktionierte IDLE nach dem Seitenstart zunächst und später scheinbar nie mehr.
  const aczoInteractive=viewerInputBusy()||fishMode||skyLookMode||anglingMode
    ||!!fishTransition
-   ||!!(anglingUi&&anglingUi.classList.contains('time-shifting'))
-   ||(typeof aczoPerf5ProfilerEnabled!=='undefined'&&aczoPerf5ProfilerEnabled&&aczoPerf5Phase!=='DONE');
+   ||!!(anglingUi&&anglingUi.classList.contains('time-shifting'));
 
  // Autonome sichtbare Bewegung bekommt ein eigenes, deutlich günstigeres Budget.
  // So bleiben Besucher/BMW/Regen/Schnee lesbar, blockieren aber nicht dauerhaft 30 FPS.
@@ -40545,33 +39663,10 @@ function aczoPerf7Summary(){
  const aczoStaticDue=frameNow-aczoPerf4LastStaticAt>=(aczoDeepIdle?500:250);
  if(aczoStaticDue){
    aczoPerf4LastStaticAt=frameNow;
-   applyDiagnosticLayers();
    if(typeof updateCleanOverhangVisibility==='function')updateCleanOverhangVisibility();
    if(simulationEnabled){
      aczoRefreshAboveWaterShadowCasters();
      updateUnderwaterObstacleShadows(!!window.__aczoUnderwaterSceneActive);
-   }
- }
- // PERF5 Profiling-Phasen unmittelbar vor dem Rendern hart durchsetzen,
- // damit keine Wetter-/Ansichtsroutine den Testzustand zwischenzeitlich reaktiviert.
- if(typeof aczoPerf5ProfilerEnabled!=='undefined'&&aczoPerf5ProfilerEnabled){
-   const aczoDirectOff=aczoPerf5Phase==='DIRECT REFLECT OFF'||aczoPerf5Phase==='WATER REFLECTION LITE';
-   aczoPerf6SunReflectionEnabled=!aczoDirectOff;
-   if(aczoDirectOff)directCelestialReflectionGroup.visible=false;
-   if(typeof waterUniforms!=='undefined'&&waterUniforms.reflectionLite){
-     waterUniforms.reflectionLite.value=aczoPerf5Phase==='WATER REFLECTION LITE'?1:0;
-   }
-   if(aczoPerf5Phase==='WATER OFF'){try{syncWaterVisibility(false);}catch(e){}}
- }
-
- // Harte Objekt-Isolation unmittelbar vor dem Rendern. Dadurch kann keine
- // Wetter- oder Animationsroutine ein ausgeschaltetes Diagnoseobjekt reaktivieren.
- if(typeof diagnosticState!=='undefined'){
-   if(!diagnosticState.waterObject) syncWaterVisibility(false);
-   if(!diagnosticState.pondObject){pond.visible=false;pondNeutral.visible=false;}
-   if(!diagnosticState.extraObjects){
-     pondNightLift.visible=false;
-     pondCelestialDepthLift.visible=false;
    }
  }
  if(typeof aczoShoreSeal!=='undefined'){
@@ -40583,7 +39678,7 @@ function aczoPerf7Summary(){
      &&!fishMode&&!(anglingMode&&anglingCinematicView==='underwater');
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
- markViewerRenderCall();renderer.render(scene,camera);
+ renderer.render(scene,camera);
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
@@ -40593,7 +39688,7 @@ function aczoPerf7Summary(){
  updateAnglingAmbientStatus(dt);
  renderAnglingFloatCamera();if(anglingUsesDeeper()&&anglingUi.classList.contains('line-active'))drawAnglingDeeperSonar();
   renderAnglingReelCamera();
- updateViewerDebug(rawDt);
+ 
  // Der Zehn-Sekunden-Timer beginnt erst nach dem ersten wirklich gezeichneten
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
  schedulePersonalCampScene();
