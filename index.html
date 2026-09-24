@@ -7845,11 +7845,11 @@ scene.add(sun);
 // abhängig von ihrer Deckkraft natürlich überlagern.
 const CELESTIAL_GLOW_RENDER_ORDER=29;
 const CELESTIAL_DISC_RENDER_ORDER=30;
-// Mond nach dem transparenten Wolkendeck (renderOrder 999), aber weiterhin
-// mit aktivem Tiefentest: Gelände/Bäume verdecken ihn, die Wolkenwirkung wird
-// kontrolliert über moonVisualOpacity gedämpft statt die Scheibe wegzumalen.
-const MOON_GLOW_RENDER_ORDER=1000;
-const MOON_DISC_RENDER_ORDER=1001;
+// Sonne, Mond und Sterne liegen hinter der vorhandenen transparenten Wolkenebene.
+// Ein dichter Wolkenkern darf dadurch alle Himmelsobjekte direkt und ohne
+// separate Pixel-Abtastung um maximal etwa 50 % abschwächen.
+const MOON_GLOW_RENDER_ORDER=CELESTIAL_GLOW_RENDER_ORDER;
+const MOON_DISC_RENDER_ORDER=CELESTIAL_DISC_RENDER_ORDER;
 
 // Sichtbare Sonne in einer oberen Ecke der 3D-Szene.
 const sunDisc=new THREE.Sprite(
@@ -8263,11 +8263,13 @@ function enforceCelestialDiscVisibility(){
     return;
   }
 
-  if(typeof updateCelestialCloudOcclusion==='function')updateCelestialCloudOcclusion();
-  const sunCloud=Number.isFinite(sunDisc.userData.cloudTransmission)
-    ? THREE.MathUtils.clamp(sunDisc.userData.cloudTransmission,0,1):1;
-  const moonCloud=Number.isFinite(moonDisc.userData.cloudTransmission)
-    ? THREE.MathUtils.clamp(moonDisc.userData.cloudTransmission,0,1):1;
+  // Wolkenverdeckung geschieht direkt durch die vorhandene Wolkenebene.
+  // Keine zweite softwareseitige Dämpfung von Sonne/Mond mehr.
+  const sunCloud=1;
+  const moonCloud=1;
+  sunDisc.userData.cloudTransmission=1;
+  moonDisc.userData.cloudTransmission=1;
+  if(typeof moonGlow!=='undefined')moonGlow.userData.cloudTransmission=1;
   const sunAllowed=!!sunDisc.userData.astronomicallyVisible;
   const sunOpacity=sunCloud;
   const moonBaseOpacity=Number.isFinite(moonDisc.userData.visualOpacity)
@@ -8518,7 +8520,7 @@ const aczoPerf2CloudMat=new THREE.ShaderMaterial({
       alpha*=mix(1.0,1.85,clamp(underwater,0.0,1.0));
       float alphaCutoff=mix(.018,.010,clamp(underwater,0.0,1.0));
       if(alpha<alphaCutoff)discard;
-      gl_FragColor=vec4(col,clamp(alpha,0.0,mix(.40,.68,clamp(underwater,0.0,1.0))));
+      gl_FragColor=vec4(col,clamp(alpha,0.0,.50));
     }
   `
 });
@@ -8527,80 +8529,10 @@ aczoPerf2CloudDeck.position.set(0,0,82);aczoPerf2CloudDeck.renderOrder=999;aczoP
 aczoPerf2CloudDeck.castShadow=false;aczoPerf2CloudDeck.receiveShadow=false;aczoPerf2CloudDeck.name='PERF2_NEXT_STYLE_CLOUD_DECK';
 scene.add(aczoPerf2CloudDeck);
 
-// V8.165: Lokale Wolkenverdeckung fuer Sonne und Mond in der normalen 3D-Ansicht.
-// Die sichtbare Wolkendecke ist eine bewegte Textur auf einer horizontalen Ebene.
-// Fuer jeden Himmelskoerper wird deshalb der Schnittpunkt Kamera -> Scheibe mit
-// dieser Ebene bestimmt und exakt dieselbe Wolkentextur dort abgetastet. So kann
-// ein dichter Wolkenkern die Scheibe wirklich ausblenden, ohne die gesamte
-// Wolkendecke pauschal dunkler oder deckender zu machen. Unter Wasser bleibt die
-// bereits korrekte Tiefenverdeckung der Wolkenebene allein zustaendig.
-const aczoPerf2CloudPixelData=aczoPerf2CloudCtx.getImageData(0,0,ACZO_PERF2_CLOUD_W,ACZO_PERF2_CLOUD_H).data;
-const aczoCelestialCloudPoint=new THREE.Vector3();
-function aczoCloudSmoothstep(a,b,x){
-  const t=THREE.MathUtils.clamp((x-a)/Math.max(1e-6,b-a),0,1);
-  return t*t*(3-2*t);
-}
-function aczoCloudFract(v){return v-Math.floor(v);}
-function aczoSamplePerf2CloudRawAtWorld(x,y){
-  const off=aczoPerf2CloudUniforms.offset.value;
-  const u=aczoCloudFract(x*.0060+off.x),v=aczoCloudFract(y*.0047+off.y);
-  const fx=u*(ACZO_PERF2_CLOUD_W-1),fy=v*(ACZO_PERF2_CLOUD_H-1);
-  const x0=Math.floor(fx),y0=Math.floor(fy),x1=(x0+1)%ACZO_PERF2_CLOUD_W,y1=(y0+1)%ACZO_PERF2_CLOUD_H;
-  const tx=fx-x0,ty=fy-y0;
-  const sample=(px,py)=>aczoPerf2CloudPixelData[(py*ACZO_PERF2_CLOUD_W+px)*4]/255;
-  const a=THREE.MathUtils.lerp(sample(x0,y0),sample(x1,y0),tx);
-  const b=THREE.MathUtils.lerp(sample(x0,y1),sample(x1,y1),tx);
-  return THREE.MathUtils.lerp(a,b,ty);
-}
-function aczoCloudAlphaFromRaw(raw,amount){
-  const density=aczoCloudSmoothstep(.08,.52,raw);
-  const cloud=density*(.20+.68*amount);
-  if(cloud<.012)return 0;
-  let alpha=cloud*(.30+.24*aczoCloudSmoothstep(.16,.64,raw));
-  if(alpha<.018)return 0;
-  return THREE.MathUtils.clamp(alpha,0,.40);
-}
-function aczoCelestialCloudTransmissionForDisc(disc){
-  if(!disc||!camera||!simulationEnabled||is2D||!aczoPerf2CloudDeck.visible)return 1;
-  const underwater=(typeof fishMode!=='undefined'&&fishMode)
-    ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater')
-    ||(aczoPerf2CloudUniforms.underwater&&aczoPerf2CloudUniforms.underwater.value>.5);
-  if(underwater)return 1;
-
-  const dz=disc.position.z-camera.position.z;
-  if(Math.abs(dz)<1e-5)return 1;
-  const t=(aczoPerf2CloudDeck.position.z-camera.position.z)/dz;
-  // Wolkenebene muss tatsaechlich zwischen Kamera und Himmelskoerper liegen.
-  if(t<=0||t>=1)return 1;
-  aczoCelestialCloudPoint.copy(camera.position).lerp(disc.position,t);
-  const halfW=D.sceneW*3.1,halfH=D.sceneH*3.1;
-  if(Math.abs(aczoCelestialCloudPoint.x)>halfW||Math.abs(aczoCelestialCloudPoint.y)>halfH)return 1;
-
-  const amount=THREE.MathUtils.clamp(Number(aczoPerf2CloudUniforms.amount.value)||0,0,1);
-  if(amount<.015)return 1;
-  // Der auf die Wolkenebene projizierte Scheibenradius. Mehrere Proben lassen
-  // eine Wolkenkante weich ueber die Scheibe laufen statt hart zu schalten.
-  const r=THREE.MathUtils.clamp(Math.abs(Number(disc.scale.x)||20)*t*.42,1.2,7.0);
-  const dirs=[[0,0],[1,0],[-1,0],[0,1],[0,-1],[.70,.70],[-.70,.70],[.70,-.70],[-.70,-.70]];
-  let sum=0,peak=0,center=0;
-  dirs.forEach((d,i)=>{
-    const raw=aczoSamplePerf2CloudRawAtWorld(aczoCelestialCloudPoint.x+d[0]*r,aczoCelestialCloudPoint.y+d[1]*r);
-    const alpha=aczoCloudAlphaFromRaw(raw,amount);
-    if(i===0)center=alpha;
-    sum+=alpha;peak=Math.max(peak,alpha);
-  });
-  const avg=sum/dirs.length;
-  const effective=Math.max(avg,center*.92,peak*.72);
-  const occult=aczoCloudSmoothstep(.055,.34,effective);
-  return THREE.MathUtils.clamp(1-occult*.97,.03,1);
-}
-function updateCelestialCloudOcclusion(){
-  const sunT=aczoCelestialCloudTransmissionForDisc(sunDisc);
-  const moonT=aczoCelestialCloudTransmissionForDisc(moonDisc);
-  sunDisc.userData.cloudTransmission=sunT;
-  moonDisc.userData.cloudTransmission=moonT;
-  if(typeof moonGlow!=='undefined')moonGlow.userData.cloudTransmission=moonT;
-}
+// V8.166: Keine separate Wolken-Abtastung mehr. Die vorhandene Wolkenebene
+// liegt selbst vor Sonne, Mond und Sternen und übernimmt mit ihrer echten,
+// bewegten Alpha-Struktur die lokale Abschwächung. Dadurch kostet die
+// Himmelsverdeckung praktisch keine zusätzliche CPU-Zeit.
 
 // PERF20: Unter Wasser muss der Wolkendeckel als echter ferner Himmel VOR den
 // transparenten Fisch-/Partikellayern gezeichnet werden. Der bisherige
@@ -8611,11 +8543,22 @@ function aczoPerf20SetCloudUnderwaterOrdering(submerged){
   if(aczoPerf20CloudUnderwaterOrder===uw)return;
   aczoPerf20CloudUnderwaterOrder=uw;
 
-  // PERF34: Unter Wasser sichtbar halten, aber weiterhin hinter Fischen/Partikeln.
+  // PERF34 / V8.166: Unter Wasser bleibt die Wolkenebene hinter Fischen,
+  // aber vor Sonne, Mond und Sternen. Damit wirkt ihre echte Transparenz als
+  // maximal ~50-%-Abschwächung statt als harte Vollverdeckung.
   aczoPerf2CloudDeck.renderOrder=uw?1.90:999;
+  if(uw){
+    if(typeof moonGlow!=='undefined')moonGlow.renderOrder=1.70;
+    if(typeof sunDisc!=='undefined')sunDisc.renderOrder=1.75;
+    if(typeof moonDisc!=='undefined')moonDisc.renderOrder=1.75;
+  }else{
+    if(typeof moonGlow!=='undefined')moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;
+    if(typeof sunDisc!=='undefined')sunDisc.renderOrder=CELESTIAL_DISC_RENDER_ORDER;
+    if(typeof moonDisc!=='undefined')moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;
+  }
 
-  // Unter Wasser schreibt die ferne Wolkenebene ihre Tiefe, damit transparente
-  // Flossen/Partikel sauber davor liegen.
+  // Die Wolkenebene darf weiter Tiefe schreiben, weil Fische/Partikel deutlich
+  // näher an der Unterwasserkamera liegen und danach gerendert werden.
   aczoPerf2CloudMat.depthWrite=uw;
 
   if(typeof aczoPerf2CloudUniforms!=='undefined'&&aczoPerf2CloudUniforms.underwater){
@@ -22327,11 +22270,12 @@ function enterFishView(){
     disc.material.fog=false;
     disc.material.needsUpdate=true;
   });
-  // Unter Wasser: Himmel zuerst, Wasserfläche danach, Fische zuletzt.
-  // So kann ein naher Fisch Sonne oder Mond optisch korrekt verdecken.
-  moonGlow.renderOrder=3.70;
-  sunDisc.renderOrder=3.80;
-  moonDisc.renderOrder=3.80;
+  // Unter Wasser: Himmelskörper VOR der Wolkenebene (1.90), danach Fische.
+  // So dämpft die vorhandene Wolke Sonne/Mond nur über ihre max. 50-%-Alpha,
+  // statt sie über den Tiefenpuffer vollständig verschwinden zu lassen.
+  moonGlow.renderOrder=1.70;
+  sunDisc.renderOrder=1.75;
+  moonDisc.renderOrder=1.75;
   document.querySelector('.wrap').classList.add('fish-mode');
   showFishViewInfoTemporarily();
   fishMiniMap.style.display='block';
