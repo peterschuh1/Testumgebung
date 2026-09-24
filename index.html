@@ -8519,19 +8519,24 @@ const aczoPerf2CloudMat=new THREE.ShaderMaterial({
       float cloud=density*(.20+.68*amount);
       float cloudCutoff=mix(.012,.006,clamp(underwater,0.0,1.0));
       if(cloud<cloudCutoff)discard;
-      vec3 topCol=mix(vec3(.96,.975,.99),vec3(.30,.33,.40),night);
-      vec3 underCol=mix(vec3(.70,.76,.82),vec3(.11,.13,.18),night);
+      // V8.172: Nachtwolken etwas dunkler als bisher. Dadurch verdecken sie helle
+      // Sterne/Mond auch optisch, statt sie nur grau einzufaerben.
+      vec3 topCol=mix(vec3(.96,.975,.99),vec3(.20,.23,.30),night);
+      vec3 underCol=mix(vec3(.70,.76,.82),vec3(.085,.105,.15),night);
 
-      // PERF34: Unter Wasser braucht die Rueckseite des Wolkendecks etwas mehr
-      // Lesbarkeit, sonst schlucken Wasser/Fog den bewegten Himmel fast komplett.
-      vec3 underWaterCol=mix(vec3(.48,.66,.76),vec3(.14,.22,.29),night);
+      // Unter Wasser bleibt die Rueckseite lesbar, ist aber nicht mehr kuenstlich
+      // fast doppelt so deckend wie ueber Land.
+      vec3 underWaterCol=mix(vec3(.48,.66,.76),vec3(.11,.17,.23),night);
       vec3 col=gl_FrontFacing?topCol:mix(underCol,underWaterCol,clamp(underwater,0.0,1.0));
 
-      float alpha=cloud*(.34+.26*smoothstep(.16,.64,raw));
-      alpha*=mix(1.0,1.85,clamp(underwater,0.0,1.0));
-      float alphaCutoff=mix(.018,.010,clamp(underwater,0.0,1.0));
+      // Geschlossener leichter Grundschleier erst bei sehr hoher Bewoelkung.
+      float veil=smoothstep(.72,1.0,amount)*.10;
+      float body=cloud*(.46+.26*smoothstep(.16,.64,raw));
+      float alpha=veil+body*(1.0-veil);
+      alpha*=mix(1.0,1.08,clamp(underwater,0.0,1.0));
+      float alphaCutoff=mix(.012,.008,clamp(underwater,0.0,1.0));
       if(alpha<alphaCutoff)discard;
-      gl_FragColor=vec4(col,clamp(alpha,0.0,.50));
+      gl_FragColor=vec4(col,clamp(alpha,0.0,.52));
     }
   `
 });
@@ -8567,9 +8572,13 @@ function aczoSamplePerf2CloudRawAtWorld(x,y){
 function aczoCloudVisualAlphaFromRaw(raw,amount){
   const density=aczoCloudSmoothstep(.08,.52,raw);
   const cloud=density*(.20+.68*amount);
-  if(cloud<.012)return 0;
-  const alpha=cloud*(.34+.26*aczoCloudSmoothstep(.16,.64,raw));
-  return THREE.MathUtils.clamp(alpha,0,.50);
+  // V8.172: Bei sehr hoher gemeldeter Bewoelkung liegt zusaetzlich ein leichter
+  // geschlossener Wolkenschleier ueber dem Himmel. 100 % bedeutet damit nicht
+  // mehr 'Wolkeninseln mit voellig freien Sternluecken'.
+  const veil=aczoCloudSmoothstep(.72,1.0,amount)*.10;
+  const body=cloud*(.46+.26*aczoCloudSmoothstep(.16,.64,raw));
+  const alpha=veil+body*(1-veil);
+  return THREE.MathUtils.clamp(alpha,0,.52);
 }
 // V8.170: Gemeinsames realistisches Himmelslicht-Modell. Mondphase,
 // allgemeine Bewoelkung und die konkrete Wolke vor der Lichtquelle sind drei
@@ -8585,9 +8594,9 @@ function aczoMoonPhaseLightFactor(fraction){
   // 25 % nur rund 5 %. Das trennt helle und dunkle Naechte deutlich.
   return Math.pow(f,2.20);
 }
-function aczoGeneralMoonVisualTransmission(){return THREE.MathUtils.lerp(1.00,.90,aczoWeatherCloudCoverage());}
+function aczoGeneralMoonVisualTransmission(){return THREE.MathUtils.lerp(1.00,.94,aczoWeatherCloudCoverage());}
 function aczoGeneralSunVisualTransmission(){return THREE.MathUtils.lerp(1.00,.94,aczoWeatherCloudCoverage());}
-function aczoGeneralStarTransmission(){return THREE.MathUtils.lerp(1.00,.50,aczoWeatherCloudCoverage());}
+function aczoGeneralStarTransmission(){return THREE.MathUtils.lerp(1.00,.72,aczoWeatherCloudCoverage());}
 function aczoGeneralMoonLightTransmission(){return THREE.MathUtils.lerp(1.00,.72,aczoWeatherCloudCoverage());}
 function aczoGeneralSunDirectTransmission(){return THREE.MathUtils.lerp(1.00,.58,aczoWeatherCloudCoverage());}
 function aczoGeneralAmbientTransmission(){return THREE.MathUtils.lerp(1.00,.84,aczoWeatherCloudCoverage());}
@@ -8636,7 +8645,7 @@ function updateCelestialCloudLighting(){
     ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
   if(!underwater){
     const activeT=sceneNightFactor>.48?moonT:sunT;
-    const ambientFactor=THREE.MathUtils.lerp(.60,1.0,activeT); // bei dichter Wolke max. ~20 % weniger Umgebungslicht
+    const ambientFactor=THREE.MathUtils.lerp(.36,1.0,activeT); // dichter Wolkenkern: rund ein Drittel weniger lokale Nacht-/Tagesstimmung
     if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity*ambientFactor;
     if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
       satUniforms.dayLight.value=Math.max(.10,satUniforms.cloudBaseDayLight*ambientFactor);
@@ -40681,10 +40690,14 @@ function aczoPerf7Summary(){
    aczoPerf4LastCelestialAt=frameNow;
    if(simulationEnabled){
      enforceCelestialDiscVisibility();
-     // Hauptbild: Himmelskoerper bleiben hinter dem transparenten Wolkendeck. Der
-     // normale Tiefentest bleibt aktiv, deshalb scheinen sie nicht durch Gelaende/Baeume.
-     if(typeof moonDisc!=='undefined'&&moonDisc.material){moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;moonDisc.material.fog=false;}
-     if(typeof moonGlow!=='undefined'&&moonGlow.material){moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;moonGlow.material.fog=false;}
+     // V8.172: Render-Reihenfolge darf im Unterwassermodus NICHT auf die
+     // Landwerte zurueckspringen. Sonst schreibt die Wolkenebene zuerst Tiefe und
+     // der spaeter gezeichnete Mond faellt am Depth-Test komplett heraus.
+     const aczoCelestialUnderwater=(typeof fishMode!=='undefined'&&fishMode)
+       ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
+     if(typeof sunDisc!=='undefined'&&sunDisc.material){sunDisc.renderOrder=aczoCelestialUnderwater?1.75:CELESTIAL_DISC_RENDER_ORDER;sunDisc.material.fog=false;}
+     if(typeof moonDisc!=='undefined'&&moonDisc.material){moonDisc.renderOrder=aczoCelestialUnderwater?1.75:MOON_DISC_RENDER_ORDER;moonDisc.material.fog=false;}
+     if(typeof moonGlow!=='undefined'&&moonGlow.material){moonGlow.renderOrder=aczoCelestialUnderwater?1.70:MOON_GLOW_RENDER_ORDER;moonGlow.material.fog=false;}
      updateCelestialReflectionScreens();
      updateCelestialDepthLighting();
      updateCelestialLensFlare();
