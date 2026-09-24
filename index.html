@@ -36562,7 +36562,9 @@ function beginFastAnglingRetrieve(){
   anglingRetrieveEnd.set(shore.x+ux*.45,shore.y+uy*.45,terminal.position.z);
   const surface=anglingSurfaceZ(anglingRetrieveEnd.x,anglingRetrieveEnd.y);
   anglingRetrieveEnd.z=anglingUsesDeeper()?surface+.035:(anglingUsesArtificialLure()?surface-.12:surface-.005);
-  anglingFastRetrieveDuration=THREE.MathUtils.clamp(.78+dist*.016,.88,1.55);
+  // P64: Schnelleinholen bleibt zuegig, skaliert bei weiten Wuerfen aber realistisch
+  // mit der Strecke. 100 m werden nicht mehr in knapp 1,5 s zum Ufer teleportiert.
+  anglingFastRetrieveDuration=THREE.MathUtils.clamp(1.00+dist*.055,1.15,6.20);
   anglingState='fast-retrieving';anglingStateTime=0;
   // V8.52: Beim Rechtsklick/Schnelleinholen verschwinden beide Livefenster
   // SOFORT. Nur CSS reicht hier nicht, weil ältere !important-Regeln das
@@ -38007,7 +38009,9 @@ function updateAnglingCinematicCamera(dt){
      anglingCinematicPos.copy(anglingLure.position)
        .addScaledVector(anglingFastCameraDir,-3.05)
        .addScaledVector(anglingFastCameraSide,.30);
-     anglingCinematicPos.z=Math.min(surfaceHere-.18,anglingLure.position.z+.56);
+     // P64: Kamera nicht direkt unter die Wasserhaut kleben. Selbst wenn der
+     // Koeder zum Schluss auftaucht, bleibt der Blick ruhig unter Wasser.
+     anglingCinematicPos.z=Math.min(surfaceHere-.42,anglingLure.position.z+.48);
      anglingCinematicTarget.copy(anglingLure.position)
        .addScaledVector(anglingFastCameraDir,2.75);
      anglingCinematicTarget.z=anglingLure.position.z-.14;
@@ -38465,23 +38469,28 @@ function updateAnglingMode(dt){
   }else if(anglingState==='fast-retrieving'){
     const u=anglingClamp01(anglingStateTime/Math.max(.1,anglingFastRetrieveDuration)),eased=anglingEase(u);
     const deeper=anglingUsesDeeper(),artificial=anglingUsesArtificialLure(),terminal=deeper?anglingDeeper:(artificial?anglingLure:anglingBobber);
+    // P64: Kunstkoeder laufen anfangs noch klar zuegig, bremsen aber zunehmend
+    // Richtung Ufer ab. Die Kurve bleibt monoton und ohne sichtbaren Zwischenstopp.
+    const fastTravel=artificial?THREE.MathUtils.clamp(u+.35*u*(1-u),0,1):eased;
     if(artificial)anglingLureFrameSweepStart.copy(terminal.position);
     else if(!deeper)anglingCurrentRigHookWorld(anglingFastRigSweepStart);
     if(artificial){
       // P62: Der Koeder wird wirklich unter Wasser schnell eingeholt. Horizontal
       // folgt er dem direkten Rueckweg; seine Tiefe bleibt bis in Ufernaehe
       // weitgehend erhalten und steigt erst in den letzten Metern zur Oberflaeche.
-      terminal.position.x=THREE.MathUtils.lerp(anglingRetrieveStart.x,anglingRetrieveEnd.x,eased);
-      terminal.position.y=THREE.MathUtils.lerp(anglingRetrieveStart.y,anglingRetrieveEnd.y,eased);
+      terminal.position.x=THREE.MathUtils.lerp(anglingRetrieveStart.x,anglingRetrieveEnd.x,fastTravel);
+      terminal.position.y=THREE.MathUtils.lerp(anglingRetrieveStart.y,anglingRetrieveEnd.y,fastTravel);
       const fastSurface=anglingSurfaceZ(terminal.position.x,terminal.position.y);
       const fastLimits=anglingLureDepthLimits(terminal.position.x,terminal.position.y);
-      const rise=THREE.MathUtils.smoothstep(eased,.72,.94);
+      // Erst in Ufernaehe langsam hochkommen. Durch die gleichzeitig sinkende
+      // Vorwaertsgeschwindigkeit ist der Austritt aus dem Wasser gut lesbar.
+      const rise=THREE.MathUtils.smoothstep(fastTravel,.82,.955);
       let fastDepth=THREE.MathUtils.lerp(Math.max(.12,anglingLureRetrieveStartDepth),.12,rise);
       if(fastLimits)fastDepth=THREE.MathUtils.clamp(fastDepth,fastLimits.minDepth,fastLimits.maxDepth);
       terminal.position.z=fastSurface-fastDepth;
       // Erst unmittelbar am Ufer den Koeder sichtbar aus dem Wasser ziehen.
-      if(eased>.94){
-        const exit=THREE.MathUtils.smoothstep(eased,.94,1);
+      if(fastTravel>.955){
+        const exit=THREE.MathUtils.smoothstep(fastTravel,.955,1);
         terminal.position.z=THREE.MathUtils.lerp(terminal.position.z,fastSurface+.075,exit);
       }
       const fastHit=findAnglingDeadwoodSweepCollision(anglingLureFrameSweepStart,terminal.position,.075);
