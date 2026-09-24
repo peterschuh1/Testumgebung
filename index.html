@@ -7845,6 +7845,11 @@ scene.add(sun);
 // abhängig von ihrer Deckkraft natürlich überlagern.
 const CELESTIAL_GLOW_RENDER_ORDER=29;
 const CELESTIAL_DISC_RENDER_ORDER=30;
+// Mond nach dem transparenten Wolkendeck (renderOrder 999), aber weiterhin
+// mit aktivem Tiefentest: Gelände/Bäume verdecken ihn, die Wolkenwirkung wird
+// kontrolliert über moonVisualOpacity gedämpft statt die Scheibe wegzumalen.
+const MOON_GLOW_RENDER_ORDER=1000;
+const MOON_DISC_RENDER_ORDER=1001;
 
 // Sichtbare Sonne in einer oberen Ecke der 3D-Szene.
 const sunDisc=new THREE.Sprite(
@@ -8218,9 +8223,12 @@ const moonDisc=new THREE.Sprite(new THREE.SpriteMaterial({
   map:moonTex,
   transparent:true,
   depthWrite:false,
-  depthTest:true
+  depthTest:true,
+  // Der Szenennebel simuliert bodennahe Fernsicht. Auf ein Himmelsobjekt in
+  // großer Sprite-Distanz angewendet löschte er den Mond nahezu vollständig.
+  fog:false
 }));
-moonDisc.renderOrder=CELESTIAL_DISC_RENDER_ORDER;
+moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;
 moonDisc.scale.set(25,25,1);
 moonDisc.userData.visualOpacity=1;
 
@@ -8285,9 +8293,10 @@ const moonGlow=new THREE.Sprite(new THREE.SpriteMaterial({
   transparent:true,
   depthWrite:false,
   depthTest:true,
+  fog:false,
   blending:THREE.AdditiveBlending
 }));
-moonGlow.renderOrder=CELESTIAL_GLOW_RENDER_ORDER;
+moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;
 moonGlow.scale.set(50,50,1);
 moonGlow.userData.visualOpacity=.82;
 scene.add(moonGlow);
@@ -9099,7 +9108,8 @@ function applyNeutralDayScene(){
   sun.color.set(0xfff2cf);
   sun.userData.clearSkyIntensity=1.48;
 
-  sunDisc.position.copy(sun.position);
+  if(typeof positionCelestialDiscAtWorldDirection==='function')positionCelestialDiscAtWorldDirection(sunDisc,sun);
+  else sunDisc.position.copy(sun.position);
   sunDisc.userData.astronomicallyVisible=true;
   sunDisc.visible=!is2D&&celestialDiscAllowedForView();
   sunDisc.scale.set(48,48,1);
@@ -10628,7 +10638,8 @@ function set3D(){
     sun.visible=true;
     sunDisc.userData.astronomicallyVisible=true;
     sunDisc.visible=!is2D&&celestialDiscAllowedForView();
-    sunDisc.position.copy(sun.position);
+    if(typeof positionCelestialDiscAtWorldDirection==='function')positionCelestialDiscAtWorldDirection(sunDisc,sun);
+    else sunDisc.position.copy(sun.position);
     if(sunDisc.material){
       sunDisc.material.opacity=1.0;
       sunDisc.material.depthTest=true;
@@ -11596,29 +11607,30 @@ function celestialVector(pos,radius){
   ).multiplyScalar(radius);
 }
 
-// V8.92: Die Lichtquellen bleiben unverändert am Kartenursprung ausgerichtet.
-// Nur ihre sichtbaren Scheiben werden für das Hauptbild relativ zur Kamera auf
-// denselben Richtungsvektor gesetzt. So entsteht bei Kamerafahrten keine
-// künstliche Parallaxe, während Licht, Schatten und Wasser-Richtungen identisch
-// zu V8.91 bleiben.
-const celestialDiscCameraDirection=new THREE.Vector3();
-function positionCelestialDiscsForMainCamera(){
-  const span=Math.max(D.sceneW,D.sceneH);
-  const place=(disc,light,distance)=>{
-    if(!disc||!light||!light.target)return;
-    celestialDiscCameraDirection.copy(light.position).sub(light.target.position);
-    if(celestialDiscCameraDirection.lengthSq()<1e-8)return;
-    celestialDiscCameraDirection.normalize();
-    disc.position.copy(camera.position).addScaledVector(celestialDiscCameraDirection,distance);
-  };
-  place(sunDisc,sun,span*2.1);
-  place(moonDisc,moonLight,span*1.9);
+// V8.93: Sonne und Mond sind echte Weltobjekte am Himmel und NICHT mehr an
+// die Kamera gekoppelt. Ihre astronomische Richtung kommt weiterhin exakt von
+// den vorhandenen DirectionalLights/SunCalc-Werten. Nur die sichtbaren Scheiben
+// werden auf einen festen, weit entfernten Radius um den Weiher gesetzt. Dadurch
+// bleiben sie beim Dolly/Zoom an ihrer Weltposition und kleben nicht am Displayrand.
+// Der Radius bleibt innerhalb der 2000-m-Farplane, selbst bei grossem Orbit-Abstand.
+const ACZO_CELESTIAL_DISC_WORLD_RADIUS=900;
+const celestialDiscWorldDirection=new THREE.Vector3();
+function positionCelestialDiscAtWorldDirection(disc,light){
+  if(!disc||!light||!light.target)return;
+  celestialDiscWorldDirection.copy(light.position).sub(light.target.position);
+  if(celestialDiscWorldDirection.lengthSq()<1e-8)return;
+  celestialDiscWorldDirection.normalize();
+  disc.position.copy(light.target.position).addScaledVector(celestialDiscWorldDirection,ACZO_CELESTIAL_DISC_WORLD_RADIUS);
+}
+function positionCelestialDiscsAtWorldDirections(){
+  positionCelestialDiscAtWorldDirection(sunDisc,sun);
+  positionCelestialDiscAtWorldDirection(moonDisc,moonLight);
   if(typeof moonGlow!=='undefined')moonGlow.position.copy(moonDisc.position);
 }
+// Kompatibilitaetsname fuer aeltere Nebenpfade: auch hier wird NICHT mehr zur
+// Kamera zurueckgesetzt, sondern ausschliesslich die feste Weltposition erneuert.
 function restoreCelestialDiscWorldPositions(){
-  sunDisc.position.copy(sun.position);
-  moonDisc.position.copy(moonLight.position);
-  if(typeof moonGlow!=='undefined')moonGlow.position.copy(moonDisc.position);
+  positionCelestialDiscsAtWorldDirections();
 }
 
 let aczoAstronomicalNight=false;
@@ -11670,14 +11682,20 @@ function updateAstronomy(){
   // Mondposition bleibt vollständig astronomisch. Die Sichtbarkeit wird nicht mehr
   // hart bei -4° Sonnenhöhe geschaltet, sondern weich mit der Dämmerung eingeblendet.
   const moonDisplayAllowed=moonUp;
+  // Der Mond darf astronomisch korrekt auch tagsueber und in der Daemmerung
+  // sichtbar bleiben. Die alte Formel blendete ihn rund um Sonnenuntergang fast
+  // vollstaendig aus, obwohl er real bereits klar am Himmel stehen kann.
+  // Sonnenstand beeinflusst deshalb nur noch Glow/Lichtstaerke, nicht die
+  // grundsaetzliche Sichtbarkeit der Mondscheibe.
   const sunAltDeg=THREE.MathUtils.radToDeg(sunPos.altitude);
-  const moonTwilightVisibility=1-THREE.MathUtils.smoothstep(sunAltDeg,-8,2);
+  const moonTwilightVisibility=1;
   let moonVec=celestialVector(moonPos,span*1.9);
 
   sun.position.copy(sunVec);
-  sunDisc.position.copy(sunVec);
   moonLight.position.copy(moonVec);
-  moonDisc.position.copy(moonVec);
+  // Sichtbare Scheiben bleiben auf ihrem festen Himmelsradius. Lichtquellen
+  // behalten dagegen die bewaehrten Radien fuer Schatten und Beleuchtung.
+  positionCelestialDiscsAtWorldDirections();
   if(typeof dayReliefLight!=='undefined'){
     dayReliefLight.position.copy(sunVec);
     dayReliefLight.target.position.copy(moonLight.target.position);
@@ -11693,11 +11711,17 @@ function updateAstronomy(){
   // Diese Werte gelten gemeinsam für Desktop und die responsive Mobilansicht.
   const moonCloud=THREE.MathUtils.clamp((liveWeather?.cloud||0)/100,0,1);
   const moonDaylight=THREE.MathUtils.smoothstep(sunPos.altitude,-.08,.18);
-  const moonHorizonVisibility=THREE.MathUtils.smoothstep(moonPos.altitude,0,.18);
-  const moonCloudTransmission=Math.max(.13,1-.90*Math.pow(moonCloud,1.28));
+  // Nur die letzten etwa 3 Grad ueber dem Horizont weich ausblenden. Darueber
+  // bleibt die Scheibe stabil sichtbar, sofern sie astronomisch ueber dem
+  // Horizont steht.
+  const moonHorizonVisibility=THREE.MathUtils.smoothstep(moonPos.altitude,0,.055);
+  // Wetter-Cloudcover ist eine Flaechenangabe und kein lokaler Pixel-Okkluder.
+  // Selbst 99 % duerfen die Scheibe daher stark daempfen, aber nicht rechnerisch
+  // praktisch loeschen. Echte Wolkengeometrie kann sie weiterhin optisch verdecken.
+  const moonCloudTransmission=Math.max(.42,1-.58*Math.pow(moonCloud,1.18));
   const moonVisualOpacity=moonDisplayAllowed
     ? THREE.MathUtils.clamp(
-        moonHorizonVisibility*moonTwilightVisibility*THREE.MathUtils.lerp(1,.46,moonDaylight)*moonCloudTransmission,
+        moonHorizonVisibility*THREE.MathUtils.lerp(.96,.72,moonDaylight)*moonCloudTransmission,
         0,1
       )
     : 0;
@@ -11725,7 +11749,10 @@ function updateAstronomy(){
   // Unveränderter Ausgangswert für die Wolkendämpfung. Dadurch kann der
   // Regler die Sonne nicht bei jedem Aufruf erneut schwächer multiplizieren.
   sun.userData.clearSkyIntensity=sun.intensity;
-  moonLight.intensity=(moonDisplayAllowed ? (0.10+0.35*moonIll.fraction)*moonTwilightVisibility : 0)
+  // Mondlicht bleibt in heller Daemmerung/bei Tag dezent; nur die Scheibe darf
+  // sichtbar sein. Dadurch entsteht kein kuenstlicher Nacht-Look vor Sonnenuntergang.
+  const moonLightDayFade=THREE.MathUtils.lerp(1,.16,moonDaylight);
+  moonLight.intensity=(moonDisplayAllowed ? (0.10+0.35*moonIll.fraction)*moonLightDayFade : 0)
     *((typeof diagnosticState==='undefined'||diagnosticState.relief)?1:0);
 
   // V36: kontinuierliche Helligkeit statt nur drei optischer Zustände.
@@ -22282,13 +22309,13 @@ function finishLeavingFishView(){
     // Nach dem Unterwasser-Modus müssen Himmelskörper wieder vom
     // normalen Tiefenpuffer verdeckt werden: Bäume/Gebäude liegen vor dem Mond.
     disc.material.depthTest=true;
-    disc.material.fog=true;
+    disc.material.fog=(disc===sunDisc);
     disc.material.opacity=1;
     disc.material.needsUpdate=true;
   });
   sunDisc.renderOrder=CELESTIAL_DISC_RENDER_ORDER;
-  moonDisc.renderOrder=CELESTIAL_DISC_RENDER_ORDER;
-  moonGlow.renderOrder=CELESTIAL_GLOW_RENDER_ORDER;
+  moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;
+  moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;
   fishWheelThrust=0;
   fishTouchPointers.clear();fishTouchForward=0;fishTouchStrafe=0;
   fishTouchImpulseForward=0;fishTouchImpulseStrafe=0;fishTouchTwoLast=null;
@@ -24783,7 +24810,7 @@ function setAnglingCelestialOcclusionForPanorama(active){
     if(!disc||!disc.material)return;
     if(disc.material.depthTest!==true){disc.material.depthTest=true;disc.material.needsUpdate=true;}
     if(disc.material.depthWrite!==false){disc.material.depthWrite=false;disc.material.needsUpdate=true;}
-    disc.renderOrder=active?order:(disc===moonGlow?CELESTIAL_GLOW_RENDER_ORDER:CELESTIAL_DISC_RENDER_ORDER);
+    disc.renderOrder=active?order:(disc===moonGlow?MOON_GLOW_RENDER_ORDER:(disc===moonDisc?MOON_DISC_RENDER_ORDER:CELESTIAL_DISC_RENDER_ORDER));
   };
   apply(sunDisc,1);
   apply(moonDisc,1);
@@ -40084,7 +40111,7 @@ if(aczoPerf7CpuEnabled){
     ['updateFishView','Fish'],['updateFishActors','Fish'],['updateFishShadows','Fish'],
     ['updateUnderwaterEffects','Underwater'],['updateAnglingMode','Angling'],
     ['updateAnglingClockDisplay','AnglingUI'],['updateDirectCelestialWaterReflections','SunReflect'],
-    ['positionCelestialDiscsForMainCamera','Celestial'],['enforceCelestialDiscVisibility','Celestial'],
+    ['positionCelestialDiscsAtWorldDirections','Celestial'],['enforceCelestialDiscVisibility','Celestial'],
     ['updateCelestialReflectionScreens','Celestial'],['updateCelestialDepthLighting','Celestial'],
     ['updateCelestialLensFlare','Celestial'],['updateContourDistanceLod','Contours'],
     ['updateWaterStarReflectionPoints','Celestial'],['updateCompass','UI'],
@@ -40421,24 +40448,20 @@ function aczoPerf7Summary(){
    setInlineStyle(windArrow,'scale','1');
  }
 
- // V8.52: Nach Fisch-/Angel-/Kamera-Updates den astronomisch korrekten
- // Sichtbarkeitszustand nochmals durchsetzen. Dadurch können Ansichtswechsel
- // Sonne oder Mond nicht dauerhaft ausgeblendet zurücklassen.
- // PERF4: Kameraabhaengige Himmelsdarstellung bleibt bei Interaktion direkt,
- // im Stillstand reichen 8 Hz. Statische Sichtbarkeits-/Shadow-Caster-Pruefungen
- // laufen nur 4 Hz, statt bei jedem kompletten Renderpass.
- // SONNENFIX: Die sichtbaren Scheiben muessen nach JEDEM Kamera-Update und vor
- // JEDEM Hauptbild relativ zur aktuellen Kamera stehen. Am Frameende werden sie
- // fuer Welt-/Nebenberechnungen wieder auf ihre astronomischen Weltpositionen
- // gesetzt. Wuerde diese billige Positionskorrektur ebenfalls auf 8 Hz
- // gedrosselt, wechselte der Uebergang in den Himmelblick zwischen Welt- und
- // Kameraposition und die Sonne schiene seitlich zu springen.
- if(simulationEnabled)positionCelestialDiscsForMainCamera();
+ // V8.93: Nach Fisch-/Angel-/Kamera-Updates nur den astronomisch korrekten
+ // Sichtbarkeitszustand durchsetzen. Sonne und Mond werden absichtlich NICHT
+ // mehr relativ zur Kamera positioniert. Ihre feste Weltposition wird allein
+ // bei Astronomie-/Zeitupdates aus der SunCalc-Richtung erneuert.
+ // PERF4: Sichtbarkeits-/Reflexpruefungen laufen weiterhin gedrosselt.
  const aczoCelestialDue=aczoInteractive||aczoPlainMapGesture||(frameNow-aczoPerf4LastCelestialAt>=125);
  if(aczoCelestialDue){
    aczoPerf4LastCelestialAt=frameNow;
    if(simulationEnabled){
      enforceCelestialDiscVisibility();
+     // Hauptbild: Mond nach dem transparenten Wolkendeck zeichnen. Der normale
+     // Tiefentest bleibt aktiv, deshalb kann er nicht durch Gelände/Bäume scheinen.
+     if(typeof moonDisc!=='undefined'&&moonDisc.material){moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;moonDisc.material.fog=false;}
+     if(typeof moonGlow!=='undefined'&&moonGlow.material){moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;moonGlow.material.fog=false;}
      updateCelestialReflectionScreens();
      updateCelestialDepthLighting();
      updateCelestialLensFlare();
@@ -40490,7 +40513,6 @@ function aczoPerf7Summary(){
  }
  markViewerRenderCall();renderer.render(scene,camera);
  aczoRenderRodOverlay();
- restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
    window.__markMapStartupFirstFrame();
    window.__markMapStartupFirstFrame=null;
