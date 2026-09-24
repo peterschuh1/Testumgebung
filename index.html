@@ -27585,6 +27585,10 @@ let anglingObstacleSnagLossStreak=0;
 // erweiterten Kollisionsbereich geometrisch verlassen haben.
 let anglingReleasedSnagGuard=null;
 const anglingObstacleHookPoint=new THREE.Vector3();
+// P60: Beim Schnell-Einholen der Pose wird auch der Hakenweg zwischen zwei
+// Frames auf Hindernisse geprüft. So kann "Zum Ufer" denselben Hänger nicht
+// mehr überspringen, den Doppeltipp/Rechtsklick korrekt erkennen würde.
+const anglingFastRigSweepStart=new THREE.Vector3(),anglingFastRigSweepEnd=new THREE.Vector3();
 const anglingDeadwoodTmpA=new THREE.Vector3();
 const anglingDeadwoodTmpB=new THREE.Vector3();
 const anglingDeadwoodTmpC=new THREE.Vector3();
@@ -38480,6 +38484,18 @@ function returnAnglingToShoreForRecast(){
   const returningArtificial=anglingUsesArtificialLure();
   const returningFloat=!returningDeeper&&!returningArtificial;
 
+  // P60: "Zum Ufer" darf bei Pose/Kunstköder keinen eigenen Bypass mehr
+  // benutzen. Solange ein normaler Schnell-Einholvorgang möglich ist, läuft
+  // exakt derselbe Pfad wie bei Doppeltipp/Rechtsklick. Dadurch bleiben
+  // Schnurauflagen, Umlenkpunkte und die Hängererkennung vollständig aktiv.
+  if(!returningDeeper&&anglingCanFastAbort()){
+    beginFastAnglingRetrieve();
+    return;
+  }
+  // Ein bereits laufendes Schnell-Einholen darf durch einen zweiten Klick auf
+  // "Zum Ufer" ebenfalls nicht in den alten Direkt-Rückweg springen.
+  if(!returningDeeper&&anglingState==='fast-retrieving')return;
+
   // BETA 1.4: Rückflug zuerst atomar sperren, bevor Biss/QTE/andere UI-Logik
   // im selben Frame noch einen konkurrierenden Zustand starten kann.
   anglingReturnToShorePendingReset=true;
@@ -38878,7 +38894,21 @@ function updateAnglingCinematicCamera(dt){
    // aus. Erst resetAnglingCast() am fertigen Uferbild blendet sie wieder ein.
    const artificialFastReturn=anglingUsesArtificialLure()&&anglingState==='fast-retrieving';
    anglingRodGroup.visible=artificialFastReturn?false:!anglingReturnToShorePendingReset;
-   camera.position.copy(aczoSafeAnglingReturnPosition(u));controls.target.lerp(anglingShoreCameraTarget,u);camera.up.set(0,0,1);camera.lookAt(controls.target);
+   camera.position.copy(aczoSafeAnglingReturnPosition(u));
+   controls.target.lerp(anglingShoreCameraTarget,u);
+   // P61: Erst kurz vor dem Ufer den Blick deutlich nach unten auf eine nahe
+   // Wasserstelle drehen. So bleibt der eigentliche Rückflug sichtbar, aber in
+   // den letzten Metern sieht man nicht auf den noch leeren Angler-/Rutenplatz.
+   // Nach Abschluss stellt resetAnglingCast() die normale Uferkamera samt Rute
+   // atomar wieder her.
+   if(artificialFastReturn&&u>.76&&anglingSelection?.shore&&anglingSelection?.inward){
+     const turn=THREE.MathUtils.smoothstep(u,.76,.97);
+     const waterLookX=anglingSelection.shore.x+anglingSelection.inward.x*2.25;
+     const waterLookY=anglingSelection.shore.y+anglingSelection.inward.y*2.25;
+     anglingTmpC.set(waterLookX,waterLookY,anglingSurfaceZ(waterLookX,waterLookY)+.015);
+     controls.target.lerp(anglingTmpC,turn);
+   }
+   camera.up.set(0,0,1);camera.lookAt(controls.target);
    // V8.96: Beim Rechtsklick beginnt der Rückflug noch unter Wasser. Solange
    // die Kamera die bewegte Oberfläche nicht wirklich verlassen hat, muss der
    // Unterwasser-Shader aktiv bleiben. Sonst wird für einzelne Frames die sehr
@@ -39246,6 +39276,7 @@ function updateAnglingMode(dt){
     const u=anglingClamp01(anglingStateTime/Math.max(.1,anglingFastRetrieveDuration)),eased=anglingEase(u);
     const deeper=anglingUsesDeeper(),artificial=anglingUsesArtificialLure(),terminal=deeper?anglingDeeper:(artificial?anglingLure:anglingBobber);
     if(artificial)anglingLureFrameSweepStart.copy(terminal.position);
+    else if(!deeper)anglingCurrentRigHookWorld(anglingFastRigSweepStart);
     terminal.position.lerpVectors(anglingRetrieveStart,anglingRetrieveEnd,eased);
     if(artificial){
       const fastHit=findAnglingDeadwoodSweepCollision(anglingLureFrameSweepStart,terminal.position,.075);
@@ -39257,6 +39288,14 @@ function updateAnglingMode(dt){
       terminal.position.z=surface-.005;
       updateAnglingBobberWaterTint(surface);
       updateAnglingRetrieveWake(dt,terminal,false);
+      // P60: Nicht nur die Pose, sondern der reale Haken unter ihr bewegt sich
+      // beim Schnell-Einholen durchs Wasser. Seine tatsächlich zurückgelegte
+      // Strecke wird deshalb pro Frame gegen Holz/Stege geprüft. Ein Treffer
+      // wechselt sofort in exakt denselben Hängerzustand wie beim normalen
+      // Einholen, statt bis zum Ufer durch das Hindernis zu springen.
+      anglingCurrentRigHookWorld(anglingFastRigSweepEnd);
+      const fastRigHit=findAnglingDeadwoodSweepCollision(anglingFastRigSweepStart,anglingFastRigSweepEnd,.05);
+      if(fastRigHit){beginAnglingObstacleSnag('natural',fastRigHit);return;}
     }
     else{const surface=anglingSurfaceZ(terminal.position.x,terminal.position.y);anglingLureDepth=Math.max(.10,surface-terminal.position.z);}
     const metres=Math.max(0,Math.hypot(terminal.position.x-anglingSelection.shore.x,terminal.position.y-anglingSelection.shore.y));
