@@ -7850,6 +7850,9 @@ const CELESTIAL_DISC_RENDER_ORDER=30;
 // separate Pixel-Abtastung um maximal etwa 50 % abschwächen.
 const MOON_GLOW_RENDER_ORDER=CELESTIAL_GLOW_RENDER_ORDER;
 const MOON_DISC_RENDER_ORDER=CELESTIAL_DISC_RENDER_ORDER;
+// V8.167: CPU-Kopie der ohnehin vorhandenen Wolkentextur. Sie wird nur fuer
+// die sehr kleine Lichtprobe an Sonne/Mond verwendet, nicht fuer die Darstellung.
+let aczoPerf2CloudPixelData=null;
 
 // Sichtbare Sonne in einer oberen Ecke der 3D-Szene.
 const sunDisc=new THREE.Sprite(
@@ -8263,19 +8266,20 @@ function enforceCelestialDiscVisibility(){
     return;
   }
 
-  // Wolkenverdeckung geschieht direkt durch die vorhandene Wolkenebene.
-  // Keine zweite softwareseitige Dämpfung von Sonne/Mond mehr.
-  const sunCloud=1;
-  const moonCloud=1;
-  sunDisc.userData.cloudTransmission=1;
-  moonDisc.userData.cloudTransmission=1;
-  if(typeof moonGlow!=='undefined')moonGlow.userData.cloudTransmission=1;
+  // V8.170: Die reale Wolkenflaeche ueberlagert Sonne/Mond lokal bis etwa
+  // 50 %. Der gemeldete Gesamt-Bewoelkungsgrad liefert nur einen kleinen
+  // Grundschleier. Unter Wasser kommt die optische Wasserdaempfung separat dazu.
+  if(typeof updateCelestialCloudLighting==='function')updateCelestialCloudLighting();
+  const submerged=(typeof fishMode!=='undefined'&&fishMode)
+    ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
+  const sunCloud=aczoGeneralSunVisualTransmission();
+  const moonCloud=aczoGeneralMoonVisualTransmission();
   const sunAllowed=!!sunDisc.userData.astronomicallyVisible;
-  const sunOpacity=sunCloud;
+  const sunOpacity=sunCloud*(submerged?.80:1);
   const moonBaseOpacity=Number.isFinite(moonDisc.userData.visualOpacity)
     ? THREE.MathUtils.clamp(moonDisc.userData.visualOpacity,0,1)
     : 1;
-  const moonOpacity=moonBaseOpacity*moonCloud;
+  const moonOpacity=moonBaseOpacity*moonCloud*(submerged?.84:1);
   const moonAllowed=!!moonDisc.userData.astronomicallyVisible&&moonOpacity>.012;
   sunDisc.visible=sunAllowed&&sunOpacity>.012;
   moonDisc.visible=moonAllowed;
@@ -8479,6 +8483,9 @@ for(let i=0;i<52;i++){
   aczoPerf2CloudBlob(x,y,13+aczoPerf2CloudRnd()*32,6+aczoPerf2CloudRnd()*15,.34+aczoPerf2CloudRnd()*.42);
 }
 aczoPerf2CloudCtx.globalCompositeOperation='source-over';
+// Einmalige CPU-Kopie: 256x128 Pixel. Danach nur wenige Array-Lesezugriffe
+// pro Himmelspruefung, kein getImageData im Renderloop.
+aczoPerf2CloudPixelData=aczoPerf2CloudCtx.getImageData(0,0,ACZO_PERF2_CLOUD_W,ACZO_PERF2_CLOUD_H).data;
 const aczoPerf2CloudTex=new THREE.CanvasTexture(aczoPerf2CloudCanvas);
 aczoPerf2CloudTex.wrapS=THREE.RepeatWrapping;aczoPerf2CloudTex.wrapT=THREE.RepeatWrapping;
 aczoPerf2CloudTex.minFilter=THREE.LinearFilter;aczoPerf2CloudTex.magFilter=THREE.LinearFilter;
@@ -8516,7 +8523,7 @@ const aczoPerf2CloudMat=new THREE.ShaderMaterial({
       vec3 underWaterCol=mix(vec3(.48,.66,.76),vec3(.14,.22,.29),night);
       vec3 col=gl_FrontFacing?topCol:mix(underCol,underWaterCol,clamp(underwater,0.0,1.0));
 
-      float alpha=cloud*(.30+.24*smoothstep(.16,.64,raw));
+      float alpha=cloud*(.34+.26*smoothstep(.16,.64,raw));
       alpha*=mix(1.0,1.85,clamp(underwater,0.0,1.0));
       float alphaCutoff=mix(.018,.010,clamp(underwater,0.0,1.0));
       if(alpha<alphaCutoff)discard;
@@ -8529,10 +8536,114 @@ aczoPerf2CloudDeck.position.set(0,0,82);aczoPerf2CloudDeck.renderOrder=999;aczoP
 aczoPerf2CloudDeck.castShadow=false;aczoPerf2CloudDeck.receiveShadow=false;aczoPerf2CloudDeck.name='PERF2_NEXT_STYLE_CLOUD_DECK';
 scene.add(aczoPerf2CloudDeck);
 
-// V8.166: Keine separate Wolken-Abtastung mehr. Die vorhandene Wolkenebene
-// liegt selbst vor Sonne, Mond und Sternen und übernimmt mit ihrer echten,
-// bewegten Alpha-Struktur die lokale Abschwächung. Dadurch kostet die
-// Himmelsverdeckung praktisch keine zusätzliche CPU-Zeit.
+// V8.167: Die Wolkenebene selbst verdeckt Himmelobjekte. Fuer die reale
+// Helligkeit der 3D-Landschaft braucht Three.js trotzdem einen kleinen Hinweis,
+// weil ein transparenter Shader nicht automatisch Directional-/HemisphereLight
+// abschattet. Deshalb lesen wir an Sonne/Mond nur 5 Punkte aus DERSELBEN bereits
+// vorhandenen Wolkentextur. enforceCelestialDiscVisibility() laeuft ohnehin nur
+// etwa alle 125 ms, daher ist der Zusatzaufwand praktisch nicht messbar.
+const aczoCelestialCloudPoint=new THREE.Vector3();
+function aczoCloudSmoothstep(a,b,x){
+  const t=THREE.MathUtils.clamp((x-a)/Math.max(1e-6,b-a),0,1);
+  return t*t*(3-2*t);
+}
+function aczoCloudFract(v){return v-Math.floor(v);}
+function aczoSamplePerf2CloudRawAtWorld(x,y){
+  if(!aczoPerf2CloudPixelData)return 0;
+  const off=aczoPerf2CloudUniforms.offset.value;
+  const u=aczoCloudFract(x*.0060+off.x),v=aczoCloudFract(y*.0047+off.y);
+  const fx=u*(ACZO_PERF2_CLOUD_W-1),fy=v*(ACZO_PERF2_CLOUD_H-1);
+  const x0=Math.floor(fx),y0=Math.floor(fy),x1=(x0+1)%ACZO_PERF2_CLOUD_W,y1=(y0+1)%ACZO_PERF2_CLOUD_H;
+  const tx=fx-x0,ty=fy-y0;
+  const sample=(px,py)=>aczoPerf2CloudPixelData[(py*ACZO_PERF2_CLOUD_W+px)*4]/255;
+  const a=THREE.MathUtils.lerp(sample(x0,y0),sample(x1,y0),tx);
+  const b=THREE.MathUtils.lerp(sample(x0,y1),sample(x1,y1),tx);
+  return THREE.MathUtils.lerp(a,b,ty);
+}
+function aczoCloudVisualAlphaFromRaw(raw,amount){
+  const density=aczoCloudSmoothstep(.08,.52,raw);
+  const cloud=density*(.20+.68*amount);
+  if(cloud<.012)return 0;
+  const alpha=cloud*(.34+.26*aczoCloudSmoothstep(.16,.64,raw));
+  return THREE.MathUtils.clamp(alpha,0,.50);
+}
+// V8.170: Gemeinsames realistisches Himmelslicht-Modell. Mondphase,
+// allgemeine Bewoelkung und die konkrete Wolke vor der Lichtquelle sind drei
+// getrennte Faktoren. So entstehen wirklich helle Vollmond- und dunkle
+// Sichel-/Neumondnaechte, ohne die sichtbare Mondphase kuenstlich auszublenden.
+function aczoWeatherCloudCoverage(){
+  if(!simulationEnabled||typeof liveWeather==='undefined')return 0;
+  return Math.pow(THREE.MathUtils.clamp((liveWeather.cloud||0)/100,0,1),.90);
+}
+function aczoMoonPhaseLightFactor(fraction){
+  const f=THREE.MathUtils.clamp(Number.isFinite(fraction)?fraction:(cachedMoonFraction||0),0,1);
+  // 50 % beleuchtete Flaeche liefert nur rund 22 % Vollmond-Licht,
+  // 25 % nur rund 5 %. Das trennt helle und dunkle Naechte deutlich.
+  return Math.pow(f,2.20);
+}
+function aczoGeneralMoonVisualTransmission(){return THREE.MathUtils.lerp(1.00,.90,aczoWeatherCloudCoverage());}
+function aczoGeneralSunVisualTransmission(){return THREE.MathUtils.lerp(1.00,.94,aczoWeatherCloudCoverage());}
+function aczoGeneralStarTransmission(){return THREE.MathUtils.lerp(1.00,.50,aczoWeatherCloudCoverage());}
+function aczoGeneralMoonLightTransmission(){return THREE.MathUtils.lerp(1.00,.72,aczoWeatherCloudCoverage());}
+function aczoGeneralSunDirectTransmission(){return THREE.MathUtils.lerp(1.00,.58,aczoWeatherCloudCoverage());}
+function aczoGeneralAmbientTransmission(){return THREE.MathUtils.lerp(1.00,.84,aczoWeatherCloudCoverage());}
+
+function aczoCelestialCloudTransmissionForDisc(disc){
+  if(!disc||!camera||!simulationEnabled||is2D||!aczoPerf2CloudPixelData||!aczoPerf2CloudDeck.visible)return 1;
+  const dz=disc.position.z-camera.position.z;
+  if(Math.abs(dz)<1e-5)return 1;
+  const t=(aczoPerf2CloudDeck.position.z-camera.position.z)/dz;
+  if(t<=0||t>=1)return 1;
+  aczoCelestialCloudPoint.copy(camera.position).lerp(disc.position,t);
+  const halfW=D.sceneW*3.1,halfH=D.sceneH*3.1;
+  if(Math.abs(aczoCelestialCloudPoint.x)>halfW||Math.abs(aczoCelestialCloudPoint.y)>halfH)return 1;
+  const amount=THREE.MathUtils.clamp(Number(aczoPerf2CloudUniforms.amount.value)||0,0,1);
+  if(amount<.015)return 1;
+  const r=THREE.MathUtils.clamp(Math.abs(Number(disc.scale.x)||20)*t*.34,1.0,6.0);
+  const dirs=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+  let sum=0,center=0;
+  for(let i=0;i<dirs.length;i++){
+    const d=dirs[i];
+    const raw=aczoSamplePerf2CloudRawAtWorld(aczoCelestialCloudPoint.x+d[0]*r,aczoCelestialCloudPoint.y+d[1]*r);
+    const alpha=aczoCloudVisualAlphaFromRaw(raw,amount);
+    if(i===0)center=alpha;
+    sum+=alpha;
+  }
+  const effective=Math.max(sum/dirs.length,center*.92);
+  // Maximal ca. 50 % Verlust durch eine dichte Wolke, niemals Vollausblendung.
+  return THREE.MathUtils.clamp(1-effective,.50,1);
+}
+function updateCelestialCloudLighting(){
+  const sunT=aczoCelestialCloudTransmissionForDisc(sunDisc);
+  const moonT=aczoCelestialCloudTransmissionForDisc(moonDisc);
+  sunDisc.userData.cloudTransmission=sunT;
+  moonDisc.userData.cloudTransmission=moonT;
+  if(typeof moonGlow!=='undefined')moonGlow.userData.cloudTransmission=moonT;
+
+  // Direktlicht folgt der lokalen Wolke deutlich. Die optische Scheibe selbst
+  // wird NICHT noch einmal softwareseitig gedimmt; das erledigt die Wolke.
+  if(Number.isFinite(sun.userData.weatherBaseIntensity))sun.intensity=sun.userData.weatherBaseIntensity*sunT;
+  if(Number.isFinite(moonLight.userData.weatherBaseIntensity))moonLight.intensity=moonLight.userData.weatherBaseIntensity*moonT;
+
+  // Auf der normalen 3D-Karte soll eine Wolke vor der Lichtquelle auch die
+  // Gesamtstimmung sichtbar verdunkeln. Unter Wasser bleibt die vorhandene
+  // Unterwasser-Lichtlogik unveraendert.
+  const underwater=(typeof fishMode!=='undefined'&&fishMode)
+    ||(typeof anglingMode!=='undefined'&&anglingMode&&typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
+  if(!underwater){
+    const activeT=sceneNightFactor>.48?moonT:sunT;
+    const ambientFactor=THREE.MathUtils.lerp(.60,1.0,activeT); // bei dichter Wolke max. ~20 % weniger Umgebungslicht
+    if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity*ambientFactor;
+    if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
+      satUniforms.dayLight.value=Math.max(.10,satUniforms.cloudBaseDayLight*ambientFactor);
+    }
+  }else{
+    if(Number.isFinite(hemi.userData.weatherBaseIntensity))hemi.intensity=hemi.userData.weatherBaseIntensity;
+    if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.cloudBaseDayLight)){
+      satUniforms.dayLight.value=satUniforms.cloudBaseDayLight;
+    }
+  }
+}
 
 // PERF20: Unter Wasser muss der Wolkendeckel als echter ferner Himmel VOR den
 // transparenten Fisch-/Partikellayern gezeichnet werden. Der bisherige
@@ -8935,7 +9046,8 @@ function applyWeatherScene(){
       : sun.intensity;
     // Auch eine geschlossene Wolkendecke laesst diffuses gerichtetes Licht
     // uebrig. Die alte 28-%-Grenze liess Objekt-Schatten praktisch verschwinden.
-    sun.intensity=clearSun*Math.max(.66,1-fraction*.48);
+    sun.intensity=clearSun*aczoGeneralSunDirectTransmission();
+    sun.userData.weatherBaseIntensity=sun.intensity;
     if(sunDisc.material) sunDisc.material.opacity=1.0;
   }
 
@@ -9011,44 +9123,60 @@ function applyWeatherScene(){
     
     scene.background.copy(bgDay).lerp(bgNight,neutralDark);
 
-    // V42: Mond wirft nachts ein sanftes, kühles Licht auf Gelände und Tiefenkarte.
-    // Kein künstliches Flutlicht: erst ab deutlicher Dämmerung, nachts maximal moderat.
+    // V8.170: Mondphase bestimmt nun die echte Lichtleistung der Nacht.
+    // Die sichtbare Scheibe bleibt geometrisch korrekt, aber ein Halbmond ist
+    // eben nicht halb so hell wie ein Vollmond. Allgemeine Bewoelkung daempft
+    // das gesamte Himmelslicht bereits etwas, die lokale Wolke kommt spaeter dazu.
+    let moonFraction=0;
+    try{
+      moonFraction=SunCalc.getMoonIllumination(now).fraction;
+    }catch(e){}
+    const moonPhaseLight=aczoMoonPhaseLightFactor(moonFraction);
+    const moonCloudTransmission=aczoGeneralMoonLightTransmission();
+    const sunCloudTransmission=aczoGeneralSunDirectTransmission();
+    const ambientCloudTransmission=aczoGeneralAmbientTransmission();
+
     if(typeof moonLight!=='undefined'){
       const moonStrength=THREE.MathUtils.smoothstep(neutralDark,0.42,1.0);
-      let moonFraction=0;
-      try{
-        moonFraction=SunCalc.getMoonIllumination(now).fraction;
-      }catch(e){}
-      const cloudTransmission=Math.max(.45,1-fraction*.55); // PERF17: LIVE bleibt diffus, Relief/Schatten aber sichtbar
-
       moonLight.color.set(0xb8d2ff);
-      // Nachts beleuchtet auch der garantierte Orientierungsmond die echte
-      // Tiefengeometrie sehr dezent. Bewölkung dämpft das Licht weiterhin.
       const moonSceneAllowed=typeof moonDisc!=='undefined'
         &&!!moonDisc.userData.astronomicallyVisible;
       moonLight.intensity=(moonSceneAllowed?moonStrength:0)
-        *(.075+.78*moonFraction)
-        *cloudTransmission
+        *.82*moonPhaseLight
+        *moonCloudTransmission
         *((typeof diagnosticState==='undefined'||diagnosticState.relief)?1:0);
+      moonLight.userData.weatherBaseIntensity=moonLight.intensity;
 
-      // Tagsüber warmes gerichtetes Relieflicht aus der echten Sonnenposition.
+      // Direkte Sonne wird bei geschlossener Bewoelkung deutlich schwaecher,
+      // diffuses Umgebungslicht bleibt dagegen weitgehend erhalten.
       if(typeof dayReliefLight!=='undefined'){
-        dayReliefLight.intensity=.55*(1-neutralDark)*cloudTransmission;
+        dayReliefLight.intensity=.55*(1-neutralDark)*sunCloudTransmission;
       }
     }
     if(typeof hemi!=='undefined'){
-      // Ein wenig Restlicht verhindert, dass die Karte nachts vollständig absäuft.
-      hemi.intensity=THREE.MathUtils.lerp(0.72,0.18,neutralDark);
+      // Dunkle Neumondnacht vs. helle Vollmondnacht. Eine geschlossene
+      // Wolkendecke nimmt dem Himmelslicht zusaetzlich rund 16 %.
+      const clearNightHemi=.10+.085*moonPhaseLight;
+      hemi.intensity=THREE.MathUtils.lerp(.72,clearNightHemi,neutralDark)*ambientCloudTransmission;
     }
     // FINAL V4: Keine zusätzliche uniforme Eigenfarbe mehr.
     // V2.3.0: Keine additive Tiefenaufhellung mehr. Nachts dominiert die dunkle Wasseroberfläche.
     if(typeof pondMat!=='undefined') pondMat.emissiveIntensity=0;
 
-    // Satellitenbild: nur Helligkeit reduzieren, keine Farbtönung.
+    // Auch das Grundbild unterscheidet jetzt helle Vollmond- und dunkle
+    // Sichelnaechte, ohne bei Neumond unspielbar schwarz zu werden.
     if(typeof satUniforms!=='undefined' && satUniforms.dayLight){
-      satUniforms.dayLight.value=THREE.MathUtils.lerp(1.0,0.22,neutralDark);
+      const clearNightMap=.145+.075*moonPhaseLight;
+      satUniforms.dayLight.value=THREE.MathUtils.lerp(1.0,clearNightMap,neutralDark)*ambientCloudTransmission;
     }
   }
+
+  // Basiswerte VOR der lokalen Wolke merken. So wird im Renderloop nie ein
+  // bereits gedaempfter Wert erneut multipliziert.
+  if(typeof hemi!=='undefined')hemi.userData.weatherBaseIntensity=hemi.intensity;
+  if(typeof satUniforms!=='undefined'&&satUniforms.dayLight)satUniforms.cloudBaseDayLight=satUniforms.dayLight.value;
+  if(typeof sun!=='undefined'&&!Number.isFinite(sun.userData.weatherBaseIntensity))sun.userData.weatherBaseIntensity=sun.intensity;
+  if(typeof moonLight!=='undefined'&&!Number.isFinite(moonLight.userData.weatherBaseIntensity))moonLight.userData.weatherBaseIntensity=moonLight.intensity;
 }
 
 function updateWeatherText(){
@@ -10134,24 +10262,23 @@ function updateOneDirectCelestialReflection(source,astronomicallyVisible,materia
   }
   directCelestialReflectionTowardViewer.normalize();
 
-  const cloud=simulationEnabled?THREE.MathUtils.clamp((liveWeather.cloud||0)/100,0,1):.08;
-  const clearSky=isMoon?Math.max(.24,1-cloud*.76):(1-cloud*.88);
   const night=simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;
+  const generalCloudTransmission=isMoon?aczoGeneralMoonLightTransmission():aczoGeneralSunDirectTransmission();
   let strength;
   if(isMoon){
-    const phase=THREE.MathUtils.clamp(cachedMoonFraction||0,0,1);
+    const phaseLight=aczoMoonPhaseLightFactor(cachedMoonFraction||0);
     const visualOpacity=Number.isFinite(moonDisc.userData.visualOpacity)
       ? THREE.MathUtils.clamp(moonDisc.userData.visualOpacity,0,1)
       : 1;
-    // V8.81: Mondreflex klarer und groesser, damit er im ruhigen Spiegelwasser
-    // auf Weiher und Mosel wirklich lesbar bleibt.
-    strength=(.58+1.00*phase)*THREE.MathUtils.lerp(.22,1.0,night)*clearSky*visualOpacity;
+    // V8.170: Eine Sichel darf sichtbar sein, ohne eine Vollmond-Spiegelbahn
+    // zu erzeugen. Reflexstaerke folgt daher derselben nichtlinearen Phase.
+    strength=1.35*phaseLight*THREE.MathUtils.lerp(.22,1.0,night)*generalCloudTransmission*visualOpacity;
     material.uniforms.coreRadius.value=THREE.MathUtils.lerp(2.85,1.82,altNorm);
     material.uniforms.trailLength.value=THREE.MathUtils.lerp(27.0,10.5,altNorm)*(ACZO_PERF6_MOBILE?.72:1);
     material.uniforms.trailWidth.value=THREE.MathUtils.lerp(3.00,1.46,altNorm)*(ACZO_PERF6_MOBILE?.72:1);
   }else{
     // Sonne bleibt dominant und bekommt ebenfalls eine klarere Spiegelbahn.
-    strength=THREE.MathUtils.lerp(1.00,.74,altNorm)*clearSky*(1-night*.92);
+    strength=THREE.MathUtils.lerp(1.00,.74,altNorm)*generalCloudTransmission*(1-night*.92);
     material.uniforms.coreRadius.value=THREE.MathUtils.lerp(3.10,2.05,altNorm);
     material.uniforms.trailLength.value=THREE.MathUtils.lerp(24.0,9.2,altNorm)*(ACZO_PERF6_MOBILE?.68:1);
     material.uniforms.trailWidth.value=THREE.MathUtils.lerp(2.95,1.48,altNorm)*(ACZO_PERF6_MOBILE?.70:1);
@@ -11544,11 +11671,9 @@ function pointInWaterStarStructureMask(x,y){
 
 function updateWaterStarReflectionPoints(dt){
   waterStarPhase+=dt;
-  const cloud=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0)/100;
-  // Sternreflexion folgt derselben Wolkendaempfung wie der sichtbare Sternhimmel.
-  // Bei 100 % gemeldeter Bewoelkung bleiben damit dieselben dezenten 24 % uebrig,
-  // statt dass der Himmel Sterne zeigt, die Wasserflaeche aber praktisch keine.
-  const opacity=(simulationEnabled?sceneNightFactor:0)*(1-cloud*.76);
+  // Sternreflexion folgt derselben allgemeinen Bewoelkungsdaempfung wie
+  // der sichtbare Sternhimmel. Lokale Wolken liegen am Himmel zusaetzlich davor.
+  const opacity=(simulationEnabled?sceneNightFactor:0)*aczoGeneralStarTransmission();
   const active=waterVisible&&!is2D&&!(typeof fishMode!=='undefined'&&fishMode)&&opacity>.035;
   waterStarHalos.visible=waterStarCores.visible=active;
   if(!active){
@@ -11625,8 +11750,10 @@ function updateAstronomicalStars(now,sunAltitude){
   }
   starGeo.attributes.position.needsUpdate=true;
   const darkness=THREE.MathUtils.clamp((-sunAltitude-.055)/.13,0,1);
-  const clouds=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0)/100;
-  starMat.uniforms.opacity.value=simulationEnabled ? darkness*(1-clouds*.76) : 0;
+  // Sterne reagieren staerker auf geschlossene Bewoelkung als der Mond:
+  // bei 100 % bleibt global etwa die Haelfte, die echte Wolke davor kann lokal
+  // nochmals bis ca. 50 % nehmen. So bleibt nur ein schwacher Rest sichtbar.
+  starMat.uniforms.opacity.value=simulationEnabled ? darkness*aczoGeneralStarTransmission() : 0;
   starField.visible=!is2D && starMat.uniforms.opacity.value>.01;
 }
 
@@ -11758,19 +11885,17 @@ function updateAstronomy(){
   // Bewölkung dämpft Scheibe und Schein stark, löscht sie aber selbst bei
   // 99–100 % nicht vollständig. So bleibt der Mond als diffuse Quelle lesbar.
   // Diese Werte gelten gemeinsam für Desktop und die responsive Mobilansicht.
-  const moonCloud=THREE.MathUtils.clamp((liveWeather?.cloud||0)/100,0,1);
   const moonDaylight=THREE.MathUtils.smoothstep(sunPos.altitude,-.08,.18);
   // Nur die letzten etwa 3 Grad ueber dem Horizont weich ausblenden. Darueber
   // bleibt die Scheibe stabil sichtbar, sofern sie astronomisch ueber dem
   // Horizont steht.
   const moonHorizonVisibility=THREE.MathUtils.smoothstep(moonPos.altitude,0,.055);
-  // Wetter-Cloudcover ist eine Flaechenangabe und kein lokaler Pixel-Okkluder.
-  // Selbst 99 % duerfen die Scheibe daher stark daempfen, aber nicht rechnerisch
-  // praktisch loeschen. Echte Wolkengeometrie kann sie weiterhin optisch verdecken.
-  const moonCloudTransmission=Math.max(.42,1-.58*Math.pow(moonCloud,1.18));
+  // V8.167: Der globale Bewoelkungs-Prozentwert macht den Mond NICHT mehr
+  // pauschal transparent. Nur die echte vorbeiziehende Wolkenflaeche vor der
+  // Scheibe darf ihn lokal um maximal etwa 50 % abschwaechen.
   const moonVisualOpacity=moonDisplayAllowed
     ? THREE.MathUtils.clamp(
-        moonHorizonVisibility*THREE.MathUtils.lerp(.96,.72,moonDaylight)*moonCloudTransmission,
+        moonHorizonVisibility*THREE.MathUtils.lerp(.96,.72,moonDaylight),
         0,1
       )
     : 0;
@@ -11779,7 +11904,7 @@ function updateAstronomy(){
   moonDisc.scale.set(moonVisualScale,moonVisualScale,1);
   if(typeof moonGlow!=='undefined'){
     const moonGlowScale=THREE.MathUtils.lerp(70,50,moonDaylight);
-    moonGlow.userData.visualOpacity=moonVisualOpacity*THREE.MathUtils.lerp(.82,.12,moonDaylight);
+    moonGlow.userData.visualOpacity=moonVisualOpacity*THREE.MathUtils.lerp(.82,.12,moonDaylight)*THREE.MathUtils.lerp(.06,1.0,Math.pow(moonIll.fraction,.90));
     moonGlow.scale.set(moonGlowScale,moonGlowScale,1);
   }
 
@@ -11801,7 +11926,7 @@ function updateAstronomy(){
   // Mondlicht bleibt in heller Daemmerung/bei Tag dezent; nur die Scheibe darf
   // sichtbar sein. Dadurch entsteht kein kuenstlicher Nacht-Look vor Sonnenuntergang.
   const moonLightDayFade=THREE.MathUtils.lerp(1,.16,moonDaylight);
-  moonLight.intensity=(moonDisplayAllowed ? (0.10+0.35*moonIll.fraction)*moonLightDayFade : 0)
+  moonLight.intensity=(moonDisplayAllowed ? .45*aczoMoonPhaseLightFactor(moonIll.fraction)*moonLightDayFade : 0)
     *((typeof diagnosticState==='undefined'||diagnosticState.relief)?1:0);
 
   // V36: kontinuierliche Helligkeit statt nur drei optischer Zustände.
@@ -14874,17 +14999,17 @@ function showFishSky(){
 }
 function applyUnderwaterCelestialTint(blend){
   const b=THREE.MathUtils.clamp(blend,0,1);
+  // Nur die Wasserfarbe aendert sich hier. Die Deckkraft wird zentral in
+  // enforceCelestialDiscVisibility() berechnet, damit Bewoelkung und
+  // Wasserdaempfung nicht versehentlich doppelt auf den Mond wirken.
   if(sunDisc.material){
     sunDisc.material.color.set(0xffffff).lerp(new THREE.Color(0x92c8dc),b*.72);
-    sunDisc.material.opacity=THREE.MathUtils.lerp(1,.66,b);
   }
   if(moonDisc.material){
     moonDisc.material.color.set(0xffffff).lerp(new THREE.Color(0x86bdd7),b*.70);
-    moonDisc.material.opacity=THREE.MathUtils.lerp(1,.72,b);
   }
   if(moonGlow&&moonGlow.material){
     moonGlow.material.color.set(0xffffff).lerp(new THREE.Color(0x70aac8),b*.72);
-    moonGlow.material.opacity=THREE.MathUtils.lerp(1,.52,b);
   }
 }
 let fishEntryFocus=null;
@@ -21488,22 +21613,27 @@ function updateUnderwaterEffects(dt){
   underwaterFxTime+=dt*(anglingUnderwater?.24:1.0);
   fishCausticUniforms.time.value=underwaterFxTime;
   fishBottomDetailUniforms.time.value=underwaterFxTime;
-  const cloud=(typeof liveWeather!=='undefined'?(liveWeather.cloud||0):0)/100;
   const night=simulationEnabled?sceneNightFactor:0;
   const moonFraction=cachedMoonFraction;
-  // Tagsüber klar erkennbar, nachts als wesentlich schwächeres Mondlichtmuster.
-  fishCausticUniforms.intensity.value=(1-cloud*.60)*((1-night)*1.16+night*(.27+.13*moonFraction));
-  fishBottomDetailUniforms.intensity.value=.82+(1-cloud)*.18;
+  const moonPhaseLight=aczoMoonPhaseLightFactor(moonFraction);
+  const localMoonT=Number.isFinite(moonDisc.userData.cloudTransmission)?THREE.MathUtils.clamp(moonDisc.userData.cloudTransmission,.50,1):1;
+  const localSunT=Number.isFinite(sunDisc.userData.cloudTransmission)?THREE.MathUtils.clamp(sunDisc.userData.cloudTransmission,.50,1):1;
+  const moonNightLight=moonPhaseLight*aczoGeneralMoonLightTransmission()*localMoonT;
+  const sunDayLight=aczoGeneralSunDirectTransmission()*localSunT;
+  // Unter Wasser gilt dieselbe Physik wie oben: Vollmond deutlich heller,
+  // Halbmond viel schwächer, Sichel fast nur noch sichtbar statt beleuchtend.
+  fishCausticUniforms.intensity.value=(1-night)*(1.16*sunDayLight)+night*(.06+.34*moonNightLight);
+  fishBottomDetailUniforms.intensity.value=.76+.18*((1-night)*sunDayLight+night*(.35+.65*moonNightLight));
   // Keine sichtbaren Rechteck-Kegel mehr.
   fishLightShafts.visible=false;
   const lightDir=night>.48?waterUniforms.moonDir.value:waterUniforms.sunDir.value;
   fishLightGlow.position.copy(camera.position).addScaledVector(lightDir,12);
   fishLightGlowMat.color.set(night>.48?0xa9d4ff:0xffe3a8);
-  // FINAL V5.14: von unten deutlich erkennbarer, aber weiterhin weicher
-  // Helligkeitsbereich im Einfallswinkel statt geometrischer Lichtbalken.
-  fishLightGlowMat.opacity=((1-night)*.175+night*(.060+.095*moonFraction))
-    *(1-cloud*.82)*(anglingUnderwater?.94:(.91+.09*Math.sin(underwaterFxTime*.17)));
-  fishLightGlow.scale.setScalar((night>.48?13.0:16.5)*(1+cloud*.08));
+  // FINAL V5.14 / V8.170: der weiche Einfallsbereich folgt demselben
+  // astronomischen Lichtfaktor wie Landschaft und Wasserreflexion.
+  fishLightGlowMat.opacity=((1-night)*(.175*sunDayLight)+night*(.015+.14*moonNightLight))
+    *(anglingUnderwater?.94:(.91+.09*Math.sin(underwaterFxTime*.17)));
+  fishLightGlow.scale.setScalar(night>.48?13.0:16.5);
   fishLightGlow.visible=!anglingUnderwater&&fishLightGlowMat.opacity>.004; // PERF15: kein Helligkeitspumpen beim Kunstkoeder
 
   for(let i=0;i<suspendedCount;i++){
@@ -40515,8 +40645,8 @@ function aczoPerf7Summary(){
    aczoPerf4LastCelestialAt=frameNow;
    if(simulationEnabled){
      enforceCelestialDiscVisibility();
-     // Hauptbild: Mond nach dem transparenten Wolkendeck zeichnen. Der normale
-     // Tiefentest bleibt aktiv, deshalb kann er nicht durch Gelände/Bäume scheinen.
+     // Hauptbild: Himmelskoerper bleiben hinter dem transparenten Wolkendeck. Der
+     // normale Tiefentest bleibt aktiv, deshalb scheinen sie nicht durch Gelaende/Baeume.
      if(typeof moonDisc!=='undefined'&&moonDisc.material){moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;moonDisc.material.fog=false;}
      if(typeof moonGlow!=='undefined'&&moonGlow.material){moonGlow.renderOrder=MOON_GLOW_RENDER_ORDER;moonGlow.material.fog=false;}
      updateCelestialReflectionScreens();
