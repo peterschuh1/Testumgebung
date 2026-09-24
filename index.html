@@ -8229,7 +8229,7 @@ const moonDisc=new THREE.Sprite(new THREE.SpriteMaterial({
   fog:false
 }));
 moonDisc.renderOrder=MOON_DISC_RENDER_ORDER;
-moonDisc.scale.set(25,25,1);
+moonDisc.scale.set(30,30,1);
 moonDisc.userData.visualOpacity=1;
 
 scene.add(moonDisc);
@@ -11734,11 +11734,11 @@ function updateAstronomy(){
         0,1
       )
     : 0;
-  const moonVisualScale=THREE.MathUtils.lerp(16,13,moonDaylight);
+  const moonVisualScale=THREE.MathUtils.lerp(19.2,15.6,moonDaylight);
   moonDisc.userData.visualOpacity=moonVisualOpacity;
   moonDisc.scale.set(moonVisualScale,moonVisualScale,1);
   if(typeof moonGlow!=='undefined'){
-    const moonGlowScale=THREE.MathUtils.lerp(34,24,moonDaylight);
+    const moonGlowScale=THREE.MathUtils.lerp(40.8,28.8,moonDaylight);
     moonGlow.userData.visualOpacity=moonVisualOpacity*THREE.MathUtils.lerp(.82,.12,moonDaylight);
     moonGlow.scale.set(moonGlowScale,moonGlowScale,1);
   }
