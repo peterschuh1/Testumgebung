@@ -26464,6 +26464,7 @@ anglingDrillLineGroup.visible=false;anglingScene.add(anglingDrillLineGroup);
 const anglingDrillLineUp=new THREE.Vector3(0,1,0);
 const anglingDrillLineP0=new THREE.Vector3(),anglingDrillLineP1=new THREE.Vector3();
 const anglingDrillLineA=new THREE.Vector3(),anglingDrillLineB=new THREE.Vector3();
+const anglingDrillLineWaterEntry=new THREE.Vector3();
 // V7.08: feste Punktpuffer statt 11 neuer Vector3-Objekte pro Drill-Frame.
 const anglingDrillLinePoints=Array.from({length:ANGLING_DRILL_LINE_SEGMENTS+1},()=>new THREE.Vector3());
 function setAnglingDrillLineSegment(mesh,a,b,radius){
@@ -26476,23 +26477,67 @@ function updateAnglingDrillLine3D(){
   const fighting=anglingState==='drilling'||anglingState==='landing';
   if(!fighting||!anglingLine.visible){anglingDrillLineGroup.visible=false;return;}
   anglingDrillLineGroup.visible=true;
-  // Drill-Schnur beginnt IMMER an der echten Rutenspitze.
-  // Keine künstliche Verkürzung zum Ufer/Wassereintritt.
+  // P70: Die Drillschnur verlaeuft nicht mehr mit einem einzigen Durchhang
+  // Rutenspitze -> Fisch. Dieser Durchhang konnte die Schnur schon unmittelbar
+  // vor dem Ufer durch die Wasseroberflaeche ziehen. Stattdessen bekommt sie
+  // einen echten Wassereintritt, dessen horizontale Position aus der aktuellen
+  // Fischentfernung und der Hoehe der Rutenspitze entsteht.
   anglingRodTip.getWorldPosition(anglingDrillLineP0);
   anglingFishLineTarget(anglingDrillLineP1);anglingDrillLineP1.z+=.025;
   const span=anglingDrillLineP0.distanceTo(anglingDrillLineP1);
   const tension=anglingClamp01(anglingDrillTension);
-  const sag=THREE.MathUtils.lerp(Math.min(.24,.07+span*.0045),.018,tension);
   const innerColor=anglingDrillTension>.88?0xff5a42:anglingDrillTension>.72?0xffdd61:0xf5fff8;
   anglingDrillLineInnerMat.color.setHex(innerColor);
+
+  // P71: Der Wassereintritt darf NICHT aus der Hoehe der stark gebogenen
+  // Rutenspitze berechnet werden. Gerade bei nahen Fischen zog die tiefe Spitze
+  // den geometrischen Schnittpunkt sonst direkt vors Ufer. Stattdessen folgt
+  // der Eintritt jetzt der echten horizontalen Fischentfernung vom Angelplatz.
+  const shoreX=anglingSelection.shore.x,shoreY=anglingSelection.shore.y;
+  const fishDx=anglingDrillLineP1.x-shoreX,fishDy=anglingDrillLineP1.y-shoreY;
+  const fishHorizontal=Math.max(.001,Math.hypot(fishDx,fishDy));
+  const entryFraction=THREE.MathUtils.lerp(.80,.91,tension);
+  const entryDistance=THREE.MathUtils.clamp(
+    fishHorizontal*entryFraction,
+    Math.min(.55,fishHorizontal*.70),
+    Math.max(.12,fishHorizontal-.12)
+  );
+  const invFishHorizontal=1/fishHorizontal;
+  const entryX=shoreX+fishDx*invFishHorizontal*entryDistance;
+  const entryY=shoreY+fishDy*invFishHorizontal*entryDistance;
+  anglingDrillLineWaterEntry.set(
+    entryX,entryY,anglingSurfaceZ(entryX,entryY)+.018
+  );
+
+  // Die Segmentaufteilung folgt den realen Teilstrecken Spitze->Wasser und
+  // Wasser->Fisch. So bleibt die Schnur auch bei 2-8 m Distanz sauber geformt.
+  const aboveLength=Math.max(.001,anglingDrillLineP0.distanceTo(anglingDrillLineWaterEntry));
+  const belowLength=Math.max(.001,anglingDrillLineWaterEntry.distanceTo(anglingDrillLineP1));
+  const entryT=THREE.MathUtils.clamp(aboveLength/(aboveLength+belowLength),.42,.92);
+  const aboveSag=THREE.MathUtils.lerp(.030,.006,tension);
+  const underSag=THREE.MathUtils.lerp(.050,.009,tension);
   anglingDrillLinePoints[0].copy(anglingDrillLineP0);
   for(let i=0;i<ANGLING_DRILL_LINE_SEGMENTS;i++){
-    const t1=(i+1)/ANGLING_DRILL_LINE_SEGMENTS;
-    const next=anglingDrillLinePoints[i+1].set(
-      THREE.MathUtils.lerp(anglingDrillLineP0.x,anglingDrillLineP1.x,t1),
-      THREE.MathUtils.lerp(anglingDrillLineP0.y,anglingDrillLineP1.y,t1),
-      THREE.MathUtils.lerp(anglingDrillLineP0.z,anglingDrillLineP1.z,t1)-Math.sin(Math.PI*t1)*sag
-    );
+    const t=(i+1)/ANGLING_DRILL_LINE_SEGMENTS;
+    const next=anglingDrillLinePoints[i+1];
+    if(t<=entryT){
+      const q=t/Math.max(.001,entryT);
+      next.set(
+        THREE.MathUtils.lerp(anglingDrillLineP0.x,anglingDrillLineWaterEntry.x,q),
+        THREE.MathUtils.lerp(anglingDrillLineP0.y,anglingDrillLineWaterEntry.y,q),
+        THREE.MathUtils.lerp(anglingDrillLineP0.z,anglingDrillLineWaterEntry.z,q)-Math.sin(Math.PI*q)*aboveSag
+      );
+      // Entlang des kompletten Luftabschnitts immer knapp ueber der lokalen
+      // Wasseroberflaeche bleiben, auch wenn die Rutenspitze tief gebogen ist.
+      next.z=Math.max(next.z,anglingSurfaceZ(next.x,next.y)+.012);
+    }else{
+      const q=(t-entryT)/Math.max(.001,1-entryT);
+      next.set(
+        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.x,anglingDrillLineP1.x,q),
+        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.y,anglingDrillLineP1.y,q),
+        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.z,anglingDrillLineP1.z,q)-Math.sin(Math.PI*q)*underSag
+      );
+    }
     anglingDrillLineOuter[i].visible=false;
     setAnglingDrillLineSegment(anglingDrillLineInner[i],anglingDrillLinePoints[i],next,.0036);
   }
@@ -36139,14 +36184,16 @@ function missArtificialLureStrike(reason='Reaktion verpasst'){
 // gespeicherte Uferkamera; Pose/Naturkoeder bleiben ohnehin dort stehen.
 // Dadurch gibt es weder den alten Rueckflug noch den kurzen Kamera-Huepfer.
 function aczoCutToShoreForDrill(){
-  anglingCinematicView='shore';anglingCinematicBlend=0;anglingSafeReturnStart=null;
+  // P70: Im Angelmodus NICHT den globalen Fischsicht-Restore verwenden.
+  // resetAnglingUnderwaterState() setzt nur die vom Kunstkoederpfad aktivierten
+  // Unterwasserlayer zurueck und laesst Fang/Drillzustand unangetastet.
   if(anglingUsesArtificialLure()){
-    waterUniforms.underwaterView.value=0;scene.fog=null;
-    setFishSubmergedLayers(false);fishGroup.visible=false;
+    resetAnglingUnderwaterState(false);
     setAnglingMobilePerformance(false);
-    anglingUnderwaterEntry.classList.remove('show');anglingUnderwaterEntry.style.opacity='0';
-    anglingLureEntryTime=0;
+  }else{
+    anglingCinematicView='shore';anglingCinematicBlend=0;
   }
+  anglingSafeReturnStart=null;
   camera.position.copy(anglingShoreCameraPos);
   controls.target.copy(anglingShoreCameraTarget);
   camera.up.set(0,0,1);
@@ -36170,9 +36217,11 @@ function finishAnglingStrike(success,reason=''){
     }
     return;
   }
-  // P65: Kein separater Rueckflug mehr nach einem erfolgreichen Anhieb.
-  // Der Fangzustand wird nur fuer die unmittelbare Drill-Uebergabe gesichert.
-  if(anglingUsesArtificialLure())anglingLockedStrikeCatch=anglingPendingCatch?{...anglingPendingCatch}:null;
+  // P71: Den gehakten Fisch fuer JEDE Angelart sofort sichern. Beim Posenangeln
+  // gab es selten einen Rueckfall auf den Bereitschaftsbildschirm, wenn ein
+  // Nebenpfad den fluechtigen Fangzustand zwischen QTE und Drill verlor.
+  // beginAnglingDrill() kann diese Kopie bereits gefahrlos wiederherstellen.
+  anglingLockedStrikeCatch=anglingPendingCatch?{...anglingPendingCatch}:null;
 
   // Sichtbarer Kunstköder-Räuber wird jetzt erst NACH erfolgreichem Anhieb
   // aus der Unterwasserpopulation genommen. Bis dahin war exakt derselbe Fisch sichtbar.
