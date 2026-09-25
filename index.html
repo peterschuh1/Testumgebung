@@ -1514,17 +1514,34 @@ html,body{
   animation:aczoSnagEdge .48s ease-out both
 }
 .angling-ui.is-drilling.line-paying-out .angling-tension-fx{
-  background:radial-gradient(ellipse at center,transparent 50%,rgba(61,8,8,.10) 72%,rgba(190,35,27,.72) 100%);
-  opacity:var(--aczo-run-opacity,.20);
-  animation:aczoRunEdge var(--aczo-run-period,.72s) ease-in-out infinite
+  background:radial-gradient(ellipse at center,transparent 43%,rgba(61,8,8,.12) 67%,rgba(198,32,25,.82) 100%);
+  opacity:var(--aczo-run-opacity,.26);
+  animation:aczoRunEdge var(--aczo-run-period,.66s) ease-in-out infinite
 }
 .angling-ui.is-drilling.line-tension-high:not(.line-paying-out) .angling-tension-fx{
-  background:radial-gradient(ellipse at center,transparent 57%,rgba(92,18,10,.08) 78%,rgba(232,83,39,.54) 100%);
-  opacity:.23;animation:aczoTensionEdge 1.05s ease-in-out infinite
+  background:radial-gradient(ellipse at center,transparent 52%,rgba(92,18,10,.10) 74%,rgba(232,83,39,.68) 100%);
+  opacity:.38;animation:aczoTensionEdge .82s ease-in-out infinite
 }
 .angling-ui.is-drilling.line-tension-critical .angling-tension-fx{
-  background:radial-gradient(ellipse at center,transparent 48%,rgba(100,8,8,.14) 70%,rgba(245,48,38,.78) 100%);
-  opacity:.46;animation:aczoTensionEdge .48s ease-in-out infinite
+  background:radial-gradient(ellipse at center,transparent 42%,rgba(100,8,8,.18) 65%,rgba(245,48,38,.90) 100%);
+  opacity:.68;animation:aczoTensionEdge .34s ease-in-out infinite
+}
+.angling-ui.is-drilling.line-paying-out .angling-tension-fill{
+  filter:drop-shadow(0 0 7px rgba(255,76,55,.82));
+  animation:aczoTensionBarRun var(--aczo-run-period,.66s) ease-in-out infinite,
+            aczoTensionSweep var(--aczo-run-period,.66s) linear infinite
+}
+.angling-ui.is-drilling.line-tension-high:not(.line-paying-out) .angling-tension-fill{
+  filter:drop-shadow(0 0 8px rgba(255,127,54,.88));
+  animation:aczoTensionSweep 1.05s linear infinite
+}
+.angling-ui.is-drilling.line-tension-critical .angling-tension-fill{
+  filter:drop-shadow(0 0 12px rgba(255,48,38,.98));
+  animation:aczoTensionBarCritical .34s ease-in-out infinite alternate,
+            aczoTensionSweep .52s linear infinite
+}
+.angling-ui.is-drilling.rod-direct-load .angling-drill-panel{
+  box-shadow:0 0 0 1px rgba(255,145,65,.30),0 0 20px rgba(218,73,31,.22)
 }
 #anglingFightDistanceText.taking-line{
   color:#ffc0b7;text-shadow:0 0 9px rgba(255,69,55,.76);
@@ -1532,9 +1549,12 @@ html,body{
 }
 @keyframes aczoBiteEdge{0%{opacity:0}45%{opacity:.82}100%{opacity:0}}
 @keyframes aczoSnagEdge{0%{opacity:.95}42%{opacity:.55}100%{opacity:0}}
-@keyframes aczoRunEdge{0%,100%{opacity:calc(var(--aczo-run-opacity,.20)*.72)}50%{opacity:var(--aczo-run-opacity,.20)}}
-@keyframes aczoTensionEdge{0%,100%{opacity:.18}50%{opacity:.48}}
-@keyframes aczoDistanceTake{0%,100%{transform:scale(1)}50%{transform:scale(1.09)}}
+@keyframes aczoRunEdge{0%,100%{opacity:calc(var(--aczo-run-opacity,.26)*.66)}50%{opacity:var(--aczo-run-opacity,.26)}}
+@keyframes aczoTensionEdge{0%,100%{opacity:.24}50%{opacity:.64}}
+@keyframes aczoTensionBarRun{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.18)}}
+@keyframes aczoTensionBarCritical{from{transform:scaleY(1)}to{transform:scaleY(1.28)}}
+@keyframes aczoTensionSweep{from{background-position:150% 0,0 0}to{background-position:-65% 0,0 0}}
+@keyframes aczoDistanceTake{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 .angling-float-zoom{
   display:none;position:absolute;right:12px;bottom:72px;z-index:63;width:142px;height:164px;
   overflow:hidden;border-radius:16px;border:2px solid rgba(255,255,255,.92);pointer-events:none;
@@ -1605,7 +1625,14 @@ html,body{
 .angling-drill-row{display:grid;grid-template-columns:86px 1fr 62px;align-items:center;gap:6px;margin:5px 0;font-size:8px;font-weight:900}
 .angling-drill-bar{height:11px;border-radius:999px;background:rgba(255,255,255,.20);overflow:hidden}
 .angling-drill-fill{display:block;height:100%;width:50%;min-width:2px;border-radius:inherit;transition:width .10s linear,background .12s linear}
-.angling-tension-fill{color:#73d866;background:repeating-linear-gradient(90deg,currentColor 0 6.5%,transparent 6.5% 8.33%)}.angling-stamina-fill{background:#4cb9df;width:100%}
+.angling-tension-fill{
+  color:#73d866;
+  background-image:
+    linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,.78) 50%,rgba(255,255,255,0) 66%,rgba(255,255,255,0) 100%),
+    repeating-linear-gradient(90deg,currentColor 0 6.5%,transparent 6.5% 8.33%);
+  background-size:190% 100%,auto;
+  background-position:150% 0,0 0;
+}.angling-stamina-fill{background:#4cb9df;width:100%}
 .angling-distance-fill{
   background-color:#d5b55c;
   background-image:linear-gradient(
@@ -27811,12 +27838,16 @@ const aczoRodVisual={model:ACZO_ROD_MODELS.rod_standard,bend:0,side:0,lastBend:N
  forward:new THREE.Vector3().subVectors(anglingRodC,anglingRodB).normalize(),
  down:new THREE.Vector3(),across:new THREE.Vector3(),normal:new THREE.Vector3(),tmp:new THREE.Vector3(),
  matrix:new THREE.Matrix4(),quat:new THREE.Quaternion(),scale:new THREE.Vector3(),axis:new THREE.Vector3(0,1,0),axisZ:new THREE.Vector3(0,0,1),
- length:anglingRodB.distanceTo(anglingRodC),phase:0,cache:{}};
+ length:anglingRodB.distanceTo(anglingRodC),phase:0,cache:{},afterFlex:0,lastRunPower:0};
 aczoRodVisual.restDown=new THREE.Vector3(0,-1,0);
 aczoRodVisual.restDown.addScaledVector(aczoRodVisual.forward,-aczoRodVisual.restDown.dot(aczoRodVisual.forward)).normalize();
 aczoRodVisual.bendDirection=aczoRodVisual.restDown.clone();
 aczoRodVisual.lastDirection=new THREE.Vector3(Infinity,Infinity,Infinity);
 aczoRodVisual.pullAim=new THREE.Vector3();aczoRodVisual.pullLocal=new THREE.Vector3();
+// P73: Physikalische Kopplung zwischen Rutenwinkel und Schnurzug.
+// angleSin=0 bedeutet: Rute zeigt praktisch direkt auf den Fisch -> kaum Biegemoment.
+// buffer=1 bedeutet: großer Winkel -> der Blank kann Fluchtspitzen als Feder abfangen.
+aczoRodVisual.angleSin=.62;aczoRodVisual.angleDeg=38;aczoRodVisual.buffer=.56;aczoRodVisual.directLoad=.44;
 
 function aczoReplaceMesh(mesh,geometry,material){
  mesh.geometry.dispose();mesh.geometry=geometry;
@@ -27963,24 +27994,68 @@ function aczoDeformRod(){
 }
 function aczoUpdateRodLoad(dt,tension,strength,direction,rodLift=0,reeling=false,runPower=0,pullLocal=null){
  const v=aczoRodVisual,load=THREE.MathUtils.clamp(tension,0,1),s=THREE.MathUtils.clamp(strength,0,1.18);
- const lift=THREE.MathUtils.clamp(rodLift,-1,1),step=Math.max(0,dt);
- // Tatsächlicher Fischdruck bleibt auch bei Kurbelpause wirksam. Bei loser
- // Schnur verschwindet die Biegung; die Anzeige verändert keine Drillkräfte.
- const engagement=1-Math.exp(-load*7);
- const posture=.82+.46*Math.max(0,lift)+.24*Math.min(0,lift);
- const pressure=.30+.88*Math.sqrt(load)+.26*THREE.MathUtils.clamp(runPower,0,1.5);
- const target=THREE.MathUtils.clamp((.20+1.48*Math.pow(s,1.05))*pressure*posture*(reeling?1:.92)*engagement*v.model.flex,0,2.15);
- const blend=1-Math.exp(-step*(target>v.bend?7:4.2));
- v.bend+=(target-v.bend)*blend;
- // Schnurzug im lokalen Koordinatensystem, senkrecht zur unbelasteten Achse.
- // Kein festes Links/Rechts-Vorzeichen aus der Fisch-KI bei vorhandenem Zugvektor.
+ const step=Math.max(0,dt);
  const aim=v.pullAim;
- if(pullLocal)aim.copy(pullLocal);else aim.set(THREE.MathUtils.clamp(direction,-1,1)*.7,-1,0);
- aim.addScaledVector(v.forward,-aim.dot(v.forward));
- if(aim.lengthSq()<1e-10)aim.copy(v.restDown);else aim.normalize();
- const turn=1-Math.exp(-step*7);
- v.bendDirection.lerp(aim,turn);
- if(v.bendDirection.lengthSq()<1e-10)v.bendDirection.copy(aim);
+ let angleSin=v.angleSin||0;
+ if(pullLocal&&pullLocal.lengthSq()>1e-10){
+  // Zugrichtung Rutenspitze -> Fisch im lokalen Rutenkoordinatensystem.
+  aim.copy(pullLocal).normalize();
+  // Biegemoment entsteht ausschließlich aus dem Anteil quer zur Blankachse.
+  // Parallel zur Rute wirkt die Last fast nur axial: Blank richtet sich auf.
+  const axial=Math.abs(THREE.MathUtils.clamp(aim.dot(v.forward),-1,1));
+  angleSin=Math.sqrt(Math.max(0,1-axial*axial));
+ }
+ // Sanft filtern, damit beim Absenken in Richtung Fisch kein Richtungsflattern entsteht.
+ const angleBlend=1-Math.exp(-step*9.0);
+ v.angleSin+=((Number.isFinite(angleSin)?angleSin:0)-v.angleSin)*angleBlend;
+ v.angleSin=THREE.MathUtils.clamp(v.angleSin,0,1);
+ v.angleDeg=Math.asin(v.angleSin)*180/Math.PI;
+ v.buffer=THREE.MathUtils.smoothstep(v.angleSin,.14,.90);
+ v.directLoad=1-v.buffer;
+
+ // Tatsächlicher Fischdruck bleibt wirksam, aber nur der QUERANTEIL kann den Blank biegen.
+ const engagement=1-Math.exp(-load*7);
+ const runNow=THREE.MathUtils.clamp(runPower,0,1.5);
+ const runRise=Math.max(0,runNow-(Number.isFinite(v.lastRunPower)?v.lastRunPower:0));
+ // P74: Kleine elastische Nachfederung beim Beginn einer Flucht. Kein Wackeln,
+ // sondern nur ein kurzer zusätzlicher Federweg des bereits belasteten Blanks.
+ v.afterFlex=Math.min(.11,(v.afterFlex||0)+runRise*.050);
+ v.afterFlex*=Math.exp(-step*3.5);
+ v.lastRunPower=runNow;
+ const pressure=.30+.88*Math.sqrt(load)+.26*runNow;
+ // Schon bei 35–50° arbeitet die Rute deutlich; nahe 0° richtet sie sich konsequent auf.
+ const angularBend=Math.pow(v.angleSin,.78);
+ const target=THREE.MathUtils.clamp(
+   (.20+1.48*Math.pow(s,1.05))*pressure*(reeling?1:.92)*engagement*v.model.flex*angularBend
+   +(v.afterFlex||0)*angularBend,
+   0,2.15
+ );
+ const blend=1-Math.exp(-step*(target>v.bend?7.4:5.4));
+ v.bend+=(target-v.bend)*blend;
+
+ // Nur der quer zur Rute wirkende Zug bestimmt die Biegerichtung.
+ // Wird dieser Anteil sehr klein, behalten wir die bisherige Richtung und entspannen
+ // den Blank. Kein Fallback-Sprung mehr auf restDown -> keine Schnur-/Ruten-Kapriolen.
+ if(pullLocal&&pullLocal.lengthSq()>1e-10){
+  aim.copy(pullLocal).normalize();
+  aim.addScaledVector(v.forward,-aim.dot(v.forward));
+  if(aim.lengthSq()>2.5e-5){
+   aim.normalize();
+   const turn=1-Math.exp(-step*7.5);
+   v.bendDirection.lerp(aim,turn).normalize();
+  }else{
+   const settle=1-Math.exp(-step*2.2);
+   v.bendDirection.lerp(v.restDown,settle);
+   if(v.bendDirection.lengthSq()>1e-10)v.bendDirection.normalize();
+  }
+ }else{
+  const fallback=v.pullAim.set(THREE.MathUtils.clamp(direction,-1,1)*.7,-1,0);
+  fallback.addScaledVector(v.forward,-fallback.dot(v.forward));
+  if(fallback.lengthSq()>1e-10){
+   fallback.normalize();
+   v.bendDirection.lerp(fallback,1-Math.exp(-step*5.5)).normalize();
+  }
+ }
  v.side=v.bendDirection.x;
  aczoDeformRod();
 }
@@ -27989,7 +28064,7 @@ function aczoRelaxRod(dt){
  v.bendDirection.lerp(v.restDown,k);v.side=v.bendDirection.x;
  if(v.bend<.0002){v.bend=0;v.bendDirection.copy(v.restDown);v.side=0;}aczoDeformRod();
 }
-function aczoResetRodCurve(){const v=aczoRodVisual;v.bend=v.side=0;v.bendDirection.copy(v.restDown);aczoDeformRod();}
+function aczoResetRodCurve(){const v=aczoRodVisual;v.bend=v.side=0;v.bendDirection.copy(v.restDown);v.angleSin=.62;v.angleDeg=38;v.buffer=.56;v.directLoad=.44;v.afterFlex=0;v.lastRunPower=0;aczoDeformRod();}
 function aczoAnimateSpinningReel(dt,speed){
  const v=aczoRodVisual;v.phase=(v.phase+dt*4.4*speed)%(Math.PI*20);
  anglingReelCrank.rotation.x=-v.phase;anglingReelCrank.rotation.z=0;
@@ -34641,12 +34716,12 @@ function updateAnglingLine(){
         }
       }
     }else{
-      const sag=fighting?THREE.MathUtils.lerp(.12,.018,tension):(lureFlight?THREE.MathUtils.clamp(.025+span*.0018,.025,.15):THREE.MathUtils.clamp(.18+span*.006,.18,.58));
+      const sag=fighting?THREE.MathUtils.lerp(.026,.0035,tension):(lureFlight?THREE.MathUtils.clamp(.025+span*.0018,.025,.15):THREE.MathUtils.clamp(.18+span*.006,.18,.58));
       const sideX=(lineEnd.y-anglingTmpA.y)/Math.max(.01,span);
       const sideY=-(lineEnd.x-anglingTmpA.x)/Math.max(.01,span);
       for(let i=0;i<ANGLING_LINE_POINTS;i++){
         const t=i/(ANGLING_LINE_POINTS-1),curve=Math.sin(Math.PI*t);
-        const windCurve=curve*Math.sin(waterUniforms.time.value*.72+t*2.3)*(fighting?.012:(lureFlight?.012:.045));
+        const windCurve=curve*Math.sin(waterUniforms.time.value*.72+t*2.3)*(fighting?.0025:(lureFlight?.012:.045));
         pos.setXYZ(i,
           THREE.MathUtils.lerp(anglingTmpA.x,lineEnd.x,t)+sideX*windCurve,
           THREE.MathUtils.lerp(anglingTmpA.y,lineEnd.y,t)+sideY*windCurve,
@@ -35814,7 +35889,7 @@ function beginAnglingDrill(){
   anglingDrillTension=anglingStrikeQuality==='perfect'?.34:.42;
   anglingDrillDirectionValue=Math.random()<.5?-1:1;anglingHookSetKick=.24;
   anglingDrillRunTime=0;anglingDrillRunDuration=1.2+Math.random()*1.9;
-  anglingRunCalloutTime=0;anglingUi.classList.remove('fight-pulse','line-paying-out','line-tension-high','line-tension-critical');
+  anglingRunCalloutTime=0;anglingUi.classList.remove('fight-pulse','line-paying-out','line-tension-high','line-tension-critical','rod-direct-load');
   anglingFightDistanceText.classList.remove('taking-line');
   anglingUi.style.setProperty('--aczo-run-opacity','.18');
   anglingUi.style.setProperty('--aczo-run-period','.92s');
@@ -36095,7 +36170,7 @@ function loseCurrentArtificialLure(){
 }
 function loseAnglingFish(reason){
   const lureLoss=(reason==='Schnur gerissen')?loseCurrentArtificialLure():'';
-  anglingUi.classList.remove('is-drilling','is-landing','fight-pulse','line-paying-out','line-tension-high','line-tension-critical');anglingFightDistanceText.classList.remove('taking-line');setAnglingReeling(false);
+  anglingUi.classList.remove('is-drilling','is-landing','fight-pulse','line-paying-out','line-tension-high','line-tension-critical','rod-direct-load');anglingFightDistanceText.classList.remove('taking-line');setAnglingReeling(false);
   anglingUi.classList.remove('bite-alert','bite-focus','perfect-hit');
   anglingDrillPanel.classList.remove('line-danger');anglingDrillWarningLatched=false;
   anglingQte.classList.remove('show','now');anglingStrikeMeter.classList.remove('show','now');
@@ -36937,6 +37012,19 @@ function setAnglingDrillRodFromPointer(clientX,clientY){
   anglingDrillRodTargetY=THREE.MathUtils.clamp((.5-ny)*2,-1,1);
   return true;
 }
+const aczoDrillLineColor=new THREE.Color();
+const aczoDrillLineWhite=new THREE.Color(0xe6eee7);
+const aczoDrillLineYellow=new THREE.Color(0xf3d64b);
+const aczoDrillLineOrange=new THREE.Color(0xf28a2e);
+const aczoDrillLineRed=new THREE.Color(0xff4338);
+function aczoUpdateDrillLineColor(tension){
+  const t=THREE.MathUtils.clamp(tension,0,1);
+  if(t<.54)aczoDrillLineColor.copy(aczoDrillLineWhite);
+  else if(t<.72)aczoDrillLineColor.copy(aczoDrillLineWhite).lerp(aczoDrillLineYellow,(t-.54)/.18);
+  else if(t<.87)aczoDrillLineColor.copy(aczoDrillLineYellow).lerp(aczoDrillLineOrange,(t-.72)/.15);
+  else aczoDrillLineColor.copy(aczoDrillLineOrange).lerp(aczoDrillLineRed,(t-.87)/.13);
+  anglingLine.material.color.copy(aczoDrillLineColor);
+}
 function updateAnglingDrillUi(){
   const tensionPct=Math.round(anglingDrillTension*100),staminaPct=Math.round(anglingDrillStamina*100);
   anglingTensionFill.style.width=tensionPct+'%';anglingStaminaFill.style.width=staminaPct+'%';
@@ -36979,13 +37067,19 @@ function updateAnglingDrillUi(){
   // P69: Visuelle Spannung folgt der TATSAECHLICHEN Schnurbewegung, nicht nur
   // dem theoretischen Fluchtzustand. Je schneller der Fisch Entfernung gewinnt,
   // desto deutlicher pulsiert der Rand. Kamera und 3D-Szene bleiben unangetastet.
-  const runFxStrength=THREE.MathUtils.clamp((anglingDistanceUiSpeed-.04)/1.05,0,1);
-  const linePayingOut=distanceAway&&anglingDistanceUiSpeed>.045;
+  const runFxStrength=THREE.MathUtils.clamp((anglingDistanceUiSpeed-.035)/.92,0,1);
+  const linePayingOut=distanceAway&&anglingDistanceUiSpeed>.040;
+  const rodBuffer=THREE.MathUtils.clamp(aczoRodVisual.buffer??.55,0,1);
+  const directLoad=1-rodBuffer;
   anglingUi.classList.toggle('line-paying-out',linePayingOut);
-  anglingUi.classList.toggle('line-tension-high',anglingDrillTension>=.78);
-  anglingUi.classList.toggle('line-tension-critical',anglingDrillTension>=.88);
-  anglingUi.style.setProperty('--aczo-run-opacity',(0.18+runFxStrength*.34).toFixed(3));
-  anglingUi.style.setProperty('--aczo-run-period',THREE.MathUtils.clamp(.92-runFxStrength*.46,.44,.92).toFixed(3)+'s');
+  anglingUi.classList.toggle('line-tension-high',anglingDrillTension>=.74);
+  anglingUi.classList.toggle('line-tension-critical',anglingDrillTension>=.87);
+  anglingUi.classList.toggle('rod-direct-load',directLoad>.68&&anglingDrillTension>.55);
+  // Bei einer echten Flucht wird der Rand klar sichtbar. Direkte Rutenstellung
+  // verstärkt ihn zusätzlich, weil dann kaum Federweg zwischen Fisch und Schnur liegt.
+  const runVisual=THREE.MathUtils.clamp(runFxStrength*(.78+.32*directLoad),0,1);
+  anglingUi.style.setProperty('--aczo-run-opacity',(0.27+runVisual*.51).toFixed(3));
+  anglingUi.style.setProperty('--aczo-run-period',THREE.MathUtils.clamp(.80-runVisual*.50,.30,.80).toFixed(3)+'s');
   anglingFightDistanceText.classList.toggle('taking-line',linePayingOut);
 
   // Bewusst deutlich langsamer als zuvor. Selbst starke Fluchten bleiben
@@ -37008,11 +37102,14 @@ function updateAnglingDrillUi(){
   else if(anglingDrillTension<.18){tensionWord='locker';color='#58c96b';}
   anglingTensionFill.style.color=color;anglingTensionText.textContent=tensionWord;
   anglingStaminaText.textContent=staminaPct+' %';
-  anglingDrillDirection.textContent=anglingDrillTension>.88
+  anglingDrillDirection.textContent=anglingDrillTension>.87
     ? '⚠ ACHTUNG – Schnur kurz vor dem Reißen!'
-    : anglingDrillTension>.78?'⚠ Belastung hoch – loslassen'
+    : anglingDrillTension>.74?'⚠ Belastung hoch – loslassen'
+    : linePayingOut&&directLoad>.66?'⚡ FLUCHT – Rute anheben, Blank puffern!'
     : anglingRunCalloutTime>0?(anglingFishTowardRun?'↙ FISCH KOMMT AUF DICH ZU – SCHNUR AUFNEHMEN!':'⚡ FLUCHT – Bremse beobachten!')
-    : anglingDrillAngleQuality>.45?'✓ Guter Rutenwinkel'
+    : directLoad>.74&&anglingDrillTension>.48?'↗ Rute anheben – zu direkter Zug auf der Schnur'
+    : rodBuffer>.62&&anglingDrillTension>.42?'✓ Rute puffert die Belastung'
+    : anglingDrillAngleQuality>.45?'✓ Gute Gegenführung'
     : anglingDrillAngleQuality<-.35?'↔ Rute auf die Gegenseite führen'
     : anglingDrillReeling?'🎣 Fisch wird eingeholt …':'EINHOLEN gedrückt halten';
 }
@@ -37093,19 +37190,34 @@ function updateAnglingDrill(dt){
 
   // Die Bremse verhindert keine Flucht. Sie entscheidet, ob deren Energie
   // als Schnurabzug oder als gefährliche Schnurspannung endet.
-  const dragRunTension=anglingSelectedDrag==='loose'
+  // P73: Die Rute ist ein Federpuffer. Zeigt sie fast auf den Fisch, wird ein
+  // Fluchtimpuls nahezu direkt auf Schnur/Bremse übertragen. Bei größerem Winkel
+  // nimmt der Blank einen Teil der Spitze auf. Der statische Grundzug bleibt erhalten.
+  const rodBuffer=THREE.MathUtils.clamp(aczoRodVisual.buffer??.55,0,1);
+  const rodDirect=1-rodBuffer;
+  const shockTransfer=THREE.MathUtils.lerp(1.28,.70,rodBuffer);
+  const dragRunTension=(anglingSelectedDrag==='loose'
     ?runPower*.045
-    :anglingSelectedDrag==='tight'?runPower*.285:runPower*.145;
+    :anglingSelectedDrag==='tight'?runPower*.285:runPower*.145)*shockTransfer;
   const mediumBigFishLoad=(anglingSelectedDrag==='medium'&&drillPointerReeling)
-    ?THREE.MathUtils.clamp((effectiveStrength-.48)/.52,0,1)*(.045+.065*runPulse)
+    ?THREE.MathUtils.clamp((effectiveStrength-.48)/.52,0,1)*(.045+.065*runPulse)*THREE.MathUtils.lerp(1.16,.76,rodBuffer)
     :0;
   const tightBigFishLoad=(anglingSelectedDrag==='tight'&&drillPointerReeling)
-    ?THREE.MathUtils.clamp((effectiveStrength-.58)/.52,0,1)*(.045+.070*runPulse)
+    ?THREE.MathUtils.clamp((effectiveStrength-.58)/.52,0,1)*(.045+.070*runPulse)*THREE.MathUtils.lerp(1.18,.78,rodBuffer)
     :0;
-  const targetTension=.12+drag.tension+effectiveStrength*(.20+.16*runPulse)
+  const directShock=runPower*rodDirect*.075;
+  const bufferRelief=runPower*rodBuffer*.045;
+  const targetTension=.12+drag.tension+effectiveStrength*(.20+.16*runPulse*shockTransfer)
     +(drillPointerReeling?.38:-.08)-(anglingFishTowardRun&&runPulse>.48?.24:0)
-    +angleTension+mediumBigFishLoad+tightBigFishLoad+dragRunTension;
-  anglingDrillTension+=THREE.MathUtils.clamp(targetTension-anglingDrillTension,-dt*.72,dt*(1.05+runPower*.65));
+    +angleTension+mediumBigFishLoad+tightBigFishLoad+dragRunTension+directShock-bufferRelief;
+  // Ein gut arbeitender Blank bremst vor allem den ANSTIEG einer Spannungsspitze.
+  // Beim direkten Zeigen auf den Fisch steigt die Last entsprechend schneller.
+  const tensionRise=THREE.MathUtils.lerp(1.22,.68,rodBuffer);
+  anglingDrillTension+=THREE.MathUtils.clamp(
+    targetTension-anglingDrillTension,
+    -dt*THREE.MathUtils.lerp(.64,.86,rodBuffer),
+    dt*(1.05+runPower*.65)*tensionRise
+  );
   anglingDrillTension=anglingClamp01(anglingDrillTension);
 
   const safe=anglingDrillTension>.16&&anglingDrillTension<.86;
@@ -37208,7 +37320,8 @@ function updateAnglingDrill(dt){
   if(lineDanger&&!anglingDrillWarningLatched){
     anglingDrillWarningLatched=true;showAnglingToast('⚠ Achtung – Schnur kurz vor dem Reißen!',1100);
   }else if(anglingDrillTension<.72){anglingDrillWarningLatched=false;}
-  anglingLine.material.color.setHex(anglingDrillTension>.88?0xff4c38:anglingDrillTension>.72?0xffd34f:0xe6eee7);
+  // P74: Schnurfarbe folgt weich der tatsächlichen Belastung: weiß -> gelb -> orange -> rot.
+  aczoUpdateDrillLineColor(anglingDrillTension);
   // Kurbelrotation wird zentral in updateAnglingMode animiert.
   const direction=anglingCurrentDirection(anglingTmpA);
   const side=anglingTmpB.copy(direction).applyAxisAngle(anglingUp,Math.PI/2);
