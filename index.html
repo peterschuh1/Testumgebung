@@ -26464,7 +26464,6 @@ anglingDrillLineGroup.visible=false;anglingScene.add(anglingDrillLineGroup);
 const anglingDrillLineUp=new THREE.Vector3(0,1,0);
 const anglingDrillLineP0=new THREE.Vector3(),anglingDrillLineP1=new THREE.Vector3();
 const anglingDrillLineA=new THREE.Vector3(),anglingDrillLineB=new THREE.Vector3();
-const anglingDrillLineWaterEntry=new THREE.Vector3();
 // V7.08: feste Punktpuffer statt 11 neuer Vector3-Objekte pro Drill-Frame.
 const anglingDrillLinePoints=Array.from({length:ANGLING_DRILL_LINE_SEGMENTS+1},()=>new THREE.Vector3());
 function setAnglingDrillLineSegment(mesh,a,b,radius){
@@ -26477,11 +26476,6 @@ function updateAnglingDrillLine3D(){
   const fighting=anglingState==='drilling'||anglingState==='landing';
   if(!fighting||!anglingLine.visible){anglingDrillLineGroup.visible=false;return;}
   anglingDrillLineGroup.visible=true;
-  // P70: Die Drillschnur verlaeuft nicht mehr mit einem einzigen Durchhang
-  // Rutenspitze -> Fisch. Dieser Durchhang konnte die Schnur schon unmittelbar
-  // vor dem Ufer durch die Wasseroberflaeche ziehen. Stattdessen bekommt sie
-  // einen echten Wassereintritt, dessen horizontale Position aus der aktuellen
-  // Fischentfernung und der Hoehe der Rutenspitze entsteht.
   anglingRodTip.getWorldPosition(anglingDrillLineP0);
   anglingFishLineTarget(anglingDrillLineP1);anglingDrillLineP1.z+=.025;
   const span=anglingDrillLineP0.distanceTo(anglingDrillLineP1);
@@ -26489,55 +26483,36 @@ function updateAnglingDrillLine3D(){
   const innerColor=anglingDrillTension>.88?0xff5a42:anglingDrillTension>.72?0xffdd61:0xf5fff8;
   anglingDrillLineInnerMat.color.setHex(innerColor);
 
-  // P71: Der Wassereintritt darf NICHT aus der Hoehe der stark gebogenen
-  // Rutenspitze berechnet werden. Gerade bei nahen Fischen zog die tiefe Spitze
-  // den geometrischen Schnittpunkt sonst direkt vors Ufer. Stattdessen folgt
-  // der Eintritt jetzt der echten horizontalen Fischentfernung vom Angelplatz.
-  const shoreX=anglingSelection.shore.x,shoreY=anglingSelection.shore.y;
-  const fishDx=anglingDrillLineP1.x-shoreX,fishDy=anglingDrillLineP1.y-shoreY;
-  const fishHorizontal=Math.max(.001,Math.hypot(fishDx,fishDy));
-  const entryFraction=THREE.MathUtils.lerp(.80,.91,tension);
-  const entryDistance=THREE.MathUtils.clamp(
-    fishHorizontal*entryFraction,
-    Math.min(.55,fishHorizontal*.70),
-    Math.max(.12,fishHorizontal-.12)
+  // P72: Im Drill gibt es KEINEN künstlich gesetzten Wassereintritt mehr.
+  // Die gespannte Schnur ist eine einzige kontinuierliche Kurve von der real
+  // gebogenen Rutenspitze zum Fisch. Dadurch kann bei stark gebogener Rute
+  // kein steiler Luftabschnitt mit anschließend fast waagerechter Unterwasser-
+  // schnur entstehen. Der Schnitt mit der Wasseroberfläche ergibt sich allein
+  // aus der tatsächlichen 3D-Geometrie der Schnur.
+  // Bei hoher Spannung ist sie nahezu gerade; bei lockerer Bremse bekommt sie
+  // nur einen sehr kleinen, weichen Durchhang. Dieser ist bewusst begrenzt,
+  // damit die Schnur nicht schon direkt vor dem Ufer ins Wasser gezogen wird.
+  const sag=THREE.MathUtils.lerp(
+    THREE.MathUtils.clamp(.018+span*.0012,.020,.045),
+    .004,
+    tension
   );
-  const invFishHorizontal=1/fishHorizontal;
-  const entryX=shoreX+fishDx*invFishHorizontal*entryDistance;
-  const entryY=shoreY+fishDy*invFishHorizontal*entryDistance;
-  anglingDrillLineWaterEntry.set(
-    entryX,entryY,anglingSurfaceZ(entryX,entryY)+.018
-  );
+  const dx=anglingDrillLineP1.x-anglingDrillLineP0.x;
+  const dy=anglingDrillLineP1.y-anglingDrillLineP0.y;
+  const horizontal=Math.max(.001,Math.hypot(dx,dy));
+  const sideX=dy/horizontal,sideY=-dx/horizontal;
+  const sideBow=THREE.MathUtils.lerp(.010,.002,tension);
 
-  // Die Segmentaufteilung folgt den realen Teilstrecken Spitze->Wasser und
-  // Wasser->Fisch. So bleibt die Schnur auch bei 2-8 m Distanz sauber geformt.
-  const aboveLength=Math.max(.001,anglingDrillLineP0.distanceTo(anglingDrillLineWaterEntry));
-  const belowLength=Math.max(.001,anglingDrillLineWaterEntry.distanceTo(anglingDrillLineP1));
-  const entryT=THREE.MathUtils.clamp(aboveLength/(aboveLength+belowLength),.42,.92);
-  const aboveSag=THREE.MathUtils.lerp(.030,.006,tension);
-  const underSag=THREE.MathUtils.lerp(.050,.009,tension);
   anglingDrillLinePoints[0].copy(anglingDrillLineP0);
   for(let i=0;i<ANGLING_DRILL_LINE_SEGMENTS;i++){
     const t=(i+1)/ANGLING_DRILL_LINE_SEGMENTS;
+    const curve=Math.sin(Math.PI*t);
     const next=anglingDrillLinePoints[i+1];
-    if(t<=entryT){
-      const q=t/Math.max(.001,entryT);
-      next.set(
-        THREE.MathUtils.lerp(anglingDrillLineP0.x,anglingDrillLineWaterEntry.x,q),
-        THREE.MathUtils.lerp(anglingDrillLineP0.y,anglingDrillLineWaterEntry.y,q),
-        THREE.MathUtils.lerp(anglingDrillLineP0.z,anglingDrillLineWaterEntry.z,q)-Math.sin(Math.PI*q)*aboveSag
-      );
-      // Entlang des kompletten Luftabschnitts immer knapp ueber der lokalen
-      // Wasseroberflaeche bleiben, auch wenn die Rutenspitze tief gebogen ist.
-      next.z=Math.max(next.z,anglingSurfaceZ(next.x,next.y)+.012);
-    }else{
-      const q=(t-entryT)/Math.max(.001,1-entryT);
-      next.set(
-        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.x,anglingDrillLineP1.x,q),
-        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.y,anglingDrillLineP1.y,q),
-        THREE.MathUtils.lerp(anglingDrillLineWaterEntry.z,anglingDrillLineP1.z,q)-Math.sin(Math.PI*q)*underSag
-      );
-    }
+    next.set(
+      THREE.MathUtils.lerp(anglingDrillLineP0.x,anglingDrillLineP1.x,t)+sideX*curve*sideBow,
+      THREE.MathUtils.lerp(anglingDrillLineP0.y,anglingDrillLineP1.y,t)+sideY*curve*sideBow,
+      THREE.MathUtils.lerp(anglingDrillLineP0.z,anglingDrillLineP1.z,t)-curve*sag
+    );
     anglingDrillLineOuter[i].visible=false;
     setAnglingDrillLineSegment(anglingDrillLineInner[i],anglingDrillLinePoints[i],next,.0036);
   }
@@ -29296,7 +29271,6 @@ function aczoTickReward(){
  f.chip.style.opacity=String(Math.min(1,(1-t)*5));
 }
 
-let anglingWormBundleMountedAt=0;
 function equipAnglingNaturalBait(id){
  if(anglingUi.classList.contains('line-active')){
    showAnglingToast('Köder nur vor dem Auswurf wechseln.',1450);
@@ -29307,9 +29281,6 @@ function equipAnglingNaturalBait(id){
    const worms=Math.max(0,Math.floor(Number(anglingProgress.naturalInventory.dew_worm)||0));
    if(worms<12){showAnglingToast('Wurmbündel benötigt 12 Tauwürmer · '+worms+' vorhanden.',2200);openAnglingShop();return;}
    anglingProgress.naturalInventory.dew_worm=worms-12;
-   // Lokaler Schutz gegen eine bereits laufende, ältere Cloud-Antwort, die direkt
-   // nach dem Montieren sonst wieder den vorherigen Köder auswählen könnte.
-   anglingWormBundleMountedAt=Date.now();
  }
  const stock=anglingNaturalStock(id);
  if(id==='baitfish'&&stock<1){showAnglingToast('Fange zuerst einen Köderfisch.',1500);return;}
@@ -29776,15 +29747,23 @@ function applyAnglingCloudPlayer(player){
         ?player.bonusState.lastFirstCatchDay:'';
   }
 
-  const protectMountedBundleInventory=anglingSelectedBait==='worm_bundle'&&Date.now()-anglingWormBundleMountedAt<15000&&player.selectedBait!=='worm_bundle';
+  // P72: Eine verzögerte Cloud-Antwort darf während eines laufenden Wurfs
+  // niemals den tatsächlich ausgeworfenen Köder austauschen. Das war besonders
+  // beim virtuellen Wurmbündel kritisch: nach Ablauf des früheren 15-s-Schutzes
+  // konnte ein älterer Serverstand wieder Tauwurm/Wurm als Auswahl setzen.
+  const activeLineSelection=!!(anglingUi&&anglingUi.classList.contains('line-active'));
+  // Das virtuelle Wurmbündel bleibt lokal montiert, bis es wirklich verbraucht
+  // oder vom Spieler gewechselt wird. Solange darf eine Cloud-Antwort weder die
+  // Auswahl noch die bereits bezahlten 12 Tauwürmer zurücksetzen.
+  const protectMountedBundleInventory=anglingSelectedBait==='worm_bundle';
   const mountedBundleDewWorms=protectMountedBundleInventory?anglingProgress.naturalInventory.dew_worm:null;
   anglingApplyInventory(anglingProgress.naturalInventory,player.naturalInventory);
   if(protectMountedBundleInventory)anglingProgress.naturalInventory.dew_worm=mountedBundleDewWorms;
   anglingApplyInventory(anglingProgress.lureInventory,player.lureInventory);
   anglingApplyInventory(anglingProgress.feedInventory,player.feedInventory);anglingApplyInventory(anglingProgress.equipmentInventory,player.equipmentInventory);
   if(typeof player.selectedBait==='string'&&player.selectedBait){
-    const protectMountedBundle=anglingSelectedBait==='worm_bundle'&&Date.now()-anglingWormBundleMountedAt<15000&&player.selectedBait!=='worm_bundle';
-    if(!protectMountedBundle){
+    const protectMountedBundle=anglingSelectedBait==='worm_bundle';
+    if(!activeLineSelection&&!protectMountedBundle){
       anglingProgress.selectedBait=player.selectedBait;
       anglingSelectedBait=player.selectedBait;
     }
