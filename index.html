@@ -5833,7 +5833,7 @@ function aczoDecodeSoundKey(key){
   const ctx=aczoEnsureAudioContext(),uri=ACZO_SOUND_SOURCES[key];
   if(!ctx||!uri)return Promise.resolve(null);
   const arr=aczoDataUriArrayBuffer(uri);if(!arr)return Promise.resolve(null);
-  aczoAudioDecodePromises[key]=ctx.decodeAudioData(arr.slice(0)).then(buf=>{
+  aczoAudioDecodePromises[key]=ctx.decodeAudioData(arr).then(buf=>{
     aczoAudioBuffers[key]=buf;return buf;
   }).catch(()=>null);
   return aczoAudioDecodePromises[key];
@@ -5848,8 +5848,9 @@ function aczoPrepareSounds(){
   ].filter(k=>ACZO_SOUND_SOURCES[k]);
   const ambient=['frogAmbient','birdAmbient','heronAmbient'].filter(k=>ACZO_SOUND_SOURCES[k]);
   (async()=>{
-    // Kleine Sounds zuerst. Das passiert beim Laden, nicht mitten im Drill.
-    for(const k of critical)await aczoDecodeSoundKey(k);
+    // Kleine, zeitkritische Sounds gemeinsam vorbereiten, bevor der Spieler
+    // nach der Stellenauswahl den ersten Biss auslösen kann.
+    await Promise.all(critical.map(k=>aczoDecodeSoundKey(k)));
     const decodeAmbient=()=>ambient.forEach(k=>aczoDecodeSoundKey(k));
     if('requestIdleCallback' in window)requestIdleCallback(decodeAmbient,{timeout:1800});
     else setTimeout(decodeAmbient,120);
@@ -5878,7 +5879,7 @@ function aczoStartWebSound(key,opts={}){
     gain.gain.value=Math.max(0,Math.min(1,vol));
     src.connect(gain);gain.connect(ctx.destination);
     const set=aczoActiveSet(key);set.add(src);
-    src.onended=()=>set.delete(src);
+    src.onended=()=>{set.delete(src);try{src.disconnect();gain.disconnect();}catch(_e){}};
     const offset=Math.max(0,Math.min(Math.max(0,buf.duration-.01),Number(opts.offset)||0));
     const duration=Number(opts.duration)||0;
     if(duration>0&&!src.loop)src.start(0,offset,Math.min(duration,Math.max(.01,buf.duration-offset)));
@@ -6007,10 +6008,11 @@ function aczoSoundPlay(key,opts={}){
   // Harte Trennung: 2D-/3D-Karte bleibt vollständig stumm.
   if(!aczoSoundEnabled||typeof anglingMode==='undefined'||!anglingMode)return false;
   const ambient=ACZO_AMBIENT_SOUND_KEYS.has(key);
-  if(!ambient)aczoAmbientStopAll();
+  if(key==='infoTick'&&(['bite','bite-focus','strike','drilling','landing'].includes(anglingState)||aczoLineRunSoundActive))return false;
   const now=performance.now(),minGap=Math.max(0,Number(opts.minGap)||0),quietGap=Math.max(0,Number(opts.onlyIfQuiet)||0);
   if(minGap&&now-(aczoSoundLastPlay[key]||0)<minGap)return false;
   if(quietGap&&now-aczoSoundLastAnyAt<quietGap)return false;
+  if(!ambient)aczoAmbientStopAll();
   aczoSoundLastPlay[key]=now;
   const ok=aczoStartWebSound(key,opts);
   if(ok&&!ambient)aczoSoundLastAnyAt=now;
@@ -6020,16 +6022,18 @@ function aczoSoundSetLineRun(active){
   active=!!active&&aczoSoundEnabled&&typeof anglingMode!=='undefined'&&anglingMode;
   if(active)aczoAmbientStopAll();
   if(active===aczoLineRunSoundActive)return;
-  aczoLineRunSoundActive=active;
   if(active){
     const ok=aczoStartWebSound('lineRun',{loop:true,restart:true});
+    // Nur ein tatsächlich gestarteter Loop gilt als aktiv. Fehlt beim ersten
+    // Frame noch der Buffer, darf der nächste Fluchtframe erneut versuchen.
+    aczoLineRunSoundActive=ok;
     if(ok)aczoSoundLastAnyAt=performance.now();
   }else aczoSoundStop('lineRun');
 }
 function aczoUnlockSounds(){
   if(typeof anglingMode==='undefined'||!anglingMode)return;
   const ctx=aczoEnsureAudioContext();aczoPrepareSounds();
-  if(!ctx)return;
+  if(!ctx||ctx.state==='running')return;
   const p=ctx.resume();
   if(p&&typeof p.then==='function')p.then(()=>{aczoSoundUnlocked=true;}).catch(()=>{});
   else aczoSoundUnlocked=true;
@@ -9615,6 +9619,7 @@ simBtn.onclick=()=>{
 
 setInterval(()=>{
   try{
+    if(typeof aczoNetworkBusyWithFish==='function'&&aczoNetworkBusyWithFish())return;
     const p=loadLiveWeather();
     if(p && typeof p.catch==='function') p.catch(err=>console.warn('Wetteraktualisierung:',err));
   }catch(err){
@@ -23496,6 +23501,7 @@ const aczoLineScareAxisX=new THREE.Vector3(),aczoLineScareAxisY=new THREE.Vector
 const ACZO_LINE_SCARE_SEGMENTS=18;
 const aczoLineScarePoints=Array.from({length:ACZO_LINE_SCARE_SEGMENTS+1},()=>new THREE.Vector3());
 let aczoLineScareCachedFrame=-1;
+const aczoLineScareBounds={minX:0,maxX:0,minY:0,maxY:0,minZ:0,maxZ:0};
 
 function aczoUpdateUnderwaterLineScarePath(){
   if(aczoLineScareCachedFrame===fishActorFrame)return true;
@@ -23513,6 +23519,16 @@ function aczoUpdateUnderwaterLineScarePath(){
     }else{
       sampleAnglingSupportedLinePath(aczoLineScareA,aczoLineScareB,t,aczoLineScarePoints[i],.004);
     }
+  }
+  const bounds=aczoLineScareBounds;
+  bounds.minX=bounds.maxX=aczoLineScarePoints[0].x;
+  bounds.minY=bounds.maxY=aczoLineScarePoints[0].y;
+  bounds.minZ=bounds.maxZ=aczoLineScarePoints[0].z;
+  for(let i=1;i<=ACZO_LINE_SCARE_SEGMENTS;i++){
+    const p=aczoLineScarePoints[i];
+    bounds.minX=Math.min(bounds.minX,p.x);bounds.maxX=Math.max(bounds.maxX,p.x);
+    bounds.minY=Math.min(bounds.minY,p.y);bounds.maxY=Math.max(bounds.maxY,p.y);
+    bounds.minZ=Math.min(bounds.minZ,p.z);bounds.maxZ=Math.max(bounds.maxZ,p.z);
   }
   aczoLineScareCachedFrame=fishActorFrame;
   return true;
@@ -23568,6 +23584,12 @@ function aczoLineSegmentTouchesFish(actor,a,b){
 
 function aczoFishUnderwaterLineContactT(f){
   if(!f?.obj||!aczoUpdateUnderwaterLineScarePath())return null;
+  const p=f.obj.position,b=aczoLineScareBounds;
+  const radius=Math.max(.35,Math.abs(f.obj.userData.baseFishWidth||f.obj.scale.x||.22),
+    Math.abs(f.obj.userData.baseFishHeight||f.obj.scale.y||.1))+.10;
+  if(p.x<b.minX-radius||p.x>b.maxX+radius||
+     p.y<b.minY-radius||p.y>b.maxY+radius||
+     p.z<b.minZ-radius||p.z>b.maxZ+radius)return null;
   for(let i=0;i<ACZO_LINE_SCARE_SEGMENTS;i++){
     const a=aczoLineScarePoints[i],b=aczoLineScarePoints[i+1];
     if(!aczoLineSegmentTouchesFish(f,a,b))continue;
@@ -23639,7 +23661,6 @@ function triggerAnglingLineScare(f,t){
   // Kontakt soll sichtbar ruckartig sein, nicht nur eine kaum merkliche Kursänderung.
   f.huntFleeUntil=fishWorldTime+2.35+Math.random()*1.35;
   f.lineFleeBoostUntil=fishWorldTime+1.45+Math.random()*.55;
-  f.lineScareCooldownUntil=fishWorldTime+3.8+Math.random()*1.6;
   f.lureChaseUntil=0;f.pause=0;
 }
 
@@ -24147,15 +24168,20 @@ function updateFishActors(dt){
       const lineContactT=aczoFishUnderwaterLineContactT(f);
       const touchingLine=lineContactT!=null;
       if(!touchingLine){
-        f.lineScareContactInside=false;
-      }else if(!f.lineScareContactInside){
-        f.lineScareContactInside=true;
-        if(fishWorldTime>=(f.lineScareCooldownUntil||0)&&aczoFishShouldFleeFromLine(f)){
-          triggerAnglingLineScare(f,lineContactT);
+        // Kurzes geometrisches Flackern an der Silhouette ist kein neuer Kontakt.
+        if(f.lineScareContactInside){
+          if(f.lineScareLeftAt==null)f.lineScareLeftAt=fishWorldTime;
+          if(fishWorldTime-f.lineScareLeftAt>.25)f.lineScareContactInside=false;
+        }
+      }else{
+        f.lineScareLeftAt=null;
+        if(!f.lineScareContactInside){
+          f.lineScareContactInside=true;
+          if(aczoFishShouldFleeFromLine(f))triggerAnglingLineScare(f,lineContactT);
         }
       }
     }else{
-      f.lineScareContactInside=false;
+      f.lineScareContactInside=false;f.lineScareLeftAt=null;
     }
     const predatorProfile=aczoPredatorProfiles[species];
     if(predatorProfile){
@@ -27601,6 +27627,9 @@ let anglingDrillTension=.42;
 let anglingDrillDirectionValue=1;
 let anglingDrillRunTime=0;
 let anglingDrillRunDuration=1.5;
+// SOUND FIX: einzig wahre Quelle für Fluchtsound + rote Schnurabzugsanzeige.
+// Wird ausschließlich aus der echten Drillphysik gesetzt, niemals aus Kurbelanimation/UI-Nachlauf.
+let anglingTrueLineRunActive=false;
 let anglingRunCalloutTime=0;
 let anglingHookSetKick=0;
 let anglingDrillSteer=0;
@@ -30715,6 +30744,11 @@ function anglingCloudSyncPayload(){
 function aczoCloudSyncBusyWithFish(){
   return !!(anglingMode&&['bite','strike','drilling','landing'].includes(anglingState));
 }
+// Während Biss/QTE/Drill/Kescher werden auch Community-/Presence-/Wetterrequests
+// zurückgestellt. Netzwerk ist in diesen Frames nicht spielkritisch und darf Safari nicht belasten.
+function aczoNetworkBusyWithFish(){
+  return aczoCloudSyncBusyWithFish();
+}
 function scheduleAnglingCloudSync(delay=900){
   // Keine Google-Sheet-Netzwerkanfrage mitten in Biss/QTE/Drill/Kescher.
   // Lokales Speichern bleibt sofort; die Cloud folgt erst in einer ruhigen Phase.
@@ -30983,6 +31017,7 @@ async function loadAnglingPlayerCloud({skipShared=false,retryTransient=true}={})
 
 async function syncAnglingPlayerCloud(){
   if(!anglingSetupComplete||!anglingCloudEnabled||!ANGLING_LEADERBOARD_ENDPOINT||!anglingPlayerProfile?.id)return false;
+  if(aczoCloudSyncBusyWithFish()){scheduleAnglingCloudSync(1800);return false;}
 
   // P40: Wenn bereits ein Cloud-Save laeuft, wartet der zweite Aufrufer auf
   // genau diesen Request, statt sofort false zurueckzubekommen. Dadurch meldet
@@ -31210,6 +31245,7 @@ let anglingCommunityLoadInFlight=null;
 let anglingCommunityToastTimer=null;
 let anglingCommunityToastSignature='';
 async function loadAnglingCommunity(){
+  if(typeof aczoNetworkBusyWithFish==='function'&&aczoNetworkBusyWithFish())return false;
   if(!ANGLING_LEADERBOARD_ENDPOINT){
     renderAnglingCommunityList(anglingRecentPlayers,[],'Online-Verbindung nicht eingerichtet.');
     renderAnglingCommunityList(anglingActivePlayers,[],'Online-Verbindung nicht eingerichtet.');
@@ -31299,6 +31335,7 @@ function updateAnglingActiveToast(players){
 }
 
 async function sendAnglingPresence(){
+  if(typeof aczoNetworkBusyWithFish==='function'&&aczoNetworkBusyWithFish())return false;
   if(!anglingMode||!anglingCloudEnabled||!ANGLING_LEADERBOARD_ENDPOINT||!anglingPlayerProfile?.id||!anglingRecoveryCode)return false;
   try{
     const data=await anglingLeaderboardJson(ANGLING_LEADERBOARD_ENDPOINT,{
@@ -36953,7 +36990,7 @@ function beginAnglingDrill(){
   anglingFishVisualPrevValid=false;anglingFishVisualDepthYaw=0;anglingFishVisualMotionState='drilling';
   anglingDrillTension=anglingStrikeQuality==='perfect'?.34:.42;
   anglingDrillDirectionValue=Math.random()<.5?-1:1;anglingHookSetKick=.24;
-  anglingDrillRunTime=0;anglingDrillRunDuration=1.2+Math.random()*1.9;
+  anglingDrillRunTime=0;anglingDrillRunDuration=1.2+Math.random()*1.9;anglingTrueLineRunActive=false;aczoSoundSetLineRun(false);
   anglingRunCalloutTime=0;anglingUi.classList.remove('fight-pulse','line-paying-out','line-tension-high','line-tension-critical','rod-direct-load');
   anglingFightDistanceText.classList.remove('taking-line');
   anglingUi.style.setProperty('--aczo-run-opacity','.18');
@@ -36971,6 +37008,7 @@ function beginAnglingDrill(){
 
 function beginAnglingLanding(){
   if(!anglingPendingCatch)return;
+  anglingTrueLineRunActive=false;
   aczoSoundSetLineRun(false);
   aczoSoundStop('qtePulse');
   aczoSoundPlay('landingTension',{loop:true,restart:true});
@@ -38339,7 +38377,7 @@ function updateAnglingDrillUi(){
   // dem theoretischen Fluchtzustand. Je schneller der Fisch Entfernung gewinnt,
   // desto deutlicher pulsiert der Rand. Kamera und 3D-Szene bleiben unangetastet.
   const runFxStrength=THREE.MathUtils.clamp((anglingDistanceUiSpeed-.035)/.92,0,1);
-  const linePayingOut=distanceAway&&anglingDistanceUiSpeed>.040;
+  const linePayingOut=!!anglingTrueLineRunActive;
   const rodBuffer=THREE.MathUtils.clamp(aczoRodVisual.buffer??.55,0,1);
   const directLoad=1-rodBuffer;
   anglingUi.classList.toggle('line-paying-out',linePayingOut);
@@ -38611,6 +38649,15 @@ function updateAnglingDrill(dt){
   const distanceVelocity=(anglingFightDistance-distanceBeforeMotion)/Math.max(.001,dt);
   anglingDistanceMotion=THREE.MathUtils.lerp(
     anglingDistanceMotion,distanceVelocity,Math.min(1,dt*10)
+  );
+  // SOUND FIX: Fluchtsound nur bei einer ECHTEN nach außen gerichteten Fischflucht.
+  // Normales Kurbeln, geglättete UI-Nachläufe oder minimale Distanzschwankungen dürfen ihn nie starten.
+  anglingTrueLineRunActive=!!(
+    anglingState==='drilling' &&
+    !anglingFishTowardRun &&
+    runPulse>.16 &&
+    runPower>.16 &&
+    distanceVelocity>.055
   );
   // Erst NACH Kurbeln und Flucht aktualisieren, damit Entfernung und Balken
   // nicht einen Frame hinter der tatsächlichen Fischposition liegen.
@@ -39706,7 +39753,9 @@ function updateAnglingCinematicCamera(dt){
 
 function updateAnglingMode(dt){
   aczoTickReward();
-  if(!anglingMode) return;
+  if(!anglingMode){anglingTrueLineRunActive=false;aczoSoundSetLineRun(false);return;}
+  // Sicherheitsnetz: ein Loop darf niemals außerhalb eines echten Drill-Runs weiterlaufen.
+  if(anglingState!=='drilling'){anglingTrueLineRunActive=false;aczoSoundSetLineRun(false);}
   // V8.85: Präsentation pausiert den Angelzustand vollständig. Keine Bisszeit,
   // kein Drill, kein Unterwasser-Layer und keine Ufergeometrie werden fortgeschrieben.
   if(anglingHallOfFameActive){aczoStopDrops();anglingFishVisualMat.userData.aczoWet.strength.value=0;updateAnglingHallOfFame(dt);return;}
@@ -39822,8 +39871,6 @@ function updateAnglingMode(dt){
   // und jede Kunstköderführung dreht die sichtbare Kurbel an der großen Rute.
   aczoUpdateReelLighting();
   const reelTurning=anglingDrillReeling||anglingActionHeld||anglingState==='retrieving'||anglingState==='lure-retrieving'||anglingState==='deeper-retrieving'||anglingState==='fast-retrieving';
-  if(anglingState!=='drilling'){
-  }
   if(reelTurning){
     // P55: Nur im Drill folgt die sichtbare Rollengeschwindigkeit der gewählten Bremse.
     // Außerhalb des Drills bleibt das bisherige Kurbeltempo unverändert.
