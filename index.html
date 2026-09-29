@@ -5808,7 +5808,7 @@ const ACZO_SOUND_VOLUMES={
   waterImpact:.85,lineRun:.50,brake:.85,lureGround:.85,snagRelease:.85,
   fishJump:.75,fishSurface:.75,xp:.80,shop:.80,cast:.70,lineWarning:.85,
   camera:.80,lineBreak:.80,biteSoft:.80,biteHard:.85,snagContact:.80,
-  mountClick:.42,infoTick:.28,qtePulse:.40,qteHit:.52,qtePerfect:.56,landingTension:.34,birdAmbient:.14,
+  mountClick:.42,infoTick:.28,qtePulse:.95,qteHit:.52,qtePerfect:.56,landingTension:3.0,birdAmbient:.14,
   frogAmbient:.18,heronAmbient:.16
 };
 const ACZO_AMBIENT_SOUND_KEYS=new Set(['birdAmbient','frogAmbient','heronAmbient']);
@@ -5876,7 +5876,7 @@ function aczoStartWebSound(key,opts={}){
     const gain=ctx.createGain();
     const base=Number(ACZO_SOUND_VOLUMES[key]??.55);
     const vol=opts.volume==null?base*(opts.gain==null?1:Number(opts.gain)||0):Number(opts.volume)||0;
-    gain.gain.value=Math.max(0,Math.min(1,vol));
+    gain.gain.value=Math.max(0,Math.min(key==='landingTension'?3:1,vol));
     src.connect(gain);gain.connect(ctx.destination);
     const set=aczoActiveSet(key);set.add(src);
     src.onended=()=>{set.delete(src);try{src.disconnect();gain.disconnect();}catch(_e){}};
@@ -27526,7 +27526,7 @@ const ANGLING_CREATOR_STORY_FACTS=[
   {kicker:'FUN FACT 8 · UNTER WASSER',title:'Die Fische sind keine bloße Dekoration.',value:'Räuber jagen, Friedfische gründeln und Sediment kann vom Boden aufsteigen.',detail:'Tageszeit, Umgebung und Futter verändern, was unter Wasser passiert.'},
   {kicker:'FUN FACT 9 · DIE ANGELSCHNUR',title:'Ausgerechnet die dünnste Sache im Spiel wurde zu einem eigenen Projekt.',value:'Sie muss auf Hindernissen aufliegen, Winkel bilden und den Köder daran entlangführen.',detail:'Für ein Stück Schnur erstaunlich viel Beschäftigung.'},
   {kicker:'FUN FACT 11 · NACHTSCHICHT',title:'Auch nachts bleibt die Welt lebendig.',value:'Mond, Wasser, Beleuchtung, Schatten und Besucher verändern sich mit der Tageszeit.',detail:'Manche Details entdeckt man überhaupt erst nach Sonnenuntergang.'},
-  {kicker:'FUN FACT 12 · RUHE AM WASSER',title:'Vermutlich eines der leisesten Angelspiele überhaupt.',value:'Auf künstliche Geräuschkulissen wurde bewusst verzichtet.',detail:'Die digitalen Nachbarn danken.'},
+  {kicker:'FUN FACT 12 · DER SOUND',title:'Der Weiher hat jetzt auch eine Stimme.',value:'Beim Angeln hört man Wasser, Bisse, Fluchten, Kescher und gelegentlich Naturgeräusche.',detail:'Die normale Tiefenkarte bleibt stumm. Im Angelspiel lässt sich der Ton jederzeit ein- und ausschalten.'},
   {kicker:'FUN FACT 13 · FÜR DEN VEREIN',title:'Mehr als ein Spiel.',value:'Eine digitale Liebeserklärung an den AC 1956 Zewen-Oberkirch.',detail:'Gebaut für unseren Weiher. Für unseren Verein. Und für die Menschen, die ihn lebendig machen.'},
   {kicker:'FUN FACT 14 · VEREINSKENNER',title:'Wer den echten Weiher kennt, entdeckt mehr.',value:'Einige Figuren und Besucher sind bekannten Persönlichkeiten aus dem Vereinsumfeld nachempfunden.',detail:'Namen braucht es dafür nicht. Wer sie kennt, erkennt sie.'},
   {kicker:'FUN FACT 15 · LIEBE ZUM DETAIL',title:'Selbst Kleinigkeiten bekommen ihre eigene Logik.',value:'Nachts reagiert der Bewegungsmelder auf Besucher und schaltet später wieder ab.',detail:'Viele dieser kleinen Abläufe bemerkt man erst, wenn man zufällig zur richtigen Zeit hinsieht.'},
