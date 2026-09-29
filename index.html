@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56-Interaktiv-V1.5</title>
+<title>ACZO56-Interaktiv-V1.6</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
-<!-- ACZO56 V1.5 ALLE ANIMATIONEN: Bewegungsreduktion für Spiel-/UI-Animationen vollständig entfernt. -->
+<!-- ACZO56 V1.6 P84: Drill, Unterwasser-KI, mobile Wasserreflexe, Fischgrößen/Gewichte, Cloud-Bestenliste und teilbare Fangkarte. -->
 <!-- V7.83: Kritische Viewer-Ressourcen früh anfordern. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://geo4.service24.rlp.de" crossorigin>
@@ -1358,6 +1358,7 @@ html,body{
 @media(pointer:coarse){
   .fish-hint-desktop{display:none}
   .fish-hint-touch{display:inline}
+  .angling-desktop-wheel-hint{display:none}
 }
 
 .celestial-lens-flare{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .16s linear;mix-blend-mode:screen}
@@ -4518,6 +4519,14 @@ html,body{
 #aczoCatchRewards #anglingEpPopup small{font-size:10px;line-height:1.3;max-width:100%;margin:3px 0 0}
 @keyframes aczo-reward-in{from{opacity:0}to{opacity:1}}
 #anglingCatchCard #anglingAgainBtn{min-height:40px;white-space:normal}
+/* P84: Fangkarte lokal als PNG erzeugen und über die native Teilen-Funktion weitergeben. */
+#anglingCatchCard .aczo-catch-actions{display:flex;gap:7px;justify-content:center;align-items:stretch;flex-wrap:wrap}
+#anglingCatchCard .aczo-catch-actions button{flex:1 1 150px;min-width:0}
+#anglingCatchCard #anglingShareBtn{background:#1f9d55;color:#fff;border-color:rgba(255,255,255,.88);display:inline-flex;align-items:center;justify-content:center;gap:7px}
+#anglingCatchCard #anglingShareBtn:disabled{opacity:.56;cursor:wait}
+#anglingCatchCard #anglingShareBtn svg{width:17px;height:17px;flex:0 0 17px;overflow:visible}
+#anglingCatchCard #anglingShareBtn .aczo-share-label{display:inline!important;margin:0!important;font-size:inherit!important;font-weight:inherit!important}
+@media(max-width:480px){#anglingCatchCard .aczo-catch-actions{gap:5px}#anglingCatchCard .aczo-catch-actions button{flex-basis:120px;padding-left:8px!important;padding-right:8px!important}}
 @media(max-width:680px){#anglingCatchCard .aczo-catch-photo{height:82px}#anglingCatchCard{padding:10px}#anglingCatchCard #anglingCatchTitle{font-size:15px}#aczoCatchRewards{height:70px;min-height:70px}}
 @media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
 
@@ -4914,23 +4923,26 @@ html,body{
        <div class="angling-help-content">
          <section><h3>🎯 Angelstelle & Auswurf</h3><p>Wähle zuerst einen Platz am Ufer, auf einem Gitterroststeg, auf dem Nordsteg oder auf dem Bootssteg am Südufer. Der Nordsteg bietet die Spitze geradeaus sowie zwei mittlere Positionen parallel zum Ufer; am Bootssteg blickst du gerade aufs Wasser. Danach bewegst du das Zielkreuz auf die gewünschte Wasserstelle und bestätigst sie. Erst dann wird der Auswurf freigegeben. Tiefe, Entfernung, Struktur, Wetter und Tageszeit beeinflussen die Fischaktivität.</p></section>
          <section><h3>📱 Mobile Steuerung</h3><p>Tippe in die Szene, um Ziel oder Aktion auszuführen. Halten kurbelt kontinuierlich; ein Doppeltipp holt Kunstköder oder Deeper schnell vollständig zum Ufer zurück. Während des Drills hältst du „Kurbeln“ gedrückt und führst Rute beziehungsweise Finger auf die Gegenseite des Fisches. Beim Keschern bewegst du den Kescher mit dem Finger unter den Fisch. Textauswahl, iOS-Lupe und Kontextmenü sind während der aktiven Spielsteuerung gesperrt.</p></section>
+         <section><h3>🖱️ Desktop-Steuerung</h3><p>Klick und Halten bedienen die Angelaktionen; Kunstköder oder Deeper können per Rechtsklick schnell zurückgeholt werden. Im Drill bewegt die Maus die Rute. Das Mausrad verstellt die Rollenbremse stufenweise: nach oben/von dir weg = fester, nach unten/zu dir = lockerer. Das Mausrad verändert die Bremse nur während eines laufenden Drills und zoomt dann nicht die Karte.</p></section>
          <section><h3>🖥️ Grafikqualität</h3><p>Unter Einstellungen stehen Leistung, Standard und Qualität zur Wahl. Standard entspricht exakt der bisherigen Darstellung. Leistung nutzt 85 % und Qualität 160 % dieser Grundauflösung. Geändert wird ausschließlich die interne 3D-Renderauflösung; Spielsysteme, Wasser, Wetter, Schatten, Wolken, Fische und Animationen bleiben identisch. Die Auswahl gilt für die gesamte Anwendung und wird nur auf diesem Gerät gespeichert.</p></section>
          <section><h3>🎒 Köder- & Tacklebox</h3><p>Alle Köder besitzen einen echten Bestand. Die Standardrute mit 50 m Wurfweite gehört von Beginn an dir. Die mittlere Rute wirft 75 m und die beste 100 m. Weitere Ruten, Kescher und der Deeper werden nach dem Kauf dauerhaft in deiner Tacklebox gespeichert. Lockfutter wird dort mit seinem aktuellen Vorrat angezeigt. Nicht vorhandene kaufbare Artikel sind ausgegraut und führen direkt in den Tackle-Shop.</p></section>
          <section><h3>🟡 Lockfutter & Futterplätze</h3><p>Die drei Lockfuttersorten besitzen unterschiedliche Stärke und einen echten Vorrat. Wähle eine Sorte, setze den Zielpunkt im Wasser und bestätige den Wurf. Bis zu zwei Futterplätze können gleichzeitig wirken; ihre Markierung zeigt Sorte und Restzeit. Eine sauber im Futterplatz liegende Pose verbessert die Fangchance zusätzlich.</p></section>
          <section><h3>📡 Deeper-Echolot</h3><p>Kaufe und montiere den Deeper in der Tacklebox, wähle einen Messpunkt und wirf ihn wie einen Köder aus. Das Sonar zeigt aktuelle Tiefe, Bodenverlauf, Messkegel und erkannte Fischsignale. Mit „Stelle speichern“ setzt du am Messpunkt eine Markierung. Ziehe den Deeper normal ein oder hole ihn am Desktop per Rechtsklick und mobil per Doppeltipp schnell zurück.</p></section>
-         <section><h3>🌽 Naturköder</h3><p>Wurm, Made, Mais und Spezial-Naturköder werden beim erfolgreichen Anhieb verbraucht. Bei einem verpassten Anhieb besteht eine kleinere Chance auf Köderverlust. Einfaches Einholen verbraucht keinen Naturköder.</p></section>
+         <section><h3>🌽 Naturköder</h3><p>Wurm, Made, Mais und Spezial-Naturköder werden beim erfolgreichen Anhieb verbraucht. Bei einem verpassten Anhieb besteht eine kleinere Chance auf Köderverlust. Einfaches Einholen verbraucht keinen Naturköder. Das Wurmbündel wird aus 12 Tauwürmern montiert und ist ausschließlich als spezieller Welsköder gedacht; ein montiertes Bündel bleibt bis zum tatsächlichen Verbrauch als Wurmbündel aktiv.</p></section>
          <section><h3>🐟 Köderfisch</h3><p>Geeignete gefangene Kleinfische erhöhen deinen Köderfischbestand. Ein Köderfisch wird bei einer Raubfischattacke verbraucht. Er kann nicht gekauft werden.</p></section>
-         <section><h3>🌀 Kunstköder</h3><p>Blinker und Gummifisch fangen nur in Bewegung. Klick oder Tipp holt etwa 0,5 m ein, Halten kurbelt kontinuierlich. Mobil holt ein Doppeltipp schnell komplett ein; am Desktop bleibt es der Rechtsklick. Maus- oder Fingerbewegung nach oben/unten verändert die Rutenhöhe und Lauftiefe; links/rechts gibt einen kleinen seitlichen Impuls. Ein Fisch kann nur dann gerissen werden, wenn der Kunstköder während des aktiven Einkurbelns den Fischkörper unmittelbar berührt. Beim freien Absinken oder wenn der Köder reglos am Grund liegt, kann kein Fisch gerissen werden. Wird der Köder dagegen aktiv über den Grund gezogen, zählt eine echte Körperberührung ebenfalls. Die Schnur kollidiert weiterhin mit Unterwasserholz, Bäumen und Stegen. Läuft sie über mehrere Hindernisse, kann sie nun auf mehreren Punkten gleichzeitig aufliegen und entsprechend mehrere Knicke bilden. Beim Einholen wird der Köder zuerst zum jeweils nächsten Kontaktpunkt gezogen; dort kann anschließend auch ein Hänger entstehen.</p></section>
+         <section><h3>🌀 Kunstköder</h3><p>Blinker und Gummifisch fangen nur in Bewegung. Klick oder Tipp holt etwa 0,5 m ein, Halten kurbelt kontinuierlich. Mobil holt ein Doppeltipp schnell komplett ein; am Desktop übernimmt der Rechtsklick. Beim Schnelleinholen folgt die Unterwasserkamera dem Köder ruhig bis kurz vor das Ufer; dort steigt der Köder weich aus dem Wasser und die Uferansicht übernimmt. Während dieses Schnellrückwegs kann kein Fisch gerissen werden, die Hängerkollisionen mit Unterwasserholz, Bäumen und Stegen bleiben aber vollständig aktiv. Dasselbe Hängerprinzip gilt für „Zum Ufer“, es gibt keinen Hindernis-Bypass. Maus- oder Fingerbewegung nach oben/unten verändert die Rutenhöhe und Lauftiefe; links/rechts gibt einen kleinen seitlichen Impuls. Ein Fisch kann nur dann gerissen werden, wenn der Kunstköder beim normalen aktiven Einkurbeln den Fischkörper unmittelbar berührt. Beim freien Absinken oder reglosen Köder ist das ausgeschlossen. Berührt die Unterwasserschnur einen unbeteiligten Fisch, flüchtet dieser zügig; Räuber, die den Köder bereits interessiert beobachten, verfolgen oder angreifen, sind davon ausgenommen. Verfolgende Räuber beschleunigen beim Aufholen stärker und aktualisieren ihre Nachlaufspur häufiger, ein Biss bleibt aber weiterhin eine echte Attacke und ist nicht garantiert. Läuft die Schnur über mehrere Hindernisse, kann sie auf mehreren Punkten gleichzeitig aufliegen und mehrere Knicke bilden; beim Einholen wird der Köder zuerst zum jeweils nächsten Kontaktpunkt geführt.</p></section>
          <section><h3>🐊 Spezialköder</h3><p>Premium- und artspezifische Köder erhöhen die Gewichtung bestimmter Fischarten, garantieren aber keinen Biss. Standort, Tiefe, Aktivität und Zufall bleiben relevant.</p></section>
-         <section><h3>⚡ Biss & Anhieb</h3><p>Beim Posenangeln zeigt der Schwimmer zuerst den Biss. Danach läuft das Reaktions-QTE zweimal vollständig. Ein exakt mittiger Treffer gilt als perfekter Anhieb und bringt beim Fang +8 EP. Triff den grünen beziehungsweise besonders guten Bereich. Ein früher Fehlversuch beendet nicht sofort den gesamten Versuch.</p></section>
-         <section><h3>🎣 Drill</h3><p>Beobachte Schnurspannung, Fisch-Ausdauer und Entfernung. Halte „Kurbeln“ gedrückt und führe die Rute immer auf die Gegenseite des Fisches: Fisch links bedeutet Rute rechts, Fisch rechts bedeutet Rute links. Kurbeln gewinnt Schnur, erhöht aber die Belastung. Bei zu hoher Spannung musst du kurz lösen, sonst droht Schnurbruch. Ein montierter Kunstköder geht bei Schnurbruch verloren.</p></section>
+         <section><h3>⚡ Biss, Anhieb & Hänger</h3><p>Beim Posenangeln zeigt der Schwimmer zuerst den Biss. Danach läuft das Reaktions-QTE zweimal vollständig. Ein exakt mittiger Treffer gilt als perfekter Anhieb und bringt beim Fang +8 EP. Triff den grünen beziehungsweise besonders guten Bereich. Ein früher Fehlversuch beendet nicht sofort den gesamten Versuch. Kurze Randimpulse unterstützen Biss und Hänger visuell; der Hänger bleibt anschließend ein echter Zustand und muss gelöst werden, statt durch Schnelleinholen oder „Zum Ufer“ übersprungen zu werden.</p></section>
+         <section><h3>🎣 Drill & Bremse</h3><p>Beobachte Schnurspannung, Fisch-Ausdauer und Entfernung. Halte „Kurbeln“ gedrückt und führe die Rute auf die Gegenseite des Fisches: Fisch links bedeutet Rute rechts, Fisch rechts bedeutet Rute links. Die Rutenhaltung ist Teil der Drillphysik: Zeigt die Rute fast direkt zum Fisch, richtet sich der Blank auf und die Schnur übernimmt mehr Last; mit größerem Winkel biegt die Rute stärker und puffert Fluchtspitzen. Eine lockere Bremse lässt mehr Schnur frei und schützt besonders bei starken Fischen, eine feste Bremse holt direkter ein, erhöht aber das Risiko. Auf dem Desktop stellst du die Bremse zusätzlich mit dem Mausrad ein: ↑ fester, ↓ lockerer. Die sichtbare Drillschnur wechselt mit der Belastung von Weiß über Gelb und Orange zu Rot. Bei echter Flucht und Schnurabzug reagieren Randpuls, Belastungsbalken und Rutenfederung sichtbar stärker. Große Fische mit viel Rest-Ausdauer können kurz vor dem Ufer erneut nach draußen flüchten. Bei zu hoher Spannung musst du Last herausnehmen, sonst droht Schnurbruch; ein montierter Kunstköder geht dabei verloren.</p></section>
          <section><h3>🥅 Keschern</h3><p>Bewege den Kescher mit Maus oder Finger nach links/rechts unter den Fisch und keschere im passenden Moment. Der Standardkescher gehört zur Startausrüstung. Der größere Pro Kescher kann im Shop gekauft werden und vergrößert die reale Fangzone um rund 18 %. Der erste knappe Fehlversuch wird weiterhin verziehen.</p></section>
+         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch kann die Fangkarte über „WhatsApp / Teilen“ als eigenes PNG-Bild ausgegeben werden. Auf unterstützten Handys öffnet sich der native Teilen-Dialog, in dem WhatsApp oder eine andere installierte App gewählt werden kann. Fischart, Länge, Gewicht und ein möglicher persönlicher Rekord werden direkt in die Grafik geschrieben. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
          <section><h3>⏱️ Zeitwechsel</h3><p>Der Zeitwechsel steht ausschließlich in der Ufer-Angelperspektive bereit, solange die Angel noch nicht ausgeworfen wurde und du den Auswurfpunkt wählen kannst. In Stellenauswahl, Unterwasseransicht, nach dem Auswurf, bei Biss, Drill und Keschern ist die Funktion ausgeblendet. Du kannst die Spielzeit in 1-Stunden-Schritten bis maximal 24 Stunden vor- oder zurückspulen. Jede Stunde kostet 1 EP und läuft in 0,5 Sekunden ab. Einsteiger besitzen pro Sitzung einen Vorwärts- und einen Rückwärtswechsel; höhere Anglerstufen erhalten zusätzliche Wechsel.</p></section>
          <section><h3>🌗 Aktivitätszeiten</h3><p>Die Fischaktivität verändert sich mit der Tageszeit. Hecht und Barsch profitieren vor allem von Morgen- und Abendphasen. Zander wird besonders in Dämmerung, Nacht und bei Bewölkung aktiv; Aal und Wels bevorzugen überwiegend Abend und Nacht. Zwischen ungefähr 13 und 15 Uhr tritt eine allgemeine, leicht schwankende Mittags-Beißflaute auf. Sie reduziert die Bisschance deutlich, aber niemals auf null.</p></section>
+         <section><h3>📏 Fischgrößen &amp; Gewichte</h3><p>Version 1.6 erweitert die möglichen Kapitalfische und kalibriert die Gewichte artspezifisch neu. Unter anderem sind jetzt Hechte bis 140 cm, Welse bis 260 cm, Zander bis 105 cm, Störe bis 160 cm, Graskarpfen bis 150 cm und Aale bis 130 cm möglich. Das Gewicht wird aus Fischart und Länge berechnet und im Fangbuch, Highscore und in der Online-Bestenliste nach derselben V1.6-Gewichtskurve bewertet. Die früheren Maximalgrößen bleiben zugleich Referenz für die bekannte Kampfstärke: bisherige Großfische werden durch die höheren Limits nicht schwächer; nur Fische oberhalb der alten Maximalgröße erhalten progressiv zusätzliche Kraft, Ausdauer, Explosivität und Fluchtraum. Der einmalige gelbe Koi bleibt unverändert exakt 70 cm groß.</p></section>
          <section><h3>⭐ EP & Shop</h3><p>Gefangene Fische bringen EP. Große und seltene Fische sind deutlich wertvoller; der einzigartige Koi bringt 1.000 EP. Gute Aktionen bringen Zusatz-EP, zum Beispiel ein perfekter Anhieb, eine präzise Pose im Futterplatz, sauberes Keschern, ein Fang am aktiven Futterplatz oder aktive Kunstköderführung. Ein gerissener Fisch zählt nur zu 50 % und erhält keine Fangboni. EP sind die ausgebbare Währung. Zusätzlich sammeln sich Gesamt-EP für deine dauerhafte Anglerstufe; Einkäufe senken diese Gesamt-EP nicht.</p></section>
          <section><h3>🎯 Tagesaufgaben</h3><p>Jeden Spieltag warten drei Aufgaben mit unterschiedlicher Schwierigkeit. Jede erledigte Aufgabe bringt EP; wer alle drei schafft, erhält den zusätzlichen Tagesbonus. Nach der kurzen Einblendung bleiben die Aufgaben jederzeit im Hauptmenü abrufbar.</p></section>
          <section><h3>☁️ Cloud-Spielstand</h3><p>EP, Gesamt-EP, Fortschritt, persönliche Bestwerte, Köderfische, gekaufte Köder und Futterbestände sowie die in der 3D-Unterwasseransicht entdeckten Fischarten werden automatisch online gespeichert. Das Fangbuch mit den einzelnen Fangereignissen bleibt ausschließlich lokal.</p></section><section><h3>🔑 Gerätewechsel</h3><p>Unter „Spielstand“ findest du einen privaten Wiederherstellungscode. Mit ihm kannst du deinen Cloud-Spielstand auf einem anderen Gerät übernehmen. Der übernommene Datensatz wird dem neuen Gerät zugeordnet; ein neu erzeugter Code macht den bisherigen Code ungültig.</p></section>
-         <section><h3>🏆 Highscore & Bestenliste</h3><p>Deine persönlichen Bestfänge stehen im Highscore. Wenn du einen Anzeigenamen festlegst und die Veröffentlichung aktivierst, werden deine freigegebenen Artenrekorde automatisch mit der öffentlichen Bestenliste abgeglichen. Die Liste lädt beim Öffnen selbstständig; ein Aktualisieren-Knopf ist nicht nötig.</p></section><section><h3>✨ Hall of Fame</h3><p>Die Hall of Fame besitzt im Hauptmenü einen eigenen Knopf und präsentiert öffentliche Rekorde über dem Weiher. Öffentlich eingetragene Fänger des einzigen gelben Koi erhalten dort zusätzlich eine eigene Ehrenfolie. Das Spiel pausiert während der Präsentation vollständig. „Zurück“ fliegt exakt in die zuvor gespeicherte Ansicht zurück. Während Biss, Drill, Kameraflug oder Kunstköder-Unterwasseransicht bleibt die Funktion gesperrt.</p></section>
+         <section><h3>🏆 Highscore & Bestenliste</h3><p>Deine persönlichen Bestfänge stehen im Highscore. Wenn du einen Anzeigenamen festlegst und die Veröffentlichung aktivierst, werden deine freigegebenen Artenrekorde automatisch mit der öffentlichen Bestenliste abgeglichen. Länge und Fangdatum bleiben der eigentliche Rekord; das Gewicht wird passend zur Fischart und Länge nach der aktuellen V1.6-Kurve berechnet. Bereits vorhandene öffentliche Rekorde bleiben erhalten und ihre gespeicherten Gewichte werden einmalig auf die neue Berechnung umgestellt. Die Liste lädt beim Öffnen selbstständig; ein Aktualisieren-Knopf ist nicht nötig.</p></section><section><h3>✨ Hall of Fame</h3><p>Die Hall of Fame besitzt im Hauptmenü einen eigenen Knopf und präsentiert öffentliche Rekorde über dem Weiher. Öffentlich eingetragene Fänger des einzigen gelben Koi erhalten dort zusätzlich eine eigene Ehrenfolie. Das Spiel pausiert während der Präsentation vollständig. „Zurück“ fliegt exakt in die zuvor gespeicherte Ansicht zurück. Während Biss, Drill, Kameraflug oder Kunstköder-Unterwasseransicht bleibt die Funktion gesperrt.</p></section>
          <section><h3>🟢 Angler online</h3><p>Ist die Namenssichtbarkeit aktiviert, meldet eine kurze Einblendung andere gerade aktive Angler. Die Meldung verschwindet selbstständig und zeigt keine private Spieler-ID oder Wiederherstellungscodes.</p></section>
        </div>
      </div>
@@ -5076,7 +5088,7 @@ html,body{
        <div class="angling-drill-row"><span>Schnurbelastung</span><div class="angling-drill-bar"><i id="anglingTensionFill" class="angling-drill-fill angling-tension-fill"></i></div><span id="anglingTensionText">gut</span></div>
        <div class="angling-drill-row"><span>Ausdauer</span><div class="angling-drill-bar"><i id="anglingStaminaFill" class="angling-drill-fill angling-stamina-fill"></i></div><span id="anglingStaminaText">100 %</span></div>
        <div class="angling-drill-row"><span>Entfernung</span><div class="angling-drill-bar"><i id="anglingFightDistanceFill" class="angling-drill-fill angling-distance-fill"></i></div><span id="anglingFightDistanceText">10 m</span></div>
-       <div class="angling-drill-help">Halten = kurbeln · Maus/Finger bewegt die Rute · Fisch links → Rute rechts, Fisch rechts → Rute links.</div>
+       <div class="angling-drill-help">Halten = kurbeln · Maus/Finger bewegt die Rute · Fisch links → Rute rechts, Fisch rechts → Rute links.<span class="angling-desktop-wheel-hint"> · Mausrad ↑ Bremse fester · ↓ lockerer</span></div>
        <button id="anglingReelBtn" class="angling-reel-btn"><i class="angling-reel-icon"></i><span id="anglingReelLabel">EINHOLEN HALTEN</span></button>
      </div>
      <div id="anglingLandingPanel" class="angling-landing-panel">
@@ -5093,7 +5105,13 @@ html,body{
        <strong id="anglingCatchTitle">Fisch gefangen</strong>
        <span id="anglingCatchText"></span>
        <div id="aczoCatchRewards"></div>
-       <button id="anglingAgainBtn" class="primary">Noch einmal</button>
+       <div class="aczo-catch-actions">
+         <button id="anglingShareBtn" type="button" aria-label="Fangkarte über WhatsApp oder eine andere App teilen" disabled>
+           <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M10.3 24.7l1.2-4.3a10 10 0 1 1 3.8 3.4l-5 0.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12.8 10.9c.4-.5.9-.5 1.2-.1l1.3 2.1c.2.4.2.7 0 1l-.9 1.1c.8 1.8 2.1 3.1 3.9 3.9l1.1-.9c.3-.2.7-.2 1 0l2.1 1.3c.4.3.4.8-.1 1.2-.8.8-1.8 1.2-2.9 1.1-4.6-.5-8.3-4.2-8.8-8.8-.1-1.1.3-2.1 1.1-2.9z" fill="currentColor"/></svg>
+           <span class="aczo-share-label">WhatsApp / Teilen</span>
+         </button>
+         <button id="anglingAgainBtn" class="primary">Noch einmal</button>
+       </div>
      </div>
      <div id="anglingLogPanel" class="angling-log-panel" role="dialog" aria-modal="true" aria-label="Fangbuch">
        <div class="angling-log-head"><div class="angling-log-title">📒 Mein Fangbuch</div><button id="anglingLogTopCloseBtn" class="angling-log-top-close" aria-label="Fangbuch schließen">×</button></div>
@@ -5154,7 +5172,7 @@ html,body{
          <div class="help-item"><strong>↻ Reset</strong><span>Stellt Kamera, Zoom, Drehung und Neigung wieder auf die Ausgangsansicht zurück.</span></div>
          <div class="help-item"><strong>💧 Wasser: AN/AUS</strong><span>Blendet die bewegten Oberflächen von Weiher und Mosel ein oder aus. Standardmäßig ist Wasser aktiv.</span></div>
          <div class="help-item"><strong>🌦️ Wetter LIVE / NEUTRAL</strong><span>LIVE verwendet aktuelle Wetterdaten und Tageszeit. NEUTRAL entfernt Wetter- und Tageszeiteinflüsse und dient als klare Referenzansicht.</span></div>
-         <div class="help-item"><strong>☀️ Sonne & 🌙 Mond</strong><span>Folgen Datum, Uhrzeit und Standort. Licht, Schatten und Wasserwirkung verändern sich mit Tageszeit und Blickrichtung. Auf Mobil ist die besonders rechenintensive direkte Lichtbahn der normalen Kartenansicht reduziert.</span></div>
+         <div class="help-item"><strong>☀️ Sonne & 🌙 Mond</strong><span>Folgen Datum, Uhrzeit und Standort. Licht, Schatten und Wasserwirkung verändern sich mit Tageszeit und Blickrichtung. Desktop nutzt die aufwendige direkte Spiegelbahn; mobil erscheinen auf Weiher und Mosel bewusst leichtere, weich bewegte Sonne-/Mondreflexe ohne die rechenintensiven Strahlen.</span></div>
          <div class="help-item"><strong>✨ Sterne & Wolken</strong><span>Sternenhimmel und Himmelskörper sind astronomisch ausgerichtet. Die Wolken ziehen entsprechend Windrichtung und Windgeschwindigkeit und bleiben auch aus der Unterwasseransicht sichtbar.</span></div>
          <div class="help-item"><strong>🌧️ Wind und Regen</strong><span>Wellenrichtung, Wolkenbewegung, Regen und Regentropfen reagieren auf die aktuellen Wetter- und Winddaten.</span></div>
          <div class="help-item"><strong>🖨️ Drucken / Export</strong><span>Erstellt aus der aktuellen 3D-/2D-Kartenansicht ein eigenes hochauflösendes Druckbild und öffnet dafür ein separates Druckdokument. So werden auf Mobilgeräten und in Safari das Abdunkeln sowie das Durchscheinen der eigentlichen Webseite deutlich reduziert.</span></div>
@@ -5166,6 +5184,7 @@ html,body{
          <div class="help-item"><strong>👁️ Anzeigen</strong><span>Blendet Wetterfenster, Tiefenlegende und Kompass gemeinsam ein oder aus.</span></div>
          <div class="help-item"><strong>🐟 Unterwasser Desktop</strong><span>Im Weiher schwimmen und die Blickrichtung frei steuern. Fische können angeklickt und alle 16 Arten in der Sammlung freigeschaltet werden; die Minikarte zeigt die Position.</span></div>
          <div class="help-item"><strong>📱 Unterwasser mobil</strong><span>Ein Finger steuert die Schwimmbewegung, zwei Finger verändern Blickrichtung und Tauchwinkel. Antippen öffnet Fischinformationen. Die Gestenhilfe erscheint bei jedem Einstieg kurz automatisch.</span></div>
+         <div class="help-item"><strong>🎣 Angelspiel Desktop</strong><span>Klick/Halten bedient die Angelaktionen, Rechtsklick holt Kunstköder oder Deeper schnell zurück. Im Drill bewegt die Maus die Rute; Mausrad nach oben stellt die Bremse fester, nach unten lockerer. Die vollständige Anleitung steht im Spielmenü unter „Hilfe“.</span></div>
          <div class="help-item"><strong>🎣 Angelspiel mobil</strong><span>Tippen bedient Ziel und Aktionen, Halten kurbelt. Ein Doppeltipp holt Kunstköder oder Deeper schnell zurück. Im Drill „Kurbeln“ halten und den Finger auf die Gegenseite des Fisches führen. Die vollständige Anleitung steht im Spielmenü unter „Hilfe“.</span></div>
          <div class="help-item"><strong>🌿 Unterwasserwelt</strong><span>Boden, Steine, Pflanzen, Schwebstoffe, Lichtmuster, bewegte Wolken über der Oberfläche und Fischverhalten bilden den Weiher lebendig nach.</span></div>
          <div class="help-item"><strong>🚶🚲🚗 Umgebung</strong><span>Radfahrer, Fußgänger, Besucher, Fahrzeuge und Vögel beleben die Umgebung. Bei Ruhe reduziert die mobile Version automatisch die Bildrate, um Rechenlast und Akkuverbrauch zu senken.</span></div>
@@ -5177,6 +5196,46 @@ Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser 
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-History</summary>
+         <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
+           <strong>Version 1.6 · 28.09.2026</strong>
+           <p><strong>Drill, Rute &amp; Bremse</strong></p>
+           <ul style="padding-left:20px">
+             <li>Rutenwinkel physikalisch stärker eingebunden: direkt zum Fisch gehaltene Rute richtet sich auf und überträgt mehr Last, größere Winkel lassen den Blank stärker puffern.</li>
+             <li>Bremse für Großfische neu ausbalanciert; „Locker“ arbeitet wieder klar als Sicherheitsventil, ohne den Einfluss der Rutenhaltung aufzuheben.</li>
+             <li>Desktop: Rollenbremse im Drill zusätzlich per Mausrad steuerbar (hoch = fester, runter = lockerer).</li>
+             <li>Drillschnur zeigt die Belastung sichtbar von Weiß über Gelb und Orange bis Rot; Fluchten, kritische Spannung und Rutenfederung erhalten stärkeres visuelles Feedback.</li>
+             <li>Kräftige Großfische mit Rest-Ausdauer können direkt vor dem Ufer erneut nach außen ausbrechen, statt nur seitlich zu pendeln.</li>
+             <li>Posen-Deckkraft nach Fang und Drill wird vollständig restauriert; kein halbtransparenter Schwimmer mehr vor dem nächsten Auswurf.</li>
+           </ul>
+           <p><strong>Kunstköder &amp; Unterwasser-KI</strong></p>
+           <ul style="padding-left:20px">
+             <li>Schnelles Einholen von Kunstködern bleibt unter Wasser in einer ruhigen Nachlaufkamera und geht erst kurz vor dem Ufer weich in die Uferansicht über.</li>
+             <li>Hängerkollisionen bleiben auch beim Schnellrückweg und „Zum Ufer“ aktiv; Fische können während des reinen Schnellrückwegs nicht gerissen werden.</li>
+             <li>Wurmbündel bleibt nach Auswurf und verzögertem Cloud-Abgleich zuverlässig montiert, bis es tatsächlich verbraucht oder bewusst gewechselt wird.</li>
+             <li>Unterwasserschnur löst bei berührten, unbeteiligten Fischen eine schnelle Flucht aus; bereits interessierte, folgende oder angreifende Räuber werden nicht verscheucht.</li>
+             <li>Raubfisch-Nachläufer beschleunigen kräftiger, erfassen den bewegten Köder häufiger neu und erreichen das reale Attackenfenster zuverlässiger, ohne künstlich am Köder festzukleben.</li>
+           </ul>
+           <p><strong>Performance &amp; Darstellung</strong></p>
+           <ul style="padding-left:20px">
+             <li>Unterwasser-Vorwärmung zusammengeführt und erweitert: Fischtexturen, freie Tauchansicht, Kunstköder-Unterwasseransicht, echte Bildschirm-Shadervarianten und relevante Kamerapfade werden bereits beim Start vorbereitet.</li>
+             <li>Desktop-Pixelratio bleibt beim ersten Abtauchen stabil; redundante Warmups und unnötige Partikel wurden reduziert, ohne das Live-Rutenfenster zu beschneiden.</li>
+             <li>Mobil: leichte Sonne- und Mondreflexion auf Weiher und Mosel ergänzt. Die aufwendigen Desktop-Strahlen und Spiegelbahnen bleiben dort bewusst deaktiviert.</li>
+           </ul>
+           <p><strong>Fangkarte &amp; Teilen</strong></p>
+           <ul style="padding-left:20px">
+             <li>Fangkarte erhält einen neuen „WhatsApp / Teilen“-Button und erzeugt lokal eine eigene hochauflösende PNG-Fanggrafik mit Fisch, Art, Länge, Gewicht und Rekordhinweis.</li>
+             <li>Mobil wird das Bild über den nativen Teilen-Dialog an WhatsApp oder andere installierte Apps übergeben; ohne Datei-Sharing steht ein Bild-Fallback bereit.</li>
+           </ul>
+           <p><strong>Fischgrößen, Gewichte &amp; Cloud</strong></p>
+           <ul style="padding-left:20px">
+             <li>Maximalgrößen mehrerer Arten erweitert, darunter Hecht 140 cm, Wels 260 cm, Spiegelkarpfen 120 cm, Graskarpfen 150 cm, Stör 160 cm, Zander 105 cm, Aal 130 cm und Schleie 80 cm.</li>
+             <li>Artspezifische Gewichtskurven neu kalibriert; Kapitalfische erhalten realistischere Maximalgewichte, z. B. bis ca. 120 kg beim 260-cm-Wels.</li>
+             <li>Kampfstärke an die erweiterten Größen angepasst: Fische bis zur früheren Maximalgröße behalten exakt ihre bisherige Größen-Skalierung; darüber steigt die Kampfkraft progressiv mit zusätzlicher Länge und Gewicht, inklusive mehr Ausdauer, Burst und Fluchtraum.</li>
+             <li>Bestehende öffentliche Rekorde bleiben vollständig erhalten. Nur ihre gespeicherten Gewichte werden einmalig aus Fischart und Länge nach V1.6 neu berechnet.</li>
+             <li>Neue Bestenlisten-Einträge erhalten ihr Gewicht serverseitig aus Art und Länge, damit Frontend, Highscore und Cloud nicht mehr auseinanderlaufen können.</li>
+             <li>Der einmalige gelbe Koi bleibt als Sonderfall unverändert exakt 70 cm.</li>
+           </ul>
+         </div>
          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
            <strong>Version 1.5 · 23.09.2026</strong>
            <p><strong>Angelspiel &amp; Technik erweitert</strong></p>
@@ -5277,8 +5336,8 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // V7.75: Der Startlayer ist bereits durch HTML/CSS sichtbar, bevor dieser schwere
 // Three.js-Block ausgeführt wird. Er wird erst nach einem echten Renderbild freigegeben.
-// Öffentliche Version 1.5: aktualisierter Stand vom 23.09.2026.
-const VIEWER_VERSION='ACZO56-Interaktiv-V1.5';
+// Öffentliche Version 1.6: aktualisierter Stand vom 28.09.2026.
+const VIEWER_VERSION='ACZO56-Interaktiv-V1.6';
 const ACZO_INTERNAL_BUILD='1.38';
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -5896,6 +5955,8 @@ const anglingCatchSequence=document.getElementById('anglingCatchSequence');
 const anglingCatchImage=document.getElementById('anglingCatchImage');
 const anglingCatchTitle=document.getElementById('anglingCatchTitle');
 const anglingCatchText=document.getElementById('anglingCatchText');
+const anglingShareBtn=document.getElementById('anglingShareBtn');
+const anglingShareLabel=anglingShareBtn?.querySelector('.aczo-share-label');
 const anglingAgainBtn=document.getElementById('anglingAgainBtn');
 const anglingLogBtn=document.getElementById('anglingLogBtn');
 const anglingLogPanel=document.getElementById('anglingLogPanel');
@@ -10061,9 +10122,10 @@ function updateDirectCelestialWaterReflections(){
   // normalen 3D-Kartenansicht zu teuer. Der A/B-Test zeigte reproduzierbar
   // ~26 -> 30 FPS. Im Angelmodus bleibt der Effekt erhalten; Desktop bleibt
   // vollständig unverändert.
-  const aczoPerf30MobileMapDirectReflectionOff=
-    ACZO_PERF6_MOBILE &&
-    !(typeof anglingMode!=='undefined' && anglingMode);
+  // P81: Mobil nutzt statt des teuren Desktop-Reflexpasses nur noch den
+  // leichten Punktreflex auf der vorhandenen Wasseroberflaeche. Damit bleiben
+  // weder Karten- noch Angelansicht auf Mobil an diesem Zusatzpass haengen.
+  const aczoPerf30MobileMapDirectReflectionOff=ACZO_PERF6_MOBILE;
 
   if(!aczoPerf6SunReflectionEnabled || aczoPerf30MobileMapDirectReflectionOff){
     directCelestialReflectionGroup.visible=false;
@@ -11392,6 +11454,109 @@ waterStarHalos.renderOrder=18;
 waterStarCores.renderOrder=19;
 scene.add(waterStarHalos,waterStarCores);
 let waterStarPhase=0;
+
+// P81: Sehr leichte Sonnen-/Mondspiegelung fuer Mobil.
+// Anders als der Desktop-Pass gibt es weder lange Lichtbahn noch zusaetzlichen
+// Flaechen-Shader. Je Himmelskoerper wird nur EIN weicher Punkt mit derselben
+// bereits vorhandenen 64x64-Textur wie bei den Sternreflexen gezeichnet.
+// Der geometrische Spiegelpunkt ist derselbe wie beim Desktop und darf nur
+// innerhalb von Weiher ODER Mosel sichtbar werden.
+const aczoMobileCelestialSunPos=new Float32Array(3);
+const aczoMobileCelestialMoonPos=new Float32Array(3);
+function aczoMakeMobileCelestialPoint(pos,color,size){
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({
+    size,sizeAttenuation:false,color,transparent:true,opacity:0,
+    map:waterStarTexture,alphaMap:waterStarTexture,
+    depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending
+  });
+  mat.toneMapped=false;
+  const pts=new THREE.Points(geo,mat);
+  pts.visible=false;
+  pts.renderOrder=20;
+  pts.frustumCulled=false;
+  scene.add(pts);
+  return {points:pts,material:mat,geometry:geo,position:pos};
+}
+const aczoMobileSunWaterReflection=aczoMakeMobileCelestialPoint(
+  aczoMobileCelestialSunPos,0xffe5a3,24
+);
+const aczoMobileMoonWaterReflection=aczoMakeMobileCelestialPoint(
+  aczoMobileCelestialMoonPos,0xcfe7ff,20
+);
+let aczoMobileCelestialReflectionPhase=0;
+const aczoMobileCelestialReflectionAnchor=new THREE.Vector2();
+
+function aczoSetMobileCelestialReflection(entry,source,visible,isMoon){
+  if(!entry||!source||!visible){
+    if(entry)entry.points.visible=false;
+    return;
+  }
+  if(!computeDirectCelestialReflectionAnchor(source,aczoMobileCelestialReflectionAnchor)){
+    entry.points.visible=false;
+    return;
+  }
+  const x=aczoMobileCelestialReflectionAnchor.x;
+  const y=aczoMobileCelestialReflectionAnchor.y;
+  const onPond=typeof pointInPondWaterMask==='function'&&pointInPondWaterMask(x,y);
+  const onMosel=typeof pointInMosel==='function'&&pointInMosel(x,y);
+  if(!onPond&&!onMosel){
+    entry.points.visible=false;
+    return;
+  }
+
+  const cloud=simulationEnabled?THREE.MathUtils.clamp((liveWeather?.cloud||0)/100,0,1):.08;
+  const night=simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;
+  const shimmer=.90+.10*Math.sin(aczoMobileCelestialReflectionPhase*(isMoon?2.7:3.5)+(isMoon?1.4:0));
+  let opacity;
+  if(isMoon){
+    const phase=THREE.MathUtils.clamp(cachedMoonFraction||0,0,1);
+    const moonVisual=Number.isFinite(moonDisc?.userData?.visualOpacity)
+      ?THREE.MathUtils.clamp(moonDisc.userData.visualOpacity,0,1):1;
+    const cloudTransmission=Math.max(.14,1-cloud*.86);
+    opacity=(.18+.44*Math.pow(phase,.82))*THREE.MathUtils.lerp(.12,1,night)
+      *cloudTransmission*moonVisual*shimmer;
+    entry.material.size=THREE.MathUtils.lerp(22,18,Math.min(1,Math.max(0,source.position.z/120)));
+  }else{
+    const cloudTransmission=Math.max(.18,1-cloud*.82);
+    opacity=.58*(1-night*.96)*cloudTransmission*shimmer;
+    entry.material.size=25;
+  }
+
+  // Etwas oberhalb des logischen Wassers, damit der Punkt sauber auf der
+  // vorhandenen Oberfläche liegt, ohne einen eigenen Wasserpass zu benoetigen.
+  entry.position[0]=x;
+  entry.position[1]=y;
+  entry.position[2]=.70;
+  entry.geometry.attributes.position.needsUpdate=true;
+  entry.material.opacity=THREE.MathUtils.clamp(opacity,0,.62);
+  entry.points.visible=entry.material.opacity>.025;
+}
+
+function updateMobileCelestialWaterReflections(dt){
+  if(!ACZO_PERF6_MOBILE){
+    aczoMobileSunWaterReflection.points.visible=false;
+    aczoMobileMoonWaterReflection.points.visible=false;
+    return;
+  }
+  aczoMobileCelestialReflectionPhase+=Math.max(0,dt||0);
+  const underwater=(typeof fishMode!=='undefined'&&fishMode)
+    ||(typeof anglingMode!=='undefined'&&anglingMode&&anglingCinematicView==='underwater')
+    ||camera.position.z<=.115;
+  const active=!!(waterVisible&&waterSurface.visible&&!is2D&&!underwater);
+  if(!active){
+    aczoMobileSunWaterReflection.points.visible=false;
+    aczoMobileMoonWaterReflection.points.visible=false;
+    return;
+  }
+  aczoSetMobileCelestialReflection(
+    aczoMobileSunWaterReflection,sun,!!sunDisc.userData.astronomicallyVisible,false
+  );
+  aczoSetMobileCelestialReflection(
+    aczoMobileMoonWaterReflection,moonLight,!!moonDisc.userData.astronomicallyVisible,true
+  );
+}
 
 function pointInPondWaterMask(x,y){
   return aczoPointInsideMasterPond(x,y);
@@ -21931,8 +22096,14 @@ function enterFishView(){
   depthPinLabel.style.display='none';
   tip.style.display='none';
   fishPreviousPixelRatio=renderer.getPixelRatio();
-  const fishTargetPixelRatio=Math.min(fishPreviousPixelRatio,1.25*aczoGraphicsScale());
-  if(Math.abs(fishTargetPixelRatio-renderer.getPixelRatio())>.001)renderer.setPixelRatio(fishTargetPixelRatio);
+  // P77 COLDSTART: Auf Desktop die Pixelratio beim Abtauchen nicht mehr
+  // umschalten. Ein setPixelRatio() baut den sichtbaren WebGL-Zeichenpuffer
+  // neu auf und kann gerade auf 125/150-%-Windows-Displays eine kurze Pause
+  // verursachen. Mobil bleibt die bestehende Begrenzung erhalten.
+  if(ACZO_MOBILE_PERF){
+    const fishTargetPixelRatio=Math.min(fishPreviousPixelRatio,1.25*aczoGraphicsScale());
+    if(Math.abs(fishTargetPixelRatio-renderer.getPixelRatio())>=.075)renderer.setPixelRatio(fishTargetPixelRatio);
+  }
   updateButtons();
   controls.enabled=false;
   savedSceneFog=scene.fog;
@@ -25837,7 +26008,17 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
   const oldCameraNear=camera.near,oldCameraFov=camera.fov;
   const oldCameraPos=camera.position.clone(),oldCameraQuat=camera.quaternion.clone(),oldCameraUp=camera.up.clone();
   try{
-    if(!aczoPerf26UwFullTarget)aczoPerf26UwFullTarget=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});
+    if(!aczoPerf26UwFullTarget){
+      aczoPerf26UwFullTarget=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});
+      // P77: Gleiche Ausgabe-Encoding-Variante wie der echte Bildschirm.
+      // Sonst kann der erste sichtbare Canvas-Frame trotz Offscreen-Warmup
+      // noch eine zweite Shaderprogramm-Variante kompilieren.
+      if(aczoPerf26UwFullTarget.texture)aczoPerf26UwFullTarget.texture.encoding=renderer.outputEncoding;
+    }
+    const startupLoader=document.getElementById('mapStartupLoader');
+    const warmDefaultFramebuffer=!!startupLoader&&!startupLoader.classList.contains('is-done');
+    const warmDrawingBufferSize=new THREE.Vector2();
+    renderer.getDrawingBufferSize(warmDrawingBufferSize);
     const start=new THREE.Vector3();centralFishStart(start);
     camera.near=.05;camera.fov=56;camera.position.copy(start);camera.up.set(0,0,1);camera.lookAt(start.x+8,start.y+2,start.z-.2);camera.updateProjectionMatrix();
     renderer.setRenderTarget(aczoPerf26UwFullTarget);renderer.setViewport(0,0,128,128);renderer.setScissor(0,0,128,128);renderer.setScissorTest(false);renderer.autoClear=true;
@@ -25872,16 +26053,11 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     }
     spoon.geometry=warmSpoonBody;spoonStripe.geometry=warmSpoonAccent;spoonAccentPlate.geometry=warmSpoonMarks;softCore.geometry=warmSoftBodyGeometry;
 
-    // Exakt den echten Kunstkoeder-Unterwasserzweig nachbilden, jedoch ohne
-    // updateAnglingMode() und damit ohne Timer, Fanglogik oder Spielzustandslauf.
-    anglingMode=true;anglingCinematicView='underwater';waterUniforms.anglingView.value=1;
+    // Gemeinsame echte Unterwasserlayer vorbereiten.
     contourGroup.visible=false;pond.visible=false;pondNeutral.visible=false;pondNightLift.visible=false;pondCelestialDepthLift.visible=false;
     ground.visible=true;satEdgeOverlay.visible=false;anglingPhotoHorizon.visible=false;anglingPhotoShadowGroup.visible=false;
     anglingBankGroup.visible=false;anglingMarkerGroup.visible=false;
-    setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
     warmFishSamples.forEach(state=>{state.object.visible=true;state.object.frustumCulled=false;});
-    // Freier Tauchmodus verwendet fuer Sonne und Mond eine eigene
-    // depthTest/fog-Kombination. Auch diese Variante wird hier vorab erzeugt.
     const warmDirection=new THREE.Vector3();camera.getWorldDirection(warmDirection);
     warmCelestial.forEach((disc,index)=>{
       disc.visible=true;
@@ -25890,6 +26066,29 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       disc.scale.setScalar(5+index);
       disc.material.depthTest=true;disc.material.fog=false;disc.material.needsUpdate=true;
     });
+
+    // P77: ZUERST den echten freien Tauchmodus rendern. PERF26 hatte bislang
+    // nur den Kunstkoeder-Unterwasserzustand warmgerendert; dort sind Caustics
+    // und der additive Lichtlayer absichtlich aus. Beim ersten freien Abtauchen
+    // mussten deren Bildschirm-Shader daher noch nachkompiliert werden.
+    anglingMode=false;anglingCinematicView='shore';waterUniforms.anglingView.value=0;
+    setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
+    renderer.setRenderTarget(aczoPerf26UwFullTarget);renderer.setViewport(0,0,128,128);renderer.setScissorTest(false);renderer.autoClear=true;
+    renderer.render(scene,camera);
+    // Unter dem Startloader auch einmal auf den ECHTEN Default-Framebuffer.
+    // So werden exakt die sRGB-/Canvas-Shaderprogramme vorbereitet, die der
+    // erste sichtbare Tauchframe spaeter wirklich benutzt.
+    if(warmDefaultFramebuffer){
+      renderer.setRenderTarget(null);renderer.setViewport(0,0,warmDrawingBufferSize.x,warmDrawingBufferSize.y);renderer.setScissorTest(false);renderer.autoClear=true;
+      renderer.shadowMap.needsUpdate=true;
+      renderer.render(scene,camera);
+      renderer.setRenderTarget(aczoPerf26UwFullTarget);renderer.setViewport(0,0,128,128);
+    }
+
+    // Danach exakt den echten Kunstkoeder-Unterwasserzweig nachbilden, jedoch
+    // ohne updateAnglingMode() und damit ohne Timer/Fanglogik.
+    anglingMode=true;anglingCinematicView='underwater';waterUniforms.anglingView.value=1;
+    setFishSubmergedLayers(true);fishGroup.visible=true;waterUniforms.underwaterView.value=1;scene.fog=fishUnderwaterFog;
     anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;
     renderer.render(scene,camera);
     // Zweiter Blickwinkel wie die Kunstkoeder-Kamera: bodennah und leicht vorwaerts.
@@ -25911,6 +26110,15 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     renderer.render(scene,camera);
     anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;
     renderer.render(scene,camera);
+
+    // P77: Auch die beiden echten Kunstkoeder-Unterwasservarianten einmal auf
+    // dem sichtbaren Canvas-Framebuffer kompilieren. Der Loader liegt darueber,
+    // daher ist davon nichts zu sehen. Genau dieser Zielwechsel fehlte bisher.
+    if(warmDefaultFramebuffer){
+      renderer.setRenderTarget(null);renderer.setViewport(0,0,warmDrawingBufferSize.x,warmDrawingBufferSize.y);renderer.setScissorTest(false);renderer.autoClear=true;
+      anglingSpinnerBlade.visible=true;anglingSoftBody.visible=false;renderer.render(scene,camera);
+      anglingSpinnerBlade.visible=false;anglingSoftBody.visible=true;renderer.render(scene,camera);
+    }
     // P58 PERFORMANCE: Der Kunstkoeder startet nach dem Wasserkontakt zusaetzlich
     // die zweite Live-Uferkamera des Ruten-/Rollenfensters. Dieser Renderpfad
     // benutzt auf Mobilgeraeten eigene Wasser-Materialvarianten und war bisher
@@ -25919,6 +26127,17 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     // eine kurze Pause verursachen. Ein winziger unsichtbarer Render unter dem
     // Startloader bereitet jetzt auch diesen echten Livefenster-Pfad vor.
     if(typeof anglingReelLiveShoreCamera!=='undefined'&&typeof aczoRenderLightweightAnglingInset==='function'){
+      // P77: Wenn der Loader noch sichtbar ist, die echte zweite Uferkamera
+      // ebenfalls auf dem Default-Framebuffer warmrendern. Damit entsteht beim
+      // ersten Kunstkoeder-Wasserkontakt keine neue Canvas-Shader-Variante.
+      if(warmDefaultFramebuffer){
+        renderer.setRenderTarget(null);
+        renderer.setViewport(0,0,Math.min(192,warmDrawingBufferSize.x),Math.min(192,warmDrawingBufferSize.y));
+        renderer.setScissor(0,0,Math.min(192,warmDrawingBufferSize.x),Math.min(192,warmDrawingBufferSize.y));
+        renderer.setScissorTest(true);
+      }else{
+        renderer.setRenderTarget(aczoPerf26UwFullTarget);renderer.setViewport(0,0,128,128);renderer.setScissorTest(false);
+      }
       const warmSurfaceZ=anglingSurfaceZ(start.x,start.y);
       anglingReelLiveShoreCamera.position.set(start.x-8,start.y-10,Math.max(warmSurfaceZ+2.2,2.4));
       anglingReelLiveShoreCamera.up.set(0,0,1);
@@ -25927,6 +26146,7 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       anglingReelLiveShoreCamera.updateProjectionMatrix();
       anglingReelLiveShoreCamera.updateMatrixWorld(true);
       aczoRenderLightweightAnglingInset(anglingReelLiveShoreCamera);
+      renderer.setScissorTest(false);
     }
 
     // Auch die separate Ruten-/Rollen-Szene einmal wirklich auf die GPU schicken.
@@ -26060,24 +26280,29 @@ function aczoRunStartupUnderwaterPrewarm(){
       anglingLureUnderwaterWorldReady=true;
       aczoStartupUwPrewarmStage=4;
     }else if(aczoStartupUwPrewarmStage===4){
-      // Die eingebetteten WebP-Fische werden asynchron dekodiert. Der letzte
-      // unsichtbare GPU-Lauf wartet kurz darauf, damit diese Kosten nicht erst
-      // beim ersten sichtbaren Tauchgang entstehen. Ein festes Zeitlimit
-      // verhindert, dass ein einzelnes Bild den Ladebildschirm blockiert.
+      // P77: Nicht mehr nach 2,2 s so tun, als waeren die Fischtexturen fertig.
+      // Alle eingebetteten Fischgrafiken muessen dekodiert sein, bevor der GPU-
+      // Warmup startet. Fehlerpfade reduzieren den Pending-Zaehler ebenfalls;
+      // als letztes Sicherheitsnetz existiert weiterhin der globale 15-s-Loader.
       if(!aczoStartupUwTextureWaitStartedAt)aczoStartupUwTextureWaitStartedAt=performance.now();
-      if(fishTexturePendingCount>0&&performance.now()-aczoStartupUwTextureWaitStartedAt<2200){
-        if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet …';
+      if(fishTexturePendingCount>0){
+        if(startupText)startupText.textContent='Fischgrafiken werden vorbereitet … ('+fishTexturePendingCount+')';
         aczoScheduleStartupUnderwaterPrewarm(50);
         return;
       }
       aczoStartupUwPrewarmStage=5;
     }else if(aczoStartupUwPrewarmStage===5){
+      if(startupText)startupText.textContent='Unterwasser-Shader werden vorgewärmt …';
       aczoPerf26ForceFullUnderwaterPrewarm();
       if(aczoPerf26UwFullWarmReady)aczoStartupUwPrewarmStage=6;
-      else if(++aczoStartupUwWarmAttempts<4){
+      else{
+        // P77: Der Loader meldet Unterwasser erst dann als bereit, wenn der
+        // volle GPU-Warmup wirklich erfolgreich war. Kein "nach vier Versuchen
+        // trotzdem fertig" mehr. Der 15-s-Watchdog bleibt die Notbremse.
+        aczoStartupUwWarmAttempts++;
         aczoScheduleStartupUnderwaterPrewarm(160);
         return;
-      }else aczoStartupUwPrewarmStage=6;
+      }
     }else{
       aczoFinishStartupUnderwaterPrewarm();
       return;
@@ -26476,6 +26701,9 @@ const anglingDrillLineInnerMat=new THREE.MeshBasicMaterial({
   color:0xf5fff8,transparent:true,opacity:.98,depthTest:false,depthWrite:false,toneMapped:false
 });
 const anglingDrillLineOuter=[],anglingDrillLineInner=[];
+// P75: Die sichtbare Drill-Schnur braucht auf hochauflösenden Mobilgeräten
+// etwas mehr Weltstärke, sonst ist der Belastungs-Farbwechsel kaum erkennbar.
+const ANGLING_DRILL_LINE_RADIUS=ACZO_PERF10_IS_MOBILE_OS?.0049:.0038;
 const anglingDrillLineGeo=new THREE.CylinderGeometry(1,1,1,6,1,false);
 for(let i=0;i<ANGLING_DRILL_LINE_SEGMENTS;i++){
   const outer=new THREE.Mesh(anglingDrillLineGeo,anglingDrillLineOuterMat);
@@ -26507,8 +26735,8 @@ function updateAnglingDrillLine3D(){
   anglingFishLineTarget(anglingDrillLineP1);anglingDrillLineP1.z+=.025;
   const span=anglingDrillLineP0.distanceTo(anglingDrillLineP1);
   const tension=anglingClamp01(anglingDrillTension);
-  const innerColor=anglingDrillTension>.88?0xff5a42:anglingDrillTension>.72?0xffdd61:0xf5fff8;
-  anglingDrillLineInnerMat.color.setHex(innerColor);
+  // Die Farbe wird zentral in aczoUpdateDrillLineColor() gesetzt, damit UI-
+  // WebGL-Line und die wirklich sichtbare 3D-Drillschnur identisch reagieren.
 
   // P72: Im Drill gibt es KEINEN künstlich gesetzten Wassereintritt mehr.
   // Die gespannte Schnur ist eine einzige kontinuierliche Kurve von der real
@@ -26541,7 +26769,7 @@ function updateAnglingDrillLine3D(){
       THREE.MathUtils.lerp(anglingDrillLineP0.z,anglingDrillLineP1.z,t)-curve*sag
     );
     anglingDrillLineOuter[i].visible=false;
-    setAnglingDrillLineSegment(anglingDrillLineInner[i],anglingDrillLinePoints[i],next,.0036);
+    setAnglingDrillLineSegment(anglingDrillLineInner[i],anglingDrillLinePoints[i],next,ANGLING_DRILL_LINE_RADIUS);
   }
 }
 
@@ -27496,8 +27724,8 @@ function updateAnglingLevelUi(){
 }
 
 const ANGLING_WEIGHT_COEFF={
-  roach:.012,rudd:.011,pike:.008,catfish:.005,carp:.014,mirrorcarp:.014,grasscarp:.011,
-  sturgeon:.007,zander:.009,eel:.0022,tench:.013,bream:.012,koi:.014,perch:.012,sunfish:.015,goby:.013
+  roach:.0176,rudd:.0184,pike:.010932945,catfish:.006827492,carp:.021040519,mirrorcarp:.020833333,grasscarp:.013333333,
+  sturgeon:.009765625,zander:.012957564,eel:.002730997,tench:.016601563,bream:.015946202,koi:.017492711,perch:.021036814,sunfish:.022222222,goby:.0192
 };
 function anglingEstimatedKg(species,cm){
   return Math.max(.01,(ANGLING_WEIGHT_COEFF[species]||.01)*Math.pow(Number(cm)||1,3)/1000);
@@ -29259,6 +29487,9 @@ function aczoPresentCatch(data){
  document.getElementById('aczoCatchRewards').appendChild(anglingEpPopup);
 }
 function aczoResetPresentation(){
+ anglingCatchShareGeneration++;anglingCatchShareBlob=null;anglingCatchShareFile=null;
+ if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}
+ if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='WhatsApp / Teilen';}
  aczoClearReward();
  anglingEpPopup.removeAttribute('aria-label');
  aczoClearEquipFeedback();aczoStopDrops();
@@ -34518,6 +34749,23 @@ function updateAnglingBobberWaterTint(surface){
 }
 
 const anglingBobberDeepWaterColor=new THREE.Color(0x426b70);
+// P79: Ein vorher tief eingetauchter Schwimmer darf seine reduzierte
+// Unterwasser-Deckkraft nicht in die Bereitschaftsposition mitnehmen.
+function resetAnglingBobberVisualState(){
+  anglingBobber.scale.setScalar(1);
+  anglingBobber.traverse(o=>{
+    if(!o.isMesh||!o.material)return;
+    if(o.userData.anglingBobBaseColor&&o.material.color){
+      o.material.color.copy(o.userData.anglingBobBaseColor);
+      o.material.opacity=1;
+    }
+  });
+  anglingBobHalo.material.opacity=.30;
+  anglingBobGlowStick.material.opacity=1;
+  anglingBobGlowHalo.material.opacity=.78;
+  anglingBobGlowReflectionMat.opacity=0;
+  anglingBobGlowReflectionSoftMat.opacity=0;
+}
 function updateAnglingBobberDepthLook(depth=0){
   const underwater=THREE.MathUtils.smoothstep(Math.max(0,depth),.06,1.05);
   // Mit zunehmender Tiefe wirkt die Pose perspektivisch kleiner. Weniger
@@ -35618,9 +35866,9 @@ function pickAnglingCandidate(){
 // bleiben bewusst unter publizierten Extremgrößen. Der einzige gelbe Koi ist
 // die Ausnahme und bleibt unverändert exakt 70 cm groß.
 const anglingCatchSizes={
-  roach:[8,46],rudd:[8,48],bream:[18,76],perch:[6,55],sunfish:[5,30],goby:[4,25],
-  tench:[15,72],carp:[30,115],mirrorcarp:[30,115],grasscarp:[40,138],
-  pike:[25,125],zander:[20,96],eel:[25,115],catfish:[40,230],sturgeon:[50,120],koi:[70]
+  roach:[8,50],rudd:[8,50],bream:[18,76],perch:[6,55],sunfish:[5,30],goby:[4,25],
+  tench:[15,80],carp:[30,115],mirrorcarp:[30,120],grasscarp:[40,150],
+  pike:[25,140],zander:[20,105],eel:[25,130],catfish:[40,260],sturgeon:[50,160],koi:[70]
 };
 const ANGLING_SIZE_TIERS=[
   {chance:.55,from:.12,to:.55},
@@ -35727,6 +35975,15 @@ function beginAnglingStrikeQte(){
 const ANGLING_STRENGTH={
   roach:.22,rudd:.24,bream:.46,perch:.34,sunfish:.22,goby:.14,tench:.62,carp:.92,
   mirrorcarp:.96,grasscarp:1.05,pike:.86,zander:.72,eel:.58,catfish:1.08,sturgeon:.94,koi:.92
+};
+// V1.6/P83: Die bisherigen Maximalgroessen bleiben die Referenz fuer die
+// bislang bekannte Kampfkraft. Dadurch wird z.B. ein alter 230-cm-Wels durch
+// die Erweiterung auf 260 cm nicht nachtraeglich schwaecher. Nur Fische, die
+// ueber die fruehere Maximalgroesse hinausgehen, erhalten einen progressiven
+// Kapitalfisch-Bonus auf Kraft, Ausdauer und Explosivitaet.
+const ANGLING_FIGHT_REFERENCE_MAX_CM={
+  roach:46,rudd:48,bream:76,perch:55,sunfish:30,goby:25,tench:72,carp:115,
+  mirrorcarp:115,grasscarp:138,pike:125,zander:96,eel:115,catfish:230,sturgeon:120,koi:70
 };
 
 // Artspezifische Drillhandschrift. Werte modifizieren nur das bereits
@@ -35869,21 +36126,45 @@ function beginAnglingDrill(){
   anglingBobber.visible=false;
   anglingLure.visible=false;anglingLine.visible=true;anglingDrillLineGroup.visible=true;
   anglingHookPoint.copy(anglingCastEnd);anglingHookPoint.z=anglingSurfaceZ(anglingHookPoint.x,anglingHookPoint.y)-.11;
-  const sizeMax=(anglingCatchSizes[anglingPendingCatch.species]||[10,30]).slice(-1)[0]||30;
-  const sizeFactor=THREE.MathUtils.clamp(anglingPendingCatch.cm/sizeMax,.45,1.15);
-  anglingCurrentFightProfile=ANGLING_FIGHT_PROFILE[anglingPendingCatch.species]||ANGLING_FIGHT_PROFILE.roach;
+  const species=anglingPendingCatch.species;
+  const sizeMax=(anglingCatchSizes[species]||[10,30]).slice(-1)[0]||30;
+  const fightReferenceMax=ANGLING_FIGHT_REFERENCE_MAX_CM[species]||sizeMax;
+  // Bis zur alten Maximalgroesse exakt dieselbe Groessen-Skalierung wie vor
+  // V1.6. Erst oberhalb dieser Referenz beginnt der neue Kapitalfisch-Bereich.
+  const baseSizeFactor=THREE.MathUtils.clamp(anglingPendingCatch.cm/fightReferenceMax,.45,1.15);
+  const extensionRoom=Math.max(.001,sizeMax-fightReferenceMax);
+  const trophyLengthProgress=THREE.MathUtils.clamp((anglingPendingCatch.cm-fightReferenceMax)/extensionRoom,0,1);
+  // Das Gewicht wird mit derselben neuen V1.6-Kurve einbezogen. Entscheidend
+  // ist nur der Zuwachs oberhalb des alten Referenzfisches, damit bestehende
+  // Groessen ihre fruehere Kampfkraft behalten.
+  const currentFightKg=anglingEstimatedKg(species,anglingPendingCatch.cm);
+  const referenceFightKg=anglingEstimatedKg(species,fightReferenceMax);
+  const maximumFightKg=anglingEstimatedKg(species,sizeMax);
+  const trophyWeightProgress=maximumFightKg>referenceFightKg+.001
+    ?THREE.MathUtils.clamp((currentFightKg-referenceFightKg)/(maximumFightKg-referenceFightKg),0,1)
+    :0;
+  const trophyPower=THREE.MathUtils.clamp(.55*trophyLengthProgress+.45*trophyWeightProgress,0,1);
+  // Der erweiterte Faktor wirkt auf Fluchtraum/Run-Drive, ohne die alten
+  // Fische umzuschreiben. Absolute Kapitalfische duerfen sichtbar darueber liegen.
+  const sizeFactor=THREE.MathUtils.clamp(baseSizeFactor+trophyPower*.12,.45,1.27);
+  anglingCurrentFightProfile=ANGLING_FIGHT_PROFILE[species]||ANGLING_FIGHT_PROFILE.roach;
   const temp=ANGLING_TEMPERAMENTS.find(t=>t.name===anglingFishTemperament)||ANGLING_TEMPERAMENTS[1];
   anglingFightSizeFactor=sizeFactor;
   anglingDistanceUiPrev=anglingFightDistance;
   anglingDistanceUiSpeed=0;
   anglingDistanceMotion=0;
   anglingDistanceFlowState=0;
-  anglingDrillStrength=THREE.MathUtils.clamp((ANGLING_STRENGTH[anglingPendingCatch.species]||.4)*(.72+.36*sizeFactor)*temp.run,.12,1.18);
-  anglingFishBurstIndividual=.92+Math.random()*.16;
+  const legacyStrength=THREE.MathUtils.clamp(
+    (ANGLING_STRENGTH[species]||.4)*(.72+.36*baseSizeFactor)*temp.run,
+    .12,1.18
+  );
+  anglingDrillStrength=THREE.MathUtils.clamp(legacyStrength*(1+.16*Math.pow(trophyPower,1.08)),.12,1.38);
+  anglingFishBurstIndividual=(.92+Math.random()*.16)*(1+.10*trophyPower);
   anglingFishEnduranceIndividual=.92+Math.random()*.16;
   anglingDrillStamina=anglingStrikeQuality==='perfect'?.92:1;
-  anglingStaminaResistance=anglingCurrentFightProfile.stamina*temp.stamina*anglingFishEnduranceIndividual*
-    THREE.MathUtils.lerp(.84,1.34,THREE.MathUtils.clamp((sizeFactor-.45)/.70,0,1));
+  const legacyStaminaResistance=anglingCurrentFightProfile.stamina*temp.stamina*anglingFishEnduranceIndividual*
+    THREE.MathUtils.lerp(.84,1.34,THREE.MathUtils.clamp((baseSizeFactor-.45)/.70,0,1));
+  anglingStaminaResistance=legacyStaminaResistance*(1+.22*Math.pow(trophyPower,1.05));
   setupAnglingFishVisual();anglingFishVisual.visible=false;anglingNetGroup.visible=false;
   anglingFishVisualPrevValid=false;anglingFishVisualDepthYaw=0;anglingFishVisualMotionState='drilling';
   anglingDrillTension=anglingStrikeQuality==='perfect'?.34:.42;
@@ -36148,9 +36429,104 @@ function showAnglingCatchCard(){
   }
   aczoPresentCatch(anglingCatchRevealData);
   anglingCatchCard.classList.add('show');
+  aczoPrepareCatchShareFile();
   if(isPersonalBest&&!anglingPlayerProfile.shareRecords){
     deferAnglingOnlineRecordPrompt(caught);
   }
+}
+
+// P84: Hochauflösende Fangkarte lokal erzeugen und nativ teilen.
+let anglingCatchShareBlob=null;
+let anglingCatchShareFile=null;
+let anglingCatchShareObjectUrl='';
+let anglingCatchShareGeneration=0;
+function aczoCatchShareSafeName(value){
+ return String(value||'Fang').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_').slice(0,50);
+}
+function aczoCatchShareFitText(ctx,text,maxWidth,startSize,minSize=28,weight=900){
+ let size=startSize;
+ while(size>minSize){ctx.font=weight+' '+size+'px Arial,Helvetica,sans-serif';if(ctx.measureText(text).width<=maxWidth)break;size-=2;}
+ return size;
+}
+function aczoCatchShareRoundRect(ctx,x,y,w,h,r){
+ const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+h,rr);ctx.arcTo(x+w,y+h,x,y+h,rr);ctx.arcTo(x,y+h,x,y,rr);ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
+}
+function aczoCatchShareDrawWater(ctx,w,h){
+ const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#0d3d58');g.addColorStop(.42,'#0d5a68');g.addColorStop(1,'#082f2d');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ ctx.save();ctx.globalAlpha=.16;ctx.strokeStyle='#d9fbff';ctx.lineWidth=3;
+ for(let y=180;y<h-120;y+=56){ctx.beginPath();for(let x=-30;x<=w+30;x+=24){const yy=y+Math.sin((x+y)*.021)*7;if(x<0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}ctx.stroke();}
+ ctx.restore();
+ const glow=ctx.createRadialGradient(w*.5,h*.32,20,w*.5,h*.32,w*.62);glow.addColorStop(0,'rgba(126,226,220,.22)');glow.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+}
+async function aczoPrepareCatchShareFile(){
+ const generation=++anglingCatchShareGeneration;
+ anglingCatchShareBlob=null;anglingCatchShareFile=null;
+ if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}
+ if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';}
+ const data=anglingCatchRevealData;if(!data?.caught)return;
+ const {caught,isPersonalBest,isLegendaryKoi,newlyFound}=data;
+ try{
+   if(!anglingCatchImage.complete||!anglingCatchImage.naturalWidth){try{await anglingCatchImage.decode();}catch(_){}}
+   if(generation!==anglingCatchShareGeneration)return;
+   const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
+   const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Canvas nicht verfügbar');
+   aczoCatchShareDrawWater(ctx,canvas.width,canvas.height);
+   // Kopfbereich
+   ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.86)';ctx.font='800 34px Arial,Helvetica,sans-serif';ctx.fillText('AC 1956 ZEWEN-OBERKIRCH',540,92);
+   ctx.fillStyle='#ffffff';ctx.font='950 54px Arial,Helvetica,sans-serif';ctx.fillText('MEIN FANG',540,156);
+   ctx.fillStyle='rgba(226,248,244,.80)';ctx.font='700 25px Arial,Helvetica,sans-serif';ctx.fillText('ACZO56 Angelspiel · Fangkarte',540,199);
+   // Fischfläche
+   ctx.fillStyle='rgba(4,28,30,.46)';aczoCatchShareRoundRect(ctx,85,245,910,535,38);ctx.fill();
+   if(anglingCatchImage.naturalWidth&&anglingCatchImage.naturalHeight){
+     const iw=anglingCatchImage.naturalWidth,ih=anglingCatchImage.naturalHeight;
+     const maxW=820,maxH=420,scale=Math.min(maxW/iw,maxH/ih);const dw=iw*scale,dh=ih*scale;
+     ctx.save();ctx.shadowColor='rgba(0,0,0,.42)';ctx.shadowBlur=30;ctx.drawImage(anglingCatchImage,540-dw/2,300+(420-dh)/2,dw,dh);ctx.restore();
+   }
+   const species=fishDisplayNames[caught.species]||'Fisch';
+   const title=isLegendaryKoi?'DER GELBE KOI':species.toUpperCase();
+   const titleSize=aczoCatchShareFitText(ctx,title,900,72,42,950);ctx.font='950 '+titleSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle=isLegendaryKoi?'#ffe275':'#ffffff';ctx.fillText(title,540,875);
+   const length=formatAnglingLength(caught.cm);const weight=formatAnglingWeight(anglingEstimatedKg(caught.species,caught.cm));
+   ctx.font='900 45px Arial,Helvetica,sans-serif';ctx.fillStyle='#d8fff1';ctx.fillText(length+'  ·  '+weight,540,944);
+   let badge='Sicher gelandet';if(isLegendaryKoi)badge='✨ Legendärer Fang';else if(isPersonalBest)badge='🏆 Persönlicher Rekord';else if(newlyFound)badge='⭐ Neue Art';
+   ctx.fillStyle=isPersonalBest||isLegendaryKoi?'rgba(116,85,18,.72)':'rgba(11,76,55,.72)';aczoCatchShareRoundRect(ctx,260,995,560,82,41);ctx.fill();
+   ctx.font='900 31px Arial,Helvetica,sans-serif';ctx.fillStyle=isPersonalBest||isLegendaryKoi?'#ffe493':'#effff7';ctx.fillText(badge,540,1048);
+   const now=new Date();const dateText=now.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+   ctx.font='700 26px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(235,255,249,.82)';ctx.fillText(dateText+' · Vereinsweiher AC 1956 Zewen-Oberkirch',540,1141);
+   ctx.font='700 22px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(220,246,241,.66)';ctx.fillText('Erstellt direkt aus ACZO56 · Version 1.6',540,1200);
+   ctx.fillStyle='rgba(255,255,255,.16)';ctx.fillRect(120,1247,840,2);
+   ctx.font='800 21px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(240,255,250,.74)';ctx.fillText('Petri Heil!',540,1295);
+   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+   if(!blob||generation!==anglingCatchShareGeneration)return;
+   anglingCatchShareBlob=blob;
+   const fileName='ACZO56_'+aczoCatchShareSafeName(species)+'_'+String(Number(caught.cm).toFixed(1)).replace('.',',')+'cm.png';
+   if(typeof File==='function')anglingCatchShareFile=new File([blob],fileName,{type:'image/png',lastModified:Date.now()});
+   if(anglingShareBtn){anglingShareBtn.disabled=false;if(anglingShareLabel)anglingShareLabel.textContent='WhatsApp / Teilen';}
+ }catch(err){console.warn('Fangkarte konnte nicht vorbereitet werden:',err);if(anglingShareBtn){anglingShareBtn.disabled=false;if(anglingShareLabel)anglingShareLabel.textContent='Fangbild öffnen';}}
+}
+function aczoFallbackCatchShare(){
+ if(!anglingCatchShareBlob)return false;
+ if(anglingCatchShareObjectUrl)URL.revokeObjectURL(anglingCatchShareObjectUrl);
+ anglingCatchShareObjectUrl=URL.createObjectURL(anglingCatchShareBlob);
+ const a=document.createElement('a');a.href=anglingCatchShareObjectUrl;a.download=anglingCatchShareFile?.name||'ACZO56_Fangkarte.png';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+ window.setTimeout(()=>{if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}},12000);
+ return true;
+}
+async function aczoShareCurrentCatch(){
+ const data=anglingCatchRevealData;if(!data?.caught)return;
+ if(!anglingCatchShareBlob){if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';await aczoPrepareCatchShareFile();}
+ if(!anglingCatchShareBlob)return;
+ const caught=data.caught;const species=fishDisplayNames[caught.species]||'Fisch';
+ const text='Mein Fang bei ACZO56: '+species+' · '+formatAnglingLength(caught.cm)+' · '+formatAnglingWeight(anglingEstimatedKg(caught.species,caught.cm));
+ try{
+   const files=anglingCatchShareFile?[anglingCatchShareFile]:[];
+   const canFileShare=!!(navigator.share&&files.length&&(!navigator.canShare||navigator.canShare({files})));
+   if(canFileShare){await navigator.share({title:'ACZO56 Fangkarte',text,files});return;}
+   if(navigator.share){await navigator.share({title:'ACZO56 Fang',text});aczoFallbackCatchShare();return;}
+   aczoFallbackCatchShare();
+ }catch(err){
+   if(err&&err.name==='AbortError')return;
+   console.warn('Teilen nicht möglich, Fangbild wird bereitgestellt:',err);aczoFallbackCatchShare();
+ }
 }
 
 function loseCurrentArtificialLure(){
@@ -36942,6 +37318,9 @@ function resetAnglingCast(){
   if(!anglingMode||!anglingSelection) return;
   resetAnglingFastTap();
   resetAnglingUnderwaterState(false);
+  // P79: Biss-/Tiefenoptik der Pose vollständig zurücksetzen, bevor sie in der
+  // Bereitschaftsposition an der Rute wieder sichtbar wird.
+  resetAnglingBobberVisualState();
 
   // V6.35: Nach Drill/Keschern/Fangkarte immer exakt zur zuvor gespeicherten
   // Uferkamera zurückkehren. Die Kescher-Nahaufnahme verschiebt die Hauptkamera
@@ -37013,17 +37392,19 @@ function setAnglingDrillRodFromPointer(clientX,clientY){
   return true;
 }
 const aczoDrillLineColor=new THREE.Color();
-const aczoDrillLineWhite=new THREE.Color(0xe6eee7);
-const aczoDrillLineYellow=new THREE.Color(0xf3d64b);
-const aczoDrillLineOrange=new THREE.Color(0xf28a2e);
-const aczoDrillLineRed=new THREE.Color(0xff4338);
+const aczoDrillLineWhite=new THREE.Color(0xf2fff6);
+const aczoDrillLineYellow=new THREE.Color(0xffe04b);
+const aczoDrillLineOrange=new THREE.Color(0xff8a2a);
+const aczoDrillLineRed=new THREE.Color(0xff342e);
 function aczoUpdateDrillLineColor(tension){
   const t=THREE.MathUtils.clamp(tension,0,1);
-  if(t<.54)aczoDrillLineColor.copy(aczoDrillLineWhite);
-  else if(t<.72)aczoDrillLineColor.copy(aczoDrillLineWhite).lerp(aczoDrillLineYellow,(t-.54)/.18);
-  else if(t<.87)aczoDrillLineColor.copy(aczoDrillLineYellow).lerp(aczoDrillLineOrange,(t-.72)/.15);
-  else aczoDrillLineColor.copy(aczoDrillLineOrange).lerp(aczoDrillLineRed,(t-.87)/.13);
+  // P75: Auf kleinen Displays früher und kräftiger sichtbar.
+  if(t<.48)aczoDrillLineColor.copy(aczoDrillLineWhite);
+  else if(t<.65)aczoDrillLineColor.copy(aczoDrillLineWhite).lerp(aczoDrillLineYellow,(t-.48)/.17);
+  else if(t<.80)aczoDrillLineColor.copy(aczoDrillLineYellow).lerp(aczoDrillLineOrange,(t-.65)/.15);
+  else aczoDrillLineColor.copy(aczoDrillLineOrange).lerp(aczoDrillLineRed,(t-.80)/.20);
   anglingLine.material.color.copy(aczoDrillLineColor);
+  anglingDrillLineInnerMat.color.copy(aczoDrillLineColor);
 }
 function updateAnglingDrillUi(){
   const tensionPct=Math.round(anglingDrillTension*100),staminaPct=Math.round(anglingDrillStamina*100);
@@ -37162,7 +37543,18 @@ function updateAnglingDrill(dt){
     if(Math.random()<THREE.MathUtils.clamp(.52+.24*fight.lateral,.45,.88))anglingDrillDirectionValue*=-1;
     // Manche Arten drehen plötzlich auf den Angler zu. Dann fällt die Spannung
     // ab und schnelles Kurbeln ist wichtiger als Kraft gegen Kraft.
-    anglingFishTowardRun=Math.random()<fight.toward*anglingDrillStamina;
+    // P76: Ein kräftiger, noch frischer Großfisch darf sich direkt am Ufer nicht
+    // in einer langen "zum Angler"-Flucht an der Mindestdistanz festfahren.
+    // In Ufernähe erzwingen wir bei genügend Reserve die nächste Flucht nach draußen.
+    const shoreEscapePowerAtRun=THREE.MathUtils.clamp(
+      (anglingDrillStrength-.52)/.60,0,1
+    )*THREE.MathUtils.clamp(((fight.maxRun||7)-6)/24,0,1);
+    const shoreEscapeDistanceAtRun=THREE.MathUtils.lerp(3.0,5.8,shoreEscapePowerAtRun);
+    const forceOutwardFromShore=shoreEscapePowerAtRun>.12&&anglingDrillStamina>.18&&
+      anglingFightDistance<shoreEscapeDistanceAtRun;
+    anglingFishTowardRun=forceOutwardFromShore
+      ?false
+      :Math.random()<fight.toward*anglingDrillStamina;
     if(anglingDrillStrength>.42&&Math.random()<THREE.MathUtils.clamp(.54+.20*fight.run,.54,.86)){
       // P67: Fluchtimpuls wieder sichtbar, aber ohne die alten hellen Lichtpunkte.
       anglingRunCalloutTime=.72;anglingUi.classList.remove('fight-pulse');
@@ -37179,6 +37571,28 @@ function updateAnglingDrill(dt){
   const attack=THREE.MathUtils.smoothstep(rp,0,.16);
   const release=1-THREE.MathUtils.smoothstep(rp,.72,1);
   const runPulse=Math.pow(Math.max(0,Math.min(attack,release)),1.18);
+
+  // P76: Nah-Ufer-Ausbruch für starke, noch nicht ermüdete Fische.
+  // Wenn der Fisch mit viel Reserve bereits direkt vorm Ufer steht, darf eine
+  // laufende Einwärtsphase nicht bis zu 20–30 s gegen den 1,55-m-Clamp drücken.
+  // Sie wird in eine Außenflucht umgewandelt. Ist das aktuelle Fluchtfenster
+  // ohnehin praktisch beendet, starten wir im nächsten Physikframe sofort ein
+  // neues Fluchtfenster, statt den Fisch dort seitlich pendeln zu lassen.
+  const shoreEscapePower=THREE.MathUtils.clamp(
+    (anglingDrillStrength-.52)/.60,0,1
+  )*THREE.MathUtils.clamp(((fight.maxRun||7)-6)/24,0,1);
+  const shoreEscapeDistance=THREE.MathUtils.lerp(3.0,5.8,shoreEscapePower);
+  const shoreEscapeNeeded=shoreEscapePower>.12&&anglingDrillStamina>.18&&
+    anglingFightDistance<shoreEscapeDistance;
+  if(shoreEscapeNeeded&&anglingFishTowardRun){
+    anglingFishTowardRun=false;
+    // Befand sich die Einwärtsflucht schon im Auslauf, bekommt der Fisch einen
+    // neuen sauberen Antritt nach draußen statt nur die alte Restkurve umzudrehen.
+    if(rp>.58)anglingDrillRunTime=anglingDrillRunDuration;
+  }else if(shoreEscapeNeeded&&runPulse<.08&&rp>.42){
+    anglingDrillRunTime=anglingDrillRunDuration;
+  }
+
   const trophyReserve=THREE.MathUtils.clamp((anglingFightSizeFactor-.50)/.50,0,1);
   const effectiveStrength=anglingDrillStrength*
     (THREE.MathUtils.lerp(.20,.43,trophyReserve)+THREE.MathUtils.lerp(.80,.57,trophyReserve)*anglingDrillStamina);
@@ -37195,27 +37609,35 @@ function updateAnglingDrill(dt){
   // nimmt der Blank einen Teil der Spitze auf. Der statische Grundzug bleibt erhalten.
   const rodBuffer=THREE.MathUtils.clamp(aczoRodVisual.buffer??.55,0,1);
   const rodDirect=1-rodBuffer;
-  const shockTransfer=THREE.MathUtils.lerp(1.28,.70,rodBuffer);
+  // P75: Der Rutenwinkel bleibt physikalisch relevant, aber die Bremse bleibt
+  // die dominante Sicherheitsinstanz. P73 hat den Direktzug zu aggressiv
+  // multipliziert, wodurch selbst die lockere Bremse bei Großwelsen reißen konnte.
+  const shockTransfer=THREE.MathUtils.lerp(1.10,.84,rodBuffer);
   const dragRunTension=(anglingSelectedDrag==='loose'
     ?runPower*.045
     :anglingSelectedDrag==='tight'?runPower*.285:runPower*.145)*shockTransfer;
   const mediumBigFishLoad=(anglingSelectedDrag==='medium'&&drillPointerReeling)
-    ?THREE.MathUtils.clamp((effectiveStrength-.48)/.52,0,1)*(.045+.065*runPulse)*THREE.MathUtils.lerp(1.16,.76,rodBuffer)
+    ?THREE.MathUtils.clamp((effectiveStrength-.48)/.52,0,1)*(.045+.065*runPulse)*THREE.MathUtils.lerp(1.08,.88,rodBuffer)
     :0;
   const tightBigFishLoad=(anglingSelectedDrag==='tight'&&drillPointerReeling)
-    ?THREE.MathUtils.clamp((effectiveStrength-.58)/.52,0,1)*(.045+.070*runPulse)*THREE.MathUtils.lerp(1.18,.78,rodBuffer)
+    ?THREE.MathUtils.clamp((effectiveStrength-.58)/.52,0,1)*(.045+.070*runPulse)*THREE.MathUtils.lerp(1.10,.86,rodBuffer)
     :0;
-  const directShock=runPower*rodDirect*.075;
-  const bufferRelief=runPower*rodBuffer*.045;
-  const targetTension=.12+drag.tension+effectiveStrength*(.20+.16*runPulse*shockTransfer)
+  const dragShockScale=anglingSelectedDrag==='loose'?.18:(anglingSelectedDrag==='medium'?.65:1);
+  const directShock=runPower*rodDirect*.040*dragShockScale;
+  const bufferRelief=runPower*rodBuffer*.025;
+  let targetTension=.12+drag.tension+effectiveStrength*(.20+.16*runPulse*shockTransfer)
     +(drillPointerReeling?.38:-.08)-(anglingFishTowardRun&&runPulse>.48?.24:0)
     +angleTension+mediumBigFishLoad+tightBigFishLoad+dragRunTension+directShock-bufferRelief;
-  // Ein gut arbeitender Blank bremst vor allem den ANSTIEG einer Spannungsspitze.
-  // Beim direkten Zeigen auf den Fisch steigt die Last entsprechend schneller.
-  const tensionRise=THREE.MathUtils.lerp(1.22,.68,rodBuffer);
+  // Lockere Bremse = Sicherheitsventil: Der Fisch darf viel Schnur nehmen und
+  // den Drill verlängern, aber ein normaler Run allein soll die Schnur nicht
+  // in die Abrisszone treiben. Beim aktiven Kurbeln darf sie etwas höher steigen.
+  if(anglingSelectedDrag==='loose')targetTension=Math.min(targetTension,drillPointerReeling?.87:.84);
+  // Der Blank puffert weiterhin Spannungsspitzen, nur deutlich weniger brutal
+  // als in P73. Direkte Rutenstellung bleibt spürbar, ohne die Bremse auszuhebeln.
+  const tensionRise=THREE.MathUtils.lerp(1.10,.82,rodBuffer);
   anglingDrillTension+=THREE.MathUtils.clamp(
     targetTension-anglingDrillTension,
-    -dt*THREE.MathUtils.lerp(.64,.86,rodBuffer),
+    -dt*THREE.MathUtils.lerp(.68,.84,rodBuffer),
     dt*(1.05+runPower*.65)*tensionRise
   );
   anglingDrillTension=anglingClamp01(anglingDrillTension);
@@ -39061,6 +39483,7 @@ function stopAnglingActionHold(){
 }
 anglingActionBtn.addEventListener('click',e=>{if(anglingState==='ready')startAnglingCast();});
 anglingAgainBtn.addEventListener('click',resetAnglingCast);
+anglingShareBtn?.addEventListener('click',e=>{e.stopPropagation();aczoShareCurrentCatch();});
 anglingLogBtn?.addEventListener('click',openAnglingLog);
 anglingLogCloseBtn.addEventListener('click',closeAnglingLogAndMaybeReturn);
 anglingLogTopCloseBtn.addEventListener('click',closeAnglingLogAndMaybeReturn);
@@ -39161,6 +39584,36 @@ document.querySelectorAll('[data-angling-drag]').forEach(btn=>{
     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
   },{capture:true,passive:false});
 });
+
+// P78: Desktop-Mausrad stellt im laufenden Drill die Rollenbremse um.
+// Wheel down / zum Spieler = lockerer, wheel up / vom Spieler = fester.
+// Ein kleiner Akkumulator verhindert, dass hochauflösende Mausräder/Trackpads
+// bei einem einzigen Fingerimpuls sofort mehrere Bremsstufen überspringen.
+const ACZO_DRAG_WHEEL_LEVELS=['loose','medium','tight'];
+let anglingDragWheelAccumulator=0;
+let anglingDragWheelLastStep=0;
+function aczoHandleDrillBrakeWheel(e){
+  if(!anglingMode||anglingState!=='drilling')return;
+  if(window.matchMedia&&!window.matchMedia('(pointer:fine)').matches)return;
+  const raw=Number(e.deltaY)||0;
+  if(!raw)return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  const scaled=e.deltaMode===1?raw*16:(e.deltaMode===2?raw*120:raw);
+  anglingDragWheelAccumulator+=scaled;
+  const now=performance.now();
+  if(Math.abs(anglingDragWheelAccumulator)<38||now-anglingDragWheelLastStep<90)return;
+  const current=Math.max(0,ACZO_DRAG_WHEEL_LEVELS.indexOf(anglingSelectedDrag));
+  // deltaY > 0 = Rad nach unten/zu dir -> lockerer; deltaY < 0 -> fester.
+  const step=anglingDragWheelAccumulator>0?-1:1;
+  const next=THREE.MathUtils.clamp(current+step,0,ACZO_DRAG_WHEEL_LEVELS.length-1);
+  anglingDragWheelAccumulator=0;
+  anglingDragWheelLastStep=now;
+  if(next!==current)chooseAnglingDragSetting(ACZO_DRAG_WHEEL_LEVELS[next]);
+}
+viewer.addEventListener('wheel',aczoHandleDrillBrakeWheel,{capture:true,passive:false});
+
 anglingDepth.addEventListener('input',()=>{
   if(anglingState!=='ready')return;
   anglingRigDepth=THREE.MathUtils.clamp(Number(anglingDepth.value)||1.5,.2,6);
@@ -39904,6 +40357,10 @@ document.addEventListener('visibilitychange',()=>{
      updateCelestialLensFlare();
      updateWaterStarReflectionPoints(visualDt);
    }
+   // P81: Mobil-Sonne/Mond auch im festen Neutral-Tag aktualisieren. Bei
+   // Kamerabewegung laeuft dieser Block ohnehin pro Frame, im Stillstand 8 Hz.
+   if(typeof updateMobileCelestialWaterReflections==='function')
+     updateMobileCelestialWaterReflections(visualDt);
    updateContourDistanceLod();
    updateCompass();
  }
