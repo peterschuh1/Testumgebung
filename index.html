@@ -6,7 +6,7 @@
 <title>ACZO56-Interaktiv-V1.6</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- ACZO56 V1.6 P84: Drill, Unterwasser-KI, mobile Wasserreflexe, Fischgrößen/Gewichte, Cloud-Bestenliste und teilbare Fangkarte. -->
-<!-- ACZO56 V1.6 P90: Fangkarten-Vorschau aus der Angel-UI isoliert; keine globalen Pointer-/Kartenänderungen. -->
+<!-- ACZO56 V1.6 P91: Share-Fangkarte mit eingebettetem Vereinslogo, größeren Fangmaßen und Anglername/Stufe. -->
 <!-- V7.83: Kritische Viewer-Ressourcen früh anfordern. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://geo4.service24.rlp.de" crossorigin>
@@ -36534,6 +36534,33 @@ let anglingCatchShareBlob=null;
 let anglingCatchShareFile=null;
 let anglingCatchShareObjectUrl='';
 let anglingCatchShareGeneration=0;
+let aczoCatchShareClubLogoPromise=null;
+function aczoCatchShareClubLogoImage(){
+ if(aczoCatchShareClubLogoPromise)return aczoCatchShareClubLogoPromise;
+ aczoCatchShareClubLogoPromise=new Promise(resolve=>{
+   try{
+     const img=new Image();
+     img.onload=()=>resolve(img);
+     img.onerror=()=>resolve(null);
+     img.src=FLAGPOLE_LOGO_DATA;
+     if(img.complete&&img.naturalWidth)resolve(img);
+   }catch(_){resolve(null);}
+ });
+ return aczoCatchShareClubLogoPromise;
+}
+function aczoCatchShareDrawClubLogo(ctx,img,x,y,w,h){
+ if(!img||!img.naturalWidth||!img.naturalHeight)return;
+ ctx.save();
+ ctx.shadowColor='rgba(0,0,0,.24)';ctx.shadowBlur=12;
+ ctx.fillStyle='rgba(248,249,246,.96)';
+ ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.5,w*.5,h*.5,0,0,Math.PI*2);ctx.fill();
+ ctx.shadowBlur=0;
+ ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.5,w*.47,h*.47,0,0,Math.PI*2);ctx.clip();
+ const scale=Math.min((w*.90)/img.naturalWidth,(h*.90)/img.naturalHeight);
+ const dw=img.naturalWidth*scale,dh=img.naturalHeight*scale;
+ ctx.drawImage(img,x+(w-dw)*.5,y+(h-dh)*.5,dw,dh);
+ ctx.restore();
+}
 let aczoSharePreviewFlashTimer=0;
 let aczoSharePreviewHistoryPushed=false;
 let aczoSharePreviewHistoryClosing=false;
@@ -36565,26 +36592,30 @@ async function aczoPrepareCatchShareFile(){
  const {caught,isPersonalBest,isLegendaryKoi,newlyFound,strikeQuality}=data;
  try{
    if(!anglingCatchImage.complete||!anglingCatchImage.naturalWidth){try{await anglingCatchImage.decode();}catch(_){}}
+   const clubLogo=await aczoCatchShareClubLogoImage();
    if(generation!==anglingCatchShareGeneration)return;
    const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
    const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Canvas nicht verfügbar');
    aczoCatchShareDrawWater(ctx,canvas.width,canvas.height);
-   // Kopfbereich
-   ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.86)';ctx.font='800 34px Arial,Helvetica,sans-serif';ctx.fillText('AC 1956 ZEWEN-OBERKIRCH',540,92);
-   ctx.fillStyle='#ffffff';ctx.font='950 54px Arial,Helvetica,sans-serif';ctx.fillText('MEIN FANG',540,156);
-   ctx.fillStyle='rgba(226,248,244,.80)';ctx.font='700 25px Arial,Helvetica,sans-serif';ctx.fillText('ACZO56 Angelspiel · Fangkarte',540,199);
+   // P91: Luftigere Share-Fangkarte mit eingebettetem Vereinslogo.
+   ctx.textAlign='center';
+   aczoCatchShareDrawClubLogo(ctx,clubLogo,72,35,104,138);
+   ctx.fillStyle='rgba(255,255,255,.88)';ctx.font='800 31px Arial,Helvetica,sans-serif';ctx.fillText('AC 1956 ZEWEN-OBERKIRCH',605,82);
+   ctx.fillStyle='#ffffff';ctx.font='950 60px Arial,Helvetica,sans-serif';ctx.fillText('MEIN FANG',605,148);
+
    // Fischfläche
-   ctx.fillStyle='rgba(4,28,30,.46)';aczoCatchShareRoundRect(ctx,85,245,910,535,38);ctx.fill();
+   ctx.fillStyle='rgba(4,28,30,.46)';aczoCatchShareRoundRect(ctx,85,205,910,500,38);ctx.fill();
    if(anglingCatchImage.naturalWidth&&anglingCatchImage.naturalHeight){
      const iw=anglingCatchImage.naturalWidth,ih=anglingCatchImage.naturalHeight;
-     const maxW=820,maxH=420,scale=Math.min(maxW/iw,maxH/ih);const dw=iw*scale,dh=ih*scale;
-     ctx.save();ctx.shadowColor='rgba(0,0,0,.42)';ctx.shadowBlur=30;ctx.drawImage(anglingCatchImage,540-dw/2,300+(420-dh)/2,dw,dh);ctx.restore();
+     const maxW=820,maxH=390,scale=Math.min(maxW/iw,maxH/ih);const dw=iw*scale,dh=ih*scale;
+     ctx.save();ctx.shadowColor='rgba(0,0,0,.42)';ctx.shadowBlur=30;ctx.drawImage(anglingCatchImage,540-dw/2,255+(390-dh)/2,dw,dh);ctx.restore();
    }
    const species=fishDisplayNames[caught.species]||'Fisch';
    const title=isLegendaryKoi?'DER GELBE KOI':species.toUpperCase();
-   const titleSize=aczoCatchShareFitText(ctx,title,900,72,42,950);ctx.font='950 '+titleSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle=isLegendaryKoi?'#ffe275':'#ffffff';ctx.fillText(title,540,875);
+   const titleSize=aczoCatchShareFitText(ctx,title,900,58,38,950);ctx.font='950 '+titleSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle=isLegendaryKoi?'#ffe275':'#ffffff';ctx.fillText(title,540,812);
    const length=formatAnglingLength(caught.cm);const weight=formatAnglingWeight(anglingEstimatedKg(caught.species,caught.cm));
-   ctx.font='900 45px Arial,Helvetica,sans-serif';ctx.fillStyle='#d8fff1';ctx.fillText(length+'  ·  '+weight,540,944);
+   const measures=length+'  ·  '+weight;
+   const measureSize=aczoCatchShareFitText(ctx,measures,900,62,43,950);ctx.font='950 '+measureSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle='#dcfff2';ctx.fillText(measures,540,892);
    const shareSizeData=anglingCatchSizes[caught.species]||[10,30];
    const shareMin=Number(shareSizeData[0])||0,shareMax=Number(shareSizeData[shareSizeData.length-1])||Math.max(shareMin+1,30);
    const shareSizeT=shareMax>shareMin?THREE.MathUtils.clamp((Number(caught.cm)-shareMin)/(shareMax-shareMin),0,1):0;
@@ -36595,13 +36626,19 @@ async function aczoPrepareCatchShareFile(){
    else if(newlyFound)badge='⭐ Neue Art';
    else if(isCapitalShare)badge='🐟 Kapitaler Fang';
    else if(strikeQuality==='perfect')badge='🎯 Perfekter Anhieb';
-   ctx.fillStyle=isPersonalBest||isLegendaryKoi?'rgba(116,85,18,.72)':'rgba(11,76,55,.72)';aczoCatchShareRoundRect(ctx,260,995,560,82,41);ctx.fill();
-   ctx.font='900 31px Arial,Helvetica,sans-serif';ctx.fillStyle=isPersonalBest||isLegendaryKoi?'#ffe493':'#effff7';ctx.fillText(badge,540,1048);
+   ctx.fillStyle=isPersonalBest||isLegendaryKoi?'rgba(116,85,18,.72)':'rgba(11,76,55,.72)';aczoCatchShareRoundRect(ctx,260,945,560,82,41);ctx.fill();
+   ctx.font='900 31px Arial,Helvetica,sans-serif';ctx.fillStyle=isPersonalBest||isLegendaryKoi?'#ffe493':'#effff7';ctx.fillText(badge,540,998);
+
    const now=new Date();const dateText=now.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-   ctx.font='700 26px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(235,255,249,.82)';ctx.fillText(dateText+' · Vereinsweiher AC 1956 Zewen-Oberkirch',540,1141);
-   ctx.font='700 22px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(220,246,241,.66)';ctx.fillText('Erstellt direkt aus ACZO56 · Version 1.6',540,1200);
-   ctx.fillStyle='rgba(255,255,255,.16)';ctx.fillRect(120,1247,840,2);
-   ctx.font='800 21px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(240,255,250,.74)';ctx.fillText('Petri Heil!',540,1295);
+   ctx.font='700 26px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(235,255,249,.82)';ctx.fillText(dateText+' · Vereinsweiher AC 1956 Zewen-Oberkirch',540,1091);
+
+   const anglerName=(anglingPlayerProfile?.name||'Angler').trim()||'Angler';
+   const anglerLevel=anglingLevelForXp(anglingProgress.lifetimeXp);
+   const anglerLine='Angler: '+anglerName+'  ·  Erfahrungsstufe '+anglerLevel;
+   const anglerSize=aczoCatchShareFitText(ctx,anglerLine,900,28,21,800);ctx.font='800 '+anglerSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(231,255,247,.78)';ctx.fillText(anglerLine,540,1162);
+
+   ctx.fillStyle='rgba(255,255,255,.16)';ctx.fillRect(120,1214,840,2);
+   ctx.font='900 34px Arial,Helvetica,sans-serif';ctx.fillStyle='rgba(244,255,251,.92)';ctx.fillText('Petri Heil!',540,1286);
    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
    if(!blob||generation!==anglingCatchShareGeneration)return;
    anglingCatchShareBlob=blob;
