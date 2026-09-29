@@ -4520,13 +4520,15 @@ html,body{
 @keyframes aczo-reward-in{from{opacity:0}to{opacity:1}}
 #anglingCatchCard #anglingAgainBtn{min-height:40px;white-space:normal}
 /* P84: Fangkarte lokal als PNG erzeugen und über die native Teilen-Funktion weitergeben. */
-#anglingCatchCard .aczo-catch-actions{display:flex;gap:7px;justify-content:center;align-items:stretch;flex-wrap:wrap}
-#anglingCatchCard .aczo-catch-actions button{flex:1 1 150px;min-width:0}
-#anglingCatchCard #anglingShareBtn{background:#1f9d55;color:#fff;border-color:rgba(255,255,255,.88);display:inline-flex;align-items:center;justify-content:center;gap:7px}
-#anglingCatchCard #anglingShareBtn:disabled{opacity:.56;cursor:wait}
-#anglingCatchCard #anglingShareBtn svg{width:17px;height:17px;flex:0 0 17px;overflow:visible}
-#anglingCatchCard #anglingShareBtn .aczo-share-label{display:inline!important;margin:0!important;font-size:inherit!important;font-weight:inherit!important}
-@media(max-width:480px){#anglingCatchCard .aczo-catch-actions{gap:5px}#anglingCatchCard .aczo-catch-actions button{flex-basis:120px;padding-left:8px!important;padding-right:8px!important}}
+#anglingCatchCard .aczo-catch-actions{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:nowrap}
+#anglingCatchCard #anglingAgainBtn{flex:1 1 auto;min-width:0}
+/* P85: Teilen bleibt verfügbar, drängt sich aber nicht mehr vor den eigentlichen Fang. */
+#anglingCatchCard #anglingShareBtn{flex:0 0 42px!important;width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;border-radius:50%!important;background:rgba(31,157,85,.72);color:#fff;border-color:rgba(220,255,236,.72);display:inline-flex;align-items:center;justify-content:center;box-shadow:none!important}
+#anglingCatchCard #anglingShareBtn:hover{background:rgba(31,157,85,.90)}
+#anglingCatchCard #anglingShareBtn:disabled{opacity:.42;cursor:wait}
+#anglingCatchCard #anglingShareBtn svg{width:19px;height:19px;flex:0 0 19px;overflow:visible}
+#anglingCatchCard #anglingShareBtn .aczo-share-label{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+@media(max-width:480px){#anglingCatchCard .aczo-catch-actions{gap:7px}#anglingCatchCard #anglingShareBtn{flex-basis:40px!important;width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}}
 @media(max-width:680px){#anglingCatchCard .aczo-catch-photo{height:82px}#anglingCatchCard{padding:10px}#anglingCatchCard #anglingCatchTitle{font-size:15px}#aczoCatchRewards{height:70px;min-height:70px}}
 @media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
 
@@ -4935,7 +4937,7 @@ html,body{
          <section><h3>⚡ Biss, Anhieb & Hänger</h3><p>Beim Posenangeln zeigt der Schwimmer zuerst den Biss. Danach läuft das Reaktions-QTE zweimal vollständig. Ein exakt mittiger Treffer gilt als perfekter Anhieb und bringt beim Fang +8 EP. Triff den grünen beziehungsweise besonders guten Bereich. Ein früher Fehlversuch beendet nicht sofort den gesamten Versuch. Kurze Randimpulse unterstützen Biss und Hänger visuell; der Hänger bleibt anschließend ein echter Zustand und muss gelöst werden, statt durch Schnelleinholen oder „Zum Ufer“ übersprungen zu werden.</p></section>
          <section><h3>🎣 Drill & Bremse</h3><p>Beobachte Schnurspannung, Fisch-Ausdauer und Entfernung. Halte „Kurbeln“ gedrückt und führe die Rute auf die Gegenseite des Fisches: Fisch links bedeutet Rute rechts, Fisch rechts bedeutet Rute links. Die Rutenhaltung ist Teil der Drillphysik: Zeigt die Rute fast direkt zum Fisch, richtet sich der Blank auf und die Schnur übernimmt mehr Last; mit größerem Winkel biegt die Rute stärker und puffert Fluchtspitzen. Eine lockere Bremse lässt mehr Schnur frei und schützt besonders bei starken Fischen, eine feste Bremse holt direkter ein, erhöht aber das Risiko. Auf dem Desktop stellst du die Bremse zusätzlich mit dem Mausrad ein: ↑ fester, ↓ lockerer. Die sichtbare Drillschnur wechselt mit der Belastung von Weiß über Gelb und Orange zu Rot. Bei echter Flucht und Schnurabzug reagieren Randpuls, Belastungsbalken und Rutenfederung sichtbar stärker. Große Fische mit viel Rest-Ausdauer können kurz vor dem Ufer erneut nach draußen flüchten. Bei zu hoher Spannung musst du Last herausnehmen, sonst droht Schnurbruch; ein montierter Kunstköder geht dabei verloren.</p></section>
          <section><h3>🥅 Keschern</h3><p>Bewege den Kescher mit Maus oder Finger nach links/rechts unter den Fisch und keschere im passenden Moment. Der Standardkescher gehört zur Startausrüstung. Der größere Pro Kescher kann im Shop gekauft werden und vergrößert die reale Fangzone um rund 18 %. Der erste knappe Fehlversuch wird weiterhin verziehen.</p></section>
-         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch kann die Fangkarte über „WhatsApp / Teilen“ als eigenes PNG-Bild ausgegeben werden. Auf unterstützten Handys öffnet sich der native Teilen-Dialog, in dem WhatsApp oder eine andere installierte App gewählt werden kann. Fischart, Länge, Gewicht und ein möglicher persönlicher Rekord werden direkt in die Grafik geschrieben. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
+         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch steht auf der Fangkarte ein kleiner grüner Teilen-Button mit Symbol bereit. Er erzeugt lokal eine eigene PNG-Fangkarte und öffnet auf unterstützten Handys den nativen Teilen-Dialog für WhatsApp oder andere installierte Apps. Fischart, Länge und Gewicht stehen direkt im Bild; je nach Fang wird zusätzlich „Persönlicher Rekord“, „Neue Art“, „Kapitaler Fang“, „Perfekter Anhieb“ oder „Sicher gelandet“ eingeblendet. Der Begleittext bleibt bewusst kurz. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
          <section><h3>⏱️ Zeitwechsel</h3><p>Der Zeitwechsel steht ausschließlich in der Ufer-Angelperspektive bereit, solange die Angel noch nicht ausgeworfen wurde und du den Auswurfpunkt wählen kannst. In Stellenauswahl, Unterwasseransicht, nach dem Auswurf, bei Biss, Drill und Keschern ist die Funktion ausgeblendet. Du kannst die Spielzeit in 1-Stunden-Schritten bis maximal 24 Stunden vor- oder zurückspulen. Jede Stunde kostet 1 EP und läuft in 0,5 Sekunden ab. Einsteiger besitzen pro Sitzung einen Vorwärts- und einen Rückwärtswechsel; höhere Anglerstufen erhalten zusätzliche Wechsel.</p></section>
          <section><h3>🌗 Aktivitätszeiten</h3><p>Die Fischaktivität verändert sich mit der Tageszeit. Hecht und Barsch profitieren vor allem von Morgen- und Abendphasen. Zander wird besonders in Dämmerung, Nacht und bei Bewölkung aktiv; Aal und Wels bevorzugen überwiegend Abend und Nacht. Zwischen ungefähr 13 und 15 Uhr tritt eine allgemeine, leicht schwankende Mittags-Beißflaute auf. Sie reduziert die Bisschance deutlich, aber niemals auf null.</p></section>
          <section><h3>📏 Fischgrößen &amp; Gewichte</h3><p>Version 1.6 erweitert die möglichen Kapitalfische und kalibriert die Gewichte artspezifisch neu. Unter anderem sind jetzt Hechte bis 140 cm, Welse bis 260 cm, Zander bis 105 cm, Störe bis 160 cm, Graskarpfen bis 150 cm und Aale bis 130 cm möglich. Das Gewicht wird aus Fischart und Länge berechnet und im Fangbuch, Highscore und in der Online-Bestenliste nach derselben V1.6-Gewichtskurve bewertet. Die früheren Maximalgrößen bleiben zugleich Referenz für die bekannte Kampfstärke: bisherige Großfische werden durch die höheren Limits nicht schwächer; nur Fische oberhalb der alten Maximalgröße erhalten progressiv zusätzliche Kraft, Ausdauer, Explosivität und Fluchtraum. Der einmalige gelbe Koi bleibt unverändert exakt 70 cm groß.</p></section>
@@ -5223,8 +5225,9 @@ Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser 
            </ul>
            <p><strong>Fangkarte &amp; Teilen</strong></p>
            <ul style="padding-left:20px">
-             <li>Fangkarte erhält einen neuen „WhatsApp / Teilen“-Button und erzeugt lokal eine eigene hochauflösende PNG-Fanggrafik mit Fisch, Art, Länge, Gewicht und Rekordhinweis.</li>
-             <li>Mobil wird das Bild über den nativen Teilen-Dialog an WhatsApp oder andere installierte Apps übergeben; ohne Datei-Sharing steht ein Bild-Fallback bereit.</li>
+             <li>Fangkarte erhält eine lokale hochauflösende PNG-Fanggrafik mit Fisch, Art, Länge, Gewicht und dynamischem Fangstatus.</li>
+             <li>Der Teilen-Button wurde bewusst zu einem kleinen runden Symbol reduziert; „Noch einmal“ bleibt die dominante Aktion der Fangkarte.</li>
+             <li>Mobil wird das Bild über den nativen Teilen-Dialog an WhatsApp oder andere installierte Apps übergeben; der Begleittext ist auf „Petri Heil 🎣 ACZO56“ verkürzt und ohne Datei-Sharing steht ein Bild-Fallback bereit.</li>
            </ul>
            <p><strong>Fischgrößen, Gewichte &amp; Cloud</strong></p>
            <ul style="padding-left:20px">
@@ -36394,7 +36397,7 @@ function finishAnglingCatch(){
   if(isPersonalBest&&!isLegendaryKoi)labels.push('🏆 Persönlicher Rekord');
   const landingPresentation=perfectLanding?'🥅 Perfekt gekeschert · +5 EP':'🥅 Sicher im Kescher';
   anglingCatchSequence.textContent=(labels.length?labels.join(' · ')+' · ':'')+landingPresentation;
-  anglingCatchRevealData={caught,newlyFound,isPersonalBest,isLegendaryKoi,baitBonus,xpGain,previousRecord};
+  anglingCatchRevealData={caught,newlyFound,isPersonalBest,isLegendaryKoi,baitBonus,xpGain,previousRecord,strikeQuality:anglingStrikeQuality};
   const dir=anglingCurrentDirection(anglingTmpA);
   const side=anglingTmpB.copy(dir).applyAxisAngle(anglingUp,Math.PI/2);
   const target=anglingNetGroup.position.clone();target.z+=.02;
@@ -36464,7 +36467,7 @@ async function aczoPrepareCatchShareFile(){
  if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}
  if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';}
  const data=anglingCatchRevealData;if(!data?.caught)return;
- const {caught,isPersonalBest,isLegendaryKoi,newlyFound}=data;
+ const {caught,isPersonalBest,isLegendaryKoi,newlyFound,strikeQuality}=data;
  try{
    if(!anglingCatchImage.complete||!anglingCatchImage.naturalWidth){try{await anglingCatchImage.decode();}catch(_){}}
    if(generation!==anglingCatchShareGeneration)return;
@@ -36487,7 +36490,16 @@ async function aczoPrepareCatchShareFile(){
    const titleSize=aczoCatchShareFitText(ctx,title,900,72,42,950);ctx.font='950 '+titleSize+'px Arial,Helvetica,sans-serif';ctx.fillStyle=isLegendaryKoi?'#ffe275':'#ffffff';ctx.fillText(title,540,875);
    const length=formatAnglingLength(caught.cm);const weight=formatAnglingWeight(anglingEstimatedKg(caught.species,caught.cm));
    ctx.font='900 45px Arial,Helvetica,sans-serif';ctx.fillStyle='#d8fff1';ctx.fillText(length+'  ·  '+weight,540,944);
-   let badge='Sicher gelandet';if(isLegendaryKoi)badge='✨ Legendärer Fang';else if(isPersonalBest)badge='🏆 Persönlicher Rekord';else if(newlyFound)badge='⭐ Neue Art';
+   const shareSizeData=anglingCatchSizes[caught.species]||[10,30];
+   const shareMin=Number(shareSizeData[0])||0,shareMax=Number(shareSizeData[shareSizeData.length-1])||Math.max(shareMin+1,30);
+   const shareSizeT=shareMax>shareMin?THREE.MathUtils.clamp((Number(caught.cm)-shareMin)/(shareMax-shareMin),0,1):0;
+   const isCapitalShare=!isLegendaryKoi&&shareSizeT>=.88;
+   let badge='Sicher gelandet';
+   if(isLegendaryKoi)badge='✨ Legendärer Fang';
+   else if(isPersonalBest)badge='🏆 Persönlicher Rekord';
+   else if(newlyFound)badge='⭐ Neue Art';
+   else if(isCapitalShare)badge='🐟 Kapitaler Fang';
+   else if(strikeQuality==='perfect')badge='🎯 Perfekter Anhieb';
    ctx.fillStyle=isPersonalBest||isLegendaryKoi?'rgba(116,85,18,.72)':'rgba(11,76,55,.72)';aczoCatchShareRoundRect(ctx,260,995,560,82,41);ctx.fill();
    ctx.font='900 31px Arial,Helvetica,sans-serif';ctx.fillStyle=isPersonalBest||isLegendaryKoi?'#ffe493':'#effff7';ctx.fillText(badge,540,1048);
    const now=new Date();const dateText=now.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -36516,7 +36528,7 @@ async function aczoShareCurrentCatch(){
  if(!anglingCatchShareBlob){if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';await aczoPrepareCatchShareFile();}
  if(!anglingCatchShareBlob)return;
  const caught=data.caught;const species=fishDisplayNames[caught.species]||'Fisch';
- const text='Mein Fang bei ACZO56: '+species+' · '+formatAnglingLength(caught.cm)+' · '+formatAnglingWeight(anglingEstimatedKg(caught.species,caught.cm));
+ const text='Petri Heil 🎣 ACZO56';
  try{
    const files=anglingCatchShareFile?[anglingCatchShareFile]:[];
    const canFileShare=!!(navigator.share&&files.length&&(!navigator.canShare||navigator.canShare({files})));
