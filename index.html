@@ -4530,6 +4530,34 @@ html,body{
 #anglingCatchCard #anglingShareBtn .aczo-share-label{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 @media(max-width:480px){#anglingCatchCard .aczo-catch-actions{gap:7px}#anglingCatchCard #anglingShareBtn{flex-basis:40px!important;width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important}}
 @media(max-width:680px){#anglingCatchCard .aczo-catch-photo{height:82px}#anglingCatchCard{padding:10px}#anglingCatchCard #anglingCatchTitle{font-size:15px}#aczoCatchRewards{height:70px;min-height:70px}}
+/* P86: Mobile Fangkarte bekommt mehr Luft und eine klarere Aktionshierarchie. */
+#anglingCatchCard .aczo-catch-actions{margin-top:10px}
+@media(max-width:680px){
+  #anglingCatchCard{
+    width:min(365px,calc(100% - 18px));
+    max-width:calc(100% - 18px);
+    padding:14px 14px 13px;
+    border-radius:20px;
+  }
+  #anglingCatchCard .aczo-catch-photo{
+    width:min(232px,84%);
+    height:92px;
+    margin-bottom:8px;
+  }
+  #anglingCatchCard #anglingCatchTitle{font-size:17px;line-height:1.15;margin-bottom:4px}
+  #anglingCatchCard #anglingCatchText{font-size:11px;line-height:1.35;margin-bottom:12px}
+  #aczoCatchRewards{height:78px;min-height:78px;margin-bottom:2px}
+  #aczoCatchRewards #anglingEpPopup{padding:9px 10px;border-radius:12px}
+  #aczoCatchRewards #anglingEpPopup .aczo-reward-number{font-size:24px}
+  #aczoCatchRewards #anglingEpPopup small{font-size:10.5px;line-height:1.35;margin-top:4px}
+  #anglingCatchCard .aczo-catch-actions{gap:10px;margin-top:10px}
+  #anglingCatchCard #anglingShareBtn{
+    flex-basis:36px!important;width:36px!important;min-width:36px!important;max-width:36px!important;
+    height:36px!important;min-height:36px!important;
+  }
+  #anglingCatchCard #anglingShareBtn svg{width:17px;height:17px;flex-basis:17px}
+  #anglingCatchCard #anglingAgainBtn{min-height:42px!important;font-size:10px!important;padding-left:14px!important;padding-right:14px!important}
+}
 @media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
 
 /* Abtropfen bekommt kurz freie Sicht; die Zielsteuerung bleibt unverändert. */
@@ -5227,6 +5255,7 @@ Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser 
            <ul style="padding-left:20px">
              <li>Fangkarte erhält eine lokale hochauflösende PNG-Fanggrafik mit Fisch, Art, Länge, Gewicht und dynamischem Fangstatus.</li>
              <li>Der Teilen-Button wurde bewusst zu einem kleinen runden Symbol reduziert; „Noch einmal“ bleibt die dominante Aktion der Fangkarte.</li>
+             <li>Mobile Fangkarte luftiger angeordnet: etwas breiter, größere Abstände zwischen Fangdaten, EP-Bereich und Aktionen sowie ein nochmals kleinerer Teilen-Button.</li>
              <li>Mobil wird das Bild über den nativen Teilen-Dialog an WhatsApp oder andere installierte Apps übergeben; der Begleittext ist auf „Petri Heil 🎣 ACZO56“ verkürzt und ohne Datei-Sharing steht ein Bild-Fallback bereit.</li>
            </ul>
            <p><strong>Fischgrößen, Gewichte &amp; Cloud</strong></p>
