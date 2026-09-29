@@ -5891,7 +5891,7 @@ function aczoStartWebSound(key,opts={}){
 // Niedrig priorisiertes Teich-Ambiente. Es läuft ausschließlich im Angelspiel.
 // Ob die Hauptkarte vorher 2D oder 3D war, ist dafür unerheblich.
 let aczoAmbientFrogBurst=null;
-let aczoAmbientNextFrogAt=performance.now()+8000+Math.random()*12000;
+let aczoAmbientNextFrogAt=performance.now()+45000+Math.random()*45000;
 let aczoAmbientNextHeronAt=performance.now()+150000+Math.random()*180000;
 let aczoAmbientLastUpdateAt=0;
 const aczoAmbientTimers=new Set();
@@ -5914,7 +5914,14 @@ function aczoAmbientStopFrogs(){
   aczoAmbientTimers.clear();aczoAmbientFrogBurst=null;
 }
 function aczoAmbientStopAll(){
-  aczoAmbientStopFrogs();aczoSoundStop('birdAmbient');aczoSoundStop('heronAmbient');
+  const frogsInterrupted=!!aczoAmbientFrogBurst||!!aczoAudioActive.frogAmbient?.size;
+  aczoAmbientStopFrogs();
+  // Eine unterbrochene Phase darf den nächsten Termin nicht auf Infinity lassen.
+  if(frogsInterrupted||!Number.isFinite(aczoAmbientNextFrogAt)){
+    const night=aczoAmbientNightNow();
+    aczoAmbientNextFrogAt=performance.now()+(night?50000+Math.random()*50000:110000+Math.random()*100000);
+  }
+  aczoSoundStop('birdAmbient');aczoSoundStop('heronAmbient');
 }
 function aczoAmbientSceneCalm(){
   // Sound-Ambiente existiert ausschließlich im eigentlichen Angelspiel.
@@ -5929,28 +5936,29 @@ function aczoAmbientSceneCalm(){
   return performance.now()-aczoSoundLastAnyAt>2600;
 }
 function aczoAmbientPlayFrog(distance){
-  if(!aczoAmbientSceneCalm()||!aczoAudioBuffers.frogAmbient)return false;
+  if(!aczoAmbientSceneCalm()||!aczoAudioBuffers.frogAmbient||
+     (aczoAudioActive.frogAmbient?.size||0)>=2)return false;
   const night=aczoAmbientNightNow();
-  const cfg=distance==='near'?{vol:night?.30:.24,rate:1.025}
-    :distance==='mid'?{vol:night?.17:.13,rate:.99}:{vol:night?.085:.06,rate:.945};
+  const cfg=distance==='near'?{vol:night?.12:.09,rate:1.025}
+    :distance==='mid'?{vol:night?.065:.045,rate:.99}:{vol:night?.028:.018,rate:.945};
   return aczoStartWebSound('frogAmbient',{
-    restart:false,polyphonic:true,volume:cfg.vol*(.88+Math.random()*.22),
+    restart:false,polyphonic:true,volume:cfg.vol,
     rate:cfg.rate+(.018*(Math.random()*2-1))
   });
 }
 function aczoAmbientPickFrogDistance(night){
   const r=Math.random();
-  if(night){if(r<.34)return 'far';if(r<.76)return 'mid';return 'near';}
-  if(r<.56)return 'far';if(r<.88)return 'mid';return 'near';
+  if(night){if(r<.55)return 'far';if(r<.90)return 'mid';return 'near';}
+  if(r<.65)return 'far';if(r<.95)return 'mid';return 'near';
 }
 function aczoAmbientStartFrogBurst(now,night){
-  const duration=(night?7+Math.random()*9:4+Math.random()*5)*1000;
+  const duration=(night?5+Math.random()*4:3+Math.random()*2)*1000;
   aczoAmbientFrogBurst={end:now+duration,next:now+80+Math.random()*420,night};
   aczoAmbientNextFrogAt=Infinity;
 }
 function aczoAmbientFinishFrogBurst(now,night){
   aczoAmbientStopFrogs();
-  aczoAmbientNextFrogAt=now+(night?14000+Math.random()*31000:35000+Math.random()*55000);
+  aczoAmbientNextFrogAt=now+(night?50000+Math.random()*50000:110000+Math.random()*100000);
 }
 function aczoAmbientUpdate(){
   const now=performance.now();if(now-aczoAmbientLastUpdateAt<500)return;
@@ -5958,26 +5966,29 @@ function aczoAmbientUpdate(){
   if(!aczoAmbientSceneCalm()){
     if(aczoAmbientFrogBurst)aczoAmbientFinishFrogBurst(now,night);return;
   }
+  // Ein entfernter Reiher ruft ungestört alle drei Male; danach dürfen
+  // die Frösche wieder mit einer eigenen kurzen Phase beginnen.
+  if(aczoAudioActive.heronAmbient?.size)return;
   if(aczoAmbientFrogBurst){
     const b=aczoAmbientFrogBurst;
     if(now>=b.end)aczoAmbientFinishFrogBurst(now,night);
     else if(now>=b.next){
       aczoAmbientPlayFrog(aczoAmbientPickFrogDistance(night));
-      if(Math.random()<(night?.48:.25)){
+      if(Math.random()<(night?.20:.10)){
         const dist2=aczoAmbientPickFrogDistance(night);
         aczoAmbientSchedule(()=>aczoAmbientPlayFrog(dist2),180+Math.random()*520);
       }
-      b.next=now+(night?650+Math.random()*1450:1200+Math.random()*2600);
+      b.next=now+(night?1300+Math.random()*1300:1800+Math.random()*1800);
     }
   }else if(now>=aczoAmbientNextFrogAt)aczoAmbientStartFrogBurst(now,night);
 
-  // Sehr seltener Graureiher nachts; alle drei eingebetteten Rufe laufen durch.
-  if(night&&now>=aczoAmbientNextHeronAt&&!aczoAmbientFrogBurst&&aczoAudioBuffers.heronAmbient){
-    aczoAmbientStopFrogs();
-    aczoStartWebSound('heronAmbient',{restart:true,volume:.12+Math.random()*.07,rate:.96+Math.random()*.05});
+  // Tags und nachts gleich selten. Drei zufällige Pegel simulieren
+  // einen fernen, mittleren oder näheren Reiher; die Pausen im Clip bleiben.
+  if(now>=aczoAmbientNextHeronAt&&!aczoAmbientFrogBurst&&aczoAudioBuffers.heronAmbient){
+    const distance=Math.random();
+    const volume=distance<.50?.11:(distance<.85?.21:.36);
+    aczoStartWebSound('heronAmbient',{restart:true,volume,rate:.96+Math.random()*.05});
     aczoAmbientNextHeronAt=now+180000+Math.random()*300000;
-  }else if(!night&&now>=aczoAmbientNextHeronAt){
-    aczoAmbientNextHeronAt=now+180000+Math.random()*240000;
   }
 }
 window.setInterval(aczoAmbientUpdate,700);
