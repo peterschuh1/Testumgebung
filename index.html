@@ -4523,8 +4523,8 @@ html,body{
 #anglingCatchCard .aczo-catch-actions{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:nowrap}
 #anglingCatchCard #anglingAgainBtn{flex:1 1 auto;min-width:0}
 /* P85: Teilen bleibt verfügbar, drängt sich aber nicht mehr vor den eigentlichen Fang. */
-#anglingCatchCard #anglingShareBtn{flex:0 0 42px!important;width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;border-radius:50%!important;background:rgba(31,157,85,.72);color:#fff;border-color:rgba(220,255,236,.72);display:inline-flex;align-items:center;justify-content:center;box-shadow:none!important}
-#anglingCatchCard #anglingShareBtn:hover{background:rgba(31,157,85,.90)}
+#anglingCatchCard #anglingShareBtn{flex:0 0 42px!important;width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;border-radius:50%!important;background:linear-gradient(180deg,rgba(26,111,86,.88),rgba(12,77,61,.90));color:#fff;border-color:rgba(220,255,236,.68);display:inline-flex;align-items:center;justify-content:center;box-shadow:none!important}
+#anglingCatchCard #anglingShareBtn:hover{background:linear-gradient(180deg,rgba(31,137,103,.96),rgba(14,91,71,.96))}
 #anglingCatchCard #anglingShareBtn:disabled{opacity:.42;cursor:wait}
 #anglingCatchCard #anglingShareBtn svg{width:19px;height:19px;flex:0 0 19px;overflow:visible}
 #anglingCatchCard #anglingShareBtn .aczo-share-label{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
@@ -4559,6 +4559,41 @@ html,body{
   #anglingCatchCard #anglingAgainBtn{min-height:42px!important;font-size:10px!important;padding-left:14px!important;padding-right:14px!important}
 }
 @media(max-height:480px){#anglingCatchCard .aczo-catch-photo{height:54px}#anglingCatchCard{padding:8px}#aczoCatchRecord{padding:5px 7px;margin-bottom:5px}}
+
+/* P87: Dezente Fangkarten-Vorschau mit Kamera-Button und nativer Weitergabe. */
+body.aczo-share-preview-open{overflow:hidden!important}
+#aczoSharePreview{position:fixed;inset:0;z-index:350;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,17,22,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#aczoSharePreview.show{display:flex;animation:aczo-share-preview-fade .22s ease-out both}
+@keyframes aczo-share-preview-fade{from{opacity:0}to{opacity:1}}
+@keyframes aczo-share-card-in{0%{opacity:0;transform:translateY(24px) scale(.93) rotateX(3deg)}65%{opacity:1;transform:translateY(-2px) scale(1.012) rotateX(0)}100%{opacity:1;transform:translateY(0) scale(1) rotateX(0)}}
+#aczoSharePreview .aczo-share-preview-flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 44%,rgba(255,255,255,.98) 0%,rgba(255,255,255,.84) 11%,rgba(255,255,255,.28) 24%,rgba(255,255,255,0) 46%);opacity:0}
+#aczoSharePreview.flash .aczo-share-preview-flash{animation:aczo-share-camera-flash .58s ease-out}
+@keyframes aczo-share-camera-flash{0%{opacity:0}10%{opacity:1}28%{opacity:.24}100%{opacity:0}}
+#aczoSharePreview .aczo-share-preview-card{position:relative;width:min(468px,100%);max-height:min(92vh,880px);overflow:auto;padding:17px 17px 15px;border-radius:26px;border:1px solid rgba(219,247,235,.34);background:linear-gradient(155deg,rgba(9,83,67,.985),rgba(4,43,36,.995) 52%,rgba(3,31,28,.998));box-shadow:0 30px 75px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.09);transform-origin:50% 62%;animation:aczo-share-card-in .46s cubic-bezier(.16,.86,.28,1.08) both}
+#aczoSharePreview .aczo-share-preview-head{position:relative;text-align:center;margin:0 0 13px;padding-top:2px}
+#aczoSharePreview .aczo-share-preview-kicker{display:inline-block;margin-bottom:6px;padding:4px 10px;border-radius:999px;background:rgba(214,255,235,.12);border:1px solid rgba(214,255,235,.18);font-size:11px;line-height:1;letter-spacing:.14em;color:#d8fbe9;font-weight:900}
+#aczoSharePreview .aczo-share-preview-head strong{display:block;font-size:24px;line-height:1.1;color:#fff}
+#aczoSharePreview .aczo-share-preview-head span{display:block;margin-top:6px;font-size:13px;line-height:1.4;color:rgba(232,255,246,.82)}
+#aczoSharePreview .aczo-share-preview-frame{position:relative;margin:0 auto 15px;padding:10px;border-radius:23px;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.035));border:1px solid rgba(222,248,238,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.035),0 16px 34px rgba(0,0,0,.16);overflow:hidden}
+#aczoSharePreview .aczo-share-preview-frame img{display:block;width:100%;height:auto;max-height:min(60vh,620px);object-fit:contain;border-radius:17px;background:#0c3f51;box-shadow:0 12px 30px rgba(0,0,0,.22);animation:aczo-share-photo-in .52s .08s cubic-bezier(.2,.8,.2,1) both}
+#aczoSharePreview .aczo-share-preview-frame::after{content:"";position:absolute;inset:-35% -75%;pointer-events:none;background:linear-gradient(105deg,transparent 43%,rgba(255,255,255,.24) 49%,transparent 55%);transform:translateX(-48%);animation:aczo-share-preview-sheen 1.05s .32s ease-out both}
+@keyframes aczo-share-photo-in{from{opacity:.32;transform:scale(.965)}to{opacity:1;transform:scale(1)}}
+@keyframes aczo-share-preview-sheen{0%{transform:translateX(-48%);opacity:0}18%{opacity:1}100%{transform:translateX(48%);opacity:0}}
+#aczoSharePreview .aczo-share-preview-actions{display:flex;gap:10px;align-items:stretch;justify-content:center}
+#aczoSharePreview .aczo-share-preview-actions button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:48px;border-radius:16px;font-weight:900;padding:0 16px}
+#aczoSharePreview #aczoSharePreviewSend{flex:1 1 58%;background:linear-gradient(180deg,#24c269,#169c4e);border:1px solid rgba(220,255,236,.46);color:#fff;box-shadow:0 10px 26px rgba(12,98,50,.24)}
+#aczoSharePreview #aczoSharePreviewClose{flex:1 1 42%;background:rgba(236,247,243,.08);border:1px solid rgba(220,255,236,.22);color:#edfef6}
+#aczoSharePreview #aczoSharePreviewSend:disabled,#aczoSharePreview #aczoSharePreviewClose:disabled{opacity:.55;cursor:wait}
+#aczoSharePreview .aczo-share-preview-actions svg{width:20px;height:20px;flex:0 0 20px}
+@media(max-width:680px){
+  #aczoSharePreview{padding:12px}
+  #aczoSharePreview .aczo-share-preview-card{width:min(395px,100%);padding:14px 13px 12px;border-radius:22px}
+  #aczoSharePreview .aczo-share-preview-head strong{font-size:21px}
+  #aczoSharePreview .aczo-share-preview-head span{font-size:12px}
+  #aczoSharePreview .aczo-share-preview-frame{padding:8px;border-radius:18px;margin-bottom:12px}
+  #aczoSharePreview .aczo-share-preview-actions{flex-direction:column}
+  #aczoSharePreview .aczo-share-preview-actions button{width:100%;min-height:46px;font-size:14px}
+}
 
 /* Abtropfen bekommt kurz freie Sicht; die Zielsteuerung bleibt unverändert. */
 #anglingUi.aczo-dripping #anglingAimReticle{visibility:hidden!important;opacity:0!important}
@@ -4965,7 +5000,7 @@ html,body{
          <section><h3>⚡ Biss, Anhieb & Hänger</h3><p>Beim Posenangeln zeigt der Schwimmer zuerst den Biss. Danach läuft das Reaktions-QTE zweimal vollständig. Ein exakt mittiger Treffer gilt als perfekter Anhieb und bringt beim Fang +8 EP. Triff den grünen beziehungsweise besonders guten Bereich. Ein früher Fehlversuch beendet nicht sofort den gesamten Versuch. Kurze Randimpulse unterstützen Biss und Hänger visuell; der Hänger bleibt anschließend ein echter Zustand und muss gelöst werden, statt durch Schnelleinholen oder „Zum Ufer“ übersprungen zu werden.</p></section>
          <section><h3>🎣 Drill & Bremse</h3><p>Beobachte Schnurspannung, Fisch-Ausdauer und Entfernung. Halte „Kurbeln“ gedrückt und führe die Rute auf die Gegenseite des Fisches: Fisch links bedeutet Rute rechts, Fisch rechts bedeutet Rute links. Die Rutenhaltung ist Teil der Drillphysik: Zeigt die Rute fast direkt zum Fisch, richtet sich der Blank auf und die Schnur übernimmt mehr Last; mit größerem Winkel biegt die Rute stärker und puffert Fluchtspitzen. Eine lockere Bremse lässt mehr Schnur frei und schützt besonders bei starken Fischen, eine feste Bremse holt direkter ein, erhöht aber das Risiko. Auf dem Desktop stellst du die Bremse zusätzlich mit dem Mausrad ein: ↑ fester, ↓ lockerer. Die sichtbare Drillschnur wechselt mit der Belastung von Weiß über Gelb und Orange zu Rot. Bei echter Flucht und Schnurabzug reagieren Randpuls, Belastungsbalken und Rutenfederung sichtbar stärker. Große Fische mit viel Rest-Ausdauer können kurz vor dem Ufer erneut nach draußen flüchten. Bei zu hoher Spannung musst du Last herausnehmen, sonst droht Schnurbruch; ein montierter Kunstköder geht dabei verloren.</p></section>
          <section><h3>🥅 Keschern</h3><p>Bewege den Kescher mit Maus oder Finger nach links/rechts unter den Fisch und keschere im passenden Moment. Der Standardkescher gehört zur Startausrüstung. Der größere Pro Kescher kann im Shop gekauft werden und vergrößert die reale Fangzone um rund 18 %. Der erste knappe Fehlversuch wird weiterhin verziehen.</p></section>
-         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch steht auf der Fangkarte ein kleiner grüner Teilen-Button mit Symbol bereit. Er erzeugt lokal eine eigene PNG-Fangkarte und öffnet auf unterstützten Handys den nativen Teilen-Dialog für WhatsApp oder andere installierte Apps. Fischart, Länge und Gewicht stehen direkt im Bild; je nach Fang wird zusätzlich „Persönlicher Rekord“, „Neue Art“, „Kapitaler Fang“, „Perfekter Anhieb“ oder „Sicher gelandet“ eingeblendet. Der Begleittext bleibt bewusst kurz. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
+         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch steht auf der Fangkarte ein kleiner Kamera-Button bereit. Er öffnet zunächst eine animierte Vorschau der lokal erzeugten PNG-Fangkarte. Erst dort kann über „Per WhatsApp teilen“ der native Teilen-Dialog geöffnet werden. Fischart, Länge und Gewicht stehen direkt im Bild; je nach Fang wird zusätzlich „Persönlicher Rekord“, „Neue Art“, „Kapitaler Fang“, „Perfekter Anhieb“ oder „Sicher gelandet“ eingeblendet. Der Begleittext bleibt bewusst kurz. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
          <section><h3>⏱️ Zeitwechsel</h3><p>Der Zeitwechsel steht ausschließlich in der Ufer-Angelperspektive bereit, solange die Angel noch nicht ausgeworfen wurde und du den Auswurfpunkt wählen kannst. In Stellenauswahl, Unterwasseransicht, nach dem Auswurf, bei Biss, Drill und Keschern ist die Funktion ausgeblendet. Du kannst die Spielzeit in 1-Stunden-Schritten bis maximal 24 Stunden vor- oder zurückspulen. Jede Stunde kostet 1 EP und läuft in 0,5 Sekunden ab. Einsteiger besitzen pro Sitzung einen Vorwärts- und einen Rückwärtswechsel; höhere Anglerstufen erhalten zusätzliche Wechsel.</p></section>
          <section><h3>🌗 Aktivitätszeiten</h3><p>Die Fischaktivität verändert sich mit der Tageszeit. Hecht und Barsch profitieren vor allem von Morgen- und Abendphasen. Zander wird besonders in Dämmerung, Nacht und bei Bewölkung aktiv; Aal und Wels bevorzugen überwiegend Abend und Nacht. Zwischen ungefähr 13 und 15 Uhr tritt eine allgemeine, leicht schwankende Mittags-Beißflaute auf. Sie reduziert die Bisschance deutlich, aber niemals auf null.</p></section>
          <section><h3>📏 Fischgrößen &amp; Gewichte</h3><p>Version 1.6 erweitert die möglichen Kapitalfische und kalibriert die Gewichte artspezifisch neu. Unter anderem sind jetzt Hechte bis 140 cm, Welse bis 260 cm, Zander bis 105 cm, Störe bis 160 cm, Graskarpfen bis 150 cm und Aale bis 130 cm möglich. Das Gewicht wird aus Fischart und Länge berechnet und im Fangbuch, Highscore und in der Online-Bestenliste nach derselben V1.6-Gewichtskurve bewertet. Die früheren Maximalgrößen bleiben zugleich Referenz für die bekannte Kampfstärke: bisherige Großfische werden durch die höheren Limits nicht schwächer; nur Fische oberhalb der alten Maximalgröße erhalten progressiv zusätzliche Kraft, Ausdauer, Explosivität und Fluchtraum. Der einmalige gelbe Koi bleibt unverändert exakt 70 cm groß.</p></section>
@@ -5136,11 +5171,26 @@ html,body{
        <span id="anglingCatchText"></span>
        <div id="aczoCatchRewards"></div>
        <div class="aczo-catch-actions">
-         <button id="anglingShareBtn" type="button" aria-label="Fangkarte über WhatsApp oder eine andere App teilen" disabled>
-           <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M10.3 24.7l1.2-4.3a10 10 0 1 1 3.8 3.4l-5 0.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12.8 10.9c.4-.5.9-.5 1.2-.1l1.3 2.1c.2.4.2.7 0 1l-.9 1.1c.8 1.8 2.1 3.1 3.9 3.9l1.1-.9c.3-.2.7-.2 1 0l2.1 1.3c.4.3.4.8-.1 1.2-.8.8-1.8 1.2-2.9 1.1-4.6-.5-8.3-4.2-8.8-8.8-.1-1.1.3-2.1 1.1-2.9z" fill="currentColor"/></svg>
-           <span class="aczo-share-label">WhatsApp / Teilen</span>
+         <button id="anglingShareBtn" type="button" aria-label="Fangkarten-Vorschau öffnen" disabled>
+           <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4.5" y="8" width="23" height="16.5" rx="4.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M11 8.4l1.4-2.6h7.2l1.4 2.6" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="16.2" r="4.2" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="23.5" cy="12.3" r="1.3" fill="currentColor"/></svg>
+           <span class="aczo-share-label">Fangkarten-Vorschau öffnen</span>
          </button>
-         <button id="anglingAgainBtn" class="primary">Noch einmal</button>
+         <button id="anglingAgainBtn" class="primary">Weiter angeln</button>
+       </div>
+     </div>
+     <div id="aczoSharePreview" class="aczo-share-preview" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Fangkarte teilen">
+       <div class="aczo-share-preview-flash" aria-hidden="true"></div>
+       <div class="aczo-share-preview-card">
+         <div class="aczo-share-preview-head">
+           <div class="aczo-share-preview-kicker">KAMERA-VORSCHAU</div>
+           <strong>Deine Fangkarte ist fertig</strong>
+           <span>So sieht das Bild vor dem Teilen aus. Per WhatsApp oder über den nativen Teilen-Dialog weiterleiten.</span>
+         </div>
+         <div class="aczo-share-preview-frame"><img id="aczoSharePreviewImage" alt="Vorschau der Fangkarte"></div>
+         <div class="aczo-share-preview-actions">
+           <button id="aczoSharePreviewSend" type="button" class="primary"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M10.3 24.7l1.2-4.3a10 10 0 1 1 3.8 3.4l-5 0.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12.8 10.9c.4-.5.9-.5 1.2-.1l1.3 2.1c.2.4.2.7 0 1l-.9 1.1c.8 1.8 2.1 3.1 3.9 3.9l1.1-.9c.3-.2.7-.2 1 0l2.1 1.3c.4.3.4.8-.1 1.2-.8.8-1.8 1.2-2.9 1.1-4.6-.5-8.3-4.2-8.8-8.8-.1-1.1.3-2.1 1.1-2.9z" fill="currentColor"/></svg><span>Per WhatsApp teilen</span></button>
+           <button id="aczoSharePreviewClose" type="button" class="secondary">Zurück zur Fangkarte</button>
+         </div>
        </div>
      </div>
      <div id="anglingLogPanel" class="angling-log-panel" role="dialog" aria-modal="true" aria-label="Fangbuch">
@@ -5254,9 +5304,10 @@ Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser 
            <p><strong>Fangkarte &amp; Teilen</strong></p>
            <ul style="padding-left:20px">
              <li>Fangkarte erhält eine lokale hochauflösende PNG-Fanggrafik mit Fisch, Art, Länge, Gewicht und dynamischem Fangstatus.</li>
-             <li>Der Teilen-Button wurde bewusst zu einem kleinen runden Symbol reduziert; „Noch einmal“ bleibt die dominante Aktion der Fangkarte.</li>
-             <li>Mobile Fangkarte luftiger angeordnet: etwas breiter, größere Abstände zwischen Fangdaten, EP-Bereich und Aktionen sowie ein nochmals kleinerer Teilen-Button.</li>
+             <li>Der Teilen-Button wurde bewusst zu einem kleinen runden Kamera-Symbol reduziert; „Weiter angeln“ bleibt die dominante Abschlussaktion der Fangkarte.</li>
+             <li>Mobile Fangkarte luftiger angeordnet: etwas breiter, größere Abstände zwischen Fangdaten, EP-Bereich und Aktionen sowie ein kleiner Kamera-Button. Die neue Fangkarten-Vorschau liegt nur darüber; Zurück, Tippen außerhalb oder das Ende eines Shares führt immer wieder zur unveränderten Fangkarte zurück.</li>
              <li>Mobil wird das Bild über den nativen Teilen-Dialog an WhatsApp oder andere installierte Apps übergeben; der Begleittext ist auf „Petri Heil 🎣 ACZO56“ verkürzt und ohne Datei-Sharing steht ein Bild-Fallback bereit.</li>
+             <li>P88: Edle Kamera-Vorschau mit Blitz, Zoom-/Glanzanimation und eigenem Zurück-Flow. Browser-Zurück schließt bei offener Vorschau nur diese Ebene. Die EP-Abfluganimation und der Fangabschluss bleiben ausschließlich am Button „Weiter angeln“ der eigentlichen Fangkarte.</li>
            </ul>
            <p><strong>Fischgrößen, Gewichte &amp; Cloud</strong></p>
            <ul style="padding-left:20px">
@@ -5989,6 +6040,10 @@ const anglingCatchTitle=document.getElementById('anglingCatchTitle');
 const anglingCatchText=document.getElementById('anglingCatchText');
 const anglingShareBtn=document.getElementById('anglingShareBtn');
 const anglingShareLabel=anglingShareBtn?.querySelector('.aczo-share-label');
+const aczoSharePreview=document.getElementById('aczoSharePreview');
+const aczoSharePreviewImage=document.getElementById('aczoSharePreviewImage');
+const aczoSharePreviewSend=document.getElementById('aczoSharePreviewSend');
+const aczoSharePreviewClose=document.getElementById('aczoSharePreviewClose');
 const anglingAgainBtn=document.getElementById('anglingAgainBtn');
 const anglingLogBtn=document.getElementById('anglingLogBtn');
 const anglingLogPanel=document.getElementById('anglingLogPanel');
@@ -29519,9 +29574,11 @@ function aczoPresentCatch(data){
  document.getElementById('aczoCatchRewards').appendChild(anglingEpPopup);
 }
 function aczoResetPresentation(){
+ aczoCloseCatchSharePreview({force:true});
  anglingCatchShareGeneration++;anglingCatchShareBlob=null;anglingCatchShareFile=null;
  if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}
- if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='WhatsApp / Teilen';}
+ if(aczoSharePreviewImage)aczoSharePreviewImage.removeAttribute('src');
+ if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='Fangkarten-Vorschau öffnen';}
  aczoClearReward();
  anglingEpPopup.removeAttribute('aria-label');
  aczoClearEquipFeedback();aczoStopDrops();
@@ -36472,6 +36529,9 @@ let anglingCatchShareBlob=null;
 let anglingCatchShareFile=null;
 let anglingCatchShareObjectUrl='';
 let anglingCatchShareGeneration=0;
+let aczoSharePreviewFlashTimer=0;
+let aczoSharePreviewHistoryPushed=false;
+let aczoSharePreviewHistoryClosing=false;
 function aczoCatchShareSafeName(value){
  return String(value||'Fang').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_').slice(0,50);
 }
@@ -36494,6 +36554,7 @@ async function aczoPrepareCatchShareFile(){
  const generation=++anglingCatchShareGeneration;
  anglingCatchShareBlob=null;anglingCatchShareFile=null;
  if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}
+ if(aczoSharePreviewImage)aczoSharePreviewImage.removeAttribute('src');
  if(anglingShareBtn){anglingShareBtn.disabled=true;if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';}
  const data=anglingCatchRevealData;if(!data?.caught)return;
  const {caught,isPersonalBest,isLegendaryKoi,newlyFound,strikeQuality}=data;
@@ -36541,32 +36602,72 @@ async function aczoPrepareCatchShareFile(){
    anglingCatchShareBlob=blob;
    const fileName='ACZO56_'+aczoCatchShareSafeName(species)+'_'+String(Number(caught.cm).toFixed(1)).replace('.',',')+'cm.png';
    if(typeof File==='function')anglingCatchShareFile=new File([blob],fileName,{type:'image/png',lastModified:Date.now()});
-   if(anglingShareBtn){anglingShareBtn.disabled=false;if(anglingShareLabel)anglingShareLabel.textContent='WhatsApp / Teilen';}
+   if(anglingShareBtn){anglingShareBtn.disabled=false;if(anglingShareLabel)anglingShareLabel.textContent='Fangkarten-Vorschau öffnen';}
  }catch(err){console.warn('Fangkarte konnte nicht vorbereitet werden:',err);if(anglingShareBtn){anglingShareBtn.disabled=false;if(anglingShareLabel)anglingShareLabel.textContent='Fangbild öffnen';}}
+}
+function aczoGetCatchShareObjectUrl(){
+ if(!anglingCatchShareBlob)return '';
+ if(!anglingCatchShareObjectUrl)anglingCatchShareObjectUrl=URL.createObjectURL(anglingCatchShareBlob);
+ return anglingCatchShareObjectUrl;
+}
+function aczoHideCatchSharePreview(){
+ if(aczoSharePreviewFlashTimer){window.clearTimeout(aczoSharePreviewFlashTimer);aczoSharePreviewFlashTimer=0;}
+ if(aczoSharePreview){aczoSharePreview.classList.remove('show','flash');aczoSharePreview.setAttribute('aria-hidden','true');}
+ document.body?.classList.remove('aczo-share-preview-open');
+}
+function aczoCloseCatchSharePreview(options={}){
+ const fromHistory=!!options.fromHistory,force=!!options.force;
+ if(!aczoSharePreview?.classList.contains('show')){if(force)aczoSharePreviewHistoryPushed=false;return;}
+ if(!fromHistory&&!force&&aczoSharePreviewHistoryPushed&&history.state?.aczoCatchSharePreview){
+   aczoSharePreviewHistoryClosing=true;
+   history.back();
+   return;
+ }
+ aczoSharePreviewHistoryPushed=false;
+ aczoSharePreviewHistoryClosing=false;
+ aczoHideCatchSharePreview();
+}
+async function aczoOpenCatchSharePreview(){
+ const data=anglingCatchRevealData;if(!data?.caught)return;
+ if(!anglingCatchShareBlob){if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';await aczoPrepareCatchShareFile();}
+ if(!anglingCatchShareBlob)return;
+ const url=aczoGetCatchShareObjectUrl();
+ if(aczoSharePreviewImage){aczoSharePreviewImage.src=url;aczoSharePreviewImage.alt='Vorschau der Fangkarte';}
+ if(aczoSharePreview){
+   if(!aczoSharePreviewHistoryPushed){
+     try{history.pushState(Object.assign({},history.state||{},{aczoCatchSharePreview:true}),'',location.href);aczoSharePreviewHistoryPushed=true;}catch(_){aczoSharePreviewHistoryPushed=false;}
+   }
+   aczoSharePreview.setAttribute('aria-hidden','false');
+   aczoSharePreview.classList.add('show');
+   document.body?.classList.add('aczo-share-preview-open');
+   aczoSharePreview.classList.remove('flash');void aczoSharePreview.offsetWidth;aczoSharePreview.classList.add('flash');
+   if(aczoSharePreviewFlashTimer)window.clearTimeout(aczoSharePreviewFlashTimer);
+   aczoSharePreviewFlashTimer=window.setTimeout(()=>{aczoSharePreview?.classList.remove('flash');aczoSharePreviewFlashTimer=0;},620);
+ }
+ if(aczoSharePreviewSend){aczoSharePreviewSend.disabled=false;window.setTimeout(()=>aczoSharePreviewSend.focus?.({preventScroll:true}),30);}
 }
 function aczoFallbackCatchShare(){
  if(!anglingCatchShareBlob)return false;
- if(anglingCatchShareObjectUrl)URL.revokeObjectURL(anglingCatchShareObjectUrl);
- anglingCatchShareObjectUrl=URL.createObjectURL(anglingCatchShareBlob);
- const a=document.createElement('a');a.href=anglingCatchShareObjectUrl;a.download=anglingCatchShareFile?.name||'ACZO56_Fangkarte.png';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
- window.setTimeout(()=>{if(anglingCatchShareObjectUrl){URL.revokeObjectURL(anglingCatchShareObjectUrl);anglingCatchShareObjectUrl='';}},12000);
+ const url=aczoGetCatchShareObjectUrl();
+ const a=document.createElement('a');a.href=url;a.download=anglingCatchShareFile?.name||'ACZO56_Fangkarte.png';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
  return true;
 }
 async function aczoShareCurrentCatch(){
  const data=anglingCatchRevealData;if(!data?.caught)return;
  if(!anglingCatchShareBlob){if(anglingShareLabel)anglingShareLabel.textContent='Bild wird erstellt …';await aczoPrepareCatchShareFile();}
- if(!anglingCatchShareBlob)return;
- const caught=data.caught;const species=fishDisplayNames[caught.species]||'Fisch';
+ if(!anglingCatchShareBlob)return 'unavailable';
  const text='Petri Heil 🎣 ACZO56';
  try{
    const files=anglingCatchShareFile?[anglingCatchShareFile]:[];
    const canFileShare=!!(navigator.share&&files.length&&(!navigator.canShare||navigator.canShare({files})));
-   if(canFileShare){await navigator.share({title:'ACZO56 Fangkarte',text,files});return;}
-   if(navigator.share){await navigator.share({title:'ACZO56 Fang',text});aczoFallbackCatchShare();return;}
+   if(canFileShare){await navigator.share({title:'ACZO56 Fangkarte',text,files});return 'shared';}
+   if(navigator.share){await navigator.share({title:'ACZO56 Fang',text});aczoFallbackCatchShare();return 'shared-fallback';}
    aczoFallbackCatchShare();
+   return 'fallback';
  }catch(err){
-   if(err&&err.name==='AbortError')return;
+   if(err&&err.name==='AbortError')return 'abort';
    console.warn('Teilen nicht möglich, Fangbild wird bereitgestellt:',err);aczoFallbackCatchShare();
+   return 'fallback';
  }
 }
 
@@ -39523,8 +39624,18 @@ function stopAnglingActionHold(){
   anglingTouchRetrieveHoldPointer=null;
 }
 anglingActionBtn.addEventListener('click',e=>{if(anglingState==='ready')startAnglingCast();});
-anglingAgainBtn.addEventListener('click',resetAnglingCast);
-anglingShareBtn?.addEventListener('click',e=>{e.stopPropagation();aczoShareCurrentCatch();});
+anglingAgainBtn.addEventListener('click',()=>{aczoCloseCatchSharePreview();resetAnglingCast();});
+anglingShareBtn?.addEventListener('click',e=>{e.stopPropagation();aczoOpenCatchSharePreview();});
+aczoSharePreview?.addEventListener('pointerdown',e=>{if(e.target===aczoSharePreview)aczoCloseCatchSharePreview();});
+aczoSharePreviewClose?.addEventListener('click',e=>{e.stopPropagation();aczoCloseCatchSharePreview();});
+aczoSharePreviewSend?.addEventListener('click',async e=>{e.stopPropagation();aczoSharePreviewSend.disabled=true;const result=await aczoShareCurrentCatch();aczoSharePreviewSend.disabled=false;if(result!=='abort')aczoCloseCatchSharePreview();});
+window.addEventListener('popstate',()=>{
+  if(aczoSharePreview?.classList.contains('show')){
+    aczoSharePreviewHistoryPushed=false;
+    aczoSharePreviewHistoryClosing=false;
+    aczoCloseCatchSharePreview({fromHistory:true});
+  }
+});
 anglingLogBtn?.addEventListener('click',openAnglingLog);
 anglingLogCloseBtn.addEventListener('click',closeAnglingLogAndMaybeReturn);
 anglingLogTopCloseBtn.addEventListener('click',closeAnglingLogAndMaybeReturn);
