@@ -5903,12 +5903,14 @@ function aczoStartWebSound(key,opts={}){
 // direkt zum Ausgang und senken diesen Hintergrund bei Bedarf zusätzlich ab.
 let aczoDrillMusicSource=null,aczoDrillMusicGain=null,aczoDrillMusicRestoreTimer=0;
 const ACZO_DRILL_MUSIC_LEVEL=.12,ACZO_DRILL_MUSIC_DUCK=.045;
-function aczoStartDrillMusic(){
-  if(!aczoSoundEnabled||!anglingMode||anglingState!=='drilling'||document.hidden)return false;
+function aczoStartDrillMusic(hallOfFameMode=false){
+  const hofAllowed=!!(hallOfFameMode&&typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive);
+  if(!aczoSoundEnabled||!anglingMode||(!hofAllowed&&anglingState!=='drilling')||document.hidden)return false;
   const ctx=aczoAudioCtx,buf=aczoAudioBuffers.drillMusic;
   if(!ctx||ctx.state!=='running')return false;
   if(!buf){aczoDecodeSoundKey('drillMusic').then(decoded=>{
-    if(decoded&&!aczoDrillMusicSource&&anglingState==='drilling')aczoStartDrillMusic();
+    const stillAllowed=anglingState==='drilling'||(hallOfFameMode&&typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive);
+    if(decoded&&!aczoDrillMusicSource&&stillAllowed)aczoStartDrillMusic(hallOfFameMode);
   });return false;}
   aczoStopDrillMusic(true);
   try{
@@ -5993,6 +5995,7 @@ function aczoAmbientStopAll(){
 function aczoAmbientSceneCalm(){
   // Sound-Ambiente existiert ausschließlich im eigentlichen Angelspiel.
   if(!aczoSoundEnabled||document.hidden||typeof anglingMode==='undefined'||!anglingMode)return false;
+  if(typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive)return false;
   if(typeof fishMode!=='undefined'&&fishMode)return false;
   if(typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater')return false;
   if(typeof anglingMode!=='undefined'&&anglingMode){
@@ -15075,13 +15078,23 @@ function holdPersonalFishingRod(){
 
 
 function depositPersonalZander(){
+  // Maximal drei abgelegte Zander. Beim vierten Fang verschwindet der älteste,
+  // damit sich nach langen Sitzungen kein unbegrenzter Fischberg aufbaut.
+  if(personalCatchPile.length>=3){
+    const oldest=personalCatchPile.shift();
+    if(oldest){
+      personalSceneGroup.remove(oldest);
+      if(typeof disposeSceneTree==='function')disposeSceneTree(oldest);
+    }
+  }
   const fish=createPersonalZander();
-  const i=personalCatchPile.length;
-  const row=Math.floor(i/5),col=i%5;
-  fish.position.copy(personalCatchPileBase).add(new THREE.Vector3(col*.46,row*.42,.02+row*.015));
-  fish.rotation.set(.08*(i%2?1:-1),0,(i%3-.8)*.18);
-  fish.scale.multiplyScalar(.88+.08*(i%3));
   personalSceneGroup.add(fish);personalCatchPile.push(fish);
+  personalCatchPile.forEach((item,i)=>{
+    const col=i;
+    item.position.copy(personalCatchPileBase).add(new THREE.Vector3(col*.46,0,.02));
+    item.rotation.set(.08*(i%2?1:-1),0,(i%3-.8)*.18);
+  });
+  fish.scale.multiplyScalar(.88+.08*((personalCatchPile.length-1)%3));
   personalCaughtZander.visible=false;
 }
 
@@ -27569,6 +27582,8 @@ let anglingHallOfFameSlideElapsed=0;
 let anglingHallOfFameSlideIndex=-1;
 let anglingHallOfFameSlides=[];
 let anglingHallOfFameRows=[];
+let anglingHallOfFameDataReady=false;
+let anglingHallOfFameCameraReady=false;
 let anglingHallOfFameRanking=null;
 let anglingHallOfFameCameraBase=null;
 let anglingHallOfFameTargetBase=null;
@@ -32852,6 +32867,13 @@ function updateAnglingCreatorEasterEgg(dt){
   }
   updateAnglingCreatorCamera(dt);
 }
+function tryStartAnglingHallOfFamePresentation(){
+  if(!anglingHallOfFameActive||anglingHallOfFamePhase!=='flying-in'||
+     !anglingHallOfFameDataReady||!anglingHallOfFameCameraReady)return;
+  if(!anglingHallOfFameSlides.length)buildAnglingHallOfFameSlides();
+  anglingHallOfFamePhase='show';anglingHallOfFameElapsed=0;anglingHallOfFameSlideElapsed=0;
+  showAnglingHallOfFameSlide(0);spawnAnglingHallOfFameRocket(true);
+}
 function openAnglingHallOfFame(){
   if(!anglingHallOfFameCanStart()){
     showAnglingToast(anglingCinematicView==='underwater'?'Hall of Fame erst wieder in der Uferansicht verfügbar.':'Hall of Fame ist während dieser Aktion kurz gesperrt.',1500);return;
@@ -32865,6 +32887,8 @@ function openAnglingHallOfFame(){
   anglingHallOfFame.classList.remove('creator-mode','creator-story-visible');
   anglingHallOfFameCreator.setAttribute('aria-hidden','true');
   anglingHallOfFameActive=true;anglingHallOfFamePhase='flying-in';anglingHallOfFameElapsed=0;anglingHallOfFameSlideElapsed=0;anglingHallOfFameSlideIndex=-1;anglingHallOfFameFireworkTimer=.45;
+  anglingHallOfFameDataReady=false;anglingHallOfFameCameraReady=false;
+  anglingHallOfFameSlides=[];anglingHallOfFameRows=[];anglingHallOfFameRanking=null;updateAnglingHallOfFameDots();
   anglingHallOfFameRockets.length=0;anglingHallOfFameParticles.length=0;
   anglingHallOfFameFireworkAccumulator=0;anglingHallOfFameOverlayAccumulator=.08;
   anglingHallOfFameWaterProjectionCache.points.length=0;anglingHallOfFameWaterProjectionCache.valid=false;anglingHallOfFameWaterProjectionCache.validUntil=0;
@@ -32877,7 +32901,17 @@ function openAnglingHallOfFame(){
   applyAnglingHallOfFameScene();
   anglingMarkerGroup.visible=false;anglingBankGroup.visible=false;anglingRodGroup.visible=false;anglingBobber.visible=false;anglingDeeper.visible=false;anglingDeeperReadyLine.visible=false;anglingReadyLineGroup.visible=false;anglingLure.visible=false;anglingLine.visible=false;anglingDrillLineGroup.visible=false;anglingFishShadow.visible=false;anglingFishVisual.visible=false;anglingNetGroup.visible=false;anglingPhotoHorizon.visible=false;anglingPhotoShadowGroup.visible=false;
   controls.enabled=false;
-  buildAnglingHallOfFameSlides();loadAnglingHallOfFameRows();
+  aczoAmbientStopAll();
+  // Hall of Fame nutzt dieselbe dezente Loop-Musik wie der Drill und behält sie
+  // auch im Predatorpit-Easter-Egg. Erst beim vollständigen Verlassen wird sie beendet.
+  aczoStartDrillMusic(true);
+  const hallOfFameLoadTask=loadAnglingHallOfFameRows();
+  Promise.resolve(hallOfFameLoadTask).finally(()=>{
+    if(!anglingHallOfFameActive)return;
+    if(!anglingHallOfFameSlides.length)buildAnglingHallOfFameSlides();
+    anglingHallOfFameDataReady=true;
+    tryStartAnglingHallOfFamePresentation();
+  });
   anglingHallOfFame.classList.remove('returning');anglingHallOfFame.classList.add('show');anglingHallOfFame.setAttribute('aria-hidden','false');anglingHallOfFameBack.disabled=false;anglingHallOfFameBack.textContent='← Zurück zur letzten Ansicht';
   anglingHallOfFameCard.classList.remove('visible');
   syncAnglingHallOfFameViewportFrame();
@@ -32891,7 +32925,8 @@ function openAnglingHallOfFame(){
   anglingHallOfFameTargetBase=new THREE.Vector3(-16.4,14.8,1.00);
   camera.near=.08;camera.updateProjectionMatrix();
   beginAnglingCamera(anglingHallOfFameCameraBase,anglingHallOfFameTargetBase,46,1.45,()=>{
-    anglingHallOfFamePhase='show';anglingHallOfFameElapsed=0;anglingHallOfFameSlideElapsed=0;showAnglingHallOfFameSlide(0);spawnAnglingHallOfFameRocket(true);
+    anglingHallOfFameCameraReady=true;
+    tryStartAnglingHallOfFamePresentation();
   },new THREE.Vector3(0,0,1));
 }
 function closeAnglingHallOfFame(){
@@ -32902,7 +32937,9 @@ function closeAnglingHallOfFame(){
   beginAnglingCamera(s.camera.position,s.camera.target,s.camera.fov,1.05,()=>{
     camera.position.copy(s.camera.position);controls.target.copy(s.camera.target);camera.up.copy(s.camera.up);camera.quaternion.copy(s.camera.quaternion);camera.fov=s.camera.fov;camera.near=s.camera.near;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
     restoreAnglingHallOfFameVisualState(s);
+    aczoStopDrillMusic();
     anglingHallOfFameActive=false;anglingHallOfFamePhase='idle';anglingHallOfFameReturn=null;anglingHallOfFameRows=[];anglingHallOfFameRockets.length=0;anglingHallOfFameParticles.length=0;anglingHallOfFameFireworkAccumulator=0;anglingHallOfFameOverlayAccumulator=0;
+    anglingHallOfFameDataReady=false;anglingHallOfFameCameraReady=false;
     anglingCreatorEasterEggActive=false;anglingCreatorEntryStarted=false;personalCampForceBuild=false;
     anglingHallOfFame.classList.remove('show','returning','creator-mode','creator-story-visible');anglingHallOfFame.setAttribute('aria-hidden','true');anglingHallOfFameCreator.setAttribute('aria-hidden','true');anglingHallOfFameCard.classList.remove('visible');
   },s.camera.up);
