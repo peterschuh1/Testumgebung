@@ -4719,7 +4719,7 @@ body.aczo-share-preview-open{overflow:hidden!important}
   .angling-ui.artificial-lure .angling-float-zoom.target-assist{
     left:7px!important;
     right:auto!important;
-    bottom:9px!important;
+    bottom:72px!important;
     top:auto!important;
     margin:0!important;
     transform:none!important;
@@ -11659,41 +11659,37 @@ function aczoExportCurrentView(){
     aczoCleanupPrintSnapshot();
     aczoCleanupPrintFrame();
 
-    // P92 DRUCK: Statt ein mehrmegabytegroßes Base64-PNG in ein neues
-    // Popup-Dokument zu schreiben, die bereits vorhandene Druck-Snapshot-
-    // Infrastruktur im selben Dokument verwenden. Das reduziert Speicherpeak
-    // und vermeidet Browser-/Spoolerfehler bei der Druckvorschau.
-    const img=document.createElement('img');
-    img.id='aczo-print-snapshot';
-    img.alt='ACZO56 Kartenausschnitt';
-    img.src=dataUrl;
-    aczoPrintSnapshot=img;
-    document.body.appendChild(img);
+    const html=aczoBuildPrintDocumentHtml(dataUrl);
 
-    let started=false;
-    const startPrint=()=>{
-      if(started)return;
-      started=true;
-      document.body.classList.add('aczo-printing');
-      // Zwei Frames geben Browser und Druck-CSS Zeit, den Snapshot sicher zu layouten.
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        try{window.focus();window.print();}
-        catch(err){
-          console.warn('Kartenexport/Druck:',err);
-          aczoCleanupPrintSnapshot();
-          if(typeof showViewerError==='function')showViewerError('Druckvorschau konnte nicht geöffnet werden. Bitte erneut versuchen.');
-        }
-      }));
-    };
-    if(img.complete&&img.naturalWidth>0)startPrint();
-    else{
-      img.addEventListener('load',startPrint,{once:true});
-      img.addEventListener('error',()=>{
-        aczoCleanupPrintSnapshot();
-        if(typeof showViewerError==='function')showViewerError('Druckbild konnte nicht geladen werden. Bitte erneut versuchen.');
-      },{once:true});
+    // Safari/iOS: Druckbild in einem eigenen, weißen Druckdokument öffnen.
+    // Dadurch wird die laufende Webseite weder mitgedruckt noch als dunkle
+    // Hintergrund-/Overlay-Ebene in die Druckvorschau übernommen.
+    let popup=null;
+    try{popup=window.open('','_blank');}catch(err){popup=null;}
+    if(popup&&popup.document){
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+      return;
     }
-    aczoPrintCleanupTimer=setTimeout(aczoCleanupPrintSnapshot,30000);
+
+    // Fallback für Browser, die Popups blockieren: verstecktes Druck-iFrame.
+    const frame=document.createElement('iframe');
+    frame.style.position='fixed';
+    frame.style.right='-10000px';
+    frame.style.bottom='0';
+    frame.style.width='1px';
+    frame.style.height='1px';
+    frame.style.opacity='0';
+    frame.style.pointerEvents='none';
+    frame.setAttribute('aria-hidden','true');
+    document.body.appendChild(frame);
+    aczoPrintFrame=frame;
+    const doc=frame.contentDocument||frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    aczoPrintCleanupTimer=setTimeout(aczoCleanupPrintFrame,15000);
   }catch(err){
     console.warn('Kartenexport:',err);
     aczoCleanupPrintSnapshot();
@@ -39084,7 +39080,7 @@ function renderAnglingTargetAssistCamera(){
   const aczoTargetAssistMobile=window.matchMedia&&window.matchMedia('(max-width:680px)').matches;
   anglingFloatZoom.style.setProperty('left',(aczoTargetAssistMobile?7:9)+'px','important');
   anglingFloatZoom.style.setProperty('right','auto','important');
-  anglingFloatZoom.style.setProperty('bottom','9px','important');
+  anglingFloatZoom.style.setProperty('bottom',(aczoTargetAssistMobile?72:9)+'px','important');
   anglingFloatZoom.style.setProperty('top','auto','important');
   anglingFloatZoom.style.display='block';
   anglingFloatZoom.setAttribute('aria-hidden','false');
