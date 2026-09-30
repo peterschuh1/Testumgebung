@@ -15313,6 +15313,40 @@ function createCarryRodBundle(){
   g.userData.rods=[r1,r2];return g;
 }
 
+
+function createPersonalAlarmGroundHalo(color){
+  const mat=new THREE.ShaderMaterial({
+    transparent:true,depthTest:true,depthWrite:false,toneMapped:false,
+    blending:THREE.AdditiveBlending,
+    uniforms:{uOpacity:{value:0},uColor:{value:new THREE.Color(color)}},
+    vertexShader:`
+      varying vec2 vUv;
+      void main(){
+        vUv=uv;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+      }`,
+    fragmentShader:`
+      varying vec2 vUv;
+      uniform float uOpacity;
+      uniform vec3 uColor;
+      void main(){
+        vec2 p=vUv;
+        float x=(p.x-.5)/.42;
+        float y=(p.y-.08)/.96;
+        float beam=exp(-(x*x+y*y)*2.7);
+        float hotspot=exp(-(((p.x-.5)*(p.x-.5))/0.020+((p.y-.05)*(p.y-.05))/0.010));
+        float fadeFront=1.0-smoothstep(.72,1.0,p.y);
+        float alpha=uOpacity*clamp(beam*.85+hotspot*.60,0.0,1.0)*fadeFront;
+        gl_FragColor=vec4(uColor,alpha);
+      }`
+  });
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.84,1.72,1,1),mat);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.renderOrder=4;
+  mesh.visible=false;
+  return mesh;
+}
+
 function createRodPodScene(){
   const g=new THREE.Group(),m=getPersonalTackleMaterials();
   g.userData.kind='stainless-rodpod-reference';
@@ -15344,7 +15378,7 @@ function createRodPodScene(){
       bolt.rotation.z=Math.PI/2;bolt.position.set(x+side*.030,y,railZ);g.add(bolt);
     }
   }
-  const rods=[],alarmLeds=[],alarmGlows=[];
+  const rods=[],alarmLeds=[],alarmGlows=[],alarmPointLights=[],alarmSpotLights=[],alarmGroundHalos=[];
   const alarmShape=new THREE.Shape();
   alarmShape.moveTo(-.051,0);alarmShape.quadraticCurveTo(-.075,.006,-.073,.040);
   alarmShape.lineTo(-.068,.150);alarmShape.lineTo(-.056,.263);
@@ -15382,12 +15416,20 @@ function createRodPodScene(){
     for(const dx of [-.046,.046]){
       const led=new THREE.Mesh(new THREE.SphereGeometry(.006,10,6),new THREE.MeshBasicMaterial({color:i?0x200302:0x13041c,toneMapped:false}));
       led.position.set(dx,.030,.246);alarm.add(led);pair.push(led);
-      const glow=new THREE.Mesh(new THREE.SphereGeometry(.016,8,6),new THREE.MeshBasicMaterial({color:i?0xff251b:0xb649ff,transparent:true,opacity:0,depthWrite:false,toneMapped:false}));
+      const glow=new THREE.Mesh(new THREE.SphereGeometry(.021,8,6),new THREE.MeshBasicMaterial({color:i?0xff251b:0xb649ff,transparent:true,opacity:0,depthWrite:false,toneMapped:false}));
       glow.position.copy(led.position);alarm.add(glow);glows.push(glow);
     }
+    const point=new THREE.PointLight(i?0xff4b38:0xc96bff,0,1.05,2.0);
+    point.castShadow=false;point.position.set(0,.028,.225);alarm.add(point);
+    const spotTarget=new THREE.Object3D();spotTarget.position.set(0,1.52,.05);alarm.add(spotTarget);
+    const spot=new THREE.SpotLight(i?0xff4b38:0xc96bff,0,2.35,.52,.84,1.85);
+    spot.castShadow=false;spot.position.set(0,.028,.225);spot.target=spotTarget;alarm.add(spot);
+    const halo=createPersonalAlarmGroundHalo(i?0xff4b38:0xc96bff);
+    halo.position.set(x,front+.84,.010);g.add(halo);
     alarmLeds.push(pair);alarmGlows.push(glows);
+    alarmPointLights.push(point);alarmSpotLights.push(spot);alarmGroundHalos.push(halo);
   });
-  g.userData={kind:'stainless-rodpod-reference',rods,alarmLeds,alarmGlows,footPoints};
+  g.userData={kind:'stainless-rodpod-reference',rods,alarmLeds,alarmGlows,alarmPointLights,alarmSpotLights,alarmGroundHalos,footPoints};
   personalBatchStaticMeshes(g,[...rods,...alarmLeds.flat(),...alarmGlows.flat()],true);
   return g;
 }
@@ -15395,10 +15437,36 @@ function createRodPodScene(){
 function setPersonalBiteAlarm(index,on,pulse=false){
   if(!personalRodPod)return;
   const leds=personalRodPod.userData.alarmLeds[index],glows=personalRodPod.userData.alarmGlows[index];
+  const point=personalRodPod.userData.alarmPointLights?.[index]||null;
+  const spot=personalRodPod.userData.alarmSpotLights?.[index]||null;
+  const halo=personalRodPod.userData.alarmGroundHalos?.[index]||null;
+  const cfg=index
+    ? {off:0x200302,dim:0x7c0b08,on:0xff3a2d,glow:0xff5540}
+    : {off:0x13041c,dim:0x4b126e,on:0xcf74ff,glow:0xce72ff};
   const bright=!pulse||Math.sin(performance.now()*.028)>-.20;
   const night=typeof sceneNightFactor==='number'?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;
-  for(const led of leds){led.material.color.setHex(!on?(index?0x200302:0x13041c):index?(bright?0xff3024:0x7c0b08):(bright?0xc45dff:0x4b126e));}
-  for(const glow of glows)glow.material.opacity=on?(bright?.12+night*.12:.025):0;
+  for(const led of leds){
+    led.material.color.setHex(!on?cfg.off:(bright?cfg.on:cfg.dim));
+    led.scale.setScalar(!on?1:(bright?1.45:1.12));
+  }
+  for(const glow of glows){
+    glow.material.color.setHex(cfg.glow);
+    glow.material.opacity=on?(bright?(.20+night*.18):(.055+night*.09)):0;
+    glow.scale.setScalar(!on?1:(bright?(1.35+night*.20):(1.08+night*.08)));
+  }
+  if(point){
+    point.color.setHex(cfg.glow);
+    point.intensity=on?(bright?THREE.MathUtils.lerp(.10,1.45,night):THREE.MathUtils.lerp(.03,.48,night)):0;
+  }
+  if(spot){
+    spot.color.setHex(cfg.glow);
+    spot.intensity=on?(bright?THREE.MathUtils.lerp(0,.95,night):THREE.MathUtils.lerp(0,.34,night)):0;
+  }
+  if(halo){
+    halo.visible=!!on;
+    halo.material.uniforms.uColor.value.setHex(cfg.glow);
+    halo.material.uniforms.uOpacity.value=on?(bright?(.006+night*.22):(.0015+night*.085)):0;
+  }
 }
 
 function createFishingChair(){
