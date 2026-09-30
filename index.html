@@ -15405,26 +15405,31 @@ function setPersonalBiteAlarm(index,on,pulse=false){
   const point=personalRodPod.userData.alarmPointLights?.[index]||null;
   const spot=personalRodPod.userData.alarmSpotLights?.[index]||null;
   const cfg=index
-    ? {off:0x200302,dim:0x9e120d,on:0xff6b58,glow:0xff5f4a}
-    : {off:0x13041c,dim:0x6c1da0,on:0xe09aff,glow:0xd883ff};
+    ? {off:0x200302,dim:0xc91a12,on:0xff8b78,glow:0xff7058}
+    : {off:0x13041c,dim:0x8b35c8,on:0xefbcff,glow:0xe094ff};
   const bright=!pulse||Math.sin(performance.now()*.028)>-.20;
   const night=typeof sceneNightFactor==='number'?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;
   for(const led of leds){
     led.material.color.setHex(!on?cfg.off:(bright?cfg.on:cfg.dim));
-    led.scale.setScalar(!on?1:(bright?1.75:1.25));
+    led.scale.setScalar(!on?1:(bright?2.15:1.45));
   }
   for(const glow of glows){
     glow.material.color.setHex(cfg.glow);
-    glow.material.opacity=on?(bright?(.26+night*.24):(.07+night*.12)):0;
-    glow.scale.setScalar(!on?1:(bright?(1.65+night*.28):(1.15+night*.12)));
+    glow.material.opacity=on?(bright?(.34+night*.30):(.11+night*.16)):0;
+    glow.scale.setScalar(!on?1:(bright?(1.95+night*.35):(1.28+night*.18)));
   }
   if(point){
     point.color.setHex(cfg.glow);
-    point.intensity=on?(bright?THREE.MathUtils.lerp(.22,2.25,night):THREE.MathUtils.lerp(.08,.82,night)):0;
+    point.distance=1.85;
+    point.intensity=on?(bright?THREE.MathUtils.lerp(.50,4.60,night):THREE.MathUtils.lerp(.20,1.65,night)):0;
   }
   if(spot){
     spot.color.setHex(cfg.glow);
-    spot.intensity=on?(bright?THREE.MathUtils.lerp(.10,2.10,night):THREE.MathUtils.lerp(.03,.72,night)):0;
+    spot.distance=3.0;
+    spot.angle=.72;
+    spot.penumbra=.95;
+    spot.decay=1.35;
+    spot.intensity=on?(bright?THREE.MathUtils.lerp(.24,4.25,night):THREE.MathUtils.lerp(.08,1.45,night)):0;
   }
 }
 
