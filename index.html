@@ -4746,6 +4746,7 @@ body.aczo-share-preview-open{overflow:hidden!important}
 /* Same small lower feeding position as the float method, with one boilie action. */
 .angling-bank-feed:not([hidden]){display:flex!important;width:auto!important}
 .angling-bank-feed[hidden]{display:none!important}
+.angling-bank-controls.catfish button[data-feed],.angling-bank-controls.catfish [data-feed]{display:none!important}
 .aczo-phone-layout .angling-bank-feed{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:auto!important}
 .aczo-phone-layout .angling-bank-feed .angling-bank-feed-btn{flex:0 0 auto!important;height:24px!important;min-height:24px!important;padding:2px 9px!important;font-size:8px!important;overflow:visible!important}
 .angling-bank-compact button::before{content:'';position:absolute;inset:-6px 0}
@@ -5018,6 +5019,7 @@ function aczoSetIconText(element,value){
 })();
 
 <!-- ACZO56 V2.2: Black Carbon / Wels ohne Hindernisse / gekoppelte Karpfen-Bisslogik / 10s LED-Memory -->
+<!-- FIX 2026-10-03: Wels-Futterbutton hart entfernt; Stationaerrollen ohne Spiegelung/Linkskurbel; Karpfen-Hinderniswarnung nur bei realer Naehe <=4.5m -->
 </script>
 <script>
 // ACZO56 CLEAN V4: Neuaufbau auf Basis der letzten guten V1.3 + ReefMaster V4.
@@ -15731,7 +15733,7 @@ function createPredatorStationaryReel(materialSet=null){
   g.position.set(0,0,0);g.quaternion.identity();
   // Source: +Y points to rod, -Z points to spool front. Scene: +Z up, -Y river.
   const reelScale=Number(m.reelScale)||1;
-  g.rotation.x=Math.PI/2;g.scale.set(1.52*reelScale,1.52*reelScale,-1.52*reelScale);
+  g.rotation.x=-Math.PI/2;g.scale.set(1.52*reelScale,1.52*reelScale,1.52*reelScale);
   if(Array.isArray(m.bodyScale)&&g.children[0]?.isMesh)g.children[0].scale.set(...m.bodyScale);
   g.traverse(o=>{
     if(!o.isMesh)return;
@@ -30191,7 +30193,8 @@ function anglingBankSyncWaitingHud(){
  if(rt.waitingHudCompact!==compact){rt.waitingHudCompact=compact;rt.mobileMenuAt=0;rt.mobileFrame=null;rt.mobileMenuTop=null;}
  anglingUi.classList.toggle('bank-waiting-compact',compact);
  if(rt.feedBar&&rt.feedButton){
-  const feed=rt.feedButton,container=feedVisible?rt.feedBar:rt.ui;
+  const feed=rt.feedButton;feed.hidden=!carp;feed.style.display=carp?'':'none';feed.setAttribute('aria-hidden',String(!carp));
+  const container=feedVisible?rt.feedBar:rt.ui;
   if(feed.parentElement!==container)container.append(feed);
   rt.feedBar.hidden=!feedVisible;
   feed.classList.toggle('angling-bank-feed-btn',feedVisible);feed.classList.toggle('angling-feed-btn',feedVisible);
@@ -30211,7 +30214,7 @@ function anglingBankRefreshUi(){
  const choices=anglingBankChoices(),busy=anglingMenusLocked()||rt.casting>=0;
  rt.ui.querySelectorAll('[data-rod]').forEach(b=>{const i=Number(b.dataset.rod),r=rt.rigs[i],c=r||choices[i];const bait=anglingBaitLabels[c.bait]||c.bait,flavour=ANGLING_BOILIE_FLAVOURS[c.bait]?.find(f=>f.id===c.flavour)?.name;const heading=document.createElement('strong'),label=document.createElement('span');heading.textContent=(i?'Rechts':'Links')+' · '+(r?'im Wasser':'noch auswerfen');label.textContent=bait+(flavour?' · '+flavour:'');b.replaceChildren(heading,label);b.dataset.castState=r?'cast':'uncast';b.title=(i?'Rechte':'Linke')+' Rute · '+(r?'ausgeworfen':'noch auswerfen')+' · '+label.textContent;b.setAttribute('aria-label',b.title);b.disabled=busy;b.setAttribute('aria-pressed',String(rt.selected===i));});
  rt.ui.querySelector('[data-retrieve]').disabled=busy||!rt.rigs.some(Boolean);
- const feed=rt.feedButton||rt.ui.querySelector('[data-feed]'),feedInfo=anglingBankFeedInfo(),feedStock=anglingBankAvailable('boilie'),feedFlying=rt.feedBalls.some(b=>!b.done);feed.hidden=anglingProgress.selectedEquipment!=='carp_set';rt.ui.classList.toggle('catfish',feed.hidden);anglingBankSetFeedButton(feed,feedInfo);feed.disabled=busy||!feedInfo.allowed||feedStock<10||feedFlying||!!anglingCameraTransition||!!anglingTimeShiftActive;const feedTitle=!feedInfo.allowed?'Anfüttern nur mit Boilie oder Pop-Up':feedStock<10?'Mindestens 10 freie Boilies nötig · frei '+feedStock:feedFlying?'Anfüttern läuft':('10 Boilies · '+(rt.selected?'rechte':'linke')+' Rute · '+(feedInfo.flavour?.name||'')+' · frei '+feedStock);if(feed.title!==feedTitle){feed.title=feedTitle;feed.setAttribute('aria-label',feedTitle);}
+ const feed=rt.feedButton||rt.ui.querySelector('[data-feed]'),feedInfo=anglingBankFeedInfo(),feedStock=anglingBankAvailable('boilie'),feedFlying=rt.feedBalls.some(b=>!b.done);const carpFeed=anglingProgress.selectedEquipment==='carp_set';feed.hidden=!carpFeed;feed.style.display=carpFeed?'':'none';feed.setAttribute('aria-hidden',String(!carpFeed));rt.ui.classList.toggle('catfish',!carpFeed);anglingBankSetFeedButton(feed,feedInfo);feed.disabled=busy||!feedInfo.allowed||feedStock<10||feedFlying||!!anglingCameraTransition||!!anglingTimeShiftActive;const feedTitle=!feedInfo.allowed?'Anfüttern nur mit Boilie oder Pop-Up':feedStock<10?'Mindestens 10 freie Boilies nötig · frei '+feedStock:feedFlying?'Anfüttern läuft':('10 Boilies · '+(rt.selected?'rechte':'linke')+' Rute · '+(feedInfo.flavour?.name||'')+' · frei '+feedStock);if(feed.title!==feedTitle){feed.title=feedTitle;feed.setAttribute('aria-label',feedTitle);}
  anglingDepth.disabled=true;
  anglingCurrentBaitLabel.textContent=(rt.selected?'Rechte':'Linke')+' Rute · '+(anglingBaitLabels[choices[rt.selected].bait]||'Köder')+' · frei ×'+anglingBankAvailable(choices[rt.selected].bait);
  if(['ready','bank-waiting'].includes(anglingState)){
@@ -30422,7 +30425,9 @@ function anglingBankNearestPickupObstacle(point,maxDistance=16){
  return best;
 }
 function anglingBankCreatePickupHazard(rigPoint,cm,temperament){
- const obstacle=anglingBankNearestPickupObstacle(rigPoint,16);
+ // A pickup hazard exists only when the cast itself is genuinely close to a modeled in-water obstacle.
+ // Previously the nearest obstacle anywhere within 16 m was selected, which created false warnings in clear near-shore water.
+ const obstacle=anglingBankNearestPickupObstacle(rigPoint,4.5);
  if(!obstacle)return null;
  const size=THREE.MathUtils.clamp((Number(cm)-35)/95,0,1);
  const temperamentFactor=temperament==='wild'?.18:['ruhig','ausdauernd'].includes(temperament)?-.10:0;
