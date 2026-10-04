@@ -10414,6 +10414,7 @@ function aczoBuildCleanWaterGeometry(){
 const waterGeo=aczoBuildCleanWaterGeometry();
 
 const waterUniforms={
+ boatHullMask:{value:new THREE.Vector4()},boatHullZ:{value:0},boatHullActive:{value:0},
  time:{value:0},
  opacity:{value:0.49},
  deepColor:{value:new THREE.Color(0x237fb8)},
@@ -10517,6 +10518,7 @@ const waterMat=new THREE.ShaderMaterial({
  `,
  fragmentShader:`
    uniform float time;
+   uniform vec4 boatHullMask;uniform float boatHullZ;uniform float boatHullActive;
    uniform float opacity;
    uniform vec3 deepColor;
    uniform vec3 lightColor;
@@ -10625,6 +10627,16 @@ const waterMat=new THREE.ShaderMaterial({
    }
 
    void main(){
+     if(boatHullActive>.5){
+       vec2 d=vWorldPos.xy-boatHullMask.xy;
+       vec2 p=vec2(d.x*boatHullMask.z+d.y*boatHullMask.w,-d.x*boatHullMask.w+d.y*boatHullMask.z);
+       if(p.x>-2.35&&p.x<2.22){
+         float w=p.x< -1.86?mix(.055,.54,(p.x+2.35)/.49):p.x< -.60?mix(.54,.62,(p.x+1.86)/1.26):p.x<.72?.62:mix(.62,.56,(p.x-.72)/1.50);
+         w*=mix(.82,1.0,clamp((vWorldPos.z-boatHullZ+.08)/.32,0.0,1.0));
+         if(abs(p.y)<w)discard;
+       }
+     }
+
      if(clipToPond>.5){
        vec2 pondUV=vec2(
          (vWorldPos.x-pondMaskMin.x)/max(pondMaskSpan.x,.001),
@@ -18501,8 +18513,10 @@ eastBoatModel.userData.refreshObstacleSegments=aczoRefreshEastBoatCollisionSegme
 
 function buildEastBoat(){
   eastBoatBuildOpenHull();
-  const insideFloor=new THREE.Mesh(new THREE.BoxGeometry(3.75,.78,.055),eastBoatInsideMat);
-  insideFloor.position.set(.13,0,.055);
+  const floorShape=new THREE.Shape();
+  floorShape.moveTo(-2.30,0);floorShape.lineTo(-1.86,-.425);floorShape.lineTo(-.60,-.493);floorShape.lineTo(.72,-.493);floorShape.lineTo(2.17,-.445);floorShape.lineTo(2.17,.445);floorShape.lineTo(.72,.493);floorShape.lineTo(-.60,.493);floorShape.lineTo(-1.86,.425);floorShape.closePath();
+  const insideFloor=new THREE.Mesh(new THREE.ShapeGeometry(floorShape),eastBoatInsideMat);
+  insideFloor.position.set(0,0,.095);
   eastBoatMesh(insideFloor,'BOOT_INNENBODEN',true,true);
   for(const x of [-1.18,.15,1.27]){
     const bench=new THREE.Mesh(new THREE.BoxGeometry(.34,1.02,.075),eastBoatHullMat);
@@ -29630,7 +29644,7 @@ if(anglingProgress.xp>0&&anglingProgress.xpRevision<1)anglingProgress.xpRevision
 if(typeof anglingProgress.selectedBait==='string'&&anglingProgress.selectedBait)anglingSelectedBait=anglingProgress.selectedBait;
 
 // V2.2 boat mode: existing east-pier vehicle; normal angling remains the fallback.
-var aczoBoatRuntime={active:false,phase:'idle',speed:0,heading:0,input:{},trail:[],returnPath:[],sonarHistory:[],sonarTime:0,time:0,ui:null,finds:[],findsReady:false,home:null,landingView:null};
+var aczoBoatRuntime={active:false,phase:'idle',speed:0,heading:0,input:{},trail:[],returnPath:[],sonarHistory:[],sonarTime:0,time:0,turnRate:0,ui:null,finds:[],findsReady:false,home:null,landingView:null};
 function aczoBoatCloudReady(){
  // Older backends omit boat/rare-lure IDs. Keep those local until API 20 is deployed.
  return true;
@@ -29664,34 +29678,100 @@ function aczoBoatPoseAllowed(position,heading){
 }
 function aczoBoatMove(position,heading){
  eastBoatModel.position.copy(position);eastBoatModel.position.z=anglingSurfaceZ(position.x,position.y)+.01;
- eastBoatModel.rotation.z=aczoBoatModelYaw(heading);eastBoatModel.updateMatrixWorld(true);aczoRefreshEastBoatCollisionSegments();
+ eastBoatModel.rotation.z=aczoBoatModelYaw(heading);eastBoatModel.updateMatrixWorld(true);aczoRefreshEastBoatCollisionSegments();aczoBoatSyncWaterMask();
 }
 function aczoBoatRecordTrail(){
  const rt=aczoBoatRuntime,p=eastBoatModel.position,last=rt.trail.at(-1);
  if(!last||p.distanceTo(last.position)>.35||Math.abs(Math.atan2(Math.sin(rt.heading-last.heading),Math.cos(rt.heading-last.heading)))>.10)rt.trail.push({position:p.clone(),heading:rt.heading});
 }
+function aczoBoatSyncWaterMask(){
+ const mask=waterUniforms.boatHullMask;if(!mask)return;
+ mask.value.set(eastBoatModel.position.x,eastBoatModel.position.y,Math.cos(eastBoatModel.rotation.z),Math.sin(eastBoatModel.rotation.z));
+ waterUniforms.boatHullZ.value=eastBoatModel.position.z;waterUniforms.boatHullActive.value=aczoBoatActive()?1:0;
+}
 function aczoBoatCamera(){
- const rt=aczoBoatRuntime,forward=aczoBoatDirection(rt.phase==='returning'&&Number.isFinite(rt.returnViewHeading)?rt.returnViewHeading:rt.heading),eye=eastBoatModel.position.clone().addScaledVector(forward,-.9);eye.z+=1.25;
+ const rt=aczoBoatRuntime,forward=aczoBoatDirection(rt.heading),eye=eastBoatModel.position.clone().addScaledVector(forward,-.9);eye.z+=1.25;
  const target=eye.clone().addScaledVector(forward,12);target.z-=1.12;
  camera.position.copy(eye);camera.up.set(0,0,1);camera.fov=46;camera.zoom=anglingGameCameraZoom();camera.near=.045;camera.updateProjectionMatrix();controls.target.copy(target);camera.lookAt(target);camera.updateMatrixWorld(true);
+}
+function aczoBoatMotion(dt,throttle,turn){
+ const rt=aczoBoatRuntime,target=throttle>0?3.8:throttle<0?-1.6:0;
+ const acceleration=throttle?.72:.60,delta=THREE.MathUtils.clamp(target-rt.speed,-acceleration*dt,acceleration*dt);
+ rt.speed+=delta;if(Math.abs(rt.speed)<.002)rt.speed=0;
+ // The rudder needs water flow; no on-the-spot rotation at rest.
+ const yawTarget=turn*Math.sign(rt.speed)*.48*Math.min(1,Math.abs(rt.speed)/1.5);
+ rt.turnRate+=(yawTarget-rt.turnRate)*(1-Math.exp(-dt*3));
+ const heading=rt.heading+rt.turnRate*dt,p=eastBoatModel.position.clone().addScaledVector(aczoBoatDirection(rt.heading+rt.turnRate*dt*.5),rt.speed*dt);
+ if(aczoBoatPoseAllowed(p,heading)){rt.heading=heading;aczoBoatMove(p,heading);aczoBoatRecordTrail();return true;}
+ rt.speed=0;rt.turnRate=0;return false;
+}
+function aczoBoatWaterSegment(a,b){
+ const delta=b.clone().sub(a);delta.z=0;const length=delta.length(),heading=Math.atan2(delta.x,delta.y),steps=Math.max(1,Math.ceil(length/.5));
+ for(let i=0;i<=steps;i++)if(!aczoBoatPoseAllowed(a.clone().lerp(b,i/steps),heading))return false;
+ return true;
+}
+function aczoBoatRotationClear(position,from,to){
+ const angle=Math.atan2(Math.sin(to-from),Math.cos(to-from)),steps=Math.max(1,Math.ceil(Math.abs(angle)/.10));
+ for(let i=1;i<=steps;i++)if(!aczoBoatPoseAllowed(position,from+angle*i/steps))return false;
+ return true;
+}
+function aczoBoatReturnRoute(){
+ const rt=aczoBoatRuntime,points=[eastBoatModel.position.clone(),...rt.trail.slice().reverse().map(v=>v.position.clone())],route=[];
+ let at=0;
+ while(at<points.length-1){let end=at+1;for(let i=points.length-1;i>at+1;i--)if(aczoBoatWaterSegment(points[at],points[i])){end=i;break;}
+  if(points[at].distanceTo(points[end])>.035)route.push(points[end]);at=end;
+ }
+ return route;
+}
+function aczoBoatDryWalkPath(){
+ const rt=aczoBoatRuntime,start=anglingSelection?.shore||camera.position,from=aczoSmallPierBoundaryArcInfo(start.x,start.y),to=aczoSmallPierBoundaryArcInfo(EAST_BOAT_PIER_SHORE.x,EAST_BOAT_PIER_SHORE.y);
+ if(!from||!to)return [rt.pierView.cameraPos.clone()];
+ let delta=((to.arc-from.arc)%from.total+from.total)%from.total;if(delta>from.total/2)delta-=from.total;
+ const points=[],steps=Math.max(1,Math.ceil(Math.abs(delta)/.7));
+ for(let i=0;i<=steps;i++){
+  const f=aczoSmallPierBoundaryFrameAtArc(from.arc+delta*i/steps,from);if(!f)continue;
+  const p=new THREE.Vector3(f.x-f.nx*1.35,f.y-f.ny*1.35,WATER_OVERLAY_Z+1.62);
+  // At an inward corner, keep the walking camera on the dry bank.
+  for(let n=0;n<6&&aczoPointInsideMasterPondRaw(p.x,p.y);n++){p.x-=f.nx*.4;p.y-=f.ny*.4;}
+  points.push(p);
+ }
+ if(anglingSelection?.cameraPos&&camera.position.z<WATER_OVERLAY_Z+4)points.unshift(camera.position.clone());
+ points.push(rt.pierView.cameraPos.clone());return points;
+}
+function aczoBoatWalkCamera(dt){
+ const rt=aczoBoatRuntime;let distance=dt*rt.walkSpeed;
+ while(distance>0&&rt.walkPath.length>1){const a=rt.walkPath[0],b=rt.walkPath[1],length=a.distanceTo(b),left=Math.max(0,length-rt.walkAlong);
+  if(distance>=left){distance-=left;rt.walkPath.shift();rt.walkAlong=0;}else{rt.walkAlong+=distance;distance=0;}
+ }
+ const a=rt.walkPath[0],b=rt.walkPath[1]||a,blend=a.distanceTo(b)>.001?rt.walkAlong/a.distanceTo(b):0;
+ camera.position.lerpVectors(a,b,blend);camera.position.z+=Math.sin(rt.time*9)*.018*Math.min(1,a.distanceTo(b));
+ const look=b.clone().sub(a);look.z=0;if(look.lengthSq()>.001){look.normalize();rt.walkLook.lerp(look,1-Math.exp(-dt*4)).normalize();}
+ const target=camera.position.clone().addScaledVector(rt.walkLook,8);target.z=camera.position.z-.32;
+ controls.target.lerp(target,1-Math.exp(-dt*7));camera.up.set(0,0,1);camera.lookAt(controls.target);camera.updateMatrixWorld(true);
+ return rt.walkPath.length<=1;
 }
 function aczoBoatInstallUi(){
  const rt=aczoBoatRuntime;if(rt.ui)return;
  const style=document.createElement('style');style.textContent=`
- .aczo-boat-controls{position:absolute;left:10px;bottom:12px;display:flex;flex-wrap:wrap;gap:5px;width:176px;pointer-events:auto;z-index:1550}
- .aczo-boat-controls[hidden],.aczo-boat-sonar[hidden]{display:none!important}
- .aczo-boat-controls button{min-height:40px!important;padding:7px 9px!important;font-size:12px!important;background:#104334;color:#edf5e8;border:1px solid #91bda5;border-radius:9px;touch-action:none;flex:1;white-space:normal;line-height:1.15}
- .aczo-boat-controls .boat-wide{flex-basis:100%}.aczo-boat-sonar{position:absolute;right:9px;bottom:12px;width:145px;height:163px;padding:5px;background:#071e28;border:1px solid #b1d2d2;z-index:1500;border-radius:0;pointer-events:none}
- .aczo-boat-sonar canvas{width:100%;height:145px}.aczo-boat-sonar span{display:block;text-align:center;font:bold 10px system-ui;color:#d7e5df}
- .angling-ui.boat-driving .angling-setup,.angling-ui.boat-driving .angling-hud-panel,.angling-ui.boat-driving .angling-float-zoom,.angling-ui.boat-driving .angling-reel-zoom,.angling-ui.boat-driving .angling-line-summary,.angling-ui.boat-driving .angling-aim-reticle,.angling-ui.boat-driving .angling-select-panel{display:none!important}
- .angling-ui.boat-anchored .aczo-boat-controls{bottom:79px;width:185px}.angling-ui.game-panel-open .aczo-boat-controls,.angling-ui.main-menu-open .aczo-boat-controls{display:none!important}
- @media(min-width:650px){.aczo-boat-controls{width:255px}.aczo-boat-sonar{width:195px;height:190px}.aczo-boat-sonar canvas{height:172px}}
+ .angling-ui .aczo-boat-controls{position:absolute;left:10px;bottom:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;width:150px;pointer-events:auto;z-index:1550}
+ .angling-ui .aczo-boat-controls[hidden],.angling-ui .aczo-boat-sonar[hidden],.angling-ui .aczo-boat-controls button[hidden]{display:none!important}
+ .angling-ui .aczo-boat-controls button{box-sizing:border-box;min-width:0!important;width:100%;min-height:44px!important;height:44px!important;padding:4px!important;font:800 10px/1.15 system-ui!important;letter-spacing:0!important;background:#104334;color:#edf5e8;border:1px solid #91bda5;border-radius:9px;touch-action:none;white-space:normal;overflow:hidden;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+ .angling-ui .aczo-boat-controls button .boat-symbol{font-size:17px;line-height:1}
+ .angling-ui .aczo-boat-controls .boat-wide{grid-column:1/-1;height:34px!important;min-height:34px!important;flex-direction:row}
+ .aczo-boat-sonar{position:absolute;right:9px;bottom:12px;box-sizing:border-box;width:145px;height:163px;padding:5px;background:#071e28;border:1px solid #b1d2d2;z-index:1500;border-radius:0;pointer-events:none}
+ .aczo-boat-sonar canvas{display:block;width:100%;height:145px}.aczo-boat-sonar span{display:none}
+ .angling-ui.boat-driving .angling-setup,.angling-ui.boat-driving .angling-hud-panel,.angling-ui.boat-driving .angling-float-zoom,.angling-ui.boat-driving .angling-reel-zoom,.angling-ui.boat-driving .angling-line-summary,.angling-ui.boat-driving .angling-aim-reticle,.angling-ui.boat-driving .angling-select-panel,.angling-ui.boat-ready .angling-float-zoom{display:none!important;visibility:hidden!important}
+ .angling-ui.boat-ready .aczo-boat-controls{bottom:79px;width:calc(100% - 20px);grid-template-columns:repeat(4,minmax(0,1fr))}
+ .angling-ui.boat-ready .aczo-boat-controls button{height:36px!important;min-height:36px!important;font-size:10px!important;flex-direction:row}
+ .angling-ui.boat-ready .aczo-boat-controls .boat-wide{grid-column:auto}
+ .angling-ui.game-panel-open .aczo-boat-controls,.angling-ui.main-menu-open .aczo-boat-controls{display:none!important}
+ @media(min-width:650px){.angling-ui .aczo-boat-controls{width:180px}.aczo-boat-sonar{width:195px;height:190px}.aczo-boat-sonar canvas{height:172px}.angling-ui.boat-ready .aczo-boat-controls{width:360px}}
  `;document.head.append(style);
  const ui=document.createElement('div');ui.className='aczo-boat-controls';ui.hidden=true;ui.setAttribute('aria-label','Boot steuern');rt.ui=ui;rt.buttons={};
- function button(key,text,hold){const b=document.createElement('button');b.type='button';b.textContent=text;b.dataset.boat=key;ui.append(b);rt.buttons[key]=b;
+ function button(key,text,hold){const b=document.createElement('button');b.type='button';b.textContent=text;b.setAttribute('aria-label',text);b.dataset.boat=key;ui.append(b);rt.buttons[key]=b;
   if(hold){b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();b.setPointerCapture?.(e.pointerId);rt.input[key]=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,e=>{e.stopPropagation();rt.input[key]=false;});b.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();});}
   else b.addEventListener('click',e=>{e.stopPropagation();if(key==='anchor')aczoBoatToggleAnchor();if(key==='return')aczoBoatReturn();});return b;}
- button('left','↶ Links',true);button('right','Rechts ↷',true);button('forward','▲ Vorwärts',true);button('reverse','▼ Rückwärts',true);button('anchor','⚓ Ankern').classList.add('boat-wide');button('return','Zum Ostufer').classList.add('boat-wide');anglingUi.append(ui);
+ button('left','◀ Links',true);button('right','Rechts ▶',true);button('forward','▲ Voraus',true);button('reverse','▼ Zurück',true);button('anchor','⚓ Ankern').classList.add('boat-wide');button('return','Zum Steg').classList.add('boat-wide');anglingUi.append(ui);
  const sonar=document.createElement('div');sonar.className='aczo-boat-sonar';sonar.hidden=true;sonar.innerHTML='<canvas aria-label="Deeper am Bootsheck"></canvas><span>DEEPER · AM HECK</span>';anglingUi.append(sonar);rt.sonar=sonar;rt.canvas=sonar.querySelector('canvas');rt.ctx=rt.canvas.getContext('2d');
  window.addEventListener('keydown',e=>{if(!aczoBoatActive()||anglingGamePanelOpen()||e.target?.closest?.('input,textarea,select,[contenteditable]'))return;const keys={ArrowUp:'forward',w:'forward',ArrowDown:'reverse',s:'reverse',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};const key=keys[e.key];if(key){e.preventDefault();rt.input[key]=true;}});
  window.addEventListener('keyup',e=>{const keys={ArrowUp:'forward',w:'forward',ArrowDown:'reverse',s:'reverse',ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right'};if(keys[e.key])rt.input[keys[e.key]]=false;});window.addEventListener('blur',()=>{rt.input={};rt.speed=0;});
@@ -29700,11 +29780,11 @@ function aczoBoatInstallUi(){
 function aczoBoatRefreshUi(){
  const rt=aczoBoatRuntime;if(!rt.ui)return;const paused=anglingGamePanelOpen()||anglingHallOfFameActive||anglingTimeShiftActive;
  if(paused)rt.input={};rt.ui.hidden=!rt.active||paused||(rt.phase==='anchored'&&(anglingState!=='ready'||aczoBoatLineBusy()));
- const driving=rt.phase==='driving';for(const key of ['forward','reverse'])rt.buttons[key].hidden=!driving;
+ const driving=rt.phase==='driving',ready=rt.active&&rt.phase==='anchored'&&anglingState==='ready'&&!aczoBoatLineBusy();for(const key of ['forward','reverse'])rt.buttons[key].hidden=!driving;
  for(const key of ['left','right']){rt.buttons[key].disabled=!['driving','anchored'].includes(rt.phase);rt.buttons[key].textContent=rt.phase==='anchored'?(key==='left'?'↶ Blick':'Blick ↷'):(key==='left'?'↶ Links':'Rechts ↷');}
- rt.buttons.anchor.disabled=!['driving','anchored'].includes(rt.phase);rt.buttons.anchor.textContent=rt.phase==='anchored'?'⚓ Anker lichten':'⚓ Ankern';rt.buttons.return.disabled=!['driving','anchored'].includes(rt.phase);
+ rt.buttons.anchor.disabled=!['driving','anchored'].includes(rt.phase);rt.buttons.anchor.textContent=rt.phase==='anchored'?'⚓ Ablegen':'⚓ Ankern';rt.buttons.return.disabled=!['driving','anchored'].includes(rt.phase);
  rt.sonar.hidden=!rt.active||paused||!['driving','returning'].includes(rt.phase);
- anglingUi.classList.toggle('boat-driving',rt.active&&rt.phase!=='anchored');anglingUi.classList.toggle('boat-anchored',rt.active&&rt.phase==='anchored');
+ anglingUi.classList.toggle('boat-driving',rt.active&&rt.phase!=='anchored');anglingUi.classList.toggle('boat-anchored',rt.active&&rt.phase==='anchored');anglingUi.classList.toggle('boat-ready',ready);
 }
 function aczoBoatStart(){
  const rt=aczoBoatRuntime;if(rt.active)return;
@@ -29718,7 +29798,7 @@ function aczoBoatStart(){
  if(!launch){showAnglingToast('Vor dem Bootssteg ist gerade kein sicherer Einstieg möglich.',2200);return;}
  aczoBoatInstallUi();closeAnglingGamePanels();anglingBankClearRuntime();if(anglingUsesBankSet()){anglingProgress.selectedEquipment='';anglingSelectedBait=anglingProgress.selectedBait||'worm';}
  if(['boilie','popup','bank_worm_bundle'].includes(anglingSelectedBait)){anglingSelectedBait='worm';anglingProgress.selectedBait='worm';}anglingProgress.selectedEquipment='';saveAnglingProgress();
- rt.active=true;rt.phase='boarding';rt.heading=heading;rt.speed=0;rt.time=0;rt.trail=[];rt.sonarHistory=[];rt.sonarTime=0;rt.input={};rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();rt.pierView=eastBoatPierSelectionFromPoint(EAST_BOAT_PIER_SHORE);rt.launch=launch;aczoBoatMove(launch,heading);aczoBoatRecordTrail();
+ rt.active=true;rt.phase='boarding';rt.heading=heading;rt.speed=0;rt.turnRate=0;rt.time=0;rt.trail=[];rt.sonarHistory=[];rt.sonarTime=0;rt.input={};rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();rt.pierView=eastBoatPierSelectionFromPoint(EAST_BOAT_PIER_SHORE);rt.launch=launch;rt.walkPath=aczoBoatDryWalkPath();rt.walkAlong=0;rt.walkLook=new THREE.Vector3().subVectors(rt.walkPath[1]||rt.pierView.cameraPos,rt.walkPath[0]);rt.walkLook.z=0;if(rt.walkLook.lengthSq()<.01)rt.walkLook.copy(aczoBoatDirection(heading));rt.walkLook.normalize();const length=rt.walkPath.reduce((n,p,i)=>n+(i?p.distanceTo(rt.walkPath[i-1]):0),0);rt.walkSpeed=length/THREE.MathUtils.clamp(length/4,2,24);camera.position.copy(rt.walkPath[0]);camera.fov=46;camera.zoom=anglingGameCameraZoom();camera.updateProjectionMatrix();aczoBoatMove(launch,heading);aczoBoatRecordTrail();
  anglingCameraTransition=null;anglingState='boat-boarding';anglingCinematicView='shore';anglingWaterTarget=1;anglingUi.classList.add('is-fishing');anglingMarkerGroup.visible=false;anglingBankGroup.visible=false;anglingRodGroup.visible=false;
  resetAnglingUnderwaterState(false);setAnglingPhotoHorizonForSelection();setAnglingStatus('Zum Bootssteg am Ostufer','Du gehst zum Boot und steigst ein.');aczoBoatRefreshUi();
 }
@@ -29731,7 +29811,7 @@ function aczoBoatAnchorSelection(){
 function aczoBoatToggleAnchor(){
  const rt=aczoBoatRuntime;if(!rt.active||!['driving','anchored'].includes(rt.phase))return;
  if(aczoBoatLineBusy()){showAnglingToast('Vor dem Losfahren die Montage einholen.',1800);return;}
- rt.input={};rt.speed=0;
+ rt.input={};rt.speed=0;rt.turnRate=0;
  if(rt.phase==='driving'){rt.phase='anchored';rt.viewHeading=rt.heading;aczoBoatAnchorSelection();}
  else{rt.phase='driving';anglingState='boat-driving';anglingAimLocked=false;anglingRodGroup.visible=false;resetAnglingUnderwaterState(false);anglingCameraTransition=null;}
  aczoBoatRefreshUi();
@@ -29739,7 +29819,7 @@ function aczoBoatToggleAnchor(){
 function aczoBoatReturn(){
  const rt=aczoBoatRuntime;if(!rt.active||!['driving','anchored'].includes(rt.phase))return;
  if(aczoBoatLineBusy()){showAnglingToast('Vor der Rückfahrt die Montage einholen.',1800);return;}
- rt.speed=0;rt.input={};aczoBoatRecordTrail();rt.returnPath=rt.trail.slice().reverse();rt.phase='returning';anglingState='boat-returning';anglingCinematicView='shore';anglingCameraTransition=null;anglingRodGroup.visible=false;rt.time=0;setAnglingStatus('Zurück zum Ostufer','Das Boot folgt dem sicheren gefahrenen Weg zum Bootssteg.');aczoBoatRefreshUi();
+ rt.speed=0;rt.input={};aczoBoatRecordTrail();rt.returnPath=aczoBoatReturnRoute();rt.returnReversing=false;rt.reverseStart=eastBoatModel.position.clone();const first=rt.returnPath[0];if(first){const bearing=Math.atan2(first.x-eastBoatModel.position.x,first.y-eastBoatModel.position.y);rt.returnReversing=!aczoBoatRotationClear(eastBoatModel.position,rt.heading,bearing)&&aczoBoatRotationClear(eastBoatModel.position,rt.heading,bearing+Math.PI);}rt.turnRate=0;rt.returnStartCamera=camera.position.clone();rt.returnStartTarget=controls.target.clone();rt.phase='returning';anglingState='boat-returning';anglingCinematicView='shore';anglingCameraTransition=null;anglingRodGroup.visible=false;rt.time=0;setAnglingStatus('Zurück zum Ostufer','Das Boot steuert auf einem freien Weg zurück zum Bootssteg.');aczoBoatRefreshUi();
 }
 function aczoBoatFinishReturn(){
  const rt=aczoBoatRuntime,view=rt.pierView;aczoBoatReset();anglingSelection=view;anglingSelection.pierLabel='Bootssteg am Ostufer';
@@ -29747,9 +29827,9 @@ function aczoBoatFinishReturn(){
  beginAnglingCamera(view.cameraPos,view.lookTarget,anglingShoreFieldOfView(),.85);setAnglingStatus('Wieder am Bootssteg','Du stehst wieder am Ostufer und kannst normal angeln.');
 }
 function aczoBoatReset(){
- const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;
+ const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.turnRate=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;
  const home=rt.home||{position:new THREE.Vector3(eastBoatModel.userData.home.x,eastBoatModel.userData.home.y,eastBoatModel.userData.home.z),yaw:eastBoatModel.userData.home.yaw};eastBoatModel.position.copy(home.position);eastBoatModel.rotation.z=home.yaw;eastBoatModel.visible=true;eastBoatModel.updateMatrixWorld(true);aczoRefreshEastBoatCollisionSegments();
- rt.finds.forEach(f=>f.group.visible=false);aczoBoatRefreshUi();
+ rt.finds.forEach(f=>f.group.visible=false);aczoBoatSyncWaterMask();aczoBoatRefreshUi();
 }
 function aczoBoatTickSonar(dt){
  const rt=aczoBoatRuntime;rt.sonarTime+=dt;if(rt.sonar.hidden||rt.sonarTime<.32)return;rt.sonarTime=0;
@@ -29764,31 +29844,32 @@ function aczoBoatTick(dt){
    const turn=(rt.input.right?1:0)-(rt.input.left?1:0);
    if(turn){rt.viewHeading+=turn*dt*.75;anglingSelection.inward.copy(aczoBoatDirection(rt.viewHeading));anglingBaseYaw=rt.viewHeading;anglingViewYawOffset=anglingYawOffset=0;anglingAimLocked=false;anglingUi.classList.remove('aim-locked');updateAnglingAimFromSettings(true);anglingShoreCameraTarget.copy(controls.target);}
   }
-  anglingBankGroup.visible=false;eastBoatModel.visible=anglingCinematicView!=='underwater';return false;
+  anglingBankGroup.visible=false;eastBoatModel.visible=true;aczoBoatSyncWaterMask();return false;
  }
  eastBoatModel.visible=true;updateAnglingEnvironment();enforceAnglingSurfaceOnly();anglingBankGroup.visible=false;anglingMarkerGroup.visible=false;anglingRodGroup.visible=false;anglingRodThreadGroup.visible=false;anglingBobber.visible=false;anglingLure.visible=false;anglingDeeper.visible=false;anglingReadyLineGroup.visible=false;anglingDeeperReadyLine.visible=false;anglingAim3DGroup.visible=false;waterUniforms.anglingView.value=1;
  if(rt.phase==='boarding'){
-  const t=THREE.MathUtils.smoothstep(rt.time,0,4.5),walk=rt.pierView.cameraPos;camera.position.lerpVectors(rt.startCamera,walk,t);camera.position.z+=Math.sin(t*Math.PI)*1.8;controls.target.lerpVectors(rt.startTarget,rt.launch,t);camera.up.set(0,0,1);camera.lookAt(controls.target);
-  if(rt.time>=4.5){rt.phase='entering';rt.time=0;rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();}
+  if(aczoBoatWalkCamera(dt)){rt.phase='entering';rt.time=0;rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();}
  }else if(rt.phase==='entering'){
   const t=THREE.MathUtils.smoothstep(rt.time,0,1.1);aczoBoatCamera();const eye=camera.position.clone(),target=controls.target.clone();camera.position.lerpVectors(rt.startCamera,eye,t);controls.target.lerpVectors(rt.startTarget,target,t);camera.lookAt(controls.target);
   if(rt.time>=1.1){rt.phase='driving';anglingState='boat-driving';rt.time=0;setAnglingStatus('Boot steuern','Vorwärts/Rückwärts und Links/Rechts · Ankern aktiviert das Angeln.');}
  }else if(rt.phase==='driving'){
   const turn=(rt.input.right?1:0)-(rt.input.left?1:0),throttle=(rt.input.forward?1:0)-(rt.input.reverse?1:0);
-  rt.speed+=(throttle*(throttle<0?.9:1.9)-rt.speed)*Math.min(1,dt*2.8);
-  const heading=rt.heading+turn*dt*.55,p=eastBoatModel.position.clone().addScaledVector(aczoBoatDirection(heading),rt.speed*dt);
-  if(aczoBoatPoseAllowed(p,heading)){rt.heading=heading;aczoBoatMove(p,heading);aczoBoatRecordTrail();}
-  else{rt.speed=0;if(rt.time-(rt.lastBlocked||-10)>2){rt.lastBlocked=rt.time;showAnglingToast('Ufer, Flachwasser oder Hindernis · bitte abdrehen.',1450);}}
+  if(!aczoBoatMotion(dt,throttle,turn)&&rt.time-(rt.lastBlocked||-10)>2){rt.lastBlocked=rt.time;showAnglingToast('Ufer, Flachwasser oder Hindernis · bitte abdrehen.',1450);}
   aczoBoatCamera();
  }else if(rt.phase==='returning'){
-  let step=dt*3.5;
-  while(step>0&&rt.returnPath.length){const next=rt.returnPath[0],delta=next.position.clone().sub(eastBoatModel.position);delta.z=0;const distance=delta.length();
-   if(distance<.035){rt.heading=next.heading;aczoBoatMove(next.position,next.heading);rt.returnPath.shift();continue;}
-   rt.returnViewHeading=Math.atan2(delta.x,delta.y);const travel=Math.min(step,distance),p=eastBoatModel.position.clone().addScaledVector(delta,travel/distance);rt.heading=next.heading;aczoBoatMove(p,rt.heading);step-=travel;if(travel>=distance-.001)rt.returnPath.shift();
-  }
-  if(!rt.returnPath.length){rt.phase='disembarking';rt.time=0;rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();}else aczoBoatCamera();
+  while(rt.returnPath.length&&eastBoatModel.position.distanceTo(rt.returnPath[0])<.20)rt.returnPath.shift();
+  const next=rt.returnPath[0];
+  if(next){
+   const delta=next.clone().sub(eastBoatModel.position);delta.z=0;const distance=delta.length(),bearing=Math.atan2(delta.x,delta.y);if(rt.returnReversing&&eastBoatModel.position.distanceTo(rt.reverseStart)>2.8&&aczoBoatRotationClear(eastBoatModel.position,rt.heading,bearing)){rt.returnReversing=false;rt.speed=0;}const desired=bearing+(rt.returnReversing?Math.PI:0),error=Math.atan2(Math.sin(desired-rt.heading),Math.cos(desired-rt.heading));
+   const turn=THREE.MathUtils.clamp(error,-.85*dt,.85*dt),heading=rt.heading+turn;
+   const targetSpeed=Math.abs(error)>.35?0:(rt.returnReversing?-1:1)*Math.min(rt.returnReversing?1.4:3.5,Math.sqrt(distance*1.6));rt.speed+=THREE.MathUtils.clamp(targetSpeed-rt.speed,-1.3*dt,.75*dt);
+   const p=eastBoatModel.position.clone().addScaledVector(aczoBoatDirection(heading),Math.sign(rt.speed)*Math.min(distance,Math.abs(rt.speed)*dt));
+   if(aczoBoatPoseAllowed(p,heading)){rt.heading=heading;aczoBoatMove(p,heading);}else rt.speed=0;
+   aczoBoatCamera();
+   if(rt.time<1){const t=THREE.MathUtils.smoothstep(rt.time,0,1);camera.position.lerpVectors(rt.returnStartCamera,camera.position.clone(),t);controls.target.lerpVectors(rt.returnStartTarget,controls.target.clone(),t);camera.lookAt(controls.target);}
+  }else{rt.phase='disembarking';rt.time=0;rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();rt.dockStart=eastBoatModel.position.clone();rt.dockHeading=rt.heading;rt.speed=0;}
  }else if(rt.phase==='disembarking'){
-  const t=THREE.MathUtils.smoothstep(rt.time,0,1.2);camera.position.lerpVectors(rt.startCamera,rt.pierView.cameraPos,t);controls.target.lerpVectors(rt.startTarget,rt.pierView.lookTarget,t);camera.lookAt(controls.target);if(rt.time>=1.2){aczoBoatFinishReturn();return true;}
+  const t=THREE.MathUtils.smoothstep(rt.time,0,1.8),homeHeading=Math.atan2(-Math.cos(rt.home.yaw),-Math.sin(rt.home.yaw)),dockTurn=Math.atan2(Math.sin(homeHeading-rt.dockHeading),Math.cos(homeHeading-rt.dockHeading));aczoBoatMove(rt.dockStart.clone().lerp(rt.home.position,t),rt.dockHeading+dockTurn*t);camera.position.lerpVectors(rt.startCamera,rt.pierView.cameraPos,t);controls.target.lerpVectors(rt.startTarget,rt.pierView.lookTarget,t);camera.lookAt(controls.target);if(rt.time>=1.8){aczoBoatFinishReturn();return true;}
  }
  updateAnglingRodAnchor();updateAnglingSurfaceEffects(dt);updateAnglingFeedSystem(dt);aczoBoatTickSonar(dt);return true;
 }
@@ -29804,23 +29885,23 @@ function aczoBoatBuildFinds(){
  const rt=aczoBoatRuntime;if(rt.findsReady)return;rt.findsReady=true;
  for(const cfg of ACZO_REAL_BIRCH_CONFIGS){
   const id=cfg.id==='OST'?'predatorpit_softbait':'predatorpit_spinner',d=ACZO_LURE_DESIGNS[id],frame=aczoMasterBoundaryFrame(...cfg.center);if(!frame)continue;
-  const hang=cfg.id==='OST'?.34:1.62,point=aczoBirchWorldPoint(frame,cfg.trunk[cfg.id==='OST'?4:3]),group=new THREE.Group();group.name='ACZO_BOAT_HIDDEN_FIND';point.z-=hang;group.position.copy(point);
-  const mat=new THREE.MeshStandardMaterial({color:cfg.id==='OST'?0x54e8c1:0xe3c666,metalness:cfg.id==='OST'?.12:.95,roughness:.15,emissive:0x102016,emissiveIntensity:.22});const body=new THREE.Mesh(aczoLureGeometryCache[id].body.clone(),mat);body.scale.setScalar(.65);body.rotation.x=Math.PI/2;group.add(body);
+  const hang=cfg.id==='OST'?.40:1.62,point=aczoBirchWorldPoint(frame,cfg.trunk[cfg.id==='OST'?4:3]),group=new THREE.Group();group.name='ACZO_BOAT_HIDDEN_FIND';const anchor=point.clone();point.addScaledVector(new THREE.Vector3(frame.nx,frame.ny,0),.95).addScaledVector(new THREE.Vector3(frame.tx,frame.ty,0),cfg.id==='OST'?.70:-.70);point.z-=hang;group.position.copy(point);
+  const mat=new THREE.MeshStandardMaterial({color:cfg.id==='OST'?0x54e8c1:0xe3c666,metalness:cfg.id==='OST'?.12:.95,roughness:.15,emissive:0x102016,emissiveIntensity:.22});const body=new THREE.Mesh(aczoLureGeometryCache[id].body.clone(),mat);body.scale.setScalar(.95);body.rotation.x=Math.PI/2;group.add(body);
   if(d.family==='shad'){const tail=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),mat);tail.scale.set(.55,.22,1);tail.position.z=-.22;group.add(tail);}
   const hook=new THREE.Mesh(new THREE.TorusGeometry(.035,.006,5,12,Math.PI*1.7),new THREE.MeshStandardMaterial({color:0xa4b9bb,metalness:.85,roughness:.2}));hook.position.z=-.21;group.add(hook);
-  const hanger=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,.28),new THREE.Vector3(0,0,hang)]),new THREE.LineBasicMaterial({color:0xb8c1bd,transparent:true,opacity:.55}));group.add(hanger);
-  const hit=new THREE.Mesh(new THREE.SphereGeometry(.42,8,6),new THREE.MeshBasicMaterial({visible:false}));hit.userData.findId=id;group.add(hit);const glint=new THREE.Sprite(new THREE.SpriteMaterial({map:fishLightGlowTex,color:0xfff1b5,transparent:true,depthWrite:false,opacity:0}));glint.scale.set(.45,.45,1);group.add(glint);scene.add(group);rt.finds.push({id,group,hit,glint});
+  const hanger=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,.28),anchor.clone().sub(point)]),new THREE.LineBasicMaterial({color:0xb8c1bd,transparent:true,opacity:.55}));group.add(hanger);
+  const hit=new THREE.Mesh(new THREE.SphereGeometry(.42,8,6),new THREE.MeshBasicMaterial({visible:false}));hit.userData.findId=id;group.add(hit);const glint=new THREE.Sprite(new THREE.SpriteMaterial({map:fishLightGlowTex,color:0xfff1b5,transparent:true,depthWrite:false,depthTest:false,opacity:0}));glint.scale.set(.65,.65,1);group.add(glint);scene.add(group);rt.finds.push({id,group,hit,glint});
  }
 }
 function aczoBoatUpdateFinds(){
  if(!aczoBoatActive())return;aczoBoatBuildFinds();const now=performance.now()/1000;
- for(const f of aczoBoatRuntime.finds){f.group.visible=anglingMode&&anglingLureStock(f.id)<1&&anglingCinematicView!=='underwater';f.glint.material.opacity=Math.pow(Math.max(0,Math.sin(now*1.5+(f.id.includes('spinner')?2:0))),18)*.8;}
+ for(const f of aczoBoatRuntime.finds){f.group.visible=anglingMode&&anglingLureStock(f.id)<1&&anglingCinematicView!=='underwater';f.glint.material.opacity=.12+Math.pow(Math.max(0,Math.sin(now*1.8+(f.id.includes('spinner')?2:0))),10)*.88;}
 }
 function aczoBoatPickFind(e){
  if(!aczoBoatActive()||!['driving','anchored'].includes(aczoBoatRuntime.phase)||aczoBoatLineBusy()||anglingGamePanelOpen()||anglingHallOfFameActive)return;
  const rect=renderer.domElement.getBoundingClientRect(),pick=new THREE.Raycaster();pick.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);
- const hits=[];for(const find of aczoBoatRuntime.finds){if(!find.group.visible)continue;const point=pick.ray.intersectSphere(new THREE.Sphere(find.group.getWorldPosition(new THREE.Vector3()),.42),new THREE.Vector3());if(point)hits.push({find,distance:point.distanceTo(pick.ray.origin)});}
- hits.sort((a,b)=>a.distance-b.distance);const f=hits[0]?.find;if(!f||eastBoatModel.position.distanceTo(f.group.position)>5)return;
+ const hits=[];for(const find of aczoBoatRuntime.finds){if(!find.group.visible)continue;const point=pick.ray.intersectSphere(new THREE.Sphere(find.group.getWorldPosition(new THREE.Vector3()),.55),new THREE.Vector3());if(point)hits.push({find,distance:point.distanceTo(pick.ray.origin)});}
+ hits.sort((a,b)=>a.distance-b.distance);const f=hits[0]?.find;if(!f||eastBoatModel.position.distanceTo(f.group.position)>6)return;
  // The hanging item keeps depth testing; a generous touch hit area is intentional on phones.
  e.preventDefault();e.stopImmediatePropagation();if(anglingLureStock(f.id)>0)return;aczoBoatRuntime.speed=0;aczoBoatRuntime.input={};anglingProgress.lureInventory[f.id]=1;saveAnglingProgress();f.group.visible=false;refreshAnglingCommerceViews();showAnglingMajorNotice('⭐ SELTENER KUNSTKÖDER GEFUNDEN!','Super! '+ANGLING_LURE_CATALOG[f.id].name+' liegt jetzt in deiner Tacklebox.','success',3200);
 }
@@ -42548,7 +42629,7 @@ function aczoAnglingLureRodCue(){
 }
 
 function renderAnglingFloatCamera(){
- if(aczoBoatDriving()){anglingFloatZoom.style.setProperty('display','none','important');anglingFloatZoom.setAttribute('aria-hidden','true');return;}
+ if(aczoBoatDriving()||(aczoBoatActive()&&anglingState==='ready')){anglingFloatZoom.style.setProperty('display','none','important');anglingFloatZoom.setAttribute('aria-hidden','true');return;}
   if(renderAnglingTargetAssistCamera())return;
   anglingTargetAssistGroup.visible=false;
   anglingFloatZoom.classList.remove('target-assist');
