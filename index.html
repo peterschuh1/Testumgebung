@@ -29632,8 +29632,8 @@ if(typeof anglingProgress.selectedBait==='string'&&anglingProgress.selectedBait)
 // V2.2 boat mode: existing east-pier vehicle; normal angling remains the fallback.
 var aczoBoatRuntime={active:false,phase:'idle',speed:0,heading:0,input:{},trail:[],returnPath:[],sonarHistory:[],sonarTime:0,time:0,ui:null,finds:[],findsReady:false,home:null,landingView:null};
 function aczoBoatCloudReady(){
- if(!anglingCloudEnabled||anglingBankRuntime.cloudApi>=20)return true;
- prewarmAnglingCloudBackend(true).then(()=>refreshAnglingCommerceViews());showAnglingToast(anglingBankRuntime.cloudApi===null?'Cloud-Freigabe wird geprüft. Bitte kurz warten und erneut wählen.':'Bootsangeln benötigt den beiliegenden Google-Code (API 20).',2600);return false;
+ // Older backends omit boat/rare-lure IDs. Keep those local until API 20 is deployed.
+ return true;
 }
 function aczoBoatActive(){return !!aczoBoatRuntime?.active;}
 function aczoBoatDriving(){return aczoBoatActive()&&aczoBoatRuntime.phase!=='anchored';}
@@ -34263,7 +34263,8 @@ function applyAnglingCloudPlayer(player,{force=false}={}){
       anglingSelectedBait=player.selectedBait;
     }
   }
-  if(typeof player.selectedLureId==='string'&&player.selectedLureId){
+  const preserveLocalFind=!force&&ANGLING_LURE_CATALOG[anglingSelectedLureId]?.unique&&anglingLureStock(anglingSelectedLureId)>0&&!Object.prototype.hasOwnProperty.call(player.lureInventory||{},anglingSelectedLureId);
+  if(!preserveLocalFind&&typeof player.selectedLureId==='string'&&player.selectedLureId){
     anglingProgress.selectedLureId=player.selectedLureId;
     anglingSelectedLureId=player.selectedLureId;
   }
