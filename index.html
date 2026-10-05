@@ -29984,7 +29984,7 @@ function aczoBoatFinishReturn(){
  beginAnglingCamera(view.cameraPos,view.lookTarget,anglingShoreFieldOfView(),.85);setAnglingStatus('Wieder am Bootssteg','Du stehst wieder am Ostufer und kannst normal angeln.');
 }
 function aczoBoatReset(){
- const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.turnRate=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;rt.selectedFind=null;rt.selectedFindUntil=0;if(rt.note)rt.note.hidden=true;aczoBoatStopMotor();aczoBoatClearWake();
+ const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.turnRate=0;rt.findUpdateAt=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;rt.selectedFind=null;rt.selectedFindUntil=0;if(rt.note)rt.note.hidden=true;aczoBoatStopMotor();aczoBoatClearWake();
  const home=rt.home||{position:new THREE.Vector3(eastBoatModel.userData.home.x,eastBoatModel.userData.home.y,eastBoatModel.userData.home.z),yaw:eastBoatModel.userData.home.yaw};eastBoatModel.position.copy(home.position);eastBoatModel.rotation.z=home.yaw;eastBoatModel.visible=true;eastBoatModel.updateMatrixWorld(true);aczoRefreshEastBoatCollisionSegments();
  rt.finds.forEach(f=>{f.group.visible=false;if(f.button)f.button.hidden=true;});aczoBoatSyncWaterMask();aczoBoatRefreshUi();
 }
@@ -29993,7 +29993,14 @@ function aczoBoatTickSonar(dt){
  const stern=eastBoatModel.localToWorld(new THREE.Vector3(1.85,0,0));const sample=anglingDeeperBottomSample(stern.x,stern.y);if(sample){sample.time=performance.now();rt.sonarHistory.unshift(sample);if(rt.sonarHistory.length>150)rt.sonarHistory.length=150;drawAnglingDeeperSonar(rt.canvas,rt.ctx,rt.sonarHistory);}
 }
 function aczoBoatTick(dt){
- const rt=aczoBoatRuntime;if(!rt.active)return false;updateAnglingTimeAvailability();aczoBoatRefreshUi();aczoBoatUpdateFinds();aczoBoatUpdateMotor();
+ const rt=aczoBoatRuntime;if(!rt.active)return false;updateAnglingTimeAvailability();aczoBoatRefreshUi();
+ /* PERF: Versteckte Köder/Fundstücke und die Köderdose müssen nicht 30–60x pro
+    Sekunde Bildschirmposition, DOM-Rechteck, Distanz und Sichtbarkeit prüfen.
+    8 Hz reichen für Aufleuchten/Anklicken völlig aus; ein echter Tap ruft
+    aczoBoatUpdateFinds() weiterhin sofort auf. */
+ const aczoFindNow=performance.now();
+ if(!rt.findUpdateAt||aczoFindNow-rt.findUpdateAt>=125){rt.findUpdateAt=aczoFindNow;aczoBoatUpdateFinds();}
+ aczoBoatUpdateMotor();
  if(rt.claimPending||aczoBoatNoteOpen()||anglingGamePanelOpen()||anglingHallOfFameActive||anglingTimeShiftActive||document.hidden){rt.input={};rt.speed=0;aczoBoatStopMotor();return rt.phase!=='anchored';}
  dt=Math.min(.10,Math.max(0,dt));rt.time+=dt;
  if(rt.phase==='anchored'){
@@ -46300,6 +46307,7 @@ anglingBankPrewarm();
 .aczo-tournament-final-list.ceremony-wait{opacity:0;max-height:0;overflow:hidden;margin:0;pointer-events:none}.aczo-tournament-final-list{transition:opacity .35s ease,max-height .5s ease}.aczo-tournament-final-list:not(.ceremony-wait){opacity:1;max-height:60vh}
 @keyframes aczoPodiumPop{0%{opacity:0;transform:translateY(16px) scale(.86)}100%{opacity:1;transform:none}}
 </style>
+<!-- 05.10.2026 WETTANGELN FIX: Siegerehrung lesbarer; Beifang-Wahrscheinlichkeit angehoben; iOS-GPU/RAM-Sicherheitsreserve. Konto/Login/Recovery/Cloud unverändert. -->
 <!-- ACZO56 WETTANGELN TEST V1.6 - ISOLIERTER ZUSATZBLOCK -->
 <style id="aczoTournamentTestV12Style">
 /* WETTANGELN TEST V1.6 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
@@ -46378,7 +46386,7 @@ anglingBankPrewarm();
 .aczo-tournament-row.current{animation:aczoRowPulse .7s ease}@keyframes aczoRowPulse{0%,100%{transform:none}45%{transform:scale(1.022);background:rgba(220,188,92,.21)}}
 .aczo-tournament-seed{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);color:#d7d2c8;font-size:7px}
 .aczo-tournament-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aczo-tournament-spot{min-width:66px;text-align:right;color:#edd17b;font-variant-numeric:tabular-nums}
-.aczo-tournament-final-list .aczo-tournament-row{grid-template-columns:32px minmax(0,1fr) auto auto;padding:8px 9px}.aczo-tournament-rank{font-size:14px;text-align:center;color:#ead386}.aczo-tournament-weight{font-variant-numeric:tabular-nums;color:#fff}.aczo-tournament-prize{min-width:58px;text-align:right;color:#e5c767;font-size:8px}
+.aczo-tournament-final-list .aczo-tournament-row{grid-template-columns:36px minmax(0,1fr) auto auto;padding:10px 11px;font-size:11.5px;line-height:1.18}.aczo-tournament-final-list .name{font-size:11.5px}.aczo-tournament-final-list .name small{font-size:9.5px!important;line-height:1.22;margin-top:2px}.aczo-tournament-rank{font-size:16px;text-align:center;color:#ead386}.aczo-tournament-weight{font-variant-numeric:tabular-nums;color:#fff;font-size:11.5px}.aczo-tournament-prize{min-width:64px;text-align:right;color:#e5c767;font-size:10px}
 .aczo-tournament-row.result-hidden{opacity:0;transform:translateY(7px)}.aczo-tournament-row.result-show{opacity:1;transform:none;transition:opacity .28s ease,transform .28s ease}.aczo-tournament-result-note{margin:10px 0 0;text-align:center;font-size:8.5px;font-weight:850;color:#d2ccbe}
 .aczo-tournament-close{display:block;margin:13px auto 0;width:min(270px,90%)!important;min-height:40px!important;border-radius:999px!important;border:1px solid rgba(232,210,148,.62)!important;background:linear-gradient(180deg,#4b493f,#2d2f2e)!important;color:#fff!important;font-size:10px!important;font-weight:1000!important}
 .aczo-tournament-toast{position:absolute;left:50%;top:50%;z-index:440;transform:translate(-50%,-50%) scale(.95);display:none;pointer-events:none;width:min(430px,86%);padding:13px 16px;border-radius:16px;text-align:center;color:#fff;background:rgba(28,30,30,.94);border:1px solid rgba(224,192,99,.72);box-shadow:0 12px 34px rgba(0,0,0,.44);font-weight:950}
@@ -46479,7 +46487,7 @@ const T={
   maxPlayers:12,
   allowed:new Set(['roach','rudd','perch','sunfish','goby','bream','tench']),
   bycatch:new Set(['carp','mirrorcarp','grasscarp','eel','catfish']),
-  bycatchWeight:{carp:.055,mirrorcarp:.05,grasscarp:.035,eel:.045,catfish:.012},
+  bycatchWeight:{carp:.14,mirrorcarp:.13,grasscarp:.085,eel:.10,catfish:.022},
   naturalBaits:['worm','maggot','corn','premium_corn','maggot_mix','mistworm','dew_worm'],
   bannedNatural:new Set(['boilie','popup','mini_boilie','sturgeon_pellet','baitfish','worm_bundle']),
   fallbacks:['Ralf','Jens','Marcus','Markus','Joachim','Berthold','Gilbert','Daniel','Stefan'],
