@@ -46290,9 +46290,18 @@ anglingBankPrewarm();
 
 
 <!-- P17: iOS gesture guard, visible directional small-object shadows and adaptive map workload. -->
-<!-- ACZO56 WETTANGELN TEST V1.5 - ISOLIERTER ZUSATZBLOCK -->
+
+<style id="aczoTournamentV16Style">
+.aczo-tournament-podium-stage{min-height:126px;margin:8px 0 12px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(5,12,18,.38);backdrop-filter:blur(8px);overflow:hidden;transition:.3s ease}
+.aczo-tournament-podium-stage.done{min-height:0;height:0;margin:0;border-width:0;opacity:0}
+.aczo-tournament-podium-call{display:grid;gap:2px;justify-items:center;animation:aczoPodiumPop .5s cubic-bezier(.2,.8,.2,1)}
+.aczo-tournament-podium-call>span{font-size:32px}.aczo-tournament-podium-call>small{letter-spacing:.18em;opacity:.72}.aczo-tournament-podium-call>strong{font-size:22px}.aczo-tournament-podium-call>b{font-size:18px}.aczo-tournament-podium-call>em{font-size:12px;opacity:.72;font-style:normal}.aczo-tournament-podium-call.rank-1>strong{font-size:26px;text-shadow:0 0 18px rgba(255,220,90,.45)}
+.aczo-tournament-final-list.ceremony-wait{opacity:0;max-height:0;overflow:hidden;margin:0;pointer-events:none}.aczo-tournament-final-list{transition:opacity .35s ease,max-height .5s ease}.aczo-tournament-final-list:not(.ceremony-wait){opacity:1;max-height:60vh}
+@keyframes aczoPodiumPop{0%{opacity:0;transform:translateY(16px) scale(.86)}100%{opacity:1;transform:none}}
+</style>
+<!-- ACZO56 WETTANGELN TEST V1.6 - ISOLIERTER ZUSATZBLOCK -->
 <style id="aczoTournamentTestV12Style">
-/* WETTANGELN TEST V1.5 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
+/* WETTANGELN TEST V1.6 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
 .aczo-tournament-entry{
   position:absolute;right:12px;bottom:76px;z-index:78;width:208px;min-height:112px;
   display:none;align-items:stretch;justify-content:stretch;pointer-events:auto;
@@ -46477,7 +46486,7 @@ const S={
   halfShown:false,twoShown:false,thirtyShown:false,lastMessageAt:0,
   seenCatches:new Set(),tickAt:0,aiAt:0,animationTimers:[],skipReady:false,
   originalSelection:null,originalBait:null,originalEquipment:null,prizeGranted:false,
-  resultOrder:[],musicSource:null,musicGain:null,musicWanted:false,recentMessages:[],nextAmbientInfoAt:0
+  resultOrder:[],musicSource:null,musicGain:null,musicWanted:false,recentMessages:[],nextAmbientInfoAt:0,signal5:false,signal1:false,finalDrill:false,finalDrillStartedAt:0
 };
 
 function q(id){return document.getElementById(id)}
@@ -46714,7 +46723,7 @@ function startCountdown(){
   const step=()=>{if(S.phase!=='countdown')return;if(n>0){showToast('Wettkampf startet',String(n),900);n--;later(step,900)}else{toast.classList.remove('show');beginFishing()}};step();
 }
 function beginFishing(){
-  S.phase='fishing';S.startAt=Date.now();S.endAt=S.startAt+T.durationMs;S.halfShown=S.twoShown=S.thirtyShown=false;S.prizeGranted=false;S.tickAt=performance.now();S.aiAt=S.tickAt;
+  S.phase='fishing';S.startAt=Date.now();S.endAt=S.startAt+T.durationMs;S.halfShown=S.twoShown=S.thirtyShown=false;S.signal5=S.signal1=false;S.finalDrill=false;S.finalDrillStartedAt=0;S.prizeGranted=false;S.tickAt=performance.now();S.aiAt=S.tickAt;tournamentSignal('start');
   hudTime.textContent='15:00';hudFish.textContent='0';hudWeight.textContent='0,00 kg';setHudMessage('Start! Petri Heil.');hud.classList.add('show');syncHudPosition();
   S.recentMessages=[];S.nextAmbientInfoAt=S.startAt+12000+Math.random()*8000;
   for(const p of S.participants){p.totalKg=0;p.fishCount=0;p.bestKg=0;p.fish=[];p.nextTry=S.startAt+9000+Math.random()*16000;p.lastCatchAt=0}
@@ -46722,7 +46731,7 @@ function beginFishing(){
 }
 function catchKey(c){return [c?.time,c?.species,c?.cm,c?.xp].join('|')}
 function processPlayerCatches(){
-  if(S.phase!=='fishing'&&S.phase!=='ending')return;for(const c of anglingProgress.catches||[]){const k=catchKey(c);if(S.seenCatches.has(k))continue;S.seenCatches.add(k);const t=Number(c.time)||0;if(t<S.startAt-1000||t>S.endAt+500)continue;if(!T.allowed.has(c.species))continue;const kg=anglingEstimatedKg(c.species,c.cm);S.player.totalKg+=kg;S.player.fishCount++;S.player.bestKg=Math.max(S.player.bestKg,kg);S.player.fish.push({species:c.species,cm:c.cm,kg});setHudMessage('Gewertet: '+(fishDisplayNames[c.species]||c.species)+' · '+kgText(kg))}
+  if(S.phase!=='fishing'&&S.phase!=='ending')return;for(const c of anglingProgress.catches||[]){const k=catchKey(c);if(S.seenCatches.has(k))continue;S.seenCatches.add(k);const t=Number(c.time)||0;if(t<S.startAt-1000)continue;if(t>S.endAt+500&&!S.finalDrill)continue;if(!T.allowed.has(c.species))continue;const kg=anglingEstimatedKg(c.species,c.cm);S.player.totalKg+=kg;S.player.fishCount++;S.player.bestKg=Math.max(S.player.bestKg,kg);S.player.fish.push({species:c.species,cm:c.cm,kg});setHudMessage('Gewertet: '+(fishDisplayNames[c.species]||c.species)+' · '+kgText(kg))}
 }
 function weightedPick(entries){const total=entries.reduce((n,e)=>n+Math.max(0,Number(e.weight)||0),0);if(total<=0)return null;let r=Math.random()*total;for(const e of entries){r-=Math.max(0,Number(e.weight)||0);if(r<=0)return e.species}return entries[0]?.species||null}
 function competitionMessage(text){
@@ -46756,17 +46765,40 @@ function aiCatch(p,now){
   if(p.fishCount>=3)msgs.push('🔥 Bei '+p.name+' läuft es momentan ordentlich.');
   if(Math.random()<.72)competitionMessage(msgs[Math.floor(Math.random()*msgs.length)]);
 }
+function tournamentSignal(kind){
+  if(typeof aczoSoundEnabled!=='undefined'&&!aczoSoundEnabled)return;
+  try{
+    if(typeof aczoEnsureAudioContext==='function')aczoEnsureAudioContext();
+    const ctx=typeof aczoAudioCtx!=='undefined'?aczoAudioCtx:null;if(!ctx||ctx.state!=='running')return;
+    const pattern=kind==='finish'?[[880,.00,.15],[660,.18,.15],[880,.36,.32]]:kind==='start'?[[620,.00,.12],[820,.16,.22]]:[[760,.00,.11],[760,.15,.11]];
+    for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+delay;o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.055,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+dur+.03)}
+  }catch(_e){}
+}
+function competitionContextMessages(now){
+  const others=S.participants.filter(p=>!p.isPlayer),caught=others.filter(p=>p.fishCount>0),blank=others.filter(p=>p.fishCount===0),choices=[];
+  const total=S.participants.reduce((n,p)=>n+p.fishCount,0),active=S.participants.filter(p=>p.fishCount>0).length;
+  const east=others.filter(p=>p.spotId<=4),west=others.filter(p=>p.spotId>=5&&p.spotId<=10),north=others.filter(p=>p.spotId>=11);
+  const hot=[...others].sort((a,b)=>b.fishCount-a.fishCount)[0],quiet=others.filter(p=>now-p.lastCatchAt>60000),feeding=others.filter(p=>p.feed!=='none');
+  if(caught.length)choices.push(()=>{const p=caught[Math.floor(Math.random()*caught.length)];return '📣 '+p.name+' konnte wieder einen Fisch sicher landen.'});
+  if(blank.length)choices.push(()=>{const p=blank[Math.floor(Math.random()*blank.length)];return '⏳ '+p.name+' wartet weiterhin auf den ersten Wertungsfisch.'});
+  if(blank.length>1)choices.push(()=>blank.length+' Teilnehmer sind noch ohne Wertungsfisch.');
+  if(feeding.length)choices.push(()=>{const p=feeding[Math.floor(Math.random()*feeding.length)];return '🌽 An Platz '+p.spotId+' wird gerade wieder gefüttert.'});
+  if(quiet.length)choices.push(()=>{const p=quiet[Math.floor(Math.random()*quiet.length)];return '🌊 Bei '+p.name+' ist seit einiger Zeit Ruhe am Schwimmer.'});
+  if(hot&&hot.fishCount>=2)choices.push(()=> '🎣 Bei '+hot.name+' läuft gerade eine gute Fangphase.');
+  if(east.some(p=>p.fishCount))choices.push(()=> '➡️ Am Ostufer wurden zuletzt mehrere Schwimmer bewegt.');
+  if(west.some(p=>p.fishCount))choices.push(()=> '⬅️ Vom Westufer kommen wieder Fangmeldungen.');
+  if(north.some(p=>p.fishCount))choices.push(()=> '↗️ Auch die Plätze im Nordosten melden Fisch.');
+  choices.push(()=> '🎣 '+active+' von '+S.participants.length+' Anglern sind inzwischen in der Wertung.');
+  choices.push(()=> '📊 Im Teilnehmerfeld wurden bisher '+total+' Wertungsfische gelandet.');
+  choices.push(()=> total>10?'🐟 Die Fische sind im Moment insgesamt recht aktiv.':'🌿 Das Wettangeln bleibt bislang eher zäh.');
+  choices.push(()=> '👀 An mehreren Plätzen wird gerade sehr konzentriert auf die Posen geschaut.');
+  choices.push(()=> '🌬️ Eine ruhige Phase im Feld. Noch ist hier gar nichts entschieden.');
+  choices.push(()=> '🏁 Das Feld bleibt in Bewegung. Ein guter Fisch kann einiges verändern.');
+  return choices;
+}
 function ambientCompetitionInfo(now){
-  if(now<S.nextAmbientInfoAt)return;S.nextAmbientInfoAt=now+13000+Math.random()*11000;
-  const others=S.participants.filter(p=>!p.isPlayer),caught=others.filter(p=>p.fishCount>0),blank=others.filter(p=>p.fishCount===0);
-  const choices=[];
-  if(caught.length)choices.push(()=>{const p=caught[Math.floor(Math.random()*caught.length)];return '📣 '+p.name+' hat bisher '+p.fishCount+' Wertungsfisch'+(p.fishCount===1?'':'e')+' gefangen.'});
-  if(blank.length)choices.push(()=>{const p=blank[Math.floor(Math.random()*blank.length)];return '⏳ '+p.name+' wartet noch auf den ersten Wertungsfisch.'});
-  const feeding=others.filter(p=>p.feed!=='none');if(feeding.length)choices.push(()=>{const p=feeding[Math.floor(Math.random()*feeding.length)];return '🌽 '+p.name+' setzt an Platz '+p.spotId+' auf Lockfutter.'});
-  const quiet=others.filter(p=>now-p.lastCatchAt>45000);if(quiet.length)choices.push(()=>{const p=quiet[Math.floor(Math.random()*quiet.length)];return '😬 Bei '+p.name+' ist es gerade deutlich ruhiger geworden.'});
-  choices.push(()=>{const active=S.participants.filter(p=>p.fishCount>0).length;return '🎣 '+active+' von '+S.participants.length+' Anglern haben bereits einen Wertungsfisch.'});
-  choices.push(()=>{const total=S.participants.reduce((n,p)=>n+p.fishCount,0);return '📊 Im gesamten Feld wurden bisher '+total+' Wertungsfische gelandet.'});
-  for(let tries=0;tries<8;tries++){const msg=choices[Math.floor(Math.random()*choices.length)]();if(competitionMessage(msg))break}
+  if(now<S.nextAmbientInfoAt)return;S.nextAmbientInfoAt=now+10000+Math.random()*9000;
+  const choices=competitionContextMessages(now);for(let tries=0;tries<12;tries++){const msg=choices[Math.floor(Math.random()*choices.length)]();if(competitionMessage(msg))break}
 }
 function aiTick(now){if(S.phase!=='fishing')return;for(const p of S.participants){if(p.isPlayer||now<p.nextTry)continue;aiCatch(p,now)}ambientCompetitionInfo(now)}
 function setCompetitionMessage(text){if(S.phase!=='fishing'||Date.now()-S.lastMessageAt<5200)return;competitionMessage(text)}
@@ -46786,9 +46818,11 @@ function updateTournament(){
   hudTime.textContent=formatTime(remaining);hudFish.textContent=String(S.player?.fishCount||0);hudWeight.textContent=kgText(S.player?.totalKg||0);if(!hideHud)syncHudPosition();
   aiTick(now);
   if(!S.halfShown&&remaining<=7.5*60*1000){S.halfShown=true;showToast('⏱ HALBZEIT · ZWISCHENSTAND','Nach jetzigem Stand liegst du auf Platz '+playerRank()+' von '+S.participants.length+'.',4400)}
+  if(!S.signal5&&remaining<=5*60*1000){S.signal5=true;tournamentSignal('notice');competitionMessage('⏱ Noch 5 Minuten. Die Schlussphase beginnt.')}
   if(!S.twoShown&&remaining<=2*60*1000){S.twoShown=true;showToast('🔥 ENDSPURT','Noch 2 Minuten.',2600)}
+  if(!S.signal1&&remaining<=60*1000){S.signal1=true;tournamentSignal('notice');competitionMessage('⏱ Noch 1 Minute. Jetzt zählt jeder sichere Fisch.')}
   if(!S.thirtyShown&&remaining<=30*1000){S.thirtyShown=true;showToast('⏱ LETZTE 30 SEKUNDEN','Jetzt zählt jeder Fisch.',2400)}
-  if(remaining<=0)endTournament();
+  if(remaining<=0){const st=String(anglingState||'');if(!S.finalDrill&&['drilling','landing','catch-reveal','caught'].includes(st)){S.finalDrill=true;S.finalDrillStartedAt=now;tournamentSignal('finish');showToast('📯 SCHLUSSSIGNAL','Fisch war rechtzeitig angeschlagen – dieser Drill zählt noch!',3600);S.endAt=now;return}if(S.finalDrill){processPlayerCatches();if(['drilling','landing','catch-reveal','caught'].includes(st))return;}endTournament();}
 }
 
 function safelyEndFishing(){
@@ -46801,15 +46835,18 @@ function grantPrize(){
 function resultMarkup(){
   const rows=S.resultOrder.map((p,i)=>{const prize=T.prizes[i]||0;return '<div class="aczo-tournament-row result-hidden '+(p.isPlayer?'player':'')+'" data-result-row="'+i+'"><span class="aczo-tournament-rank">'+(i<3?['🥇','🥈','🥉'][i]:(i+1)+'.')+'</span><span class="name">'+escapeHtml(p.name)+(p.isPlayer?' ⭐':'')+'<small style="display:block;font-size:.8em;opacity:.72">'+p.fishCount+' Wertungsfisch'+(p.fishCount===1?'':'e')+'</small></span><span class="aczo-tournament-weight">'+kgText(p.totalKg)+'</span><span class="aczo-tournament-prize">'+(prize?prize.toLocaleString('de-DE')+' EP':'')+'</span></div>'}).join('');
   const rank=S.resultOrder.findIndex(p=>p.isPlayer)+1,prize=T.prizes[rank-1]||0;
-  return '<h2>🏆 Siegerehrung</h2><p class="aczo-tournament-subtitle">Wertung nach Gesamtgewicht</p><div class="aczo-tournament-list aczo-tournament-final-list" id="aczoTournamentResults">'+rows+'</div><p class="aczo-tournament-result-note">Du belegst Platz <strong>'+rank+'</strong> von '+S.resultOrder.length+(prize?' · Preisgeld: <strong>'+prize.toLocaleString('de-DE')+' EP</strong>':'')+'. Normale Fang-EP und Boni bleiben erhalten.</p><button type="button" class="aczo-tournament-close" id="aczoTournamentCloseResults">Zurück zur Stellenauswahl</button>';
+  return '<h2>🏆 Siegerehrung</h2><p class="aczo-tournament-subtitle">Wertung nach Gesamtgewicht</p><div id="aczoTournamentPodiumStage" class="aczo-tournament-podium-stage"><small>Die besten vier werden aufgerufen …</small></div><div class="aczo-tournament-list aczo-tournament-final-list ceremony-wait" id="aczoTournamentResults">'+rows+'</div><p class="aczo-tournament-result-note">Du belegst Platz <strong>'+rank+'</strong> von '+S.resultOrder.length+(prize?' · Preisgeld: <strong>'+prize.toLocaleString('de-DE')+' EP</strong>':'')+'. Normale Fang-EP und Boni bleiben erhalten.</p><button type="button" class="aczo-tournament-close" id="aczoTournamentCloseResults">Zurück zur Stellenauswahl</button>';
 }
 function revealResults(skip=false){
-  const rows=[...overlayBody.querySelectorAll('[data-result-row]')];if(skip){clearTimers();rows.forEach(r=>{r.classList.remove('result-hidden');r.classList.add('result-show')});skipBtn.classList.remove('show');return}
-  // Vom letzten Rang bis zum Sieger aufbauen. Platz 1 kommt zuletzt.
-  [...rows].reverse().forEach((row,i)=>later(()=>{if(S.phase!=='results')return;row.classList.remove('result-hidden');row.classList.add('result-show');const rank=Number(row.dataset.resultRow)+1;if(rank<=4&&typeof aczoSoundPlay==='function')aczoSoundPlay('xp',{minGap:170});},i*360));
+  const rows=[...overlayBody.querySelectorAll('[data-result-row]')],stage=q('aczoTournamentPodiumStage'),list=q('aczoTournamentResults');
+  const showFull=()=>{if(stage)stage.classList.add('done');if(list)list.classList.remove('ceremony-wait');rows.forEach(r=>{r.classList.remove('result-hidden');r.classList.add('result-show')});skipBtn.classList.remove('show')};
+  if(skip){clearTimers();showFull();return}
+  const order=[4,3,2,1].filter(rank=>S.resultOrder[rank-1]);
+  order.forEach((rank,i)=>later(()=>{if(S.phase!=='results')return;const p=S.resultOrder[rank-1],medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'🏅';if(stage){stage.innerHTML='<div class="aczo-tournament-podium-call rank-'+rank+'"><span>'+medal+'</span><small>PLATZ '+rank+'</small><strong>'+escapeHtml(p.name)+(p.isPlayer?' ⭐':'')+'</strong><b>'+kgText(p.totalKg)+'</b><em>'+p.fishCount+' Wertungsfisch'+(p.fishCount===1?'':'e')+'</em></div>';stage.classList.remove('pop');void stage.offsetWidth;stage.classList.add('pop')}if(typeof aczoSoundPlay==='function')aczoSoundPlay('xp',{minGap:180});},i*1050));
+  later(showFull,order.length*1050+900);
 }
 function endTournament(){
-  if(S.phase!=='fishing')return;startTournamentCooldown();S.phase='ending';ui.classList.add('aczo-tournament-cinematic');hud.classList.remove('show');toast.classList.remove('show');processPlayerCatches();safelyEndFishing();S.resultOrder=ranking();grantPrize();tournamentMusicStart();showToast('⏱ ZEIT ABGELAUFEN','Die Wertung wird ausgewertet.',1800);
+  if(S.phase!=='fishing')return;if(!S.finalDrill)tournamentSignal('finish');startTournamentCooldown();S.phase='ending';ui.classList.add('aczo-tournament-cinematic');hud.classList.remove('show');toast.classList.remove('show');processPlayerCatches();safelyEndFishing();S.resultOrder=ranking();grantPrize();tournamentMusicStart();showToast('⏱ ZEIT ABGELAUFEN','Die Wertung wird ausgewertet.',1800);
   flyHouse(()=>{if(S.phase!=='ending')return;S.phase='results';overlayBody.innerHTML=resultMarkup();showOverlay(true);skipBtn.classList.remove('show');S.skipReady=false;later(()=>{if(S.phase==='results'){S.skipReady=true;skipBtn.classList.add('show')}},900);revealResults(false);q('aczoTournamentCloseResults')?.addEventListener('click',finishTournament)});
 }
 function finishTournament(){
@@ -46895,7 +46932,7 @@ const tournamentInterval=setInterval(()=>{
   try{
     if(!anglingMode&&S.phase!=='idle'){clearTournamentVisualsImmediately();startTournamentCooldown();abortTournament('Wettangeln wurde beendet.');}
     updateTournament();markTournamentRestrictions();
-  }catch(err){console.warn('Wettangeln Test V1.2:',err)}
+  }catch(err){console.warn('Wettangeln Test V1.6:',err)}
 },250);
 
 })();
