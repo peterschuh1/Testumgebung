@@ -46290,14 +46290,15 @@ anglingBankPrewarm();
 
 
 <!-- P17: iOS gesture guard, visible directional small-object shadows and adaptive map workload. -->
-<!-- ACZO56 WETTANGELN TEST V1.2 - ISOLIERTER ZUSATZBLOCK -->
+<!-- ACZO56 WETTANGELN TEST V1.5 - ISOLIERTER ZUSATZBLOCK -->
 <style id="aczoTournamentTestV12Style">
-/* WETTANGELN TEST V1.2 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
+/* WETTANGELN TEST V1.5 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
 .aczo-tournament-entry{
   position:absolute;right:12px;bottom:76px;z-index:78;width:208px;min-height:112px;
   display:none;align-items:stretch;justify-content:stretch;pointer-events:auto;
 }
 .aczo-tournament-entry.show{display:flex}
+.aczo-tournament-entry.cooldown button{opacity:.68;filter:saturate(.55);cursor:not-allowed}
 .aczo-tournament-entry button{
   position:relative;overflow:hidden;width:100%;min-height:112px!important;padding:13px 14px 12px!important;
   border-radius:18px!important;border:1px solid rgba(228,194,104,.88)!important;color:#f7f3e8!important;text-align:left!important;
@@ -46493,12 +46494,23 @@ function clearTimers(){while(S.animationTimers.length)clearTimeout(S.animationTi
 function later(fn,ms){const id=setTimeout(()=>{const ix=S.animationTimers.indexOf(id);if(ix>=0)S.animationTimers.splice(ix,1);fn()},ms);S.animationTimers.push(id);return id}
 function phaseFishing(){return S.phase==='countdown'||S.phase==='fishing'}
 function tournamentBusy(){return S.phase!=='idle'}
+const ACZO_TOURNAMENT_COOLDOWN_KEY='aczo56_tournament_cooldown_until_v1';
+const ACZO_TOURNAMENT_COOLDOWN_MS=24*60*60*1000;
+function tournamentCooldownUntil(){try{return Math.max(0,Number(localStorage.getItem(ACZO_TOURNAMENT_COOLDOWN_KEY))||0)}catch(_e){return 0}}
+function tournamentCooldownLeft(){return Math.max(0,tournamentCooldownUntil()-Date.now())}
+function tournamentCooldownText(ms=tournamentCooldownLeft()){
+  ms=Math.max(0,ms);const totalMin=Math.ceil(ms/60000),h=Math.floor(totalMin/60),m=totalMin%60;
+  return h+' Std. '+String(m).padStart(2,'0')+' Min.';
+}
+function startTournamentCooldown(){const until=Date.now()+ACZO_TOURNAMENT_COOLDOWN_MS;try{localStorage.setItem(ACZO_TOURNAMENT_COOLDOWN_KEY,String(until))}catch(_e){};return until}
+function clearTournamentVisualsImmediately(){hud.classList.remove('show');toast.classList.remove('show');showOverlay(false);entry.classList.remove('show');skipBtn.classList.remove('show')}
+
 
 const ui=typeof anglingUi!=='undefined'?anglingUi:q('anglingUi');
 if(!ui)return;
 
 const entry=document.createElement('div');entry.className='aczo-tournament-entry';entry.id='aczoTournamentEntry';
-entry.innerHTML='<button type="button"><small>🏁 ACZO56 · WETTANGELN</small><strong>Wettangeln</strong><span>8–12 Angler · 15 Minuten · Gesamtgewicht</span><span class="aczo-tournament-testtag">TEST · ohne 24h-Cooldown</span></button>';
+entry.innerHTML='<button type="button"><small>🏁 ACZO56 · WETTANGELN</small><strong>Wettangeln</strong><span>8–12 Angler · 15 Minuten · Gesamtgewicht</span><span class="aczo-tournament-testtag" id="aczoTournamentCooldownTag">24h-Cooldown aktiv</span></button>';
 const entryBtn=entry.querySelector('button');
 
 const hud=document.createElement('div');hud.className='aczo-tournament-hud';hud.id='aczoTournamentHud';
@@ -46668,6 +46680,7 @@ function skipDraw(){if(S.phase!=='draw'||!S.skipReady)return;clearTimers();rende
 
 async function startTournament(){
   if(tournamentBusy()||!anglingMode||anglingState!=='selecting')return;
+  const cd=tournamentCooldownLeft();if(cd>0){showAnglingToast('Nächstes Wettangeln in '+tournamentCooldownText(cd),2200);return;}
   S.phase='loading';entry.classList.remove('show');ui.classList.add('aczo-tournament-cinematic');S.spots=buildSpots();
   const missing=[];for(let i=1;i<=12;i++)if(!S.spots[i])missing.push(i);
   if(missing.length){S.phase='idle';ui.classList.remove('aczo-tournament-cinematic');showAnglingToast('Wettkampfplätze '+missing.join(', ')+' konnten nicht vorbereitet werden.',2600);return}
@@ -46760,7 +46773,10 @@ function setCompetitionMessage(text){if(S.phase!=='fishing'||Date.now()-S.lastMe
 function ranking(){return [...S.participants].sort((a,b)=>b.totalKg-a.totalKg||b.fishCount-a.fishCount||a.name.localeCompare(b.name,'de-DE'))}
 function playerRank(){return Math.max(1,ranking().findIndex(p=>p.isPlayer)+1)}
 function updateTournament(){
+  const cdLeft=tournamentCooldownLeft();
+  const cdTag=q('aczoTournamentCooldownTag');if(cdTag)cdTag.textContent=cdLeft>0?'Nächstes in '+tournamentCooldownText(cdLeft):'24h-Cooldown aktiv';
   const showEntry=anglingMode&&anglingState==='selecting'&&S.phase==='idle'&&!ui.classList.contains('aczo-tournament-overlay-open');entry.classList.toggle('show',!!showEntry);
+  entry.classList.toggle('cooldown',cdLeft>0);entryBtn.disabled=cdLeft>0;
   if(S.phase!=='fishing'){if(!phaseFishing())hud.classList.remove('show');return}
   const now=Date.now(),remaining=Math.max(0,S.endAt-now);processPlayerCatches();
   /* Wie das Posenfenster: KEINE Vorwarnung. HUD bleibt bei Annäherung, Biss und QTE sichtbar und verschwindet erst NACH erfolgreichem Anhieb im Drill/Keschern/Fang. */
@@ -46793,7 +46809,7 @@ function revealResults(skip=false){
   [...rows].reverse().forEach((row,i)=>later(()=>{if(S.phase!=='results')return;row.classList.remove('result-hidden');row.classList.add('result-show');const rank=Number(row.dataset.resultRow)+1;if(rank<=4&&typeof aczoSoundPlay==='function')aczoSoundPlay('xp',{minGap:170});},i*360));
 }
 function endTournament(){
-  if(S.phase!=='fishing')return;S.phase='ending';ui.classList.add('aczo-tournament-cinematic');hud.classList.remove('show');toast.classList.remove('show');processPlayerCatches();safelyEndFishing();S.resultOrder=ranking();grantPrize();tournamentMusicStart();showToast('⏱ ZEIT ABGELAUFEN','Die Wertung wird ausgewertet.',1800);
+  if(S.phase!=='fishing')return;startTournamentCooldown();S.phase='ending';ui.classList.add('aczo-tournament-cinematic');hud.classList.remove('show');toast.classList.remove('show');processPlayerCatches();safelyEndFishing();S.resultOrder=ranking();grantPrize();tournamentMusicStart();showToast('⏱ ZEIT ABGELAUFEN','Die Wertung wird ausgewertet.',1800);
   flyHouse(()=>{if(S.phase!=='ending')return;S.phase='results';overlayBody.innerHTML=resultMarkup();showOverlay(true);skipBtn.classList.remove('show');S.skipReady=false;later(()=>{if(S.phase==='results'){S.skipReady=true;skipBtn.classList.add('show')}},900);revealResults(false);q('aczoTournamentCloseResults')?.addEventListener('click',finishTournament)});
 }
 function finishTournament(){
@@ -46831,6 +46847,31 @@ equipAnglingEquipment=function(id){if(phaseFishing()&&(id==='boat_motor'||id==='
 requestAnglingTimeShift=function(){if(phaseFishing()){showAnglingToast('Zeitraffer ist während des Wettangelns deaktiviert.',1700);return}return ORIG.timeShift()};
 changeAnglingSpot=function(){if(phaseFishing()||S.phase==='flight'||S.phase==='ending'){showAnglingToast('Der Angelplatz ist während des Wettangelns fest ausgelost.',1700);return}return ORIG.changeSpot()};
 
+/* V1.5: Futterplatz und Exit-Schutz im Wettangeln. Das normale System bleibt außerhalb des Wettkampfs exakt unverändert. */
+const ORIG_TOURNAMENT_FEED_VISUALS_HIDDEN=anglingFeedVisualsHidden;
+anglingFeedVisualsHidden=function(){
+  if(!phaseFishing())return ORIG_TOURNAMENT_FEED_VISUALS_HIDDEN();
+  /* Wie Posenfenster/HUD: Biss und Anhieb verraten nichts. Erst ein erfolgreicher Anschlag führt in 'drilling' und blendet aus. */
+  return !anglingMode||anglingCinematicView==='underwater'
+    ||['drilling','landing','catch-reveal','caught','missed'].includes(String(anglingState||''))
+    ||['is-drilling','is-landing','is-caught','is-catch-sequence'].some(name=>anglingUi.classList.contains(name));
+};
+
+const ORIG_TOURNAMENT_BEGIN_LEAVE=beginLeaveAngling;
+beginLeaveAngling=function(){
+  if(!tournamentBusy())return ORIG_TOURNAMENT_BEGIN_LEAVE();
+  /* Bereits laufende Abschluss-/Ergebnisphase nicht durch einen zweiten Exit-Dialog zerlegen. */
+  if(S.phase==='ending'||S.phase==='results')return;
+  const projected=ACZO_TOURNAMENT_COOLDOWN_MS;
+  const ok=window.confirm('Laufendes Wettangeln beenden?\n\nDas Wettangeln wird als begonnen gewertet. Nächstes Wettangeln erst in '+tournamentCooldownText(projected)+' wieder möglich.');
+  if(!ok)return;
+  startTournamentCooldown();
+  clearTournamentVisualsImmediately();
+  abortTournament('Wettangeln beendet · 24 Stunden Sperrzeit gestartet.');
+  /* abortTournament setzt nur den Wettkampf zurück; danach übernimmt unverändert der originale Spiel-Exit. */
+  return ORIG_TOURNAMENT_BEGIN_LEAVE();
+};
+
 entryBtn.addEventListener('click',startTournament);
 skipBtn.addEventListener('click',()=>{if(S.phase==='draw')skipDraw();else if(S.phase==='results'&&S.skipReady)revealResults(true)});
 window.addEventListener('resize',syncHudPosition,{passive:true});
@@ -46852,7 +46893,7 @@ function markTournamentRestrictions(){
 }
 const tournamentInterval=setInterval(()=>{
   try{
-    if(!anglingMode&&S.phase!=='idle')abortTournament('Wettangeln wurde beendet.');
+    if(!anglingMode&&S.phase!=='idle'){clearTournamentVisualsImmediately();startTournamentCooldown();abortTournament('Wettangeln wurde beendet.');}
     updateTournament();markTournamentRestrictions();
   }catch(err){console.warn('Wettangeln Test V1.2:',err)}
 },250);
