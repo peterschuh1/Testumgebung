@@ -46409,6 +46409,48 @@ anglingBankPrewarm();
   .aczo-bingo-wrap{grid-template-columns:136px 1fr;gap:7px}.aczo-bingo-machine{height:186px;border-radius:13px}.aczo-bingo-machine::before{font-size:5.7px;top:7px}.aczo-bingo-machine::after{left:21px;right:21px;bottom:11px;height:5px}.aczo-bingo-drum{width:101px;height:81px;top:25px;border-width:3px}.aczo-bingo-mini{width:18px;height:18px;font-size:5.4px}.aczo-bingo-mini:nth-child(1){left:10px;top:16px}.aczo-bingo-mini:nth-child(2){left:37px;top:8px}.aczo-bingo-mini:nth-child(3){left:66px;top:19px}.aczo-bingo-mini:nth-child(4){left:19px;top:46px}.aczo-bingo-mini:nth-child(5){left:50px;top:51px}.aczo-bingo-mini:nth-child(6){left:75px;top:40px}.aczo-bingo-ball{width:40px;height:40px;font-size:16px;right:11px;bottom:19px}.aczo-bingo-ball::before{right:35px;top:-13px;width:27px;height:12px}.aczo-bingo-status{left:8px;right:54px;bottom:29px;font-size:6px}
   .aczo-tournament-list{gap:2px}.aczo-tournament-row{grid-template-columns:20px minmax(0,1fr) auto;gap:4px;padding:4px 5px;border-radius:7px;font-size:6.9px}.aczo-tournament-seed{width:20px;height:20px;font-size:5.7px}.aczo-tournament-spot{min-width:46px}.aczo-tournament-final-list .aczo-tournament-row{grid-template-columns:23px minmax(0,1fr) auto auto;padding:5px}.aczo-tournament-rank{font-size:10px}.aczo-tournament-prize{min-width:42px;font-size:6.3px}.aczo-tournament-weight{font-size:6.9px}.aczo-tournament-result-note{font-size:6.8px}.aczo-tournament-close{min-height:33px!important;font-size:8px!important}.aczo-tournament-toast{padding:10px 11px;border-radius:13px}.aczo-tournament-toast strong{font-size:12px}.aczo-tournament-toast span{font-size:8px}
 }
+
+/* V1.4 — transparentere Wettkampf-Fenster + realistischere manuelle Bingotrommel */
+.aczo-tournament-entry button{background:linear-gradient(145deg,rgba(16,39,36,.72),rgba(22,28,29,.62))!important;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.aczo-tournament-hud{background:linear-gradient(150deg,rgba(20,23,25,.72),rgba(36,34,30,.66))!important;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.aczo-tournament-card{background:linear-gradient(155deg,rgba(20,28,27,.82),rgba(38,36,31,.76))!important;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
+.aczo-tournament-row{background:rgba(255,255,255,.045)!important}.aczo-tournament-row.player{background:rgba(220,188,92,.11)!important}
+.aczo-tournament-hud-message{background:rgba(218,190,108,.07)!important}
+.aczo-bingo-machine{background:linear-gradient(165deg,rgba(15,18,19,.34),rgba(35,31,25,.22))!important;overflow:hidden}
+.aczo-bingo-machine::before{content:"MANUELLE LOSTROMMEL"!important;z-index:20}
+.aczo-bingo-machine::after{left:20px!important;right:20px!important;bottom:15px!important;height:4px!important;background:#17191a!important;box-shadow:0 2px 4px rgba(0,0,0,.45)!important}
+.aczo-bingo-stand{position:absolute;left:50%;top:71px;width:154px;height:117px;transform:translateX(-50%);z-index:2;pointer-events:none}
+.aczo-bingo-stand span{position:absolute;bottom:7px;width:4px;height:100px;background:#151718;border-radius:4px;transform-origin:bottom;box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+.aczo-bingo-stand span:first-child{left:28px;transform:rotate(20deg)}.aczo-bingo-stand span:last-child{right:28px;transform:rotate(-20deg)}
+.aczo-bingo-axle{position:absolute;left:50%;top:91px;width:174px;height:5px;transform:translateX(-50%);background:#101213;border-radius:4px;z-index:8}
+.aczo-bingo-drum{left:50%!important;top:34px!important;width:142px!important;height:142px!important;border-radius:50%!important;border:3px solid #111314!important;background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.12),rgba(255,255,255,.025) 38%,rgba(5,6,7,.16) 72%)!important;box-shadow:inset 0 0 0 2px rgba(255,255,255,.025),0 7px 18px rgba(0,0,0,.26)!important;overflow:hidden;z-index:5;transform:translateX(-50%)!important}
+.aczo-bingo-drum::before,.aczo-bingo-drum::after{content:""!important;position:absolute!important;inset:7px 31px!important;width:auto!important;height:auto!important;border:2px solid #17191a!important;border-radius:50%!important;background:none!important;top:7px!important;opacity:.95}
+.aczo-bingo-drum::after{inset:31px 7px!important}
+.aczo-bingo-wire{position:absolute;left:50%;top:50%;width:132px;height:2px;background:#17191a;transform-origin:center;z-index:4;box-shadow:0 0 0 .5px rgba(255,255,255,.05)}
+.aczo-bingo-wire.w1{transform:translate(-50%,-50%) rotate(0deg)}.aczo-bingo-wire.w2{transform:translate(-50%,-50%) rotate(45deg)}.aczo-bingo-wire.w3{transform:translate(-50%,-50%) rotate(90deg)}.aczo-bingo-wire.w4{transform:translate(-50%,-50%) rotate(135deg)}
+.aczo-bingo-machine.spinning .aczo-bingo-drum{animation:aczoCageSpin 1.05s linear infinite!important}
+@keyframes aczoCageSpin{from{transform:translateX(-50%) rotate(0deg)}to{transform:translateX(-50%) rotate(360deg)}}
+.aczo-bingo-mini{width:20px!important;height:20px!important;font-size:6px!important;background:radial-gradient(circle at 31% 27%,#fff,#ecebe5 56%,#aaa9a3)!important;color:#171717!important;border:1px solid rgba(0,0,0,.24)!important;z-index:7!important}
+.aczo-bingo-mini:nth-child(1){left:23px!important;top:73px!important}.aczo-bingo-mini:nth-child(2){left:45px!important;top:93px!important}.aczo-bingo-mini:nth-child(3){left:70px!important;top:84px!important}.aczo-bingo-mini:nth-child(4){left:94px!important;top:98px!important}.aczo-bingo-mini:nth-child(5){left:106px!important;top:70px!important}.aczo-bingo-mini:nth-child(6){left:58px!important;top:110px!important}.aczo-bingo-mini:nth-child(7){left:83px!important;top:111px!important}.aczo-bingo-mini:nth-child(8){left:33px!important;top:105px!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini{animation:aczoBallTumble .48s ease-in-out infinite alternate!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(even){animation-direction:alternate-reverse!important;animation-duration:.57s!important}
+@keyframes aczoBallTumble{to{transform:translate(8px,-17px) rotate(-190deg)}}
+.aczo-bingo-handle{position:absolute;left:calc(50% + 70px);top:87px;width:39px;height:5px;background:#111314;border-radius:5px;z-index:11;transform-origin:left center}
+.aczo-bingo-handle::after{content:"";position:absolute;right:-6px;top:-5px;width:18px;height:14px;border-radius:8px;background:#202224;box-shadow:inset 0 1px 2px rgba(255,255,255,.12)}
+.aczo-bingo-machine.spinning .aczo-bingo-handle{animation:aczoHandle 1.05s linear infinite}@keyframes aczoHandle{50%{transform:rotate(13deg)}100%{transform:rotate(0)}}
+.aczo-bingo-chute{position:absolute;left:23px;bottom:34px;width:92px;height:18px;border-bottom:3px solid #17191a;border-left:3px solid #17191a;transform:skewX(-18deg);z-index:9}
+.aczo-bingo-ball{left:31px!important;right:auto!important;bottom:28px!important;width:38px!important;height:38px!important;font-size:15px!important;background:radial-gradient(circle at 31% 25%,#fff,#efeee8 55%,#aaa9a3)!important;border:1px solid rgba(0,0,0,.30)!important;color:#161616!important;opacity:.35!important;z-index:12!important}
+.aczo-bingo-ball::before{display:none!important}.aczo-bingo-ball.reveal{opacity:1!important;animation:aczoBingoRoll .72s cubic-bezier(.2,.72,.25,1)!important}
+@keyframes aczoBingoRoll{0%{opacity:0;transform:translate(82px,-43px) rotate(0deg) scale(.65)}55%{opacity:1;transform:translate(38px,-4px) rotate(330deg) scale(1)}100%{opacity:1;transform:translate(0,0) rotate(620deg) scale(1)}}
+.aczo-bingo-status{left:82px!important;right:8px!important;bottom:31px!important;color:#ded8ca!important}
+@media(max-width:700px){
+ .aczo-bingo-stand{top:61px;width:108px;height:92px}.aczo-bingo-stand span{height:78px}.aczo-bingo-stand span:first-child{left:18px}.aczo-bingo-stand span:last-child{right:18px}
+ .aczo-bingo-axle{top:73px;width:119px;height:4px}.aczo-bingo-drum{width:101px!important;height:101px!important;top:24px!important}.aczo-bingo-wire{width:94px}.aczo-bingo-mini{width:15px!important;height:15px!important;font-size:4.5px!important}
+ .aczo-bingo-mini:nth-child(1){left:16px!important;top:51px!important}.aczo-bingo-mini:nth-child(2){left:31px!important;top:66px!important}.aczo-bingo-mini:nth-child(3){left:49px!important;top:59px!important}.aczo-bingo-mini:nth-child(4){left:67px!important;top:70px!important}.aczo-bingo-mini:nth-child(5){left:76px!important;top:49px!important}.aczo-bingo-mini:nth-child(6){left:41px!important;top:78px!important}.aczo-bingo-mini:nth-child(7){left:60px!important;top:79px!important}.aczo-bingo-mini:nth-child(8){left:23px!important;top:76px!important}
+ .aczo-bingo-handle{left:calc(50% + 50px);top:70px;width:27px;height:4px}.aczo-bingo-handle::after{width:13px;height:11px;top:-4px}
+ .aczo-bingo-chute{left:15px;bottom:27px;width:64px;height:14px}.aczo-bingo-ball{left:20px!important;bottom:22px!important;width:30px!important;height:30px!important;font-size:12px!important}.aczo-bingo-status{left:58px!important;bottom:24px!important;font-size:5.8px!important}
+}
+
 </style>
 <script id="aczoTournamentTestV12Script">
 (()=>{
@@ -46606,7 +46648,7 @@ function renderDrawList(revealed=0){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function drawMarkup(){
-  return '<h2>🏁 Wettangeln</h2><p class="aczo-tournament-subtitle">Die Angelplätze werden ausgelost · '+S.participants.length+' Teilnehmer</p><div class="aczo-bingo-wrap"><div class="aczo-bingo-machine spinning" id="aczoBingoMachine"><div class="aczo-bingo-drum"><i class="aczo-bingo-mini">1</i><i class="aczo-bingo-mini">2</i><i class="aczo-bingo-mini">3</i><i class="aczo-bingo-mini">4</i><i class="aczo-bingo-mini">5</i><i class="aczo-bingo-mini">6</i></div><div class="aczo-bingo-status" id="aczoBingoStatus">Lostrommel läuft …</div><div class="aczo-bingo-ball" id="aczoBingoBall">?</div></div><div class="aczo-tournament-list" id="aczoTournamentDrawList"></div></div>';
+  return '<h2>🏁 Wettangeln</h2><p class="aczo-tournament-subtitle">Die Angelplätze werden ausgelost · '+S.participants.length+' Teilnehmer</p><div class="aczo-bingo-wrap"><div class="aczo-bingo-machine spinning" id="aczoBingoMachine"><div class="aczo-bingo-stand"><span></span><span></span></div><div class="aczo-bingo-axle"></div><div class="aczo-bingo-drum"><div class="aczo-bingo-wire w1"></div><div class="aczo-bingo-wire w2"></div><div class="aczo-bingo-wire w3"></div><div class="aczo-bingo-wire w4"></div><i class="aczo-bingo-mini">1</i><i class="aczo-bingo-mini">2</i><i class="aczo-bingo-mini">3</i><i class="aczo-bingo-mini">4</i><i class="aczo-bingo-mini">5</i><i class="aczo-bingo-mini">6</i><i class="aczo-bingo-mini">7</i><i class="aczo-bingo-mini">8</i></div><div class="aczo-bingo-handle"></div><div class="aczo-bingo-chute"></div><div class="aczo-bingo-status" id="aczoBingoStatus">Kurbel dreht · Kugeln werden gemischt …</div><div class="aczo-bingo-ball" id="aczoBingoBall">?</div></div><div class="aczo-tournament-list" id="aczoTournamentDrawList"></div></div>';
 }
 function revealDrawStep(i){
   if(S.phase!=='draw')return;
@@ -46721,9 +46763,8 @@ function updateTournament(){
   const showEntry=anglingMode&&anglingState==='selecting'&&S.phase==='idle'&&!ui.classList.contains('aczo-tournament-overlay-open');entry.classList.toggle('show',!!showEntry);
   if(S.phase!=='fishing'){if(!phaseFishing())hud.classList.remove('show');return}
   const now=Date.now(),remaining=Math.max(0,S.endAt-now);processPlayerCatches();
-  /* Wie das Posenfenster: bei Biss, Anschlag, Drill, Keschern und Fangsequenz
-     verschwindet die Wettkampfinfo und kommt danach automatisch zurück. */
-  const actionStates=new Set(['approach','bite-focus','bite','strike','drilling','landing','catch-reveal','caught']);
+  /* Wie das Posenfenster: KEINE Vorwarnung. HUD bleibt bei Annäherung, Biss und QTE sichtbar und verschwindet erst NACH erfolgreichem Anhieb im Drill/Keschern/Fang. */
+  const actionStates=new Set(['drilling','landing','catch-reveal','caught']);
   const hideHud=actionStates.has(String(anglingState||''));
   hud.classList.toggle('show',!hideHud);
   hudTime.textContent=formatTime(remaining);hudFish.textContent=String(S.player?.fishCount||0);hudWeight.textContent=kgText(S.player?.totalKg||0);if(!hideHud)syncHudPosition();
