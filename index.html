@@ -46501,7 +46501,7 @@ anglingBankPrewarm();
 'use strict';
 
 /* =========================================================
-   ACZO56 WETTANGELN TEST V1.8
+   ACZO56 WETTANGELN TEST V1.11
    Reiner Zusatzblock. Es wird KEINE Konto-/Login-/Recovery-/Cloudfunktion
    ersetzt oder verändert. Die vorhandene Community wird nur per GET gelesen.
    ========================================================= */
@@ -46681,9 +46681,103 @@ async function buildParticipants(){
   const participants=[{name:playerName,isPlayer:true,source:'player'},...chosenReal.map(n=>({name:n,isPlayer:false,source:'real'})),...chosenFallback.map(n=>({name:n,isPlayer:false,source:'fallback'}))];
   shuffle(participants);
   const numbers=shuffle(Array.from({length:participants.length},(_,i)=>i+1));
-  participants.forEach((p,i)=>{p.spotId=numbers[i];p.totalKg=0;p.fishCount=0;p.bestKg=0;p.bait=T.naturalBaits[Math.floor(Math.random()*T.naturalBaits.length)];p.feed=Math.random()<.24?'none':Math.random()<.48?'cheap':Math.random()<.78?'normal':'premium';p.skill=.90+Math.random()*.20;p.nextTry=0;p.lastCatchAt=0;p.fish=[];p.rank=participants.length});
+  participants.forEach((p,i)=>{
+    p.spotId=numbers[i];p.totalKg=0;p.fishCount=0;p.bestKg=0;p.nextTry=0;p.lastCatchAt=0;p.fish=[];p.rank=participants.length;
+    if(p.isPlayer)return;
+    const profile=competitionAiProfile(p.name);
+    p.aiProfile=profile;
+    p.strategy=profile.strategy;
+    p.skill=clamp(profile.skill*(.97+Math.random()*.06),.84,1.17);
+    p.dayForm=rollCompetitionDayForm(profile);
+    p.luck=clamp((.94+Math.random()*.12)*p.dayForm*(profile.luck||1),.72,1.24);
+    p.bait=pickCompetitionAiBait(profile);
+    p.feed=pickCompetitionAiFeed(profile);
+    p.pressure=0;p.lastPressureAt=0;p.mishaps=0;p.goodFishLost=0;
+  });
   return participants;
 }
+
+/* V1.11: individuelle Wettkampf-KI. Die Profile verändern nur Wahrscheinlichkeiten;
+   kein Ergebnis und kein Fang wird vorab festgelegt. */
+const COMP_AI_PROFILES={
+  Markus:{skill:1.08,strategy:'allround',luck:1.02,feedBias:'premium'},
+  Joachim:{skill:1.06,strategy:'tactical',luck:1.00,feedBias:'normal'},
+  Gilbert:{skill:1.03,strategy:'bigfish',luck:.99,feedBias:'premium'},
+  Ralf:{skill:.98,strategy:'smallfish',luck:.91,feedBias:'normal',mishap:1.85},
+  Jens:{skill:1.00,strategy:'allround',luck:1.00,feedBias:'normal'},
+  Marcus:{skill:1.01,strategy:'allround',luck:1.00,feedBias:'normal'},
+  Berthold:{skill:.99,strategy:'tactical',luck:1.00,feedBias:'normal'},
+  Daniel:{skill:.97,strategy:'smallfish',luck:1.01,feedBias:'cheap'},
+  Stefan:{skill:.99,strategy:'allround',luck:.99,feedBias:'normal'}
+};
+function competitionAiProfile(name){
+  const key=Object.keys(COMP_AI_PROFILES).find(k=>String(name||'').toLocaleLowerCase('de-DE').includes(k.toLocaleLowerCase('de-DE')));
+  if(key)return {...COMP_AI_PROFILES[key]};
+  const strategies=['allround','allround','tactical','smallfish','bigfish'];
+  return {skill:.94+Math.random()*.12,strategy:strategies[Math.floor(Math.random()*strategies.length)],luck:.96+Math.random()*.08,feedBias:Math.random()<.18?'premium':'normal',mishap:1};
+}
+function rollCompetitionDayForm(profile){
+  const r=Math.random();let f=r<.12?.88+Math.random()*.05:r<.34?.94+Math.random()*.04:r<.78?.99+Math.random()*.05:r<.94?1.05+Math.random()*.05:1.11+Math.random()*.05;
+  if((profile.mishap||1)>1)f*=.97+Math.random()*.03;
+  return clamp(f,.82,1.17);
+}
+function pickCompetitionAiBait(profile){
+  const pools={
+    bigfish:['mistworm','mistworm','worm','premium_corn','dew_worm'],
+    smallfish:['maggot_mix','maggot','maggot','worm'],
+    tactical:['worm','mistworm','maggot_mix','maggot','premium_corn'],
+    allround:['worm','maggot','maggot_mix','mistworm','corn']
+  };
+  const a=pools[profile.strategy]||pools.allround;return a[Math.floor(Math.random()*a.length)];
+}
+function pickCompetitionAiFeed(profile){
+  const r=Math.random();
+  if(profile.feedBias==='premium')return r<.54?'premium':r<.86?'normal':r<.96?'cheap':'none';
+  if(profile.feedBias==='cheap')return r<.48?'cheap':r<.82?'normal':r<.92?'premium':'none';
+  return r<.16?'none':r<.40?'cheap':r<.78?'normal':'premium';
+}
+function competitionSpotFactor(p,species){
+  /* Kleine, bei jedem Wettangeln neu wirksame Platzunterschiede. Kein Platz ist dauerhaft ein Siegerplatz. */
+  const id=Number(p.spotId)||1,seed=((id*37+(S.startAt||Date.now())/60000)%97)/97;
+  const base=.94+seed*.12;
+  if(['bream','tench'].includes(species))return base*(id>=8?1.035:id<=3?.98:1.01);
+  if(['roach','rudd','perch','goby','sunfish'].includes(species))return base*(id<=5?1.025:1);
+  return base;
+}
+function competitionActivityFactor(species,elapsedMs){
+  const min=elapsedMs/60000;
+  if(['bream','tench'].includes(species))return min<3?.90:min<8?1.04:min<12?1.10:1.03;
+  if(['roach','rudd','perch','goby','sunfish'].includes(species))return min<4?1.08:min<11?1.00:.96;
+  return 1;
+}
+function competitionStrategyFactor(p,species){
+  const st=p.strategy||'allround';
+  if(st==='bigfish')return ['bream','tench'].includes(species)?1.34:['goby','sunfish'].includes(species)?.76:.92;
+  if(st==='smallfish')return ['roach','rudd','perch','goby','sunfish'].includes(species)?1.20:['bream','tench'].includes(species)?.82:1;
+  if(st==='tactical')return ['bream','tench','roach'].includes(species)?1.10:1;
+  return 1;
+}
+function competitionAiEntries(p,entries,elapsedMs){
+  return entries.map(e=>({...e,weight:(Number(e.weight)||0)*competitionStrategyFactor(p,e.species)*competitionSpotFactor(p,e.species)*competitionActivityFactor(e.species,elapsedMs)}));
+}
+function competitionPressureFactor(p,now){
+  if(!p.lastCatchAt)return 1;
+  const since=(now-p.lastCatchAt)/1000;
+  if(since>100)return 1;
+  return clamp(.84+since/625,.84,1);
+}
+function ralfMishapMessage(kind){
+  const m=kind==='good'?[
+    '🎣 Ralf hatte einen richtig guten Fisch dran – ausgestiegen.',
+    '😬 Bei Ralf war kurz richtig Druck auf der Rute. Der Fisch ist weg.',
+    '💨 Ralf verliert ausgerechnet einen besseren Fisch kurz vor dem Kescher.'
+  ]:[
+    '🎣 Ralf hat schon wieder einen Fisch verloren.',
+    '😬 Das gibt’s doch nicht – wieder ein Fehlbiss bei Ralf.',
+    '🌊 Bei Ralf will es heute einfach nicht richtig laufen.'
+  ];return m[Math.floor(Math.random()*m.length)];
+}
+
 function houseCamera(){
   const flag=flagPoleMapToWorld(FLAGPOLE_CFG.mapX,FLAGPOLE_CFG.mapY),house=ACZO_FACILITY_WMS_LAYOUT?.clubhouse||{x:68.134,y:21.628};
   /* Kamera bewusst auf die freie Rasen-/Uferseite direkt westlich des Masts.
@@ -46790,26 +46884,33 @@ function aiCatch(p,now){
   const openingFactor=elapsedMs<60000?.28:elapsedMs<120000?(0.48+0.52*((elapsedMs-60000)/60000)):1;
   const spot=S.spots[p.spotId],aim=spot?.aim||spot?.shore?.clone?.().addScaledVector(spot?.inward||new THREE.Vector3(0,1,0),10);if(!aim)return;
   let entries=[];try{entries=ORIG.buildCandidates(aim.x,aim.y,p.bait,false).filter(e=>T.allowed.has(e.species)||T.bycatch.has(e.species)).map(e=>T.bycatch.has(e.species)?{...e,weight:(Number(e.weight)||0)*(T.bycatchWeight[e.species]||.02)}:e)}catch(_e){return}
+  entries=competitionAiEntries(p,entries,elapsedMs);
   const total=entries.reduce((n,e)=>n+Math.max(0,Number(e.weight)||0),0);if(total<=0){p.nextTry=now+22000+Math.random()*18000;return}
   const feedFactor=p.feed==='premium'?1.13:p.feed==='normal'?1.08:p.feed==='cheap'?1.04:.94;
   const activity=.76+.24*(total/(total+100));
   /* V1.3: deutlich weniger KI-Versuche. Die Gegner sollen in 15 Minuten
      typischerweise im selben Fangzahlbereich wie ein menschlicher Spieler landen. */
   const dayFactor=Number(S.dayFactor)||1;
-  /* V1.9c: Ruhiger Start bleibt erhalten. Danach nur kleiner Ausgleich; KI insgesamt moderat über V1.8. */
-  const recoveryFactor=elapsedMs>=120000?1.04:1;
-  const interval=(20500+Math.random()*24500)/(p.skill*feedFactor*activity*dayFactor*1.055*recoveryFactor);p.nextTry=now+interval;
-  let biteChance=clamp((.305+.18*(total/(total+120))+(p.feed==='none'?-.035:.035))*dayFactor*1.04*recoveryFactor,.22,.54)*openingFactor;
+  /* V1.9b: Die ruhige Startphase darf die KI nicht insgesamt schwächen. Ab Minute 2 holt das Feld die verlorenen Startchancen moderat auf. */
+  const recoveryFactor=elapsedMs>=120000?1.18:1;
+  const pressureFactor=competitionPressureFactor(p,now);
+  const formFactor=clamp((p.dayForm||1)*(p.luck||1),.78,1.25);
+  const interval=(20500+Math.random()*24500)/(p.skill*feedFactor*activity*dayFactor*1.10*recoveryFactor*clamp(formFactor,.88,1.12));p.nextTry=now+interval;
+  let biteChance=clamp((.305+.18*(total/(total+120))+(p.feed==='none'?-.035:.035))*dayFactor*1.08*recoveryFactor*formFactor*pressureFactor,.18,.62)*openingFactor;
   /* Sanfte Anpassung an den echten Spieler statt davonlaufender Zufalls-KI. */
   const elapsed=Math.max(1,(now-S.startAt)/60000),playerRate=(S.player?.fishCount||0)/elapsed,aiRate=p.fishCount/elapsed;
-  if(aiRate>playerRate+1.4)biteChance*=.78;else if(aiRate+1.5<playerRate)biteChance*=1.10;
+  if(aiRate>playerRate+1.6)biteChance*=.88;else if(aiRate+1.2<playerRate)biteChance*=1.16;
   if(Math.random()>biteChance)return;
-  const landChance=clamp(.79+(p.skill-1)*.28,.73,.86);if(Math.random()>landChance){if(elapsedMs>=60000&&Math.random()<.22)competitionMessage('🎣 '+p.name+' verliert einen Fisch kurz vor dem Kescher.');return}
+  const isRalf=/ralf/i.test(String(p.name||''));
+  const mishapFactor=(p.aiProfile?.mishap||1)*(isRalf?1.12:1);
+  const landChance=clamp((.79+(p.skill-1)*.28)*clamp(p.luck||1,.88,1.08)-(mishapFactor-1)*.055,.66,.89);
+  if(Math.random()>landChance){p.mishaps=(p.mishaps||0)+1;if(elapsedMs>=60000&&(isRalf?Math.random()<.68:Math.random()<.22))competitionMessage(isRalf?ralfMishapMessage('normal'):'🎣 '+p.name+' verliert einen Fisch kurz vor dem Kescher.');return}
   let species=weightedPick(entries);if(!species)return;
   /* Beifänge und die dazugehörigen Dramen erst nach der Einlaufphase. */
   if(elapsedMs<120000&&T.bycatch.has(species)){const scoring=entries.filter(e=>T.allowed.has(e.species));species=weightedPick(scoring);if(!species)return;}
   let cm=anglingSizeForSpecies(species);cm=Number((cm*(.94+Math.random()*.055)).toFixed(1));const kg=anglingEstimatedKg(species,cm);
   const fishAcc=tournamentFishWord(species,'acc'),fishDat=tournamentFishWord(species,'dat');
+  if(isRalf&&T.allowed.has(species)&&kg>=.55&&Math.random()<.14){p.goodFishLost=(p.goodFishLost||0)+1;p.mishaps=(p.mishaps||0)+1;p.nextTry=Math.max(p.nextTry,now+26000+Math.random()*18000);competitionMessage(ralfMishapMessage('good'));return;}
   if(T.bycatch.has(species)){
     const heavy=['carp','mirrorcarp','grasscarp','catfish'].includes(species),lost=heavy&&Math.random()<(species==='catfish'?.62:.28);
     const delay=species==='catfish'?65000+Math.random()*65000:heavy?38000+Math.random()*50000:22000+Math.random()*28000;
@@ -46856,6 +46957,15 @@ function competitionContextMessages(now){
     if(blank.length>1)choices.push(()=> '⏳ Der Großteil des Feldes wartet noch auf den ersten Wertungsfisch.');
     return choices;
   }
+  const ralf=others.find(p=>/ralf/i.test(String(p.name||'')));
+  if(ralf&&elapsed>=90000){
+    if((ralf.mishaps||0)>=2)choices.push(()=> '😬 Ralf hat heute schon mehrfach Pech gehabt.');
+    if(ralf.fishCount===0)choices.push(()=> '⏳ Ralf wartet weiter auf einen vernünftigen Fisch.');
+    if(ralf.fishCount>=4&&ralf.totalKg<1.4)choices.push(()=> '🐟 Ralf fängt zwar – aber bisher hauptsächlich Kleinfisch.');
+    if(ralf.rank<=3&&ralf.fishCount>0)choices.push(()=> '👀 Ausgerechnet Ralf mischt heute weit vorne mit.');
+  }
+  const bigfish=others.filter(p=>p.strategy==='bigfish'&&p.fishCount>0);
+  if(elapsed>=150000&&bigfish.length)choices.push(()=>{const p=bigfish[Math.floor(Math.random()*bigfish.length)];return '🎯 '+p.name+' scheint heute gezielt auf die größeren Friedfische zu angeln.'});
   const east=others.filter(p=>p.spotId<=4),west=others.filter(p=>p.spotId>=5&&p.spotId<=10),north=others.filter(p=>p.spotId>=11);
   const hot=[...others].sort((a,b)=>b.fishCount-a.fishCount)[0],quiet=others.filter(p=>now-p.lastCatchAt>60000),feeding=others.filter(p=>p.feed!=='none');
   if(caught.length)choices.push(()=>{const p=caught[Math.floor(Math.random()*caught.length)];return '📣 '+p.name+' konnte wieder einen Fisch sicher landen.'});
@@ -46881,7 +46991,7 @@ function ambientCompetitionInfo(now){
   if(now<S.nextAmbientInfoAt)return;S.nextAmbientInfoAt=now+10000+Math.random()*9000;
   const choices=competitionContextMessages(now);for(let tries=0;tries<12;tries++){const msg=choices[Math.floor(Math.random()*choices.length)]();if(competitionMessage(msg))break}
 }
-function aiTick(now){if(S.phase!=='fishing')return;for(const p of S.participants){if(p.isPlayer||now<p.nextTry)continue;aiCatch(p,now)}ambientCompetitionInfo(now)}
+function aiTick(now){if(S.phase!=='fishing')return;for(const p of S.participants){if(p.isPlayer||now<p.nextTry)continue;aiCatch(p,now)}ranking().forEach((p,i)=>p.rank=i+1);ambientCompetitionInfo(now)}
 function setCompetitionMessage(text){if(S.phase!=='fishing'||Date.now()-S.lastMessageAt<5200)return;competitionMessage(text)}
 function ranking(){return [...S.participants].sort((a,b)=>b.totalKg-a.totalKg||b.fishCount-a.fishCount||a.name.localeCompare(b.name,'de-DE'))}
 function playerRank(){return Math.max(1,ranking().findIndex(p=>p.isPlayer)+1)}
@@ -46923,12 +47033,12 @@ function revealResults(skip=false){
   const showFull=()=>{if(stage)stage.classList.add('done');if(list)list.classList.remove('ceremony-wait');rows.forEach(r=>{r.classList.remove('result-hidden');r.classList.add('result-show')});skipBtn.classList.remove('show')};
   if(skip){clearTimers();showFull();return}
   const order=[4,3,2,1].filter(rank=>S.resultOrder[rank-1]);
-  order.forEach((rank,i)=>later(()=>{if(S.phase!=='results')return;const p=S.resultOrder[rank-1],medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'🏅';if(stage){stage.innerHTML='<div class="aczo-tournament-podium-call rank-'+rank+'"><span>'+medal+'</span><small>PLATZ '+rank+'</small><strong>'+escapeHtml(p.name)+(p.isPlayer?' ⭐':'')+'</strong><b>'+kgText(p.totalKg)+'</b><em>'+p.fishCount+' Wertungsfisch'+(p.fishCount===1?'':'e')+'</em></div>';stage.classList.remove('pop');void stage.offsetWidth;stage.classList.add('pop')}if(typeof aczoSoundPlay==='function')aczoSoundPlay('xp',{minGap:180});},i*1050));
-  later(showFull,order.length*1050+900);
+  order.forEach((rank,i)=>later(()=>{if(S.phase!=='results')return;const p=S.resultOrder[rank-1],medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'🏅';if(stage){stage.innerHTML='<div class="aczo-tournament-podium-call rank-'+rank+'"><span>'+medal+'</span><small>PLATZ '+rank+'</small><strong>'+escapeHtml(p.name)+(p.isPlayer?' ⭐':'')+'</strong><b>'+kgText(p.totalKg)+'</b><em>'+p.fishCount+' Wertungsfisch'+(p.fishCount===1?'':'e')+'</em></div>';stage.classList.remove('pop');void stage.offsetWidth;stage.classList.add('pop')}if(typeof aczoSoundPlay==='function')aczoSoundPlay('xp',{minGap:180});},i*1450));
+  later(showFull,order.length*1450+1250);
 }
 function endTournament(){
   if(S.phase!=='fishing')return;if(!S.finalDrill)tournamentSignal('finish');startTournamentCooldown();S.phase='ending';ui.classList.add('aczo-tournament-cinematic');hud.classList.remove('show');toast.classList.remove('show');processPlayerCatches();safelyEndFishing();S.resultOrder=ranking();grantPrize();tournamentMusicStart();showToast('⏱ ZEIT ABGELAUFEN','Die Wertung wird ausgewertet.',1800);
-  flyHouse(()=>{if(S.phase!=='ending')return;S.phase='results';overlayBody.innerHTML=resultMarkup();showOverlay(true);skipBtn.classList.remove('show');S.skipReady=false;later(()=>{if(S.phase==='results'){S.skipReady=true;skipBtn.classList.add('show')}},900);revealResults(false);q('aczoTournamentCloseResults')?.addEventListener('click',finishTournament)});
+  flyHouse(()=>{if(S.phase!=='ending')return;toast.classList.remove('show');try{window.clearTimeout(anglingToastTimer);clearAnglingToastClasses();anglingToast.textContent='';}catch(_e){}S.phase='results';overlayBody.innerHTML=resultMarkup();showOverlay(true);skipBtn.classList.remove('show');S.skipReady=false;later(()=>{if(S.phase==='results'){S.skipReady=true;skipBtn.classList.add('show')}},900);revealResults(false);q('aczoTournamentCloseResults')?.addEventListener('click',finishTournament)});
 }
 function finishTournament(){
   if(S.phase!=='results'&&S.phase!=='ending')return;clearTimers();showOverlay(false);toast.classList.remove('show');hud.classList.remove('show');skipBtn.classList.remove('show');tournamentMusicStop();
@@ -47013,12 +47123,61 @@ const tournamentInterval=setInterval(()=>{
   try{
     if(!anglingMode&&S.phase!=='idle'){clearTournamentVisualsImmediately();startTournamentCooldown();abortTournament('Wettangeln wurde beendet.');}
     updateTournament();markTournamentRestrictions();
-  }catch(err){console.warn('Wettangeln Test V1.9c:',err)}
+  }catch(err){console.warn('Wettangeln Test V1.8:',err)}
 },250);
 
 })();
 </script>
 
 
+
+<style id="aczoTournamentV110PresentationFix">
+/* V1.10: echte Hauptseiten-Regeln. V1.9-Regeln lagen versehentlich im Druckdokument. */
+.aczo-tournament-overlay .aczo-tournament-card h2{font-size:31px!important;line-height:1.08!important}
+.aczo-tournament-overlay .aczo-tournament-subtitle{font-size:13.5px!important;line-height:1.35!important}
+.aczo-bingo-status{font-size:12px!important;line-height:1.35!important;font-weight:950!important}
+.aczo-bingo-wrap .aczo-tournament-row{font-size:12.5px!important;min-height:34px!important}
+.aczo-bingo-wrap .aczo-tournament-spot{font-size:12px!important}
+.aczo-bingo-wrap .aczo-tournament-seed{font-size:9px!important}
+.aczo-tournament-podium-stage{min-height:158px!important}
+.aczo-tournament-podium-call{gap:5px!important}
+.aczo-tournament-podium-call>span{font-size:44px!important}
+.aczo-tournament-podium-call>small{font-size:14px!important;font-weight:1000!important}
+.aczo-tournament-podium-call>strong{font-size:31px!important;line-height:1.08!important}
+.aczo-tournament-podium-call>b{font-size:23px!important}
+.aczo-tournament-podium-call>em{font-size:15px!important}
+.aczo-tournament-podium-call.rank-1>strong{font-size:36px!important}
+.aczo-tournament-final-list .aczo-tournament-row{font-size:12px!important;min-height:40px!important;padding:9px 10px!important}
+.aczo-tournament-final-list .aczo-tournament-rank{font-size:16px!important}
+.aczo-tournament-final-list .name{font-size:12.5px!important;font-weight:950!important}
+.aczo-tournament-final-list .name small{font-size:10px!important;line-height:1.25!important}
+.aczo-tournament-final-list .aczo-tournament-weight{font-size:12px!important;font-weight:950!important}
+.aczo-tournament-final-list .aczo-tournament-prize{font-size:10.5px!important;min-width:64px!important}
+.aczo-tournament-result-note{font-size:10.5px!important;line-height:1.4!important}
+.aczo-tournament-close{font-size:11.5px!important}
+@media(max-width:700px){
+ .aczo-tournament-overlay .aczo-tournament-card h2{font-size:25px!important}
+ .aczo-tournament-overlay .aczo-tournament-subtitle{font-size:11px!important}
+ .aczo-bingo-status{font-size:10px!important;bottom:27px!important;right:52px!important}
+ .aczo-bingo-wrap .aczo-tournament-row{font-size:10.5px!important;min-height:31px!important}
+ .aczo-bingo-wrap .aczo-tournament-spot{font-size:10px!important}
+ .aczo-bingo-wrap .aczo-tournament-seed{font-size:8px!important}
+ .aczo-tournament-podium-stage{min-height:142px!important}
+ .aczo-tournament-podium-call>span{font-size:38px!important}
+ .aczo-tournament-podium-call>small{font-size:11.5px!important}
+ .aczo-tournament-podium-call>strong{font-size:26px!important}
+ .aczo-tournament-podium-call>b{font-size:20px!important}
+ .aczo-tournament-podium-call>em{font-size:12.5px!important}
+ .aczo-tournament-podium-call.rank-1>strong{font-size:30px!important}
+ .aczo-tournament-final-list .aczo-tournament-row{font-size:10.5px!important;min-height:39px!important;padding:8px 8px!important;grid-template-columns:30px minmax(0,1fr) auto auto!important}
+ .aczo-tournament-final-list .aczo-tournament-rank{font-size:14.5px!important}
+ .aczo-tournament-final-list .name{font-size:11px!important}
+ .aczo-tournament-final-list .name small{font-size:9px!important}
+ .aczo-tournament-final-list .aczo-tournament-weight{font-size:10.5px!important}
+ .aczo-tournament-final-list .aczo-tournament-prize{font-size:9.5px!important;min-width:56px!important}
+ .aczo-tournament-result-note{font-size:9.5px!important}
+ .aczo-tournament-close{font-size:10.5px!important}
+}
+</style>
 </body>
 </html>
