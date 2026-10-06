@@ -12340,6 +12340,114 @@ function aczoBuildPrintDocumentHtml(dataUrl){
 }
 </style>
 
+
+<!-- ACZO56 V1.12: sichtbare Ladeaktivität + Lostrommel-Physik/Animation.
+     Accountdaten, Recovery, Spieler-ID und Cloud-Datenmodell bleiben unverändert. -->
+<style id="aczoV112LoadingAndDrumPatch">
+/* Einheitlicher, klar sichtbarer Arbeitsindikator */
+#aczoGlobalLoading{
+  position:absolute;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;
+  pointer-events:auto;background:rgba(4,10,11,.34);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)
+}
+#aczoGlobalLoading.show{display:flex}
+.aczo-loading-card{
+  width:min(310px,82%);padding:17px 18px 15px;border-radius:17px;text-align:center;
+  color:#f7f4e9;background:linear-gradient(155deg,rgba(20,29,28,.96),rgba(39,37,31,.95));
+  border:1px solid rgba(226,196,111,.66);box-shadow:0 16px 42px rgba(0,0,0,.42)
+}
+.aczo-loading-spinner{
+  width:38px;height:38px;margin:0 auto 10px;border-radius:50%;
+  border:4px solid rgba(238,218,158,.18);border-top-color:#ead17e;border-right-color:#7ec4a2;
+  animation:aczoLoaderSpin .78s linear infinite;box-shadow:0 0 18px rgba(232,202,112,.12)
+}
+.aczo-loading-title{font-size:12px;font-weight:1000;line-height:1.25;color:#fff}
+.aczo-loading-sub{min-height:13px;margin-top:5px;font-size:8px;font-weight:800;color:#cfc9ba}
+.aczo-loading-dots::after{content:"";animation:aczoLoaderDots 1.2s steps(4,end) infinite}
+@keyframes aczoLoaderSpin{to{transform:rotate(360deg)}}
+@keyframes aczoLoaderDots{0%{content:""}25%{content:"."}50%{content:".."}75%,100%{content:"..."}}
+@media(max-width:700px){
+  .aczo-loading-card{width:min(270px,80%);padding:14px 15px 13px;border-radius:14px}
+  .aczo-loading-spinner{width:32px;height:32px;border-width:3px;margin-bottom:8px}
+  .aczo-loading-title{font-size:10px}.aczo-loading-sub{font-size:7px}
+}
+
+/* V1.12 Lostrommel: Kugeln nutzen die gesamte Trommel statt am Boden zu eiern. */
+.aczo-bingo-drum .aczo-bingo-mini{animation:none!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini{animation-timing-function:linear!important;animation-iteration-count:infinite!important;animation-direction:normal!important}
+.aczo-bingo-mini:nth-child(1){left:22px!important;top:25px!important}
+.aczo-bingo-mini:nth-child(2){left:58px!important;top:17px!important}
+.aczo-bingo-mini:nth-child(3){left:96px!important;top:31px!important}
+.aczo-bingo-mini:nth-child(4){left:25px!important;top:72px!important}
+.aczo-bingo-mini:nth-child(5){left:61px!important;top:57px!important}
+.aczo-bingo-mini:nth-child(6){left:99px!important;top:72px!important}
+.aczo-bingo-mini:nth-child(7){left:45px!important;top:99px!important}
+.aczo-bingo-mini:nth-child(8){left:79px!important;top:98px!important}
+
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(1){animation:aczoMix1 .91s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(2){animation:aczoMix2 .78s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(3){animation:aczoMix3 1.03s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(4){animation:aczoMix4 .84s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(5){animation:aczoMix5 .96s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(6){animation:aczoMix6 .73s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(7){animation:aczoMix7 .88s linear infinite!important}
+.aczo-bingo-machine.spinning .aczo-bingo-mini:nth-child(8){animation:aczoMix8 1.07s linear infinite!important}
+
+@keyframes aczoMix1{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(62px,9px) rotate(150deg)}50%{transform:translate(75px,61px) rotate(320deg)}75%{transform:translate(20px,72px) rotate(510deg)}100%{transform:translate(0,0) rotate(720deg)}}
+@keyframes aczoMix2{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(42px,31px) rotate(-170deg)}50%{transform:translate(19px,78px) rotate(-350deg)}75%{transform:translate(-37px,43px) rotate(-540deg)}100%{transform:translate(0,0) rotate(-720deg)}}
+@keyframes aczoMix3{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-54px,12px) rotate(170deg)}50%{transform:translate(-70px,59px) rotate(350deg)}75%{transform:translate(-18px,73px) rotate(540deg)}100%{transform:translate(0,0) rotate(720deg)}}
+@keyframes aczoMix4{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(20px,-50px) rotate(-180deg)}50%{transform:translate(72px,-36px) rotate(-360deg)}75%{transform:translate(66px,18px) rotate(-540deg)}100%{transform:translate(0,0) rotate(-720deg)}}
+@keyframes aczoMix5{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-39px,-42px) rotate(160deg)}50%{transform:translate(37px,-34px) rotate(340deg)}75%{transform:translate(42px,39px) rotate(530deg)}100%{transform:translate(0,0) rotate(720deg)}}
+@keyframes aczoMix6{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-70px,-28px) rotate(-180deg)}50%{transform:translate(-56px,26px) rotate(-370deg)}75%{transform:translate(-13px,-45px) rotate(-550deg)}100%{transform:translate(0,0) rotate(-720deg)}}
+@keyframes aczoMix7{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-18px,-70px) rotate(180deg)}50%{transform:translate(43px,-63px) rotate(360deg)}75%{transform:translate(55px,-15px) rotate(550deg)}100%{transform:translate(0,0) rotate(720deg)}}
+@keyframes aczoMix8{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(22px,-64px) rotate(-170deg)}50%{transform:translate(-39px,-67px) rotate(-350deg)}75%{transform:translate(-54px,-17px) rotate(-540deg)}100%{transform:translate(0,0) rotate(-720deg)}}
+
+/* Status nicht mehr über die gezogene Kugel quetschen. */
+.aczo-bingo-status{left:8px!important;right:8px!important;bottom:5px!important;min-height:20px!important}
+</style>
+<script id="aczoV112LoadingAndDrumPatchScript">
+(()=>{
+  let slowTimer=0, loaderDepth=0;
+  function host(){
+    return document.getElementById('anglingUi')||document.getElementById('viewer')||document.body;
+  }
+  function ensureLoader(){
+    let el=document.getElementById('aczoGlobalLoading');
+    if(el)return el;
+    el=document.createElement('div');el.id='aczoGlobalLoading';
+    el.innerHTML='<div class="aczo-loading-card"><div class="aczo-loading-spinner"></div><div class="aczo-loading-title" id="aczoLoadingTitle">Daten werden geladen <span class="aczo-loading-dots"></span></div><div class="aczo-loading-sub" id="aczoLoadingSub">Verbindung wird vorbereitet</div></div>';
+    host().appendChild(el);return el;
+  }
+  window.aczoLoadingShow=function(message){
+    loaderDepth++;
+    const el=ensureLoader(),title=document.getElementById('aczoLoadingTitle'),sub=document.getElementById('aczoLoadingSub');
+    if(title)title.innerHTML=String(message||'Daten werden geladen …').replace(/…|\.\.\.$/,'')+' <span class="aczo-loading-dots"></span>';
+    if(sub)sub.textContent='Verbindung wird vorbereitet';
+    el.classList.add('show');
+    clearTimeout(slowTimer);
+    slowTimer=setTimeout(()=>{const s=document.getElementById('aczoLoadingSub');if(s)s.textContent='Die Verbindung dauert etwas länger …';},4500);
+  };
+  window.aczoLoadingHide=function(force){
+    if(force)loaderDepth=0; else loaderDepth=Math.max(0,loaderDepth-1);
+    if(loaderDepth)return;
+    clearTimeout(slowTimer);
+    document.getElementById('aczoGlobalLoading')?.classList.remove('show');
+  };
+
+  /* Alte statische "Bitte warten"-Statusmeldungen werden sichtbar animiert.
+     Das beobachtet nur die Anzeige und verändert keine Konto-/Cloud-Daten. */
+  const startObserver=()=>{
+    const target=document.getElementById('aczoAccountStatus');
+    if(!target)return;
+    new MutationObserver(()=>{
+      const t=(target.textContent||'').trim();
+      if(/^Bitte warten/i.test(t))aczoLoadingShow('Daten werden verarbeitet …');
+      else if(document.getElementById('aczoGlobalLoading')?.classList.contains('show') && !window.aczoAccountBusy)aczoLoadingHide(true);
+    }).observe(target,{childList:true,subtree:true,characterData:true});
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startObserver,{once:true});else startObserver();
+})();
+</script>
+
 </body>
 </html>`;
 }
@@ -44548,7 +44656,7 @@ async function aczoApi(action,fields){
   if(Object.prototype.hasOwnProperty.call(payload,'newPassword'))payload.newPassword=await aczoPasswordCredential(payload.newPassword,true);
   const entropy=new Uint8Array(32);crypto.getRandomValues(entropy);
   const clientEntropy=Array.from(entropy,b=>b.toString(16).padStart(2,'0')).join('');
-  const data=await anglingLeaderboardJson(ANGLING_LEADERBOARD_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,clientEntropy,...payload})},60000);
+  const data=await anglingLeaderboardJsonRetry(ANGLING_LEADERBOARD_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,clientEntropy,...payload})},[18000,32000,60000]);
   if(data?.ok===false)throw new Error(data.error||'Anmeldung fehlgeschlagen.');
   return data;
 }
@@ -44630,10 +44738,16 @@ async function aczoFinishAccountLogin(data,generation=aczoAuthGeneration){
 async function aczoHandleForm(form,task){
   if(aczoAccountBusy){aczoStatus('Ein Kontovorgang läuft bereits. Bitte kurz warten.');return;}
   aczoAccountBusy=true;aczoAuthGeneration++;
-  const button=form.querySelector('[type="submit"]');button.disabled=true;aczoStatus('Bitte warten …');
+  const button=form.querySelector('[type="submit"]');button.disabled=true;
+  const formId=form?.id||'';
+  const loadText=formId==='aczoLoginForm'?'Anmeldung wird geprüft …':
+                 formId==='aczoRegisterForm'?'Spielerkonto wird vorbereitet …':
+                 formId==='aczoResetForm'?'Konto wird wiederhergestellt …':
+                 formId==='aczoPasswordForm'?'Passwort wird aktualisiert …':'Daten werden verarbeitet …';
+  aczoLoadingShow(loadText);
   try{if(aczoCloudSyncBusyWithFish())throw new Error('Bitte zuerst den laufenden Fang beenden.');await task();aczoStatus('✅ Fertig.');}
   catch(err){aczoStatus(String(err?.message||'Vorgang fehlgeschlagen.'));}
-  finally{button.disabled=false;aczoAccountBusy=false;}
+  finally{aczoLoadingHide();button.disabled=false;aczoAccountBusy=false;}
 }
 const aczoFormTasks=new Map();
 function aczoBindForm(id,task){
