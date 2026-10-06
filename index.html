@@ -12308,6 +12308,38 @@ function aczoBuildPrintDocumentHtml(dataUrl){
   });
 })();
 <\/script>
+
+<style id="aczoTournamentV19PresentationStyle">
+/* V1.9: Auslosung und Siegerehrung auf Handy und Desktop besser lesbar. */
+.aczo-tournament-overlay:has(.aczo-bingo-wrap) .aczo-tournament-card h2{font-size:29px!important}
+.aczo-tournament-overlay:has(.aczo-bingo-wrap) .aczo-tournament-subtitle{font-size:12px!important}
+.aczo-bingo-status{font-size:10.5px!important;line-height:1.32!important;font-weight:950!important}
+.aczo-bingo-wrap .aczo-tournament-row{font-size:11px!important}
+.aczo-bingo-wrap .aczo-tournament-spot{font-size:10.5px!important}
+.aczo-tournament-podium-stage{min-height:150px!important}
+.aczo-tournament-podium-call{gap:4px!important}
+.aczo-tournament-podium-call>span{font-size:42px!important}
+.aczo-tournament-podium-call>small{font-size:13px!important;font-weight:1000!important}
+.aczo-tournament-podium-call>strong{font-size:29px!important;line-height:1.08!important}
+.aczo-tournament-podium-call>b{font-size:22px!important}
+.aczo-tournament-podium-call>em{font-size:14px!important}
+.aczo-tournament-podium-call.rank-1>strong{font-size:34px!important}
+@media(max-width:700px){
+ .aczo-tournament-overlay:has(.aczo-bingo-wrap) .aczo-tournament-card h2{font-size:21px!important}
+ .aczo-tournament-overlay:has(.aczo-bingo-wrap) .aczo-tournament-subtitle{font-size:9px!important}
+ .aczo-bingo-status{font-size:8px!important;bottom:27px!important;right:52px!important}
+ .aczo-bingo-wrap .aczo-tournament-row{font-size:8px!important}
+ .aczo-bingo-wrap .aczo-tournament-spot{font-size:7.8px!important}
+ .aczo-tournament-podium-stage{min-height:132px!important}
+ .aczo-tournament-podium-call>span{font-size:34px!important}
+ .aczo-tournament-podium-call>small{font-size:10px!important}
+ .aczo-tournament-podium-call>strong{font-size:23px!important}
+ .aczo-tournament-podium-call>b{font-size:18px!important}
+ .aczo-tournament-podium-call>em{font-size:11px!important}
+ .aczo-tournament-podium-call.rank-1>strong{font-size:27px!important}
+}
+</style>
+
 </body>
 </html>`;
 }
@@ -29984,7 +30016,7 @@ function aczoBoatFinishReturn(){
  beginAnglingCamera(view.cameraPos,view.lookTarget,anglingShoreFieldOfView(),.85);setAnglingStatus('Wieder am Bootssteg','Du stehst wieder am Ostufer und kannst normal angeln.');
 }
 function aczoBoatReset(){
- const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.turnRate=0;rt.findUpdateAt=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;rt.selectedFind=null;rt.selectedFindUntil=0;if(rt.note)rt.note.hidden=true;aczoBoatStopMotor();aczoBoatClearWake();
+ const rt=aczoBoatRuntime;if(!rt)return;rt.active=false;rt.phase='idle';rt.input={};rt.speed=0;rt.turnRate=0;rt.trail=[];rt.returnPath=[];rt.landingView=null;rt.selectedFind=null;rt.selectedFindUntil=0;if(rt.note)rt.note.hidden=true;aczoBoatStopMotor();aczoBoatClearWake();
  const home=rt.home||{position:new THREE.Vector3(eastBoatModel.userData.home.x,eastBoatModel.userData.home.y,eastBoatModel.userData.home.z),yaw:eastBoatModel.userData.home.yaw};eastBoatModel.position.copy(home.position);eastBoatModel.rotation.z=home.yaw;eastBoatModel.visible=true;eastBoatModel.updateMatrixWorld(true);aczoRefreshEastBoatCollisionSegments();
  rt.finds.forEach(f=>{f.group.visible=false;if(f.button)f.button.hidden=true;});aczoBoatSyncWaterMask();aczoBoatRefreshUi();
 }
@@ -29993,14 +30025,7 @@ function aczoBoatTickSonar(dt){
  const stern=eastBoatModel.localToWorld(new THREE.Vector3(1.85,0,0));const sample=anglingDeeperBottomSample(stern.x,stern.y);if(sample){sample.time=performance.now();rt.sonarHistory.unshift(sample);if(rt.sonarHistory.length>150)rt.sonarHistory.length=150;drawAnglingDeeperSonar(rt.canvas,rt.ctx,rt.sonarHistory);}
 }
 function aczoBoatTick(dt){
- const rt=aczoBoatRuntime;if(!rt.active)return false;updateAnglingTimeAvailability();aczoBoatRefreshUi();
- /* PERF: Versteckte Köder/Fundstücke und die Köderdose müssen nicht 30–60x pro
-    Sekunde Bildschirmposition, DOM-Rechteck, Distanz und Sichtbarkeit prüfen.
-    8 Hz reichen für Aufleuchten/Anklicken völlig aus; ein echter Tap ruft
-    aczoBoatUpdateFinds() weiterhin sofort auf. */
- const aczoFindNow=performance.now();
- if(!rt.findUpdateAt||aczoFindNow-rt.findUpdateAt>=125){rt.findUpdateAt=aczoFindNow;aczoBoatUpdateFinds();}
- aczoBoatUpdateMotor();
+ const rt=aczoBoatRuntime;if(!rt.active)return false;updateAnglingTimeAvailability();aczoBoatRefreshUi();aczoBoatUpdateFinds();aczoBoatUpdateMotor();
  if(rt.claimPending||aczoBoatNoteOpen()||anglingGamePanelOpen()||anglingHallOfFameActive||anglingTimeShiftActive||document.hidden){rt.input={};rt.speed=0;aczoBoatStopMotor();return rt.phase!=='anchored';}
  dt=Math.min(.10,Math.max(0,dt));rt.time+=dt;
  if(rt.phase==='anchored'){
@@ -46307,10 +46332,9 @@ anglingBankPrewarm();
 .aczo-tournament-final-list.ceremony-wait{opacity:0;max-height:0;overflow:hidden;margin:0;pointer-events:none}.aczo-tournament-final-list{transition:opacity .35s ease,max-height .5s ease}.aczo-tournament-final-list:not(.ceremony-wait){opacity:1;max-height:60vh}
 @keyframes aczoPodiumPop{0%{opacity:0;transform:translateY(16px) scale(.86)}100%{opacity:1;transform:none}}
 </style>
-<!-- 05.10.2026 WETTANGELN FIX: Siegerehrung lesbarer; Beifang-Wahrscheinlichkeit angehoben; iOS-GPU/RAM-Sicherheitsreserve. Konto/Login/Recovery/Cloud unverändert. -->
-<!-- ACZO56 WETTANGELN TEST V1.6 - ISOLIERTER ZUSATZBLOCK -->
+<!-- ACZO56 WETTANGELN TEST V1.9 - ISOLIERTER ZUSATZBLOCK -->
 <style id="aczoTournamentTestV12Style">
-/* WETTANGELN TEST V1.6 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
+/* WETTANGELN TEST V1.9 – isolierter Zusatz. Konto/Login/Recovery/Cloud bleiben unberührt. */
 .aczo-tournament-entry{
   position:absolute;right:12px;bottom:76px;z-index:78;width:208px;min-height:112px;
   display:none;align-items:stretch;justify-content:stretch;pointer-events:auto;
@@ -46386,7 +46410,7 @@ anglingBankPrewarm();
 .aczo-tournament-row.current{animation:aczoRowPulse .7s ease}@keyframes aczoRowPulse{0%,100%{transform:none}45%{transform:scale(1.022);background:rgba(220,188,92,.21)}}
 .aczo-tournament-seed{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);color:#d7d2c8;font-size:7px}
 .aczo-tournament-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aczo-tournament-spot{min-width:66px;text-align:right;color:#edd17b;font-variant-numeric:tabular-nums}
-.aczo-tournament-final-list .aczo-tournament-row{grid-template-columns:36px minmax(0,1fr) auto auto;padding:10px 11px;font-size:11.5px;line-height:1.18}.aczo-tournament-final-list .name{font-size:11.5px}.aczo-tournament-final-list .name small{font-size:9.5px!important;line-height:1.22;margin-top:2px}.aczo-tournament-rank{font-size:16px;text-align:center;color:#ead386}.aczo-tournament-weight{font-variant-numeric:tabular-nums;color:#fff;font-size:11.5px}.aczo-tournament-prize{min-width:64px;text-align:right;color:#e5c767;font-size:10px}
+.aczo-tournament-final-list .aczo-tournament-row{grid-template-columns:32px minmax(0,1fr) auto auto;padding:8px 9px}.aczo-tournament-rank{font-size:14px;text-align:center;color:#ead386}.aczo-tournament-weight{font-variant-numeric:tabular-nums;color:#fff}.aczo-tournament-prize{min-width:58px;text-align:right;color:#e5c767;font-size:8px}
 .aczo-tournament-row.result-hidden{opacity:0;transform:translateY(7px)}.aczo-tournament-row.result-show{opacity:1;transform:none;transition:opacity .28s ease,transform .28s ease}.aczo-tournament-result-note{margin:10px 0 0;text-align:center;font-size:8.5px;font-weight:850;color:#d2ccbe}
 .aczo-tournament-close{display:block;margin:13px auto 0;width:min(270px,90%)!important;min-height:40px!important;border-radius:999px!important;border:1px solid rgba(232,210,148,.62)!important;background:linear-gradient(180deg,#4b493f,#2d2f2e)!important;color:#fff!important;font-size:10px!important;font-weight:1000!important}
 .aczo-tournament-toast{position:absolute;left:50%;top:50%;z-index:440;transform:translate(-50%,-50%) scale(.95);display:none;pointer-events:none;width:min(430px,86%);padding:13px 16px;border-radius:16px;text-align:center;color:#fff;background:rgba(28,30,30,.94);border:1px solid rgba(224,192,99,.72);box-shadow:0 12px 34px rgba(0,0,0,.44);font-weight:950}
@@ -46487,7 +46511,7 @@ const T={
   maxPlayers:12,
   allowed:new Set(['roach','rudd','perch','sunfish','goby','bream','tench']),
   bycatch:new Set(['carp','mirrorcarp','grasscarp','eel','catfish']),
-  bycatchWeight:{carp:.14,mirrorcarp:.13,grasscarp:.085,eel:.10,catfish:.022},
+  bycatchWeight:{carp:.055,mirrorcarp:.05,grasscarp:.035,eel:.045,catfish:.012},
   naturalBaits:['worm','maggot','corn','premium_corn','maggot_mix','mistworm','dew_worm'],
   bannedNatural:new Set(['boilie','popup','mini_boilie','sturgeon_pellet','baitfish','worm_bundle']),
   fallbacks:['Ralf','Jens','Marcus','Markus','Joachim','Berthold','Gilbert','Daniel','Stefan'],
@@ -46735,10 +46759,11 @@ function startCountdown(){
   const step=()=>{if(S.phase!=='countdown')return;if(n>0){showToast('Wettkampf startet',String(n),900);n--;later(step,900)}else{toast.classList.remove('show');beginFishing()}};step();
 }
 function beginFishing(){
-  S.phase='fishing';S.startAt=Date.now();S.endAt=S.startAt+T.durationMs;S.dayFactor=.88+Math.random()*.23;S.halfShown=S.twoShown=S.thirtyShown=false;S.signal5=S.signal1=false;S.finalDrill=false;S.finalDrillStartedAt=0;S.prizeGranted=false;S.tickAt=performance.now();S.aiAt=S.tickAt;tournamentSignal('start');
+  S.phase='fishing';S.startAt=Date.now();S.endAt=S.startAt+T.durationMs;S.dayFactor=.94+Math.random()*.22;S.halfShown=S.twoShown=S.thirtyShown=false;S.signal5=S.signal1=false;S.finalDrill=false;S.finalDrillStartedAt=0;S.prizeGranted=false;S.tickAt=performance.now();S.aiAt=S.tickAt;tournamentSignal('start');
   hudTime.textContent='15:00';hudFish.textContent='0';hudWeight.textContent='0,00 kg';setHudMessage('Start! Petri Heil.');hud.classList.add('show');syncHudPosition();
-  S.recentMessages=[];S.nextAmbientInfoAt=S.startAt+12000+Math.random()*8000;
-  for(const p of S.participants){p.totalKg=0;p.fishCount=0;p.bestKg=0;p.fish=[];p.nextTry=S.startAt+9000+Math.random()*16000;p.lastCatchAt=0}
+  S.recentMessages=[];S.nextAmbientInfoAt=S.startAt+9000+Math.random()*5000;
+  /* V1.9: echte Anlaufphase. Die KI wirft erst einmal aus und kommt nicht nach 10 Sekunden mit halbem Setzkescher um die Ecke. */
+  for(const p of S.participants){p.totalKg=0;p.fishCount=0;p.bestKg=0;p.fish=[];p.nextTry=p.isPlayer?0:S.startAt+30000+Math.random()*30000;p.lastCatchAt=0;p.firstFeedInfoShown=false}
   setAnglingStatus('Wettangeln läuft','Nur Wertungsfische zählen zum Gesamtgewicht.');
 }
 function catchKey(c){return [c?.time,c?.species,c?.cm,c?.xp].join('|')}
@@ -46759,6 +46784,10 @@ const TOURNAMENT_FISH_WORDS={
 };
 function tournamentFishWord(species,form='acc'){const w=TOURNAMENT_FISH_WORDS[species];return w?.[form]||(fishDisplayNames[species]||species)}
 function aiCatch(p,now){
+  const elapsedMs=Math.max(0,now-S.startAt);
+  /* V1.9 Startstaffelung: 0–30 s keine KI-Fänge; 30–60 s nur selten; 60–120 s sanft hochfahren. */
+  if(elapsedMs<30000){p.nextTry=Math.max(p.nextTry,S.startAt+30000+Math.random()*12000);return;}
+  const openingFactor=elapsedMs<60000?.28:elapsedMs<120000?(0.48+0.52*((elapsedMs-60000)/60000)):1;
   const spot=S.spots[p.spotId],aim=spot?.aim||spot?.shore?.clone?.().addScaledVector(spot?.inward||new THREE.Vector3(0,1,0),10);if(!aim)return;
   let entries=[];try{entries=ORIG.buildCandidates(aim.x,aim.y,p.bait,false).filter(e=>T.allowed.has(e.species)||T.bycatch.has(e.species)).map(e=>T.bycatch.has(e.species)?{...e,weight:(Number(e.weight)||0)*(T.bycatchWeight[e.species]||.02)}:e)}catch(_e){return}
   const total=entries.reduce((n,e)=>n+Math.max(0,Number(e.weight)||0),0);if(total<=0){p.nextTry=now+22000+Math.random()*18000;return}
@@ -46766,14 +46795,20 @@ function aiCatch(p,now){
   const activity=.76+.24*(total/(total+100));
   /* V1.3: deutlich weniger KI-Versuche. Die Gegner sollen in 15 Minuten
      typischerweise im selben Fangzahlbereich wie ein menschlicher Spieler landen. */
-  const dayFactor=Number(S.dayFactor)||1;const interval=(20500+Math.random()*24500)/(p.skill*feedFactor*activity*dayFactor*1.035);p.nextTry=now+interval;
-  let biteChance=clamp((.305+.18*(total/(total+120))+(p.feed==='none'?-.035:.035))*dayFactor*1.025,.22,.52);
+  const dayFactor=Number(S.dayFactor)||1;
+  /* V1.9c: Ruhiger Start bleibt erhalten. Danach nur kleiner Ausgleich; KI insgesamt moderat über V1.8. */
+  const recoveryFactor=elapsedMs>=120000?1.04:1;
+  const interval=(20500+Math.random()*24500)/(p.skill*feedFactor*activity*dayFactor*1.055*recoveryFactor);p.nextTry=now+interval;
+  let biteChance=clamp((.305+.18*(total/(total+120))+(p.feed==='none'?-.035:.035))*dayFactor*1.04*recoveryFactor,.22,.54)*openingFactor;
   /* Sanfte Anpassung an den echten Spieler statt davonlaufender Zufalls-KI. */
   const elapsed=Math.max(1,(now-S.startAt)/60000),playerRate=(S.player?.fishCount||0)/elapsed,aiRate=p.fishCount/elapsed;
-  if(aiRate>playerRate+1.2)biteChance*=.72;else if(aiRate+1.5<playerRate)biteChance*=1.10;
+  if(aiRate>playerRate+1.4)biteChance*=.78;else if(aiRate+1.5<playerRate)biteChance*=1.10;
   if(Math.random()>biteChance)return;
-  const landChance=clamp(.79+(p.skill-1)*.28,.73,.86);if(Math.random()>landChance){if(Math.random()<.22)competitionMessage('🎣 '+p.name+' verliert einen Fisch kurz vor dem Kescher.');return}
-  const species=weightedPick(entries);if(!species)return;let cm=anglingSizeForSpecies(species);cm=Number((cm*(.94+Math.random()*.055)).toFixed(1));const kg=anglingEstimatedKg(species,cm);
+  const landChance=clamp(.79+(p.skill-1)*.28,.73,.86);if(Math.random()>landChance){if(elapsedMs>=60000&&Math.random()<.22)competitionMessage('🎣 '+p.name+' verliert einen Fisch kurz vor dem Kescher.');return}
+  let species=weightedPick(entries);if(!species)return;
+  /* Beifänge und die dazugehörigen Dramen erst nach der Einlaufphase. */
+  if(elapsedMs<120000&&T.bycatch.has(species)){const scoring=entries.filter(e=>T.allowed.has(e.species));species=weightedPick(scoring);if(!species)return;}
+  let cm=anglingSizeForSpecies(species);cm=Number((cm*(.94+Math.random()*.055)).toFixed(1));const kg=anglingEstimatedKg(species,cm);
   const fishAcc=tournamentFishWord(species,'acc'),fishDat=tournamentFishWord(species,'dat');
   if(T.bycatch.has(species)){
     const heavy=['carp','mirrorcarp','grasscarp','catfish'].includes(species),lost=heavy&&Math.random()<(species==='catfish'?.62:.28);
@@ -46803,14 +46838,32 @@ function tournamentSignal(kind){
   }catch(_e){}
 }
 function competitionContextMessages(now){
-  const others=S.participants.filter(p=>!p.isPlayer),caught=others.filter(p=>p.fishCount>0),blank=others.filter(p=>p.fishCount===0),choices=[];
+  const elapsed=Math.max(0,now-S.startAt),others=S.participants.filter(p=>!p.isPlayer),caught=others.filter(p=>p.fishCount>0),blank=others.filter(p=>p.fishCount===0),choices=[];
   const total=S.participants.reduce((n,p)=>n+p.fishCount,0),active=S.participants.filter(p=>p.fishCount>0).length;
+  /* V1.9: In der ersten Minute erzählen wir vom Ankommen am Platz, nicht von einer Fangorgie. */
+  if(elapsed<30000){
+    choices.push(()=> '🎣 Die ersten Montagen liegen im Wasser.');
+    choices.push(()=> '🌿 Am Weiher kehrt nach der Auslosung langsam Ruhe ein.');
+    choices.push(()=> '👀 Die Teilnehmer richten sich an ihren Plätzen ein.');
+    choices.push(()=> '🌊 Noch ist es ruhig an den Schwimmern.');
+    return choices;
+  }
+  if(elapsed<60000){
+    choices.push(()=> '🎣 Die ersten Angler haben ihre Plätze gefunden und beobachten die Posen.');
+    choices.push(()=> '🌽 An einigen Plätzen wurde vorsichtig angefüttert.');
+    choices.push(()=> '🌊 Die Anfangsphase bleibt noch ruhig.');
+    if(caught.length)choices.push(()=>{const p=caught[Math.floor(Math.random()*caught.length)];return '✅ '+p.name+' meldet einen der ersten Wertungsfische.'});
+    if(blank.length>1)choices.push(()=> '⏳ Der Großteil des Feldes wartet noch auf den ersten Wertungsfisch.');
+    return choices;
+  }
   const east=others.filter(p=>p.spotId<=4),west=others.filter(p=>p.spotId>=5&&p.spotId<=10),north=others.filter(p=>p.spotId>=11);
   const hot=[...others].sort((a,b)=>b.fishCount-a.fishCount)[0],quiet=others.filter(p=>now-p.lastCatchAt>60000),feeding=others.filter(p=>p.feed!=='none');
   if(caught.length)choices.push(()=>{const p=caught[Math.floor(Math.random()*caught.length)];return '📣 '+p.name+' konnte wieder einen Fisch sicher landen.'});
   if(blank.length)choices.push(()=>{const p=blank[Math.floor(Math.random()*blank.length)];return '⏳ '+p.name+' wartet weiterhin auf den ersten Wertungsfisch.'});
   if(blank.length>1)choices.push(()=>blank.length+' Teilnehmer sind noch ohne Wertungsfisch.');
-  if(feeding.length)choices.push(()=>{const p=feeding[Math.floor(Math.random()*feeding.length)];return '🌽 An Platz '+p.spotId+' wird gerade wieder gefüttert.'});
+  /* "wieder gefüttert" bewusst erst ab Minute 2. */
+  if(elapsed>=120000&&feeding.length)choices.push(()=>{const p=feeding[Math.floor(Math.random()*feeding.length)];return '🌽 An Platz '+p.spotId+' wird gerade wieder gefüttert.'});
+  else if(feeding.length)choices.push(()=> '🌽 An einigen Plätzen wird jetzt erstmals etwas Futter nachgelegt.');
   if(quiet.length)choices.push(()=>{const p=quiet[Math.floor(Math.random()*quiet.length)];return '🌊 Bei '+p.name+' ist seit einiger Zeit Ruhe am Schwimmer.'});
   if(hot&&hot.fishCount>=2)choices.push(()=> '🎣 Bei '+hot.name+' läuft gerade eine gute Fangphase.');
   if(east.some(p=>p.fishCount))choices.push(()=> '➡️ Am Ostufer wurden zuletzt mehrere Schwimmer bewegt.');
@@ -46960,7 +47013,7 @@ const tournamentInterval=setInterval(()=>{
   try{
     if(!anglingMode&&S.phase!=='idle'){clearTournamentVisualsImmediately();startTournamentCooldown();abortTournament('Wettangeln wurde beendet.');}
     updateTournament();markTournamentRestrictions();
-  }catch(err){console.warn('Wettangeln Test V1.8:',err)}
+  }catch(err){console.warn('Wettangeln Test V1.9c:',err)}
 },250);
 
 })();
