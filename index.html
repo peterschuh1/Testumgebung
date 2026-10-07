@@ -46358,6 +46358,114 @@ renderer.domElement.addEventListener('webglcontextrestored',()=>{
 });
 anglingBankPrewarm();
 
+// LIVE-03: Voruebergehender Hauptbild-Vergleich, keine neue Grafikvorgabe.
+// Alle Eingriffe werden unmittelbar nach diesem einen Render zurueckgesetzt.
+function aczoCreateLiveDiagnosticController(deps){
+  const allowed=new Set(['original','clouds','shadows','freeze']);
+  let selected='original',warmUntil=0,sampleStart=0,lastFrame=0,lastState='';
+  let frames=0,cpuTotal=0,lastReport=null,lastStatus=null;
+  function reset(now){sampleStart=0;lastFrame=0;frames=0;cpuTotal=0;lastReport=null;warmUntil=now+2500;}
+  function setMode(mode){if(!allowed.has(mode))throw new Error('Unbekannter Diagnosemodus');selected=mode;reset(deps.now());}
+  function render(scene,camera,frameNow){
+    const context=deps.context(),shadow=deps.shadowLight,map=deps.renderer.shadowMap;
+    const active=!!context.eligible,mode=active?selected:'original';
+    const shadowActive=!!(shadow&&shadow.visible&&shadow.castShadow);
+    const cloudActive=!!(deps.cloudDeck&&deps.cloudDeck.visible);
+    const hasShadowMap=!!(shadow&&shadow.shadow&&shadow.shadow.map);
+    const freeze=mode==='freeze'&&shadowActive&&hasShadowMap;
+    const oldAuto=map.autoUpdate,oldDirty=map.needsUpdate;
+    const oldCast=shadow&&shadow.castShadow,oldCloud=deps.cloudDeck&&deps.cloudDeck.visible;
+    const savedReceivers=[];
+    lastStatus={active,mode:selected,shadowActive,cloudActive,hasShadowMap,freezeApplied:freeze,phase:context.phase};
+    const started=deps.now();
+    try{
+      if(mode==='clouds'&&deps.cloudDeck)deps.cloudDeck.visible=false;
+      if(mode==='shadows'&&shadow){
+        // Lichtfarbe/-staerke bleiben bestehen. r128 passt seine Schatten-
+        // Programmvariante an die Anzahl der schattenwerfenden Lampen an.
+        shadow.castShadow=false;
+        for(const object of deps.receivers){if(object){savedReceivers.push([object,object.visible]);object.visible=false;}}
+      }
+      if(freeze){map.autoUpdate=false;map.needsUpdate=false;}
+      deps.renderer.render(scene,camera);
+    }finally{
+      if(mode==='clouds'&&deps.cloudDeck)deps.cloudDeck.visible=oldCloud;
+      if(mode==='shadows'&&shadow){
+        shadow.castShadow=oldCast;
+        for(const [object,visible] of savedReceivers)object.visible=visible;
+      }
+      if(freeze){map.autoUpdate=oldAuto;map.needsUpdate=oldDirty||map.needsUpdate;}
+    }
+    const elapsed=deps.now()-started,state=active?context.phase:'INACTIVE';
+    if(state!==lastState||(lastFrame&&frameNow-lastFrame>1500)){
+      sampleStart=0;frames=0;cpuTotal=0;lastReport=null;lastState=state;
+    }
+    lastFrame=frameNow;
+    if(!active||frameNow<warmUntil)return;
+    if(!sampleStart){sampleStart=frameNow;frames=0;cpuTotal=0;return;}
+    frames++;cpuTotal+=elapsed;
+    if(frameNow-sampleStart>=1000){
+      lastReport={mode:selected,phase:context.phase,fps:frames*1000/(frameNow-sampleStart),
+        cpuRenderMs:cpuTotal/frames,frames,shadowActive,cloudActive,freezeApplied:freeze};
+      sampleStart=frameNow;frames=0;cpuTotal=0;
+    }
+  }
+  return {setMode,render,getMode:()=>selected,getReport:()=>lastReport,getStatus:()=>lastStatus};
+}
+
+const aczoLiveDiagnostic=aczoCreateLiveDiagnosticController({
+  renderer,cloudDeck:aczoPerf2CloudDeck,shadowLight:aczoStructureShadowLight,
+  receivers:[aczoLandShadowReceiver,aczoWaterStructureShadowReceiver,
+    aczoMoselStructureShadowReceiver,aczoPondStructureShadowReceiver,
+    aczoStructureSurfaceShade,aczoStructureBottomShade],
+  now:()=>performance.now(),
+  context:()=>({eligible:simulationEnabled&&!is2D&&!fishMode&&!anglingMode&&!skyLookMode,
+    phase:aczoPerf4State})
+});
+
+// Nur in dieser Diagnosedatei; kein Speichern von Schalterwerten und keine API.
+const aczoLiveDiagnosticPanel=(()=>{
+  const style=document.createElement('style');
+  style.textContent=`
+    #aczoLiveDiag{position:fixed;left:12px;bottom:12px;z-index:1000000;width:min(352px,calc(100vw - 24px));box-sizing:border-box;padding:12px;border:1px solid #6b8b99;border-radius:12px;background:#10252ff2;color:#f2f6f8;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 18px #0005;text-align:left}
+    #aczoLiveDiag[hidden]{display:none!important}
+    #aczoLiveDiag summary{cursor:pointer;font-weight:700;list-style-position:inside;user-select:none}
+    #aczoLiveDiag .aczo-diag-options{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+    #aczoLiveDiag button{position:static!important;display:block!important;transform:none!important;margin:0!important;padding:9px 7px!important;min-height:38px;width:auto!important;border:1px solid #688491!important;border-radius:7px!important;background:#243f4c!important;color:#fff!important;font:600 12px/1.25 system-ui,sans-serif!important;cursor:pointer;box-shadow:none!important}
+    #aczoLiveDiag button[aria-pressed=true]{background:#b5e3cc!important;border-color:#b5e3cc!important;color:#102820!important}
+    #aczoLiveDiag p{margin:6px 0!important;font:12px/1.4 system-ui,sans-serif!important;color:#dae6ec!important}
+    #aczoLiveDiag .aczo-diag-stats{font-variant-numeric:tabular-nums;color:#fff!important}
+  `;
+  document.head.appendChild(style);
+  const panel=document.createElement('details');panel.id='aczoLiveDiag';panel.open=true;
+  panel.innerHTML='<summary>Live-Vergleich · Diagnose 03</summary><div class="aczo-diag-options"></div><p class="aczo-diag-note"></p><p class="aczo-diag-stats"></p><p class="aczo-diag-help">Beim Drehen vergleichen. Nach jedem Wechsel 3 Sekunden warten.</p>';
+  const choices=[['original','Original LIVE'],['shadows','Strukturschatten aus'],['clouds','Wolken aus'],['freeze','Schatten einfrieren']];
+  const notes={original:'Normale Live-Darstellung mit den vorhandenen Einstellungen.',shadows:'Baum-, Gebäude- und Stegschatten zum Vergleich aus. Live-Beleuchtung bleibt.',clouds:'Nur die sichtbare Wolkendecke ausgeblendet. Bewölkung, Licht und Wasserreflexe bleiben.',freeze:'Vorhandene Schatten bleiben sichtbar; die Schattenkarte wird nicht neu berechnet.'};
+  const buttons=[],options=panel.querySelector('.aczo-diag-options'),note=panel.querySelector('.aczo-diag-note'),stats=panel.querySelector('.aczo-diag-stats');
+  function choose(mode){aczoLiveDiagnostic.setMode(mode);for(const b of buttons)b.setAttribute('aria-pressed',String(b.dataset.mode===mode));note.textContent=notes[mode];stats.textContent='Vergleich wird vorbereitet …';}
+  for(const [mode,label] of choices){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.mode=mode;b.setAttribute('aria-pressed',String(mode==='original'));b.addEventListener('click',()=>choose(mode));buttons.push(b);options.appendChild(b);}
+  note.textContent=notes.original;
+  // Eingaben am Testpanel duerfen die Karte darunter nicht drehen/zoomen.
+  for(const event of ['pointerdown','pointermove','pointerup','wheel','click','dblclick','contextmenu'])panel.addEventListener(event,e=>e.stopPropagation());
+  document.body.appendChild(panel);
+  let lastUpdate=0;
+  return function update(now){
+    if(now-lastUpdate<300)return;lastUpdate=now;
+    panel.hidden=!!(anglingMode||fishMode||skyLookMode);
+    if(panel.hidden)return;
+    const status=aczoLiveDiagnostic.getStatus();
+    if(!status||!status.active){stats.textContent='Bitte 3D und Wetter: LIVE einschalten. Der Test ist hier pausiert.';return;}
+    const mode=aczoLiveDiagnostic.getMode(),report=aczoLiveDiagnostic.getReport();
+    let detail='';
+    if((mode==='shadows'||mode==='freeze')&&!status.shadowActive)detail=' Aktuell sind keine Strukturschatten aktiv.';
+    else if(mode==='freeze'&&!status.hasShadowMap)detail=' Schattenkarte wird zuerst vorbereitet.';
+    else if(mode==='clouds'&&!status.cloudActive)detail=' Aktuell ist keine Wolkendecke aktiv.';
+    note.textContent=notes[mode]+detail;
+    if(!report){stats.textContent='Bilder/s: … · '+(status.phase==='ACTIVE'?'Bewegung':'Ruhe/Nachlauf');return;}
+    const phase=report.phase==='ACTIVE'?'Bewegung':report.phase==='COAST'?'Nachlauf':report.phase==='AMBIENT'?'Animation':'Ruhe';
+    stats.textContent='Ca. '+Math.round(report.fps)+' Bilder/s · '+phase;
+  };
+})();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
@@ -46721,7 +46829,8 @@ anglingBankPrewarm();
      &&!fishMode&&!(anglingMode&&anglingCinematicView==='underwater');
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
- renderer.render(scene,camera);
+ aczoLiveDiagnostic.render(scene,camera,frameNow);
+ aczoLiveDiagnosticPanel(frameNow);
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
