@@ -22434,6 +22434,10 @@ function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,
 // mitteln. Zugleich kostet ein Jahreszeitenwechsel nur noch wenige Material-
 // Updates statt einer Schleife über jedes einzelne Blatt.
 function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
+  // VEG-02: Nur gleiche Sektormaterialien dieser Geometriefamilie teilen.
+  // Artenidentitaet und exakte Farbverschiebungen bleiben getrennt.
+  // Der lokale Pool lebt nur waehrend dieses unveraenderten Profilaufbaus.
+  const materialPool=new WeakMap();
   // PERF11: grosse Blatt-Batches werden raeumlich geteilt. Ein einziger
   // InstancedMesh ueber den ganzen Weiher verhindert wirksames Frustum-Culling,
   // weil er als Ganzes sichtbar bleibt. Kleine Batches bleiben unveraendert,
@@ -22457,15 +22461,23 @@ function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=fa
     }else spatial.set('all',baseBatch);
     let ci=0;
     for(const batch of spatial.values()){
-      const first=batch[0],dayColor=new THREE.Color(first.species.summer);
-      dayColor.offsetHSL(first.hueShift||0,first.satShift||0,first.lightShift||0);
-      const material=new THREE.MeshLambertMaterial({
-        color:dayColor,side:THREE.DoubleSide,
-        emissive:dayColor,emissiveIntensity:.075
-      });
-      material.userData.aczoDayColor=dayColor.clone();
-      material.userData.aczoDayEmissiveIntensity=.075;
-      aczoSurveyFoliageMaterials.push(material);
+      const first=batch[0];
+      let tones=materialPool.get(first.species);
+      if(!tones){tones=new Map();materialPool.set(first.species,tones);}
+      const toneKey=[first.hueShift||0,first.satShift||0,first.lightShift||0].join('|');
+      let material=tones.get(toneKey);
+      if(!material){
+        const dayColor=new THREE.Color(first.species.summer);
+        dayColor.offsetHSL(first.hueShift||0,first.satShift||0,first.lightShift||0);
+        material=new THREE.MeshLambertMaterial({
+          color:dayColor,side:THREE.DoubleSide,
+          emissive:dayColor,emissiveIntensity:.075
+        });
+        material.userData.aczoDayColor=dayColor.clone();
+        material.userData.aczoDayEmissiveIntensity=.075;
+        tones.set(toneKey,material);
+        aczoSurveyFoliageMaterials.push(material);
+      }
       const mesh=new THREE.InstancedMesh(geometry,material,batch.length),dummy=new THREE.Object3D();
       let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
       batch.forEach((item,i)=>{
