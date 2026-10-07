@@ -13956,125 +13956,12 @@ function clearDepthPin(){
   depthPinLabel.style.display='none';
 }
 
-// MAP-01: Nur die Maus-/Pin-Trefferabfrage auf der bestehenden Kartenflaeche.
-// Private Indexbereiche bleiben ausserhalb der Szene. Positionen, UVs, Dreiecke,
-// Material und Weltmatrix bleiben original; den Endtest macht Three.js r128.
-const aczoMapPondNativeRaycast=THREE.Mesh.prototype.raycast;
-let aczoMapPondRayCache=null;
-function aczoMapPondRaycastSupported(){
-  const g=pond.geometry,p=g&&g.attributes&&g.attributes.position,i=g&&g.index;
-  if(!g||g!==ACZO_MAP_GEO||!g.isBufferGeometry||g.isInstancedBufferGeometry
-    ||pond.isInstancedMesh||pond.isSkinnedMesh||pond.raycast!==aczoMapPondNativeRaycast
-    ||!pond.material||Array.isArray(pond.material)||g.groups.length
-    ||g.drawRange.start!==0||g.drawRange.count!==Infinity
-    ||!p||p.isInterleavedBufferAttribute||p.itemSize!==3||p.normalized
-    ||!(p.array instanceof Float32Array)||p.array.length!==p.count*3
-    ||!i||i.isInterleavedBufferAttribute||i.itemSize!==1||i.normalized
-    ||!(i.array instanceof Uint16Array||i.array instanceof Uint32Array)
-    ||i.count!==i.array.length||!i.count||i.count%3)return false;
-  for(const key in g.morphAttributes)return false;
-  return true;
-}
-function aczoPrepareMapPondRaycast(){
-  if(!aczoMapPondRaycastSupported()){aczoMapPondRayCache=null;return null;}
-  const g=pond.geometry,p=g.attributes.position,i=g.index;
-  const old=aczoMapPondRayCache;
-  if(old&&old.geometry===g&&old.position===p&&old.positionArray===p.array
-    &&old.positionVersion===p.version&&old.positionCount===p.count
-    &&old.index===i&&old.indexArray===i.array&&old.indexVersion===i.version
-    &&old.indexCount===i.count)return old;
-  // Zusammenhaengende Original-Indexbereiche erhalten auch faceIndex und
-  // Dreiecksreihenfolge. Eine konservative Box umfasst immer ganze Dreiecke.
-  const leafTriangles=256,faces=i.count/3;
-  let leafCapacity=1;while(leafCapacity*leafTriangles<faces)leafCapacity*=2;
-  const capacity=leafCapacity*2-1,bounds=new Float64Array(capacity*6);
-  const left=new Int32Array(capacity),right=new Int32Array(capacity);
-  const starts=new Int32Array(capacity),counts=new Int32Array(capacity);
-  const positions=p.array,indices=i.array,isFiniteNumber=Number.isFinite;
-  let nodes=0,valid=true;
-  function build(first,last){
-    const n=nodes++,b=n*6;
-    if(last-first<=leafTriangles){
-      const start=first*3,end=last*3;
-      let x0=Infinity,y0=Infinity,z0=Infinity,x1=-Infinity,y1=-Infinity,z1=-Infinity;
-      for(let k=start;k<end;k++){
-        const at=indices[k]*3,x=positions[at],y=positions[at+1],z=positions[at+2];
-        if(!isFiniteNumber(x)||!isFiniteNumber(y)||!isFiniteNumber(z)){valid=false;continue;}
-        if(x<x0)x0=x;if(y<y0)y0=y;if(z<z0)z0=z;
-        if(x>x1)x1=x;if(y>y1)y1=y;if(z>z1)z1=z;
-      }
-      const ex=1e-7*Math.max(1,Math.abs(x0),Math.abs(x1));
-      const ey=1e-7*Math.max(1,Math.abs(y0),Math.abs(y1));
-      const ez=1e-7*Math.max(1,Math.abs(z0),Math.abs(z1));
-      bounds[b]=x0-ex;bounds[b+1]=y0-ey;bounds[b+2]=z0-ez;
-      bounds[b+3]=x1+ex;bounds[b+4]=y1+ey;bounds[b+5]=z1+ez;
-      starts[n]=start;counts[n]=end-start;
-    }else{
-      const mid=first+Math.floor((last-first)/2),l=build(first,mid),r=build(mid,last);
-      left[n]=l;right[n]=r;
-      for(let axis=0;axis<3;axis++){
-        bounds[b+axis]=Math.min(bounds[l*6+axis],bounds[r*6+axis]);
-        bounds[b+axis+3]=Math.max(bounds[l*6+axis+3],bounds[r*6+axis+3]);
-      }
-    }
-    return n;
-  }
-  build(0,faces);
-  if(!valid){aczoMapPondRayCache=null;return null;}
-  const proxyGeometry=new THREE.BufferGeometry();
-  // Nur Referenzen auf CPU-Attribute. Niemals renderer.render oder scene.add.
-  proxyGeometry.attributes=g.attributes;proxyGeometry.index=i;
-  const proxy=new THREE.Mesh(proxyGeometry,pond.material);proxy.matrixAutoUpdate=false;
-  aczoMapPondRayCache={geometry:g,position:p,positionArray:p.array,
-    positionVersion:p.version,positionCount:p.count,index:i,indexArray:i.array,
-    indexVersion:i.version,indexCount:i.count,bounds,left,right,starts,counts,nodes,
-    stack:new Int32Array(capacity),inverse:new THREE.Matrix4(),localRay:new THREE.Ray(),
-    box:new THREE.Box3(),boxHit:new THREE.Vector3(),proxy,proxyGeometry,hits:[]};
-  return aczoMapPondRayCache;
-}
-function aczoRaycastMapPondFirstHit(raycaster){
-  // intersectObject prueft Layer, aber absichtlich nicht object.visible.
-  if(!raycaster.layers.test(pond.layers))return null;
-  const cache=aczoPrepareMapPondRaycast();
-  if(!cache||pond.matrixWorld.determinant()===0)
-    return raycaster.intersectObject(pond,false)[0]||null;
-  const g=pond.geometry;
-  if(g.boundingSphere===null)g.computeBoundingSphere();
-  const proxy=cache.proxy,proxyGeometry=cache.proxyGeometry,hits=cache.hits;
-  proxy.material=pond.material;proxy.matrixWorld.copy(pond.matrixWorld);
-  proxyGeometry.attributes=g.attributes;proxyGeometry.index=g.index;
-  // Die originale native Kugel-/Box-Pruefung bleibt auch im Endtest erhalten.
-  proxyGeometry.boundingSphere=g.boundingSphere;proxyGeometry.boundingBox=g.boundingBox;
-  cache.inverse.copy(pond.matrixWorld).invert();
-  cache.localRay.copy(raycaster.ray).applyMatrix4(cache.inverse);
-  const bounds=cache.bounds,stack=cache.stack;let size=1;stack[0]=0;hits.length=0;
-  while(size){
-    const n=stack[--size],b=n*6;
-    cache.box.min.set(bounds[b],bounds[b+1],bounds[b+2]);
-    cache.box.max.set(bounds[b+3],bounds[b+4],bounds[b+5]);
-    if(!cache.localRay.intersectBox(cache.box,cache.boxHit))continue;
-    if(cache.counts[n]){
-      proxyGeometry.setDrawRange(cache.starts[n],cache.counts[n]);
-      aczoMapPondNativeRaycast.call(proxy,raycaster,hits);
-    }else{
-      // Linken Originalbereich zuerst pruefen; gleiche Entfernung behält die
-      // urspruengliche Reihenfolge. far/near und den Eingabestrahl nie aendern.
-      stack[size++]=cache.right[n];stack[size++]=cache.left[n];
-    }
-  }
-  for(const hit of hits)hit.object=pond;
-  hits.sort((a,b)=>a.distance-b.distance||a.faceIndex-b.faceIndex);
-  const first=hits[0]||null;hits.length=0;
-  return first;
-}
-// Einmal vor der ersten Eingabe aufbauen; keine Zusatzarbeit im Renderloop.
-aczoPrepareMapPondRaycast();
 function raycastPondFromClient(clientX,clientY){
   const rect=renderer.domElement.getBoundingClientRect();
   mouse.x=(clientX-rect.left)/rect.width*2-1;
   mouse.y=-(clientY-rect.top)/rect.height*2+1;
   ray.setFromCamera(mouse,camera);
-  const hit=aczoRaycastMapPondFirstHit(ray);
+  const hit=ray.intersectObject(pond,false)[0] || null;
   if(!hit||!aczoPointInsideMasterPond(hit.point.x,hit.point.y))return null;
   return hit;
 }
@@ -22434,10 +22321,6 @@ function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,
 // mitteln. Zugleich kostet ein Jahreszeitenwechsel nur noch wenige Material-
 // Updates statt einer Schleife über jedes einzelne Blatt.
 function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
-  // VEG-02: Nur gleiche Sektormaterialien dieser Geometriefamilie teilen.
-  // Artenidentitaet und exakte Farbverschiebungen bleiben getrennt.
-  // Der lokale Pool lebt nur waehrend dieses unveraenderten Profilaufbaus.
-  const materialPool=new WeakMap();
   // PERF11: grosse Blatt-Batches werden raeumlich geteilt. Ein einziger
   // InstancedMesh ueber den ganzen Weiher verhindert wirksames Frustum-Culling,
   // weil er als Ganzes sichtbar bleibt. Kleine Batches bleiben unveraendert,
@@ -22461,23 +22344,15 @@ function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=fa
     }else spatial.set('all',baseBatch);
     let ci=0;
     for(const batch of spatial.values()){
-      const first=batch[0];
-      let tones=materialPool.get(first.species);
-      if(!tones){tones=new Map();materialPool.set(first.species,tones);}
-      const toneKey=[first.hueShift||0,first.satShift||0,first.lightShift||0].join('|');
-      let material=tones.get(toneKey);
-      if(!material){
-        const dayColor=new THREE.Color(first.species.summer);
-        dayColor.offsetHSL(first.hueShift||0,first.satShift||0,first.lightShift||0);
-        material=new THREE.MeshLambertMaterial({
-          color:dayColor,side:THREE.DoubleSide,
-          emissive:dayColor,emissiveIntensity:.075
-        });
-        material.userData.aczoDayColor=dayColor.clone();
-        material.userData.aczoDayEmissiveIntensity=.075;
-        tones.set(toneKey,material);
-        aczoSurveyFoliageMaterials.push(material);
-      }
+      const first=batch[0],dayColor=new THREE.Color(first.species.summer);
+      dayColor.offsetHSL(first.hueShift||0,first.satShift||0,first.lightShift||0);
+      const material=new THREE.MeshLambertMaterial({
+        color:dayColor,side:THREE.DoubleSide,
+        emissive:dayColor,emissiveIntensity:.075
+      });
+      material.userData.aczoDayColor=dayColor.clone();
+      material.userData.aczoDayEmissiveIntensity=.075;
+      aczoSurveyFoliageMaterials.push(material);
       const mesh=new THREE.InstancedMesh(geometry,material,batch.length),dummy=new THREE.Object3D();
       let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
       batch.forEach((item,i)=>{
@@ -46358,114 +46233,242 @@ renderer.domElement.addEventListener('webglcontextrestored',()=>{
 });
 anglingBankPrewarm();
 
-// LIVE-03: Voruebergehender Hauptbild-Vergleich, keine neue Grafikvorgabe.
-// Alle Eingriffe werden unmittelbar nach diesem einen Render zurueckgesetzt.
-function aczoCreateLiveDiagnosticController(deps){
-  const allowed=new Set(['original','clouds','shadows','freeze']);
-  let selected='original',warmUntil=0,sampleStart=0,lastFrame=0,lastState='';
-  let frames=0,cpuTotal=0,lastReport=null,lastStatus=null;
-  function reset(now){sampleStart=0;lastFrame=0;frames=0;cpuTotal=0;lastReport=null;warmUntil=now+2500;}
-  function setMode(mode){if(!allowed.has(mode))throw new Error('Unbekannter Diagnosemodus');selected=mode;reset(deps.now());}
-  function render(scene,camera,frameNow){
-    const context=deps.context(),shadow=deps.shadowLight,map=deps.renderer.shadowMap;
-    const active=!!context.eligible,mode=active?selected:'original';
-    const shadowActive=!!(shadow&&shadow.visible&&shadow.castShadow);
-    const cloudActive=!!(deps.cloudDeck&&deps.cloudDeck.visible);
-    const hasShadowMap=!!(shadow&&shadow.shadow&&shadow.shadow.map);
-    const freeze=mode==='freeze'&&shadowActive&&hasShadowMap;
-    const oldAuto=map.autoUpdate,oldDirty=map.needsUpdate;
-    const oldCast=shadow&&shadow.castShadow,oldCloud=deps.cloudDeck&&deps.cloudDeck.visible;
-    const savedReceivers=[];
-    lastStatus={active,mode:selected,shadowActive,cloudActive,hasShadowMap,freezeApplied:freeze,phase:context.phase};
-    const started=deps.now();
-    try{
-      if(mode==='clouds'&&deps.cloudDeck)deps.cloudDeck.visible=false;
-      if(mode==='shadows'&&shadow){
-        // Lichtfarbe/-staerke bleiben bestehen. r128 passt seine Schatten-
-        // Programmvariante an die Anzahl der schattenwerfenden Lampen an.
-        shadow.castShadow=false;
-        for(const object of deps.receivers){if(object){savedReceivers.push([object,object.visible]);object.visible=false;}}
-      }
-      if(freeze){map.autoUpdate=false;map.needsUpdate=false;}
-      deps.renderer.render(scene,camera);
-    }finally{
-      if(mode==='clouds'&&deps.cloudDeck)deps.cloudDeck.visible=oldCloud;
-      if(mode==='shadows'&&shadow){
-        shadow.castShadow=oldCast;
-        for(const [object,visible] of savedReceivers)object.visible=visible;
-      }
-      if(freeze){map.autoUpdate=oldAuto;map.needsUpdate=oldDirty||map.needsUpdate;}
+// MESSUNG-05: Passive timings. No changes to frame pacing, scene or quality.
+function aczoCreateGpuProbe(gl,isWebGL2){
+  let ext=null,api=null,pending=[],opened=null,reason='GPU-Zeit nicht verfügbar',discarded=0;
+  try{
+    ext=gl.getExtension(isWebGL2?'EXT_disjoint_timer_query_webgl2':'EXT_disjoint_timer_query');
+    if(ext){
+      api=isWebGL2?{
+        create:()=>gl.createQuery(),remove:q=>gl.deleteQuery(q),
+        current:()=>gl.getQuery(ext.TIME_ELAPSED_EXT,gl.CURRENT_QUERY),
+        begin:q=>gl.beginQuery(ext.TIME_ELAPSED_EXT,q),end:()=>gl.endQuery(ext.TIME_ELAPSED_EXT),
+        ready:q=>gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE),value:q=>gl.getQueryParameter(q,gl.QUERY_RESULT)
+      }:{
+        create:()=>ext.createQueryEXT(),remove:q=>ext.deleteQueryEXT(q),
+        current:()=>ext.getQueryEXT(ext.TIME_ELAPSED_EXT,ext.CURRENT_QUERY_EXT),
+        begin:q=>ext.beginQueryEXT(ext.TIME_ELAPSED_EXT,q),end:()=>ext.endQueryEXT(ext.TIME_ELAPSED_EXT),
+        ready:q=>ext.getQueryObjectEXT(q,ext.QUERY_RESULT_AVAILABLE_EXT),value:q=>ext.getQueryObjectEXT(q,ext.QUERY_RESULT_EXT)
+      };
+      reason='GPU-Zeit verfügbar';
     }
-    const elapsed=deps.now()-started,state=active?context.phase:'INACTIVE';
-    if(state!==lastState||(lastFrame&&frameNow-lastFrame>1500)){
-      sampleStart=0;frames=0;cpuTotal=0;lastReport=null;lastState=state;
-    }
-    lastFrame=frameNow;
-    if(!active||frameNow<warmUntil)return;
-    if(!sampleStart){sampleStart=frameNow;frames=0;cpuTotal=0;return;}
-    frames++;cpuTotal+=elapsed;
-    if(frameNow-sampleStart>=1000){
-      lastReport={mode:selected,phase:context.phase,fps:frames*1000/(frameNow-sampleStart),
-        cpuRenderMs:cpuTotal/frames,frames,shadowActive,cloudActive,freezeApplied:freeze};
-      sampleStart=frameNow;frames=0;cpuTotal=0;
-    }
+  }catch(e){reason='GPU-Zeit vom Browser nicht freigegeben';}
+  function remove(q){try{api.remove(q);}catch(e){}}
+  function clear(){
+    if(opened){try{api.end();}catch(e){}remove(opened.query);opened=null;discarded++;}
+    for(const item of pending){remove(item.query);discarded++;}pending=[];
   }
-  return {setMode,render,getMode:()=>selected,getReport:()=>lastReport,getStatus:()=>lastStatus};
+  function disable(){clear();api=null;reason='GPU-Messung unterbrochen';}
+  function poll(now){
+    if(!api||!pending.length)return;
+    try{
+      if(gl.isContextLost()){disable();return;}
+      if(gl.getParameter(ext.GPU_DISJOINT_EXT)){clear();reason='GPU-Zeit: ungültige Stichproben verworfen';return;}
+      const remaining=[];
+      for(const item of pending){
+        if(now-item.started>5000){remove(item.query);discarded++;continue;}
+        if(!api.ready(item.query)){remaining.push(item);continue;}
+        const ns=Number(api.value(item.query));
+        if(Number.isFinite(ns)&&ns>=0)item.record.gpuMs=ns/1e6;else discarded++;
+        remove(item.query);
+      }
+      pending=remaining;
+    }catch(e){disable();}
+  }
+  function begin(record,now){
+    if(!api||opened||pending.length>=4)return;
+    let query=null;
+    try{
+      if(gl.isContextLost()||api.current())return;
+      query=api.create();if(!query)return;
+      api.begin(query);opened={query,record,started:now};
+    }catch(e){if(query)remove(query);disable();}
+  }
+  function end(){
+    if(!opened)return;
+    try{api.end();pending.push(opened);opened=null;}catch(e){disable();}
+  }
+  return {poll,begin,end,clear,info:()=>({available:!!api,reason,discarded,pending:pending.length})};
 }
 
-const aczoLiveDiagnostic=aczoCreateLiveDiagnosticController({
-  renderer,cloudDeck:aczoPerf2CloudDeck,shadowLight:aczoStructureShadowLight,
-  receivers:[aczoLandShadowReceiver,aczoWaterStructureShadowReceiver,
-    aczoMoselStructureShadowReceiver,aczoPondStructureShadowReceiver,
-    aczoStructureSurfaceShade,aczoStructureBottomShade],
-  now:()=>performance.now(),
-  context:()=>({eligible:simulationEnabled&&!is2D&&!fishMode&&!anglingMode&&!skyLookMode,
-    phase:aczoPerf4State})
-});
+function aczoCreateFrameMeasurement(deps){
+  let run=null,probe=null,current=null,lastGpuAt=-Infinity,lastResult=null,nextId=0;
+  const duration=23000;
+  function stage(elapsed){return elapsed<3000?'warmup':elapsed<11000?'rest':elapsed<13000?'prepare':elapsed<21000?'move':'drain';}
+  function summarize(records,phase){
+    const rows=records.filter(r=>r.phase===phase),n=rows.length;
+    const stats=key=>{
+      const a=rows.map(r=>r[key]).filter(Number.isFinite).sort((a,b)=>a-b);
+      return a.length?{n:a.length,mean:a.reduce((s,x)=>s+x,0)/a.length,p95:a[Math.ceil(a.length*.95)-1]}:null;
+    };
+    return {frames:n,fps:n>1?(n-1)*1000/(rows[n-1].raf-rows[0].raf):null,
+      cpuFrame:stats('cpuMs'),cpuRender:stats('renderMs'),cpuUpdates:stats('updateMs'),gpuRender:stats('gpuMs'),
+      drawCalls:stats('drawCalls'),triangles:stats('triangles'),
+      activeFrames:rows.filter(r=>r.state==='ACTIVE').length,
+      shadowDirtyFrames:rows.filter(r=>r.shadowDirty).length};
+  }
+  function finish(){
+    if(!run)return;
+    probe.poll(deps.now());probe.clear();
+    lastResult={id:run.id,label:run.label,start:run.meta,end:deps.snapshot(),
+      rest:summarize(run.records,'rest'),move:summarize(run.records,'move'),gpu:probe.info(),
+      method:'CPU: synchronous accepted main-frame work, excludes input events, independent timers and browser work outside this callback; includes instrumentation overhead. Render CPU includes driver waits. GPU: asynchronous samples around the main render incl. shadow render. Draw calls/triangles: Three main pass, excludes shadow pass. Shadow dirty: requests before rendering, not confirmed shadow draws. Not total system utilization.'};
+    run=null;current=null;deps.complete(lastResult);
+  }
+  function cancel(reason){
+    if(probe)probe.clear();run=null;current=null;deps.cancelled(reason);
+  }
+  function start(label){
+    if(run)cancel('Neue Messung');
+    if(!deps.eligible())return false;
+    probe=deps.makeProbe();lastGpuAt=-Infinity;lastResult=null;
+    run={id:++nextId,label,started:deps.now(),meta:deps.snapshot(),records:[]};return true;
+  }
+  function begin(raf,state){
+    current=null;
+    if(!run)return;
+    const now=deps.now();probe.poll(now);
+    if(!deps.eligible()){cancel('Messung abgebrochen: Bitte in der normalen 3D-Karte bleiben.');return;}
+    if(now-run.started>=duration){finish();return;}
+    const phase=stage(now-run.started);
+    if(phase!=='rest'&&phase!=='move')return;
+    current={runId:run.id,phase,raf,state,started:deps.now(),renderMs:0,shadowDirty:false};
+  }
+  function render(draw){
+    if(!current)return draw();
+    const sample=current;
+    const now=deps.now();
+    sample.shadowDirty=deps.shadowDirty();
+    if(now-lastGpuAt>=200){probe.begin(sample,now);lastGpuAt=now;}
+    const started=deps.now();
+    try{return draw();}
+    finally{
+      sample.renderMs=deps.now()-started;
+      probe.end();
+      const info=deps.renderInfo();sample.drawCalls=info.calls;sample.triangles=info.triangles;
+    }
+  }
+  function end(){
+    if(!current||!run)return;
+    const sample=current;sample.cpuMs=deps.now()-sample.started;
+    sample.updateMs=Math.max(0,sample.cpuMs-sample.renderMs);
+    run.records.push(sample);current=null;
+  }
+  return {start,begin,render,end,cancel,
+    status:()=>run?{running:true,label:run.label,stage:stage(deps.now()-run.started),elapsed:deps.now()-run.started}: {running:false},
+    result:()=>lastResult};
+}
 
-// Nur in dieser Diagnosedatei; kein Speichern von Schalterwerten und keine API.
-const aczoLiveDiagnosticPanel=(()=>{
-  const style=document.createElement('style');
-  style.textContent=`
-    #aczoLiveDiag{position:fixed;left:12px;bottom:12px;z-index:1000000;width:min(352px,calc(100vw - 24px));box-sizing:border-box;padding:12px;border:1px solid #6b8b99;border-radius:12px;background:#10252ff2;color:#f2f6f8;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 18px #0005;text-align:left}
-    #aczoLiveDiag[hidden]{display:none!important}
-    #aczoLiveDiag summary{cursor:pointer;font-weight:700;list-style-position:inside;user-select:none}
-    #aczoLiveDiag .aczo-diag-options{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
-    #aczoLiveDiag button{position:static!important;display:block!important;transform:none!important;margin:0!important;padding:9px 7px!important;min-height:38px;width:auto!important;border:1px solid #688491!important;border-radius:7px!important;background:#243f4c!important;color:#fff!important;font:600 12px/1.25 system-ui,sans-serif!important;cursor:pointer;box-shadow:none!important}
-    #aczoLiveDiag button[aria-pressed=true]{background:#b5e3cc!important;border-color:#b5e3cc!important;color:#102820!important}
-    #aczoLiveDiag p{margin:6px 0!important;font:12px/1.4 system-ui,sans-serif!important;color:#dae6ec!important}
-    #aczoLiveDiag .aczo-diag-stats{font-variant-numeric:tabular-nums;color:#fff!important}
-  `;
-  document.head.appendChild(style);
-  const panel=document.createElement('details');panel.id='aczoLiveDiag';panel.open=true;
-  panel.innerHTML='<summary>Live-Vergleich · Diagnose 03</summary><div class="aczo-diag-options"></div><p class="aczo-diag-note"></p><p class="aczo-diag-stats"></p><p class="aczo-diag-help">Beim Drehen vergleichen. Nach jedem Wechsel 3 Sekunden warten.</p>';
-  const choices=[['original','Original LIVE'],['shadows','Strukturschatten aus'],['clouds','Wolken aus'],['freeze','Schatten einfrieren']];
-  const notes={original:'Normale Live-Darstellung mit den vorhandenen Einstellungen.',shadows:'Baum-, Gebäude- und Stegschatten zum Vergleich aus. Live-Beleuchtung bleibt.',clouds:'Nur die sichtbare Wolkendecke ausgeblendet. Bewölkung, Licht und Wasserreflexe bleiben.',freeze:'Vorhandene Schatten bleiben sichtbar; die Schattenkarte wird nicht neu berechnet.'};
-  const buttons=[],options=panel.querySelector('.aczo-diag-options'),note=panel.querySelector('.aczo-diag-note'),stats=panel.querySelector('.aczo-diag-stats');
-  function choose(mode){aczoLiveDiagnostic.setMode(mode);for(const b of buttons)b.setAttribute('aria-pressed',String(b.dataset.mode===mode));note.textContent=notes[mode];stats.textContent='Vergleich wird vorbereitet …';}
-  for(const [mode,label] of choices){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.mode=mode;b.setAttribute('aria-pressed',String(mode==='original'));b.addEventListener('click',()=>choose(mode));buttons.push(b);options.appendChild(b);}
-  note.textContent=notes.original;
-  // Eingaben am Testpanel duerfen die Karte darunter nicht drehen/zoomen.
-  for(const event of ['pointerdown','pointermove','pointerup','wheel','click','dblclick','contextmenu'])panel.addEventListener(event,e=>e.stopPropagation());
+// Only this measurement copy exposes test time controls. Existing time rules run normally.
+const aczoMeasure05OriginalTime={mode:seasonTestMode,day:seasonTestDay,hour:seasonTestHour,
+  base:seasonTimeBaseDate?new Date(seasonTimeBaseDate):null,stamp:seasonTimeBaseStamp,live:simulationEnabled};
+const aczoMeasure05Day=new Date(viewerNow());
+let aczoMeasure05Label='Originalzeit',aczoMeasure05Results=[];
+function aczoMeasure05Eligible(){return !is2D&&!fishMode&&!anglingMode&&!skyLookMode&&document.visibilityState==='visible';}
+function aczoMeasure05SetTime(hour){
+  if(!aczoMeasure05Eligible()||aczoMeasure05.status().running)return;
+  if(hour===null){
+    const saved=aczoMeasure05OriginalTime;
+    seasonTestMode=saved.mode;seasonTestDay=saved.day;seasonTestHour=saved.hour;
+    seasonTimeBaseDate=saved.base?new Date(saved.base):null;seasonTimeBaseStamp=saved.stamp;
+    simulationEnabled=saved.live;aczoMeasure05Label='Originalzeit';
+  }else{
+    const date=new Date(aczoMeasure05Day);date.setHours(hour,0,0,0);
+    seasonTestMode=true;seasonTestDay=seasonDayOfDate(date);seasonTestHour=hour;setSeasonTimeAnchor(date);
+    simulationEnabled=true;aczoMeasure05Label=hour===14?'Tag 14:00':'Nacht 23:00';
+  }
+  aczoUnderwaterShadowKey='';
+  if(simulationEnabled){updateAstronomy();updateSimulationButton();updateWeatherText();}
+  else applyNeutralDayScene();
+  updateUnderwaterObstacleShadows(!!window.__aczoUnderwaterSceneActive);
+}
+function aczoMeasure05Snapshot(){
+  const lights=[];
+  scene.traverseVisible(o=>{
+    if(o.isLight&&o.layers.test(camera.layers))lights.push({type:o.type,
+      name:o===sun?'Sonne':o===moonLight?'Mond':o===dayReliefLight?'Tages-Relieflicht':o===aczoStructureShadowLight?'Strukturlicht':o.name||o.type,
+      intensity:o.intensity,shadow:!!o.castShadow});
+  });
+  return {time:viewerNow().toISOString(),label:aczoMeasure05Label,live:simulationEnabled,nightFactor:sceneNightFactor,
+    graphics:aczoGraphicsMode,reducedMobile:aczoUsesReducedMobileGraphics(),
+    pixels:[renderer.domElement.width,renderer.domElement.height],pixelRatio:renderer.getPixelRatio(),
+    water:waterVisible,cloud:liveWeather.cloud,fog:!!scene.fog,rain:rainSystem.visible,
+    camera:camera.position.toArray(),target:controls.target.toArray(),lights,
+    geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures};
+}
+const aczoMeasure05=aczoCreateFrameMeasurement({
+  now:()=>performance.now(),eligible:aczoMeasure05Eligible,snapshot:aczoMeasure05Snapshot,
+  makeProbe:()=>aczoCreateGpuProbe(renderer.getContext(),renderer.capabilities.isWebGL2),
+  shadowDirty:()=>!!(renderer.shadowMap.autoUpdate||renderer.shadowMap.needsUpdate),
+  renderInfo:()=>renderer.info.render,
+  complete:result=>{aczoMeasure05Results.push(result);if(aczoMeasure05Results.length>4)aczoMeasure05Results.shift();aczoMeasure05Panel.showResults();},
+  cancelled:reason=>aczoMeasure05Panel.message(reason)
+});
+const aczoMeasure05Panel=(()=>{
+  const style=document.createElement('style');style.textContent=`
+    #aczoMeasure05{position:fixed;left:10px;bottom:10px;z-index:1000000;width:min(395px,calc(100vw - 20px));max-height:75vh;overflow:auto;box-sizing:border-box;padding:12px;border:1px solid #7293a3;border-radius:11px;background:#10252ff5;color:#f4f8fa;font:13px/1.4 system-ui,sans-serif;text-align:left}
+    #aczoMeasure05[hidden]{display:none!important}#aczoMeasure05 summary{font-weight:700;cursor:pointer}
+    #aczoMeasure05 p{font:12px/1.4 system-ui,sans-serif!important;margin:8px 0!important;color:#e0ecf2!important}
+    #aczoMeasure05 .options{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+    #aczoMeasure05 button{position:static!important;display:block!important;transform:none!important;flex:1;margin:0!important;padding:8px!important;min-height:36px!important;min-width:70px;width:auto!important;border:1px solid #7090a0!important;border-radius:7px!important;background:#254652!important;color:#fff!important;font:600 12px/1.2 system-ui,sans-serif!important;cursor:pointer}
+    #aczoMeasure05 button:disabled{opacity:.5!important;cursor:default}#aczoMeasure05 button.start{background:#b4e1ca!important;color:#112b20!important}
+    #aczoMeasure05 textarea{display:block;box-sizing:border-box;width:100%;height:165px;margin-top:8px;padding:7px;background:#071820;color:#eef6fa;border:1px solid #688290;border-radius:6px;font:12px/1.45 ui-monospace,monospace;resize:vertical}
+  `;document.head.appendChild(style);
+  const panel=document.createElement('details');panel.id='aczoMeasure05';panel.open=true;
+  panel.innerHTML='<summary>Rechenlast messen · 05</summary><div class="options times"></div><p class="status">Tag wählen, dann Messung starten.</p><div class="options actions"></div><p>Erst ruhig stehen lassen, danach auf Aufforderung drehen. Zoom und Grafikprofil gleich lassen.</p><textarea readonly aria-label="Messergebnisse" placeholder="Hier erscheinen die Ergebnisse für Tag und Nacht."></textarea><div class="options output"></div>';
+  const note=panel.querySelector('.status'),text=panel.querySelector('textarea'),timeButtons=[];
+  function button(parent,label,fn){const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',fn);parent.appendChild(b);return b;}
+  for(const [label,hour] of [['Tag 14 Uhr',14],['Nacht 23 Uhr',23],['Originalzeit',null]])timeButtons.push(button(panel.querySelector('.times'),label,()=>{aczoMeasure05SetTime(hour);note.textContent=aczoMeasure05Label+' gewählt. Messung starten.';}));
+  const start=button(panel.querySelector('.actions'),'Messung starten',()=>{if(aczoMeasure05.start(aczoMeasure05Label))note.textContent='Vorbereitung – Karte ruhig stehen lassen.';});start.className='start';
+  const stop=button(panel.querySelector('.actions'),'Abbrechen',()=>aczoMeasure05.cancel('Messung abgebrochen.'));
+  function format(result){
+    const num=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'n/v';
+    const lines=['ACZO56 Messung05 · '+result.label,
+      'Profil '+result.start.graphics+' · '+result.start.pixels.join('×')+' Pixel · LIVE '+result.start.live,
+      'Zeit '+result.start.time+' · Nachtfaktor '+num(result.start.nightFactor,2),
+      'Sichtbare Lichtquellen: '+result.start.lights.map(l=>l.name+' '+num(l.intensity,2)).join(', ')];
+    for(const [key,title] of [['rest','RUHE'],['move','DREHEN']]){
+      const s=result[key];lines.push(title+': '+num(s.fps)+' Bilder/s; aktive Frames '+s.activeFrames+'/'+s.frames,
+        'CPU gesamt '+num(s.cpuFrame?.mean,2)+' ms; Updates '+num(s.cpuUpdates?.mean,2)+' ms; Render '+num(s.cpuRender?.mean,2)+' ms',
+        'GPU Render '+num(s.gpuRender?.mean,2)+' ms ('+(s.gpuRender?.n||0)+' Proben)',
+        'Drawcalls '+num(s.drawCalls?.mean,0)+'; Dreiecke '+num(s.triangles?.mean,0)+'; Schatten angefordert '+s.shadowDirtyFrames+' Frames');
+    }
+    lines.push(result.gpu.reason,'CPU/GPU-Zeiten sind keine Systemauslastung in Prozent.');
+    return lines.join('\n');
+  }
+  function showResults(){text.value=aczoMeasure05Results.map(format).join('\n\n');note.textContent='Fertig. Jetzt andere Tageszeit wählen und Messung wiederholen.';}
+  button(panel.querySelector('.output'),'Ergebnis kopieren',async()=>{
+    if(!text.value){note.textContent='Bitte zuerst messen.';return;}
+    try{await navigator.clipboard.writeText(text.value);note.textContent='Kopiert – hier im Chat einfügen.';}
+    catch(e){text.focus();text.select();note.textContent='Text ist markiert. Bitte kopieren oder einen Screenshot senden.';}
+  });
+  button(panel.querySelector('.output'),'Messdaten speichern',()=>{
+    if(!aczoMeasure05Results.length)return;
+    const blob=new Blob([JSON.stringify(aczoMeasure05Results,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='ACZO56_Messung05.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  for(const name of ['pointerdown','pointerup','pointermove','mousedown','mouseup','touchstart','touchmove','touchend','wheel','click','dblclick','contextmenu'])panel.addEventListener(name,e=>e.stopPropagation());
   document.body.appendChild(panel);
-  let lastUpdate=0;
-  return function update(now){
-    if(now-lastUpdate<300)return;lastUpdate=now;
-    panel.hidden=!!(anglingMode||fishMode||skyLookMode);
-    if(panel.hidden)return;
-    const status=aczoLiveDiagnostic.getStatus();
-    if(!status||!status.active){stats.textContent='Bitte 3D und Wetter: LIVE einschalten. Der Test ist hier pausiert.';return;}
-    const mode=aczoLiveDiagnostic.getMode(),report=aczoLiveDiagnostic.getReport();
-    let detail='';
-    if((mode==='shadows'||mode==='freeze')&&!status.shadowActive)detail=' Aktuell sind keine Strukturschatten aktiv.';
-    else if(mode==='freeze'&&!status.hasShadowMap)detail=' Schattenkarte wird zuerst vorbereitet.';
-    else if(mode==='clouds'&&!status.cloudActive)detail=' Aktuell ist keine Wolkendecke aktiv.';
-    note.textContent=notes[mode]+detail;
-    if(!report){stats.textContent='Bilder/s: … · '+(status.phase==='ACTIVE'?'Bewegung':'Ruhe/Nachlauf');return;}
-    const phase=report.phase==='ACTIVE'?'Bewegung':report.phase==='COAST'?'Nachlauf':report.phase==='AMBIENT'?'Animation':'Ruhe';
-    stats.textContent='Ca. '+Math.round(report.fps)+' Bilder/s · '+phase;
+  const tick=()=>{
+    panel.hidden=!!(fishMode||anglingMode||skyLookMode);
+    const status=aczoMeasure05.status(),eligible=aczoMeasure05Eligible();
+    if(status.running&&!eligible){aczoMeasure05.cancel('Messung abgebrochen: Bitte in der normalen 3D-Karte bleiben.');return;}
+    start.disabled=status.running||!eligible;stop.disabled=!status.running;
+    for(const b of timeButtons)b.disabled=status.running||!eligible;
+    if(status.running){
+      const secs=limit=>Math.max(0,Math.ceil((limit-status.elapsed)/1000));
+      note.textContent=status.stage==='warmup'?'Vorbereitung: '+secs(3000)+' s · ruhig stehen lassen.':
+        status.stage==='rest'?'RUHE messen: '+secs(11000)+' s · Karte nicht bewegen.':
+        status.stage==='prepare'?'Gleich drehen: in '+secs(13000)+' s.':
+        status.stage==='move'?'JETZT gleichmäßig DREHEN: noch '+secs(21000)+' s.':'Messwerte werden abgeschlossen …';
+    }
   };
+  setInterval(tick,250);tick();
+  return {showResults,message:value=>{note.textContent=value;}};
 })();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'&&aczoMeasure05.status().running)aczoMeasure05.cancel('Messung abgebrochen: Tab war im Hintergrund.');});
+renderer.domElement.addEventListener('webglcontextlost',()=>{if(aczoMeasure05.status().running)aczoMeasure05.cancel('Messung abgebrochen: Grafik-Kontext verloren.');});
+
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
@@ -46534,6 +46537,7 @@ const aczoLiveDiagnosticPanel=(()=>{
    aczoLastRenderedFrameAt=frameNow;
  }
 
+ aczoMeasure05.begin(frameNow,aczoPerf4State);
  const rawDt=clock.getDelta();
  // Nach App-Wechseln oder einzelnen Safari-Aussetzern darf kein riesiger
  // Zeitsprung auf einmal in Wolken, Regen, Verkehr und Figuren laufen.
@@ -46829,8 +46833,7 @@ const aczoLiveDiagnosticPanel=(()=>{
      &&!fishMode&&!(anglingMode&&anglingCinematicView==='underwater');
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
- aczoLiveDiagnostic.render(scene,camera,frameNow);
- aczoLiveDiagnosticPanel(frameNow);
+ aczoMeasure05.render(()=>renderer.render(scene,camera));
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
@@ -46844,6 +46847,7 @@ const aczoLiveDiagnosticPanel=(()=>{
  // Der Zehn-Sekunden-Timer beginnt erst nach dem ersten wirklich gezeichneten
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
  schedulePersonalCampScene();
+ aczoMeasure05.end();
 })();
 </script>
 
