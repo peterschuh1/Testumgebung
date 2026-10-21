@@ -5277,6 +5277,7 @@ function aczoSetIconText(element,value){
   const textNode=document.getElementById('mapStartupText');
   const startedAt=performance.now();
   const minimumVisibleMs=1000;
+  const mobileMapFirst=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(/MacIntel/i.test(navigator.platform||'')&&(navigator.maxTouchPoints||0)>1);
   let firstFrameReady=false;
   let satelliteSettled=false;
   let weatherPrepared=false;
@@ -5285,13 +5286,14 @@ function aczoSetIconText(element,value){
   let finished=false;
 
   function tryFinish(){
-    if(finished||!firstFrameReady||!satelliteSettled||!weatherPrepared||!underwaterPrepared||!anglingPrepared)return;
+    if(finished||!firstFrameReady||!satelliteSettled||!weatherPrepared||(!mobileMapFirst&&(!underwaterPrepared||!anglingPrepared)))return;
     const wait=Math.max(0,minimumVisibleMs-(performance.now()-startedAt));
     window.setTimeout(()=>finish(false),wait);
   }
   function finish(forceOpen=false){
     if(finished||(!forceOpen&&(!firstFrameReady||!satelliteSettled)))return;
     finished=true;
+    if(window.__aczoStartup)window.__aczoStartup.mapOpenedAt=performance.now();
     if(textNode)textNode.textContent=forceOpen?'Viewer wird geöffnet …':'ACZO56 Vereinsweiher ist bereit';
     if(loader)loader.classList.add('is-ready');
     window.removeEventListener('error',revealAfterStartupError);
@@ -6198,7 +6200,7 @@ function aczoCreateStartupRenderer(options){
 // Three.js-Block ausgeführt wird. Er wird erst nach einem echten Renderbild freigegeben.
 // Version V.3.3: Erfahrungsstufen bis 80.000 EP, Profilränge und ereignisgebundene Aufstiegsfeier.
 const VIEWER_VERSION='ACZO56-Interaktiv-V.3.4-Mosel-Test';
-const ACZO_INTERNAL_BUILD='1.39-Mosel-05';
+const ACZO_INTERNAL_BUILD='1.39-Mosel-05-K0a-iOS-V1';
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
 
@@ -10923,7 +10925,7 @@ setInterval(()=>{
          // erzeugen. Dadurch ploppen Wolken/Schatten nach dem Öffnen nicht erst
          // einige Sekunden später sichtbar in die Szene.
          if(renderer&&scene&&camera){
-           renderer.compile(scene,camera);
+           if(!ACZO_PERF8_MOBILE_BOOT)renderer.compile(scene,camera);
            renderer.render(scene,camera);
          }
        }
@@ -30264,7 +30266,7 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       if(aczoPerf26UwFullTarget.texture)aczoPerf26UwFullTarget.texture.encoding=renderer.outputEncoding;
     }
     const startupLoader=document.getElementById('mapStartupLoader');
-    const warmDefaultFramebuffer=!!startupLoader&&!startupLoader.classList.contains('is-done');
+    const warmDefaultFramebuffer=!ACZO_PERF8_MOBILE_BOOT&&!!startupLoader&&!startupLoader.classList.contains('is-done');
     const warmDrawingBufferSize=new THREE.Vector2();
     const warmPixelRatio=renderer.getPixelRatio();
     const warmLogicalSide=128/warmPixelRatio,warmLogicalHeight=84/warmPixelRatio;
@@ -30291,7 +30293,8 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
     // keinen erstmaligen Buffer-Upload mitten im Angelbetrieb.
     const warmSpoonBody=spoon.geometry,warmSpoonAccent=spoonStripe.geometry,warmSpoonMarks=spoonAccentPlate.geometry;
     const warmSoftBodyGeometry=softCore.geometry;
-    for(const [warmId,warmDesign] of Object.entries(ACZO_LURE_DESIGNS)){
+    const warmEntries=Object.entries(ACZO_LURE_DESIGNS),warmBegin=ACZO_PERF8_MOBILE_BOOT?aczoIosLureWarmCursor:0,warmEnd=ACZO_PERF8_MOBILE_BOOT?Math.min(warmEntries.length,warmBegin+2):warmEntries.length;
+    for(const [warmId,warmDesign] of warmEntries.slice(warmBegin,warmEnd)){
       const warmGeometry=aczoLureGeometryCache[warmId];
       if(warmDesign.family==='spoon'){
         spoon.geometry=warmGeometry.body;spoonStripe.geometry=warmGeometry.accent;spoonAccentPlate.geometry=warmGeometry.marks;
@@ -30302,6 +30305,8 @@ function aczoPerf26ForceFullUnderwaterPrewarm(){
       renderer.render(scene,camera);
     }
     spoon.geometry=warmSpoonBody;spoonStripe.geometry=warmSpoonAccent;spoonAccentPlate.geometry=warmSpoonMarks;softCore.geometry=warmSoftBodyGeometry;
+    if(ACZO_PERF8_MOBILE_BOOT&&warmEnd<warmEntries.length){aczoIosLureWarmCursor=warmEnd;return;}
+    aczoIosLureWarmCursor=0;
 
     // Gemeinsame echte Unterwasserlayer vorbereiten.
     contourGroup.visible=false;pond.visible=false;pondNeutral.visible=false;pondNightLift.visible=false;pondCelestialDepthLift.visible=false;
@@ -30477,6 +30482,17 @@ function aczoPerf26ScheduleFullUnderwaterPrewarm(delay=420){
 // während die später benötigte Unterwasserwelt artweise aufgebaut und einmal
 // unsichtbar gerendert wird. Dadurch entstehen die Erstkosten weder mitten in
 // einer Kartengeste noch beim ersten Tauchgang/Kunstköder-Einschlag.
+// K0a-iOS: separate visible map readiness from background preparation.
+function aczoStartupHeavyWorkAllowed(){
+ if(!ACZO_PERF8_MOBILE_BOOT)return true;
+ if(document.hidden||!window.__aczoStartup?.mainReady)return false;
+ const loader=document.getElementById('mapStartupLoader');
+ if(loader&&!loader.classList.contains('is-done'))return false;
+ const opened=window.__aczoStartup.mapOpenedAt;
+ return Number.isFinite(opened)&&performance.now()-opened>=1800;
+}
+let aczoIosLureWarmCursor=0;
+
 let aczoStartupUwPrewarmStage=0;
 let aczoStartupUwPrewarmScheduled=false;
 let aczoStartupUwPrewarmFinished=false;
@@ -30497,6 +30513,7 @@ function aczoScheduleStartupUnderwaterPrewarm(delay=0){
 function aczoRunStartupUnderwaterPrewarm(){
   aczoStartupUwPrewarmScheduled=false;
   if(aczoStartupUwPrewarmFinished)return;
+  if(!aczoStartupHeavyWorkAllowed()){aczoScheduleStartupUnderwaterPrewarm(450);return;}
   if(document.hidden){aczoScheduleStartupUnderwaterPrewarm(250);return;}
   const loader=document.getElementById('mapStartupLoader');
   const loaderActive=!!loader&&!loader.classList.contains('is-done');
@@ -30555,7 +30572,7 @@ function aczoRunStartupUnderwaterPrewarm(){
     aczoFinishStartupUnderwaterPrewarm();
     return;
   }
-  aczoScheduleStartupUnderwaterPrewarm(0);
+  aczoScheduleStartupUnderwaterPrewarm(ACZO_PERF8_MOBILE_BOOT?250:0);
 }
 aczoScheduleStartupUnderwaterPrewarm(30);
 
@@ -33231,7 +33248,7 @@ function anglingBankBuildModels(){
 }
 function anglingBankPrewarm(){
  const rt=anglingBankRuntime;if(rt.prewarmScheduled)return;rt.prewarmScheduled=true;
- const run=()=>{try{if(!rt.group)anglingBankBuildModels();}catch(error){console.warn("Ansitz-Vorbereitung:",error);}aczoScheduleAnglingWarmup();};if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1800});else setTimeout(run,80);
+ const run=()=>{if(!aczoStartupHeavyWorkAllowed()){setTimeout(run,500);return;}try{if(!rt.group)anglingBankBuildModels();}catch(error){console.warn("Ansitz-Vorbereitung:",error);}aczoScheduleAnglingWarmup();};if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1800});else setTimeout(run,80);
 }
 function anglingBankPosition(){
  const rt=anglingBankRuntime;if(!anglingSelection||!anglingUsesBankSet())return;
@@ -49378,6 +49395,7 @@ function aczoScheduleAnglingWarmup(delay=0){
 function aczoRunAnglingWarmup(){
  const state=aczoAnglingWarmup;state.scheduled=false;
  if(state.busy||state.contextLost)return;
+ if(!aczoStartupHeavyWorkAllowed()){aczoScheduleAnglingWarmup(500);return;}
  const loaderActive=aczoAnglingWarmupLoaderActive();
  // The existing underwater builder and weather preparation finish first.
  // Outside the loader, no work runs during input, a cast, fight or camera flight.
@@ -49467,7 +49485,7 @@ function aczoRenderAnglingWarmup(id){
   draw();
   // At startup, also draw the actual canvas/output encoding at the user's
   // selected resolution. Once the loader is gone, all preparation is offscreen.
-  if(aczoAnglingWarmupLoaderActive()){
+  if(!ACZO_PERF8_MOBILE_BOOT&&aczoAnglingWarmupLoaderActive()){
    const size=renderer.getSize(new THREE.Vector2());
    renderer.setRenderTarget(null);renderer.setViewport(0,0,size.x,size.y);renderer.setScissorTest(false);renderer.autoClear=true;draw();
   }
@@ -49587,7 +49605,7 @@ window.__aczoScheduleAnglingWarmup=()=>aczoScheduleAnglingWarmup();
 renderer.domElement.addEventListener('webglcontextlost',()=>{aczoAnglingWarmup.contextLost=true;});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{
  aczoAnglingWarmup.contextLost=false;aczoAnglingWarmup.key='';aczoAnglingWarmup.done.clear();aczoAnglingWarmup.attempts.clear();
- aczoPerf26UwFullWarmReady=false;
+ aczoPerf26UwFullWarmReady=false;aczoIosLureWarmCursor=0;
  aczoScheduleAnglingWarmup();
 });
 anglingBankPrewarm();
@@ -51852,6 +51870,9 @@ document.addEventListener('visibilitychange',tournamentOnResume);
 })();
 </script>
 <script>
+(function(){
+ if(!aczoStartupCanStartModule('aczoMoselFinalInit'))return;
+
 aczoK5dInit();aczoK5fInstall();aczoBuildMoselOverviewBed();aczoK6aInit();aczoK8gInitFishWarmup();
 (function aczoInstallDepthDraftPreview(){
  const legend=document.querySelector('.legend');if(!legend)return;
@@ -51867,6 +51888,8 @@ aczoK5dInit();aczoK5fInstall();aczoBuildMoselOverviewBed();aczoK6aInit();aczoK8g
 })();
 
 
+
+})();
 </script>
 </body>
 </html>
