@@ -155,7 +155,7 @@
 </script>
 <style>.aczo-safe-starting .wrap,.aczo-safe-starting .wrap *{pointer-events:none!important}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56 · K26 Mosel</title>
+<title>ACZO56 · K28 Mobile</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- ACZO56 V.2.1: Neues Anmeldesystem mit Benutzername und Passwort. -->
 <!-- 02.10.2026 PATCH 5: Welssetup + Köderfisch = 75 % Wels / 25 % Hecht-Zander-Aal-Beifang. Karpfensetup + Köderfisch nutzt unverändert die normale Einzelruten-/Posen-Köderfischlogik. -->
@@ -9995,7 +9995,7 @@ function set3D(){
  controls.zoomSpeed=0.72;
  controls.panSpeed=0.58;
  controls.dampingFactor=0.10;
- controls.minDistance=ACZO_MAP_MIN_DISTANCE;
+ controls.minDistance=window.__aczoMobileMapNav.mobile()?.48:ACZO_MAP_MIN_DISTANCE;
  controls.maxDistance=aczoLandscapeCameraDistance();
  controls.minPolarAngle=0.10;
  controls.maxPolarAngle=Math.PI/2-0.06; // niemals unter die Kartenebene
@@ -10070,7 +10070,7 @@ function set2D(){
  controls.zoomSpeed=0.82;
  controls.panSpeed=0.78;
  controls.dampingFactor=0.09;
- controls.minDistance=45;
+ controls.minDistance=window.__aczoMobileMapNav.mobile()?.80:45;
  controls.maxDistance=aczoLandscapeCameraDistance();
  controls.mouseButtons.LEFT=THREE.MOUSE.PAN;
  controls.mouseButtons.MIDDLE=THREE.MOUSE.DOLLY;
@@ -10151,17 +10151,17 @@ function aczoConstrainLandscapeCamera(){
  const offset=camera.position.clone().sub(controls.target),distance=offset.length();
  if(distance>limit)offset.multiplyScalar(limit/distance);
  if(is2D){
-  const d=Math.min(limit,Math.max(45,offset.length())),tanV=Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))/Math.max(.1,camera.zoom),tanH=tanV*Math.max(.2,camera.aspect),c=Math.abs(Math.cos(map2DRotation)),s=Math.abs(Math.sin(map2DRotation));
+  const d=Math.min(limit,Math.max(window.__aczoMobileMapNav.mobile()?.80:45,offset.length())),tanV=Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))/Math.max(.1,camera.zoom),tanH=tanV*Math.max(.2,camera.aspect),c=Math.abs(Math.cos(map2DRotation)),s=Math.abs(Math.sin(map2DRotation));
   const ex=Math.min((x1-x0)*.5,d*(tanH*c+tanV*s)),ey=Math.min((y1-y0)*.5,d*(tanH*s+tanV*c));
   controls.target.set(THREE.MathUtils.clamp(controls.target.x,x0+ex,x1-ex),THREE.MathUtils.clamp(controls.target.y,y0+ey,y1-ey),0);
   camera.position.copy(controls.target);camera.position.z=d;
  }else{
-  controls.minDistance=ACZO_MAP_MIN_DISTANCE;
+  controls.minDistance=window.__aczoMobileMapNav.mobile()?.48:ACZO_MAP_MIN_DISTANCE;
   const fit=Math.min(1,(x1-x0)/Math.max(1e-9,Math.abs(offset.x)),(y1-y0)/Math.max(1e-9,Math.abs(offset.y)));offset.multiplyScalar(fit);
   controls.target.x=THREE.MathUtils.clamp(controls.target.x,Math.max(x0,x0-offset.x),Math.min(x1,x1-offset.x));
   controls.target.y=THREE.MathUtils.clamp(controls.target.y,Math.max(y0,y0-offset.y),Math.min(y1,y1-offset.y));
-  const targetZ=THREE.MathUtils.lerp(THREE.MathUtils.clamp(controls.target.z,-Math.max(6,4.4*exaggeration),1.5),0,1-THREE.MathUtils.smoothstep(distance,25,80));if(distance<80&&camera.position.z<30)offset.z+=controls.target.z-targetZ;controls.target.z=targetZ;
-  camera.position.copy(controls.target).add(offset);camera.position.z=Math.max(1.7,camera.position.z);
+  const targetZ=window.__aczoMobileMapNav.mobile()&&distance<40?THREE.MathUtils.clamp(controls.target.z,0,.32):THREE.MathUtils.lerp(THREE.MathUtils.clamp(controls.target.z,-Math.max(6,4.4*exaggeration),1.5),0,1-THREE.MathUtils.smoothstep(distance,25,80));if(distance<80&&camera.position.z<30)offset.z+=controls.target.z-targetZ;controls.target.z=targetZ;
+  camera.position.copy(controls.target).add(offset);camera.position.z=Math.max(window.__aczoMobileMapNav.mobile()?.32:1.7,camera.position.z);
  }
  const far=Math.max(1500,limit+900);if(camera.far!==far){camera.far=far;camera.updateProjectionMatrix();}
 }
@@ -19426,7 +19426,9 @@ function aczoK8hHabitat(species,x,y){
 }
 function aczoK8hVisualPlan(center){
  const hot=aczoK8hBridgeHotspot(center.x,center.y)>.32;
- return Object.entries(ACZO_MOSEL_SPECIES).map(([species,p])=>({species,count:Math.round(p.visual*1.28)+(hot?(species==='catfish'?3:species==='zander'?1:species==='roach'?-3:species==='bleak'?-1:0):0),schools:p.schools||0}));
+ // Scale each already-defined local species count, including its bridge adjustment.
+ // Whole fish are rounded to nearest integer.
+ return Object.entries(ACZO_MOSEL_SPECIES).map(([species,p])=>({species,count:Math.round((Math.round(p.visual*1.28)+(hot?(species==='catfish'?3:species==='zander'?1:species==='roach'?-3:species==='bleak'?-1:0):0))*1.75),schools:p.schools||0}));
 }
 function aczoK8hCatchPopulation(){
  if(!aczoK8hCatchCache){aczoK8hCatchCache={};for(const [s,p] of Object.entries(ACZO_MOSEL_SPECIES))if(!ACZO_K8G_NEW[s]||ACZO_K8H_SAVE_VALIDATED)aczoK8hCatchCache[s]=p.population;}
@@ -38288,7 +38290,7 @@ function aczoExploreGateHeld(gate){
  return (gate.exploreHoldUntil||0)>now;
 }
 function aczoExplorePaused(){return document.hidden||anglingGamePanelOpen()||anglingHallOfFameActive||anglingUi.classList.contains('main-menu-open')||!!document.querySelector('.aczo-tournament-overlay.show');}
-function aczoExploreResetInput(){const r=aczoExploreRuntime;r.keys.clear();r.sector=-1;r.turn=0;if(r.look){try{renderer.domElement.releasePointerCapture(r.look.id);}catch(_e){}}r.look=null;r.velocity.set(0,0);if(r.pad&&r.padPointer!==null){try{r.pad.releasePointerCapture(r.padPointer);}catch(_e){}}r.padPointer=null;if(r.pad){r.pad.classList.remove('is-active');r.pad.querySelectorAll('.boat-direction').forEach(o=>o.classList.remove('is-active'));}}
+function aczoExploreResetInput(){const r=aczoExploreRuntime;r.aczoK28FishIntentReset?.();r.keys.clear();r.sector=-1;r.turn=0;if(r.look){try{renderer.domElement.releasePointerCapture(r.look.id);}catch(_e){}}r.look=null;r.velocity.set(0,0);if(r.pad&&r.padPointer!==null){try{r.pad.releasePointerCapture(r.padPointer);}catch(_e){}}r.padPointer=null;if(r.pad){r.pad.classList.remove('is-active');r.pad.querySelectorAll('.boat-direction').forEach(o=>o.classList.remove('is-active'));}}
 function aczoExploreBlocked(x,y){
  const radius=.30;
  if(x< -497||x>297||y< -627||y>197)return true;
@@ -38395,14 +38397,14 @@ function aczoExploreTick(dt){
  const speed=2.40,desired=new THREE.Vector2((Math.sin(r.yaw)*forward+Math.cos(r.yaw)*side)*speed,(Math.cos(r.yaw)*forward-Math.sin(r.yaw)*side)*speed);
  r.velocity.lerp(desired,1-Math.exp(-dt*10));r.step+=aczoExploreMove(r.velocity.x*dt,r.velocity.y*dt);aczoExploreCamera();
  const now=performance.now();if(now>=r.probeAt){r.spot=aczoExploreProbe();r.probeAt=now+120;if(r.fishButton.hidden!==!r.spot)r.fishButton.hidden=!r.spot;if(r.spot){const label='🎣 Hier angeln · '+(r.spot.waterBody==='mosel'?'Mosel':'Weiher');if(r.fishButton.textContent!==label)r.fishButton.textContent=label;}}
- r.ui.hidden=false;return true;
+ r.ui.hidden=false;aczoK28ScheduleExploreLayout();return true;
 }
 function aczoExploreRefreshUi(){
  aczoRefreshWalkAtSpotButton();
  const r=aczoExploreRuntime;if(!r.card&&anglingMode)aczoExploreInstallUi();if(!r.card)return;
  r.card.hidden=!anglingMode||anglingState!=='selecting'||!!anglingCameraTransition||aczoExplorePaused();
  if(r.resume)r.resume.hidden=true;
- if(r.ui){r.ui.hidden=!r.active||anglingState!=='exploring'||aczoExplorePaused();r.fishButton.hidden=r.ui.hidden||!r.spot;}
+ if(r.ui){r.ui.hidden=!r.active||anglingState!=='exploring'||aczoExplorePaused();r.fishButton.hidden=r.ui.hidden||!r.spot;aczoK28ScheduleExploreLayout();}
 }
 function aczoExploreInstallUi(){
  const r=aczoExploreRuntime,style=document.createElement('style');style.textContent=`
@@ -38410,18 +38412,85 @@ function aczoExploreInstallUi(){
  .aczo-explore-entry svg{display:block;width:100%;height:66px;background:linear-gradient(#56766c,#94a991)}.aczo-explore-entry strong{display:block;padding:10px 12px 3px;font:750 15px/1.2 system-ui!important}.aczo-explore-entry span{display:block;padding:0 12px 12px;font:500 11px/1.35 system-ui!important;color:#d9e2cf}
  .angling-ui .aczo-explore-controls{--boat-line:#bed5bd78;position:absolute;left:max(12px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:154px;box-sizing:border-box;padding:9px;background:#0b2923d9;border:1px solid var(--boat-line);border-radius:20px;z-index:1560;pointer-events:auto;color:#edf5e8;touch-action:none;user-select:none}
  .aczo-explore-controls strong{display:block;text-align:center;font:750 10px/1.4 system-ui;letter-spacing:.14em;margin-bottom:5px}.aczo-explore-controls small{display:block;font:500 10px/1.4 system-ui;text-align:center;margin:5px 0}.aczo-explore-controls .explore-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px}.angling-ui .aczo-explore-controls button{min-width:0!important;min-height:36px!important;padding:4px!important;font:650 12px/1.2 system-ui!important;background:#305b46!important;color:#eff6e8!important;border:1px solid #adc5ad78;border-radius:9px}
- .angling-ui .aczo-explore-fish,.angling-ui .aczo-explore-resume{position:absolute;pointer-events:auto;z-index:1561;border:1px solid #dccc94!important;background:#174f38ee!important;color:#fff7d7!important;border-radius:15px!important;min-height:46px!important;padding:10px 17px!important;font:750 14px/1.2 system-ui!important;box-shadow:0 4px 18px #0005;cursor:pointer}.angling-ui .aczo-explore-fish{bottom:22%;left:50%;transform:translateX(-50%);white-space:nowrap}.angling-ui .aczo-explore-resume{top:110px;right:12px;font-size:11px!important;max-width:140px}
+ .angling-ui .aczo-explore-fish,.angling-ui .aczo-explore-resume{position:absolute;pointer-events:auto;z-index:1561;border:1px solid #dccc94!important;background:#174f38ee!important;color:#fff7d7!important;border-radius:15px!important;min-height:46px!important;padding:10px 17px!important;font:750 14px/1.2 system-ui!important;box-shadow:0 4px 18px #0005;cursor:pointer}.angling-ui .aczo-explore-fish{top:12px;bottom:auto;left:50%;transform:translateX(-50%);white-space:normal;visibility:hidden;text-align:center;--aczo-k28-safe-bottom:env(safe-area-inset-bottom,0px);--aczo-k28-safe-left:env(safe-area-inset-left,0px);--aczo-k28-safe-right:env(safe-area-inset-right,0px);--aczo-k28-safe-top:env(safe-area-inset-top,0px)}.angling-ui .aczo-explore-resume{top:110px;right:12px;font-size:11px!important;max-width:140px}
  .angling-ui .aczo-explore-crosshair{position:absolute;left:50%;top:50%;width:5px;height:5px;transform:translate(-50%,-50%);border:1px solid #ffffffa6;border-radius:50%;box-shadow:0 0 2px #001b16;pointer-events:none;display:none}.angling-ui.is-exploring .aczo-explore-crosshair{display:block}
  .angling-ui.is-exploring .angling-select-panel,.angling-ui.is-exploring .angling-hud-panel,.angling-ui.is-exploring .angling-setup,.angling-ui.is-exploring .angling-float-zoom,.angling-ui.is-exploring .angling-reel-zoom,.angling-ui.is-exploring .angling-line-summary,.angling-ui.is-exploring .angling-aim-reticle,.angling-ui.is-exploring .aczo-tournament-entry,.angling-ui.is-exploring .angling-deeper-ui{display:none!important}
  .angling-ui [class^="aczo-explore-"][hidden]{display:none!important}.angling-ui.main-menu-open .aczo-explore-controls,.angling-ui.game-panel-open .aczo-explore-controls{display:none!important}
- @media(max-width:600px){.angling-ui .aczo-explore-entry{width:132px;right:10px;top:24%}.aczo-explore-entry svg{height:51px}.aczo-explore-entry strong{font-size:12px!important;padding:8px 9px 3px}.aczo-explore-entry span{font-size:9px!important;padding:0 9px 9px}.angling-ui .aczo-explore-controls{width:140px}.angling-ui .aczo-explore-fish{font-size:12px!important;bottom:25%}}
- @media(max-height:480px){.angling-ui .aczo-explore-entry{top:29%;width:140px}.aczo-explore-entry svg{height:35px}.angling-ui .aczo-explore-controls{width:120px;padding:6px}.aczo-explore-controls small{display:none}.angling-ui .aczo-explore-fish{bottom:15px}}
+ @media(max-width:600px){.angling-ui .aczo-explore-entry{width:132px;right:10px;top:24%}.aczo-explore-entry svg{height:51px}.aczo-explore-entry strong{font-size:12px!important;padding:8px 9px 3px}.aczo-explore-entry span{font-size:9px!important;padding:0 9px 9px}.angling-ui .aczo-explore-controls{width:140px}.angling-ui .aczo-explore-fish{font-size:12px!important}}
+ @media(max-height:480px){.angling-ui .aczo-explore-entry{top:29%;width:140px}.aczo-explore-entry svg{height:35px}.angling-ui .aczo-explore-controls{width:120px;padding:6px}.aczo-explore-controls small{display:none}.angling-ui .aczo-explore-fish{bottom:auto}}
+ .angling-ui .aczo-explore-controls.aczo-k28-compact{width:244px;display:grid;grid-template-columns:104px 1fr;gap:6px;padding:6px}
+ .aczo-explore-controls.aczo-k28-compact strong{grid-column:1/-1;margin-bottom:0}
+ .aczo-explore-controls.aczo-k28-compact .aczo-boat-pad{grid-column:1;grid-row:2;align-self:center}
+ .aczo-explore-controls.aczo-k28-compact .explore-actions{grid-column:2;grid-row:2;align-self:center}
  `;document.head.append(style);
  const card=document.createElement('button');card.type='button';card.hidden=true;card.className='aczo-explore-entry';card.innerHTML='<span>🚶 Erkunden</span>';card.setAttribute('aria-label','Freies Erkunden: zu Fuß um Weiher und Mosel');anglingUi.append(card);r.card=card;
  // K21: selection keeps the original exploration entry; the fishing HUD has a compact footprint action.
  const cross=document.createElement('div');cross.className='aczo-explore-crosshair';anglingUi.append(cross);
  card.addEventListener('click',e=>{e.stopPropagation();aczoExploreStart();});
  for(const el of [card])for(const type of ['pointerdown','pointerup','touchstart','touchend'])el.addEventListener(type,e=>e.stopPropagation());
+}
+function aczoK28ExploreLayout(){
+ const r=aczoExploreRuntime,fish=r.fishButton,ui=r.ui;if(!fish||!ui||ui.hidden||!r.active)return;
+ const host=fish.offsetParent||anglingUi,box=host.getBoundingClientRect();if(!box.width||!box.height)return;
+ const sx=box.width/(host.offsetWidth||box.width),sy=box.height/(host.offsetHeight||box.height),originX=box.left+(host.clientLeft||0)*sx,originY=box.top+(host.clientTop||0)*sy;
+ const vv=window.visualViewport,viewLeft=vv?vv.offsetLeft:0,viewTop=vv?vv.offsetTop:0,viewRight=viewLeft+(vv?vv.width:window.innerWidth),viewBottom=viewTop+(vv?vv.height:window.innerHeight);
+ const style=getComputedStyle(fish),number=name=>Math.max(0,parseFloat(style.getPropertyValue(name))||0),safeBottom=number('--aczo-k28-safe-bottom'),safeLeft=number('--aczo-k28-safe-left'),safeRight=number('--aczo-k28-safe-right'),safeTop=number('--aczo-k28-safe-top');
+ const left=Math.max(box.left,viewLeft),right=Math.min(box.right,viewRight),top=Math.max(box.top,viewTop),bottom=Math.min(box.bottom,viewBottom);
+ // Keep the controller in the visible Safari viewport even while its bars resize.
+ // This depends only on viewport geometry, never on whether the action is shown.
+ ui.classList.toggle('aczo-k28-compact',bottom-top<330&&right-left>=280);
+ ui.style.left=(Math.max(12,safeLeft)+Math.max(0,(left-box.left)/sx))+'px';
+ ui.style.bottom=(Math.max(16,safeBottom)+Math.max(0,(box.bottom-bottom)/sy))+'px';
+ if(fish.hidden)return;
+ fish.style.maxWidth=Math.max(80,(right-left)/sx-2*Math.max(12,safeLeft,safeRight))+'px';
+ fish.style.left=((left+right)*.5-originX)/sx+'px';fish.style.bottom='auto';
+ const control=ui.getBoundingClientRect(),height=fish.getBoundingClientRect().height;
+ const actionTop=control.top-24-height;
+ // Short landscape viewports use the same controls in a compact two-column row.
+ // A horizontal fallback is only needed below that layout's physical minimum.
+ if(actionTop>=top+Math.max(8,safeTop)){
+  fish.style.top=(actionTop-originY)/sy+'px';
+ }else{
+  const width=fish.getBoundingClientRect().width,freeLeft=Math.max(left+Math.max(12,safeLeft),control.right+24);
+  if(right-freeLeft>=width){fish.style.left=((freeLeft+right)*.5-originX)/sx+'px';fish.style.top=(Math.max(top+8,Math.min(bottom-Math.max(16,safeBottom)-height,control.top))-originY)/sy+'px';}
+  else fish.style.top=(Math.max(top+8,actionTop)-originY)/sy+'px';
+ }
+ fish.style.visibility='visible';
+}
+function aczoK28ScheduleExploreLayout(force=false){
+ const r=aczoExploreRuntime;if(!r.ui||!r.fishButton)return;
+ const vv=window.visualViewport,key=[r.ui.hidden,r.fishButton.hidden,window.innerWidth,window.innerHeight,vv?.width,vv?.height,vv?.offsetLeft,vv?.offsetTop].join('|');
+ if(!force&&r.aczoK28LayoutKey===key)return;r.aczoK28LayoutKey=key;
+ const visible=!r.fishButton.hidden;
+ if(r.aczoK28FishWasVisible!==visible){r.aczoK28FishWasVisible=visible;r.aczoK28FishIntentReset?.();if(visible)r.fishButton.style.visibility='hidden';}
+ if(r.aczoK28LayoutRaf)return;
+ r.aczoK28LayoutRaf=requestAnimationFrame(()=>{r.aczoK28LayoutRaf=0;aczoK28ExploreLayout();});
+}
+function aczoK28InstallExploreAction(fish,available){
+ const r=aczoExploreRuntime;let pressed=null,released=null;
+ const visible=()=>available()&&!fish.hidden&&getComputedStyle(fish).visibility!=='hidden'&&fish.getBoundingClientRect().height>0;
+ const reset=()=>{pressed=null;released=null;};r.aczoK28FishIntentReset=reset;
+ fish.addEventListener('pointerdown',e=>{
+  e.stopPropagation();released=null;if(e.button!==0||pressed||!visible())return;
+  pressed={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false};try{fish.setPointerCapture(e.pointerId);}catch(_e){}
+ });
+ fish.addEventListener('pointermove',e=>{if(pressed?.id===e.pointerId&&Math.hypot(e.clientX-pressed.x,e.clientY-pressed.y)>9)pressed.moved=true;});
+ fish.addEventListener('pointerup',e=>{
+  if(pressed?.id!==e.pointerId)return;const p=pressed,b=fish.getBoundingClientRect();pressed=null;
+  released={at:performance.now(),valid:!p.moved&&visible()&&e.clientX>=b.left&&e.clientX<=b.right&&e.clientY>=b.top&&e.clientY<=b.bottom};e.stopPropagation();
+ });
+ fish.addEventListener('pointercancel',reset);
+ fish.addEventListener('lostpointercapture',e=>{if(pressed?.id===e.pointerId)reset();});
+ fish.addEventListener('click',e=>{
+  e.stopPropagation();const fresh=!!released?.valid&&performance.now()-released.at<700,accessible=e.detail===0&&e.isTrusted;released=null;
+  if(!visible()||(!fresh&&!accessible)){e.preventDefault();return;}aczoExploreFish();
+ });
+ for(const type of ['blur','pagehide'])window.addEventListener(type,reset);
+ const schedule=()=>aczoK28ScheduleExploreLayout(true);
+ for(const type of ['resize','orientationchange','pageshow'])window.addEventListener(type,schedule,{passive:true});
+ if(window.visualViewport)for(const type of ['resize','scroll'])window.visualViewport.addEventListener(type,schedule,{passive:true});
+ if(typeof ResizeObserver==='function'){r.aczoK28LayoutObserver=new ResizeObserver(schedule);for(const node of [anglingUi,r.ui,fish])r.aczoK28LayoutObserver.observe(node);}
+ aczoK28ScheduleExploreLayout(true);
 }
 function aczoExploreInstallControls(){
  const r=aczoExploreRuntime;if(r.ui)return;aczoBoatInstallUi();
@@ -38430,13 +38499,14 @@ function aczoExploreInstallControls(){
  const hint=document.createElement('small');hint.textContent='Bild ziehen: umsehen';ui.append(hint);const actions=document.createElement('div');actions.className='explore-actions';actions.innerHTML='<button type="button" data-turn="1" aria-label="Blick links">↶</button><button type="button" data-turn="-1" aria-label="Blick rechts">↷</button><button type="button" class="explore-back" style="grid-column:1/-1">Zur Stellenauswahl</button>';ui.append(actions);anglingUi.append(ui);
  const fish=document.createElement('button');fish.type='button';fish.className='aczo-explore-fish';fish.hidden=true;fish.setAttribute('aria-live','polite');fish.textContent='Hier angeln';anglingUi.append(fish);r.fishButton=fish;
  const available=()=>r.active&&anglingState==='exploring'&&!aczoExplorePaused();
+ aczoK28InstallExploreAction(fish,available);
  const direction=e=>{const b=pad.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;return Math.hypot(x,y)<.14?-1:(Math.round(Math.atan2(x,-y)/(Math.PI/4))+8)%8;};
  const show=()=>{pad.classList.toggle('is-active',r.sector>=0);pad.querySelectorAll('.boat-direction').forEach(o=>o.classList.toggle('is-active',Number(o.dataset.direction)===r.sector));};
  pad.addEventListener('pointerdown',e=>{if(!available()||e.button!==0||r.padPointer!==null)return;e.preventDefault();r.padPointer=e.pointerId;r.sector=direction(e);pad.setPointerCapture(e.pointerId);show();});
  pad.addEventListener('pointermove',e=>{if(e.pointerId!==r.padPointer)return;e.preventDefault();r.sector=available()?direction(e):-1;show();});
  const end=e=>{if(e.pointerId===r.padPointer){r.padPointer=null;r.sector=-1;show();}};for(const t of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(t,end);
  for(const b of actions.querySelectorAll('[data-turn]')){b.addEventListener('pointerdown',e=>{if(!available())return;e.preventDefault();b.setPointerCapture(e.pointerId);r.turn=Number(b.dataset.turn);});for(const t of ['pointerup','pointercancel','lostpointercapture','blur'])b.addEventListener(t,()=>{r.turn=0;});}
- actions.querySelector('.explore-back').addEventListener('click',aczoExploreBack);fish.addEventListener('click',aczoExploreFish);
+ actions.querySelector('.explore-back').addEventListener('click',aczoExploreBack);
  for(const el of [ui,fish])for(const t of ['pointerdown','pointermove','pointerup','pointercancel','click','dblclick','contextmenu','wheel','touchstart','touchmove','touchend'])el.addEventListener(t,e=>{e.stopPropagation();if(['contextmenu','dblclick','wheel'].includes(t))e.preventDefault();},{passive:false});
  const canvas=renderer.domElement;aczoK22InstallMouseLook(canvas,available,hint);
  canvas.addEventListener('pointerdown',e=>{if(!available()||e.button!==0||r.look)return;e.preventDefault();e.stopImmediatePropagation();r.look={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.setPointerCapture(e.pointerId);},true);
@@ -40481,15 +40551,46 @@ function aczoK17PatrolSample(patrol,u,large){
 }
 function aczoK17StartPatrol(force=false){
  if(aczoK17Patrol?.active)return false;if(!aczoK17Patrol){aczoK17Patrol={obj:aczoK17PatrolModel(),active:false};scene.add(aczoK17Patrol.obj);}
- Object.assign(aczoK17Patrol,{active:true,reverse:aczoK17Random()<.5,u:0,speed:0,age:0,lastSafe:null,emergency:force||aczoK17Random()<.32,blue:false});aczoK17Patrol.u=aczoK17Patrol.reverse?.999:.001;aczoK17NextPatrol=aczoK17Clock+700+aczoK17Random()*1100;return true;
+ Object.assign(aczoK17Patrol,{active:true,reverse:aczoK17Random()<.5,u:0,speed:0,age:0,lastSafe:null,aczoK27Float:null,emergency:force||aczoK17Random()<.32,blue:false});aczoK17Patrol.u=aczoK17Patrol.reverse?.999:.001;aczoK17NextPatrol=aczoK17Clock+700+aczoK17Random()*1100;return true;
 }
-function aczoK25PatrolFloat(p,state){
+function aczoK27PatrolStepAxis(axis,target,omega,maxSpeed,dt){
+ const elapsed=Math.min(.1,Math.max(0,Number(dt)||0));if(!elapsed)return;
+ const error=axis.value-target,decay=Math.exp(-omega*elapsed),coupled=axis.velocity+omega*error;
+ let next=target+(error+coupled*elapsed)*decay;
+ let velocity=(axis.velocity-omega*coupled*elapsed)*decay;
+ const distance=next-axis.value,limit=maxSpeed*elapsed;
+ if(Math.abs(distance)>limit){next=axis.value+Math.sign(distance)*limit;velocity=Math.sign(distance)*maxSpeed;}
+ axis.value=next;axis.velocity=Math.max(-maxSpeed,Math.min(maxSpeed,velocity));
+}
+function aczoK27PatrolSurfaceSample(x,y,d,along,across){
+ const height=aczoMoselSurfaceZ(x+d.x*along+d.y*across,y+d.y*along-d.x*across);
+ return Number.isFinite(height)?height:ACZO_MOSEL_SURFACE_Z;
+}
+function aczoK25PatrolFloat(p,state,dt){
  const d=state.direction,x=state.position.x,y=state.position.y;
- const sample=(along,across)=>aczoMoselSurfaceZ(x+d.x*along+d.y*across,y+d.y*along-d.x*across);
- const center=sample(0,0),bow=sample(3.7,0),stern=sample(-3.7,0),port=sample(0,-1.15),starboard=sample(0,1.15);
- const pitch=THREE.MathUtils.clamp(Math.atan2(bow-stern,7.4),-.13,.13),roll=THREE.MathUtils.clamp(Math.atan2(port-starboard,2.3),-.12,.12);
- const fitted=Math.max(center,bow-Math.sin(pitch)*3.7,stern+Math.sin(pitch)*3.7,port-Math.sin(roll)*1.15,starboard+Math.sin(roll)*1.15);
- p.obj.position.set(x,y,fitted+.28);p.obj.rotation.set(pitch,roll,Math.atan2(-d.x,d.y));
+ // Nine points stay inside the 9.2 by 2.9 metre hull footprint. Centre rows
+ // carry more displacement than the tapered bow and stern.
+ const bp=aczoK27PatrolSurfaceSample(x,y,d,3.2,-1.05),bc=aczoK27PatrolSurfaceSample(x,y,d,3.2,0),bs=aczoK27PatrolSurfaceSample(x,y,d,3.2,1.05);
+ const mp=aczoK27PatrolSurfaceSample(x,y,d,0,-1.05),mc=aczoK27PatrolSurfaceSample(x,y,d,0,0),ms=aczoK27PatrolSurfaceSample(x,y,d,0,1.05);
+ const sp=aczoK27PatrolSurfaceSample(x,y,d,-3.2,-1.05),sc=aczoK27PatrolSurfaceSample(x,y,d,-3.2,0),ss=aczoK27PatrolSurfaceSample(x,y,d,-3.2,1.05);
+ const bow=(bp+2*bc+bs)*.25,middle=(mp+2*mc+ms)*.25,stern=(sp+2*sc+ss)*.25;
+ const port=(bp+2*mp+sp)*.25,starboard=(bs+2*ms+ss)*.25,support=(bow+2*middle+stern)*.25;
+ const heaveTarget=ACZO_MOSEL_SURFACE_Z+Math.max(-.20,Math.min(.30,support-ACZO_MOSEL_SURFACE_Z));
+ const pitchTarget=Math.max(-.055,Math.min(.055,Math.atan2(bow-stern,6.4)*.62));
+ const rollTarget=Math.max(-.038,Math.min(.038,Math.atan2(port-starboard,2.1)*.38));
+ let pose=p.aczoK27Float;
+ // New patrols and discontinuous route resets start in equilibrium; a pooled
+ // boat never inherits a previous crossing's tilt or vertical velocity.
+ if(!pose||(x-pose.x)*(x-pose.x)+(y-pose.y)*(y-pose.y)>400){
+  pose=p.aczoK27Float={heave:{value:heaveTarget,velocity:0},pitch:{value:pitchTarget,velocity:0},roll:{value:rollTarget,velocity:0},x,y};
+ }else{
+  aczoK27PatrolStepAxis(pose.heave,heaveTarget,2.7,.26,dt);
+  aczoK27PatrolStepAxis(pose.pitch,pitchTarget,2.4,.048,dt);
+  aczoK27PatrolStepAxis(pose.roll,rollTarget,2.0,.038,dt);
+ }
+ pose.x=x;pose.y=y;
+ // Keep the corrected K25 freeboard and use hull-local pitch/roll under yaw.
+ p.obj.position.set(x,y,pose.heave.value+.28);p.obj.rotation.set(pose.pitch.value,pose.roll.value,Math.atan2(-d.x,d.y),'ZXY');
  aczoK25PatrolUniforms.aczoK25PatrolPose.value.set(x,y,p.obj.visible?1:0);aczoK25PatrolUniforms.aczoK25PatrolDirection.value.copy(d);
 }
 function aczoK17TickPatrol(dt){
@@ -40498,7 +40599,7 @@ function aczoK17TickPatrol(dt){
  const large=aczoMoselTrafficState(performance.now()/1000),at=aczoK17PatrolSample(p,p.u,large);p.blue=p.emergency&&p.age>35;p.speed=THREE.MathUtils.lerp(p.speed,THREE.MathUtils.lerp(3.0,p.blue?9.2:6.4,THREE.MathUtils.smoothstep(at.across,65,135)),1-Math.exp(-dt*.7));
  const step=p.speed*dt/aczoMoselShippingLengths[p.reverse?1:0]*(p.reverse?-1:1),u=p.u+step,next=aczoK17PatrolSample(p,THREE.MathUtils.clamp(u,0,1),large);
  if(next.valid||!next.inWorld)p.u=u;else p.speed*=.8;
- let state=aczoK17PatrolSample(p,THREE.MathUtils.clamp(p.u,0,1),large);if(state.valid)p.lastSafe=state;else if(state.inWorld&&p.lastSafe)state=p.lastSafe;p.obj.visible=!fishMode&&!anglingPhotoWallsActive()&&waterSurface.visible&&state.valid&&state.inWorld;aczoK25PatrolFloat(p,state);
+ let state=aczoK17PatrolSample(p,THREE.MathUtils.clamp(p.u,0,1),large);if(state.valid)p.lastSafe=state;else if(state.inWorld&&p.lastSafe)state=p.lastSafe;p.obj.visible=!fishMode&&!anglingPhotoWallsActive()&&waterSurface.visible&&state.valid&&state.inWorld;aczoK25PatrolFloat(p,state,dt);
  aczoK20PublishPatrolWave(p,state,dt);p.obj.userData.nav.forEach(o=>o.visible=sceneNightFactor>.15);p.obj.userData.blues.forEach((o,i)=>{o.material.color.setHex(p.blue&&Math.sin(p.age*18+i*Math.PI)>.1?0x76cfff:0x154980);});
  if(p.u<0||p.u>1||p.age>900){aczoK20PatrolWake.visible=false;aczoK20PatrolWake.hasPosition=false;p.active=false;p.obj.visible=false;aczoK25PatrolUniforms.aczoK25PatrolPose.value.z=0;aczoK17NextPatrol=aczoK17Clock+700+aczoK17Random()*1100;}
 }
@@ -40511,7 +40612,9 @@ function aczoK25MapDepthPrecision(){
   const high=!anglingMode&&!fishMode&&!skyLookMode&&camera.position.z>25;
   if(high){if(aczoK25MapNearSaved===null)aczoK25MapNearSaved=camera.near;const near=Math.min(2,Math.max(aczoK25MapNearSaved,camera.position.z*.003));if(Math.abs(camera.near-near)>.002){camera.near=near;camera.updateProjectionMatrix();}}
   else if(aczoK25MapNearSaved!==null){if(!anglingMode&&!fishMode)camera.near=aczoK25MapNearSaved;aczoK25MapNearSaved=null;camera.updateProjectionMatrix();}
- }
+ 
+window.__aczoMobileMapNav.syncNear();
+}
 function aczoRenderMainView(){
   aczoK25MapDepthPrecision();
   const light=pondCelestialDepthLift,material=light.material;
@@ -40594,7 +40697,7 @@ function aczoPerf6PrepareRigidBatches(observeBatch){
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.__aczoStartup={mainReady:false,rendererState:'pending',rendererAttempts:[],firstError:null,errors:[],skippedModules:[]};
 const VIEWER_VERSION='ACZO56-Interaktiv-V.4.0 · Testversion';
-const ACZO_INTERNAL_BUILD='4.0-Mosel-K26-TRANSITIONS-V1';
+const ACZO_INTERNAL_BUILD='4.0-Mosel-K28-MOBILE-TOUCH-V1';
 window.__aczoBootAudit?.mark('engine-script');
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -40900,6 +41003,195 @@ const ACZO_PERF6_MOBILE=ACZO_MOBILE_PERF;
 const aczoPerf6SunReflectionEnabled=true;
 let aczoPerf6LastReflectionUpdate=0;
 const controls=new THREE.OrbitControls(camera,renderer.domElement);
+(function aczoInstallMobileMapNavigation(){
+ const canvas=renderer.domElement;
+ const nav={pointers:new Map(),frame:0,last:null,start:null,dragged:false,multi:false,twist:false,angleCarry:0,zoomCarry:0,arm:0,lastTouch:0,nearOwned:false,nearValue:0,lastPolar:.80,skyProjection:null,changes:0,depthTaps:0};
+ const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,0,1),0);
+ const hitA=new THREE.Vector3(),hitB=new THREE.Vector3(),shift=new THREE.Vector3(),offset=new THREE.Vector3();
+ function ready(){return !!window.__aczoSafeStart?.readyForFrames;}
+ function mobile(){return nav.lastTouch>0||!!window.matchMedia?.('(pointer:coarse)').matches;}
+ function normal(){return ready()&&!fishMode&&!anglingMode&&!skyLookMode&&!anglingCameraTransition&&!anglingHallOfFameActive&&!measureMode&&!document.hidden&&controls.enabled&&!document.querySelector('.help-overlay.open,.help-overlay.show');}
+ function sky(){return ready()&&skyLookMode&&!fishMode&&!anglingMode&&!measureMode&&!document.hidden;}
+ function floor(){return .32;}
+ function clearNative(){
+  if(!ready()||skyLookMode)return;
+  const position=camera.position.clone(),target=controls.target.clone(),up=camera.up.clone(),quaternion=camera.quaternion.clone(),damping=controls.enableDamping;
+  // OrbitControls r128 exposes no clear-delta API. Drain its private deltas,
+  // then restore the visible pose before another frame is allowed to render.
+  controls.enableDamping=false;controls.update();
+  camera.position.copy(position);controls.target.copy(target);camera.up.copy(up);camera.quaternion.copy(quaternion);controls.update();controls.enableDamping=damping;
+ }
+ function configure(){
+  if(!normal()||!mobile())return;
+  controls.minDistance=is2D?.80:.48;
+ }
+ function syncNear(){
+  if(!ready())return;
+  const use=mobile()&&!fishMode&&!anglingMode&&!anglingCameraTransition&&!skyLookMode;
+  if(use){
+   const distance=camera.position.distanceTo(controls.target);
+   if(camera.position.z<=25){
+    const t=THREE.MathUtils.smoothstep(distance,.65,25),next=THREE.MathUtils.lerp(.035,ACZO_MAIN_CAMERA_NEAR,t);
+    nav.nearOwned=true;nav.nearValue=next;
+    if(Math.abs(camera.near-next)>.00001){camera.near=next;camera.updateProjectionMatrix();}
+   }else nav.nearOwned=false;
+  }else if(nav.nearOwned){
+   // Other modes establish their own near plane. Restore only a value that
+   // still belongs to us; never overwrite an underwater/angling projection.
+   if(Math.abs(camera.near-nav.nearValue)<.00001){camera.near=ACZO_MAIN_CAMERA_NEAR;camera.updateProjectionMatrix();}
+   nav.nearOwned=false;
+  }
+ }
+ function sync(){configure();syncNear();}
+ function hit(clientX,clientY,out){
+  const rect=canvas.getBoundingClientRect();if(rect.width<1||rect.height<1)return false;
+  ndc.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);
+  camera.updateMatrixWorld(true);raycaster.setFromCamera(ndc,camera);
+  if(raycaster.ray.direction.z>=-.001)return false;
+  const p=raycaster.ray.intersectPlane(plane,out);
+  return !!p&&p.distanceToSquared(camera.position)<36000000;
+ }
+ function pivot(){
+  if(!normal())return false;
+  const rect=canvas.getBoundingClientRect();
+  if(!hit(rect.left+rect.width*.5,rect.top+rect.height*.5,hitA))return false;
+  if(hitA.x<ACZO_LANDSCAPE.minX||hitA.x>ACZO_LANDSCAPE.maxX||hitA.y<ACZO_LANDSCAPE.minY||hitA.y>ACZO_LANDSCAPE.maxY)return false;
+  // The new target lies on the current centre viewing ray: changing it does
+  // not rotate or move the camera, and there is no visible recentering jump.
+  if(camera.position.distanceTo(hitA)<.48)return false;
+  controls.target.copy(hitA);camera.lookAt(controls.target);camera.updateMatrixWorld(true);return true;
+ }
+ function constrain(){
+  aczoConstrainLandscapeCamera();
+  if(!is2D&&camera.position.z<floor())camera.position.z=floor();
+  camera.lookAt(controls.target);camera.updateMatrixWorld(true);syncNear();
+ }
+ function sample(){
+  const points=[...nav.pointers.values()];if(!points.length)return null;
+  if(points.length===1)return {n:1,x:points[0].x,y:points[0].y,span:0,angle:0};
+  const a=points[0],b=points[1];return {n:2,x:(a.x+b.x)*.5,y:(a.y+b.y)*.5,span:Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),angle:Math.atan2(b.y-a.y,b.x-a.x)};
+ }
+ function rebase(){nav.last=sample();nav.start=nav.last?{...nav.last}:null;nav.angleCarry=0;nav.zoomCarry=0;nav.twist=false;nav.arm=0;}
+ function orbit(dx,dy,height){
+  offset.copy(camera.position).sub(controls.target);const distance=Math.max(.48,offset.length());
+  const near=THREE.MathUtils.smoothstep(distance,.7,45),sensitivity=.48*(.28+.72*near),rate=Math.PI*2/Math.max(160,height)*sensitivity;
+  const oldPolar=Math.acos(THREE.MathUtils.clamp(offset.z/distance,-1,1));
+  const theta=Math.atan2(offset.y,offset.x)-dx*rate,polar=THREE.MathUtils.clamp(oldPolar-dy*rate,.04,controls.maxPolarAngle);
+  offset.set(Math.cos(theta)*Math.sin(polar)*distance,Math.sin(theta)*Math.sin(polar)*distance,Math.cos(polar)*distance);
+  camera.position.copy(controls.target).add(offset);
+  if(camera.position.z<floor()){
+   const lift=floor()-camera.position.z;camera.position.z+=lift;controls.target.z+=lift;
+  }
+  camera.lookAt(controls.target);camera.updateMatrixWorld(true);
+  const atHorizon=polar>=controls.maxPolarAngle-.055;
+  if(atHorizon&&dy<0&&Math.abs(dy)>Math.abs(dx)*.8)nav.arm+=-dy;
+  else if(dy>0||!atHorizon)nav.arm=0;
+  if(nav.arm>=34){
+   const position=camera.position.clone(),forward=new THREE.Vector3();camera.getWorldDirection(forward);
+   nav.skyProjection={fov:camera.fov,zoom:camera.zoom};
+   enterSkyLookMode();
+   // Preserve the ground-level eye position and look direction. The original
+   // desktop sky entry has a 2.05 m lift; a touch entry needs no such jump.
+   camera.position.copy(position);skyLookPitch=Math.atan2(forward.z,Math.hypot(forward.x,forward.y));skyLookYaw=Math.atan2(forward.y,forward.x);updateSkyLookCamera();nav.arm=0;
+  }
+ }
+ function panZoom(previous,next){
+  const anchored=hit(previous.x,previous.y,hitA);
+  nav.zoomCarry+=Math.log(previous.span/next.span);
+  let factor=1;
+  if(Math.abs(nav.zoomCarry)>.004){factor=Math.exp(nav.zoomCarry*.86);nav.zoomCarry=0;}
+  offset.copy(camera.position).sub(controls.target);const distance=Math.max(.0001,offset.length()),minimum=is2D?.80:.48,newDistance=THREE.MathUtils.clamp(distance*factor,minimum,controls.maxDistance);
+  offset.multiplyScalar(newDistance/distance);camera.position.copy(controls.target).add(offset);camera.lookAt(controls.target);camera.updateMatrixWorld(true);
+  if(is2D){
+   let angle=next.angle-previous.angle;if(angle>Math.PI)angle-=Math.PI*2;if(angle< -Math.PI)angle+=Math.PI*2;
+   nav.angleCarry+=angle;
+   if(nav.twist||Math.abs(nav.angleCarry)>.065){map2DRotation-=nav.angleCarry;nav.angleCarry=0;nav.twist=true;camera.up.set(Math.sin(map2DRotation),Math.cos(map2DRotation),0);camera.lookAt(controls.target);camera.updateMatrixWorld(true);}
+  }
+  if(anchored&&hit(next.x,next.y,hitB)){shift.copy(hitA).sub(hitB);shift.z=0;camera.position.add(shift);controls.target.add(shift);}
+  constrain();
+ }
+ function flush(){
+  nav.frame=0;if(!nav.pointers.size)return;
+  if(!normal()&&!sky()){reset();return;}
+  const next=sample(),previous=nav.last;
+  if(!next||!previous||next.n!==previous.n){rebase();return;}
+  const dx=next.x-previous.x,dy=next.y-previous.y;
+  if(!nav.dragged&&next.n===1&&Math.hypot(next.x-nav.start.x,next.y-nav.start.y)<=3)return;
+  nav.dragged=true;
+  if(sky()){
+   if(next.n===1){skyLookYaw-=dx*.0052;skyLookPitch=THREE.MathUtils.clamp(skyLookPitch-dy*.0052,-.065,Math.PI/2-.018);
+    if(skyLookPitch<=-.06&&dy>1.5){
+     leaveSkyLookMode(true);
+     if(nav.skyProjection){camera.fov=nav.skyProjection.fov;camera.zoom=nav.skyProjection.zoom;camera.updateProjectionMatrix();nav.skyProjection=null;}
+     configure();syncNear();rebase();
+    }
+    else updateSkyLookCamera();}
+  }else if(next.n===2)panZoom(previous,next);
+  else if(is2D){
+   if(hit(previous.x,previous.y,hitA)&&hit(next.x,next.y,hitB)){shift.copy(hitA).sub(hitB);shift.z=0;camera.position.add(shift);controls.target.add(shift);constrain();}
+  }else{
+   const rect=canvas.getBoundingClientRect();orbit(dx,dy,rect.height);if(!skyLookMode)constrain();
+  }
+  nav.last=next;nav.changes++;markViewerInput();
+ }
+ function queue(){if(!nav.frame)nav.frame=requestAnimationFrame(flush);}
+ function reset(){
+  if(nav.frame)cancelAnimationFrame(nav.frame);nav.frame=0;nav.pointers.clear();nav.last=null;nav.start=null;nav.dragged=false;nav.multi=false;nav.arm=0;
+ }
+ function begin(e){
+  if(e.pointerType!=='touch'||(!normal()&&!sky()))return;
+  nav.lastTouch=performance.now()||1;configure();
+  if(!nav.pointers.size){clearNative();nav.dragged=false;nav.multi=false;}
+  nav.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});
+  if(nav.pointers.size>1){nav.multi=true;nav.dragged=true;if(!skyLookMode)pivot();}
+  rebase();e.preventDefault();e.stopImmediatePropagation();markViewerInput();
+ }
+ function move(e){
+  const p=nav.pointers.get(e.pointerId);if(!p)return;
+  p.x=e.clientX;p.y=e.clientY;queue();e.preventDefault();e.stopImmediatePropagation();markViewerInput();
+ }
+ function end(e,cancelled){
+  if(!nav.pointers.has(e.pointerId))return;
+  if(nav.frame){cancelAnimationFrame(nav.frame);nav.frame=0;flush();}
+  const p=nav.pointers.get(e.pointerId);if(!p)return;
+  const tapped=!cancelled&&nav.pointers.size===1&&!nav.multi&&!nav.dragged&&!skyLookMode&&Math.hypot(e.clientX-p.startX,e.clientY-p.startY)<=6;
+  nav.pointers.delete(e.pointerId);suppressSyntheticClickUntil=Date.now()+600;
+  if(tapped&&normal()){placeDepthPin(e.clientX,e.clientY);nav.depthTaps++;}
+  if(!nav.pointers.size){if(nav.multi&&!skyLookMode&&normal())pivot();reset();}
+  else rebase();
+  e.preventDefault();e.stopImmediatePropagation();markViewerInput();
+ }
+ canvas.addEventListener('pointerdown',begin,{capture:true,passive:false});
+ canvas.addEventListener('pointermove',move,{capture:true,passive:false});
+ canvas.addEventListener('pointerup',e=>end(e,false),{capture:true,passive:false});
+ canvas.addEventListener('pointercancel',e=>end(e,true),{capture:true,passive:false});
+ // r128 OrbitControls processes actual TouchEvents independently of its
+ // PointerEvents mouse path. Suppress both event families for this owner.
+ for(const type of ['touchstart','touchmove','touchend'])canvas.addEventListener(type,e=>{
+  if((normal()||sky())&&mobile()){e.preventDefault();e.stopImmediatePropagation();}
+ },{capture:true,passive:false});
+ registerViewerGestureResetter(reset);
+ for(const type of ['blur','pagehide','orientationchange','resize'])window.addEventListener(type,reset);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
+ function switchView(change){
+  if(!normal()||!mobile()){change();return;}
+  reset();clearNative();pivot();
+  const target=controls.target.clone(),distance=Math.max(.48,camera.position.distanceTo(target)),span=distance*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))/camera.zoom;
+  if(!is2D){offset.copy(camera.position).sub(target);nav.lastPolar=Math.acos(THREE.MathUtils.clamp(offset.z/distance,-1,1));map2DRotation=Math.atan2(-offset.x,-offset.y);}
+  change();
+  const range=span*camera.zoom/Math.tan(THREE.MathUtils.degToRad(camera.fov*.5));controls.target.copy(target);
+  if(is2D){controls.target.z=0;camera.position.copy(controls.target);camera.position.z=Math.max(.80,range);camera.up.set(Math.sin(map2DRotation),Math.cos(map2DRotation),0);}
+  else{const polar=THREE.MathUtils.clamp(nav.lastPolar,.15,controls.maxPolarAngle),r=Math.max(.48,range);offset.set(-Math.sin(map2DRotation)*Math.sin(polar)*r,-Math.cos(map2DRotation)*Math.sin(polar)*r,Math.cos(polar)*r);camera.position.copy(target).add(offset);camera.up.set(0,0,1);}
+  configure();constrain();clearNative();
+  // A very close 3D view can require a 2D range below its safe .80 m floor.
+  // Keep the same visible world span by compensating the projection instead
+  // of letting that distance constraint produce an apparent zoom jump.
+  const actualRange=camera.position.distanceTo(controls.target),zoom=actualRange*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))/span;
+  if(Math.abs(camera.zoom-zoom)>.000001){camera.zoom=zoom;camera.updateProjectionMatrix();}
+ }
+ window.__aczoMobileMapNav={mobile,floor,sync,syncNear,switchView,reset,flush,pivot,
+  snapshot:()=>({pointers:nav.pointers.size,changes:nav.changes,depthTaps:nav.depthTaps,sky:ready()?skyLookMode:false,mobile:mobile(),near:camera.near,minimum:controls.minDistance,position:camera.position.toArray(),target:controls.target.toArray()})};
+})();
 controls.enableDamping=true;
 controls.dampingFactor=.07;
 controls.screenSpacePanning=true;
@@ -40931,10 +41223,10 @@ let skyLookLastY=0;
 let skyLookArmDistance=0;
 let skyLookPointerIsTouch=false;
 const skyLookReturnPosition=new THREE.Vector3();
-const skyLookReturnTarget=new THREE.Vector3();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const skyLookReturnTarget=new THREE.Vector3();
 let skyLookHasReturnPose=false;
 let anglingMode=false;
 let anglingState='idle';
@@ -40979,10 +41271,10 @@ const anglingEpPopup=document.getElementById('anglingEpPopup');
 if(anglingEpPopup&&anglingUi&&anglingEpPopup.parentElement!==anglingUi)anglingUi.appendChild(anglingEpPopup);
 const anglingSelectTitle=document.getElementById('anglingSelectTitle');
 const anglingSelectText=document.getElementById('anglingSelectText');
-const anglingConfirmBtn=document.getElementById('anglingConfirmBtn');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingConfirmBtn=document.getElementById('anglingConfirmBtn');
 const anglingReselectBtn=document.getElementById('anglingReselectBtn');
 const anglingCancelBtn=document.getElementById('anglingCancelBtn');
 const anglingExitBtn=document.getElementById('anglingExitBtn');
@@ -41027,10 +41319,10 @@ const anglingLeaderboardRefresh=document.getElementById('anglingLeaderboardRefre
 const anglingLeaderboardState=document.getElementById('anglingLeaderboardState');
 const anglingLeaderboardList=document.getElementById('anglingLeaderboardList');
 const anglingLeaderboardName=document.getElementById('anglingLeaderboardName');
-const anglingLeaderboardConsent=document.getElementById('anglingLeaderboardConsent');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingLeaderboardConsent=document.getElementById('anglingLeaderboardConsent');
 const anglingLeaderboardSaveProfile=document.getElementById('anglingLeaderboardSaveProfile');
 const anglingHallOfFame=document.getElementById('anglingHallOfFame');
 const anglingHallOfFameCanvas=document.getElementById('anglingHallOfFameCanvas');
@@ -41075,10 +41367,10 @@ const anglingQte=document.getElementById('anglingQte');
 const anglingUnderwaterEntry=document.getElementById('anglingUnderwaterEntry');
 const anglingQteLabel=document.getElementById('anglingQteLabel');
 const anglingDrillPanel=document.getElementById('anglingDrillPanel');
-const anglingDrillTitle=document.getElementById('anglingDrillTitle');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingDrillTitle=document.getElementById('anglingDrillTitle');
 const anglingDrillDirection=document.getElementById('anglingDrillDirection');
 const anglingTensionFill=document.getElementById('anglingTensionFill');
 const anglingTensionText=document.getElementById('anglingTensionText');
@@ -41123,10 +41415,10 @@ const anglingSnagPromptText=document.getElementById('anglingSnagPromptText');
 const anglingSnagResolveBtn=document.getElementById('anglingSnagResolveBtn');
 const anglingOnlinePrompt=document.getElementById('anglingOnlinePrompt');
 const anglingOnlinePromptKicker=document.getElementById('anglingOnlinePromptKicker');
-const anglingOnlinePromptTitle=document.getElementById('anglingOnlinePromptTitle');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingOnlinePromptTitle=document.getElementById('anglingOnlinePromptTitle');
 const anglingOnlinePromptText=document.getElementById('anglingOnlinePromptText');
 const anglingOnlinePromptOpen=document.getElementById('anglingOnlinePromptOpen');
 const anglingOnlinePromptLater=document.getElementById('anglingOnlinePromptLater');
@@ -41218,7 +41510,7 @@ const REEFMASTER_SMOOTH_MESH=(function(){
 })();
 
 </script>
-<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+<script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
 const ACZO_MASTER_DEPTH_INDEX=(()=>{
   const pts=REEFMASTER_SMOOTH_MESH.pts,tri=REEFMASTER_SMOOTH_MESH.tri;
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -43572,7 +43864,7 @@ const aczoLandShadowMat=new THREE.ShadowMaterial({
 });
 
 </script>
-<script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+<script type="application/x-aczo-stage" data-label="Gebäude und Landschaft werden aufgebaut">
 aczoLandShadowMat.onBeforeCompile=shader=>{
  Object.assign(shader.uniforms,aczoMoselClipUniforms);
  shader.vertexShader='varying vec2 aczoLandReceiverXY;\n'+shader.vertexShader;
@@ -43661,11 +43953,11 @@ window.addEventListener('keyup',e=>aczoK22MapKeys.delete(e.code),true);
 for(const type of ['blur','pagehide'])window.addEventListener(type,()=>aczoK22MapKeys.clear());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)aczoK22MapKeys.clear();});
 document.getElementById('landscapeOverview').onclick=aczoShowLandscapeOverview;
-viewToggle.onclick=()=>{
+viewToggle.onclick=()=>window.__aczoMobileMapNav.switchView(()=>{
   if(is2D) set3D();
   else set2D();
   updateButtons();
-};
+});
 resetView.onclick=()=>{
   // FINAL V4: Reset verändert ausschließlich die Ansicht.
   // Wetter, Wasser, Standort, Messung, Tiefen-Pin und sonstige Nutzerzustände bleiben erhalten.
@@ -46182,30 +46474,25 @@ const fishSkinCache={};
 const fishBillboardGeo=new THREE.PlaneGeometry(1,1,1,1);
 const fishBillboardMatCache={};
 const strictBottomFish=new Set(['goby','catfish','sturgeon','zander','eel','tench','barbel','nase','prussian_carp']);
-const fishWorldDesktopDensity=!(
-  (window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)||
-  window.innerWidth<=700
-);
-const fishWorldCount=(mobileCount,desktopCount)=>fishWorldDesktopDensity?desktopCount:mobileCount;
 const fishWorldBuildPlan=[
-  ['roach',fishWorldCount(112,120),{schools:fishWorldCount(8,9)}],
-  ['rudd',fishWorldCount(78,84),{schools:7}],
+  ['roach',120,{schools:9}],
+  ['rudd',84,{schools:7}],
   ['pike',16,{exactSizes:[.62,.66,.70,.74,.78,.82,.86,.90,.94,.98,1.04,1.10,1.16,1.22,1.27,1.32]}],
   ['catfish',9,{exactSizes:[.86,.92,.98,1.04,1.10,1.16,1.22,1.28,1.34]}],
-  ['carp',fishWorldCount(11,12),{schools:2}],
-  ['mirrorcarp',fishWorldCount(11,12),{schools:2}],
+  ['carp',12,{schools:2}],
+  ['mirrorcarp',12,{schools:2}],
   ['grasscarp',3,{exactSizes:[1.00,1.15,1.30]}],
   ['sturgeon',3],
   ['zander',12,{exactSizes:[.50,.52,.54,.56,.58,.60,.64,.68,.72,.78,.84,.90]}],
   ['eel',8],
-  ['tench',fishWorldCount(22,24)],
-  ['bream',fishWorldCount(34,36),{schools:5}],
+  ['tench',24],
+  ['bream',36,{schools:5}],
   ['koi',1],
   ['perch',60,{schools:8,loners:6}],
-  ['sunfish',fishWorldCount(79,84),{schools:10}],
+  ['sunfish',84,{schools:10}],
   // Grosser Bestand, aber durch Sichtweiten-Culling und die bestehende
   // Acht-Frame-Simulation entfernter Tiere weiterhin leichtgewichtig.
-  ['goby',fishWorldCount(179,192),{schools:fishWorldCount(20,22)}]
+  ['goby',192,{schools:22}]
 ];
 let fishWorldBuildIndex=0;
 let aczoK8fDive=null;
@@ -46363,11 +46650,11 @@ const huntRules={
 let fishWorldTime=0,nextHuntAt=12+Math.random()*8,activeHunt=null,lastHuntPredatorSpecies=null;
 let anglingVisibleStrikeActor=null;
 let anglingLockedStrikeCatch=null;
+const anglingLurePrevWorldPos=new THREE.Vector3();
+const anglingLureSweepStart=new THREE.Vector3();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingLurePrevWorldPos=new THREE.Vector3();
-const anglingLureSweepStart=new THREE.Vector3();
 const anglingLureFrameSweepStart=new THREE.Vector3();
 const anglingSnagLocalA=new THREE.Vector3();
 const anglingSnagLocalB=new THREE.Vector3();
@@ -46418,11 +46705,11 @@ anglingFeedSpot.visible=false;
 anglingFeedSpot.renderOrder=8;
 anglingFeedGroup.add(anglingFeedSpot);
 const anglingFeedSpotMat2=anglingFeedSpotMat.clone();
+const anglingFeedSpot2=new THREE.Mesh(anglingFeedSpotGeo,anglingFeedSpotMat2);
+anglingFeedSpot2.rotation.x=0;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingFeedSpot2=new THREE.Mesh(anglingFeedSpotGeo,anglingFeedSpotMat2);
-anglingFeedSpot2.rotation.x=0;
 anglingFeedSpot2.visible=false;
 anglingFeedSpot2.renderOrder=8;
 anglingFeedGroup.add(anglingFeedSpot2);
@@ -46480,11 +46767,11 @@ const anglingFeedRiseSeeds=Array.from({length:FEED_RISE_PARTICLE_COUNT},()=>({
   maxHeight:.22+Math.random()*.28,
   drift:(Math.random()-.5)*.025
 }));
+let anglingFeedUnderwaterTime=0;
+const anglingWorldSpan=Math.max(D.sceneW,D.sceneH);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-let anglingFeedUnderwaterTime=0;
-const anglingWorldSpan=Math.max(D.sceneW,D.sceneH);
 const ACZO_LEGACY_PANORAMA_ENABLED=false;
 const ANGLING_SHORE_PHOTOS=Object.freeze({});
 const anglingPhotoHorizon=new THREE.Group();
@@ -46528,11 +46815,11 @@ anglingBankMesh.position.z=.29;
 anglingBankMesh.renderOrder=58;
 anglingBankGroup.add(anglingBankMesh);
 const anglingBankShadowMat=new THREE.MeshBasicMaterial({color:0x757b83,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,depthTest:false,alphaMap:anglingBankShadowFadeTex,blending:THREE.NormalBlending});
+const anglingBankShadowMesh=new THREE.Mesh(new THREE.ShapeGeometry(anglingBankShape),anglingBankShadowMat);
+anglingBankShadowMesh.position.z=.298;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingBankShadowMesh=new THREE.Mesh(new THREE.ShapeGeometry(anglingBankShape),anglingBankShadowMat);
-anglingBankShadowMesh.position.z=.298;
 anglingBankShadowMesh.renderOrder=59.4;
 anglingBankGroup.add(anglingBankShadowMesh);
 const anglingShoreShape=new THREE.Shape();
@@ -46581,14 +46868,14 @@ const anglingShoreForegroundMat=new THREE.MeshBasicMaterial({
   color:0x596145,transparent:true,opacity:1,
   side:THREE.DoubleSide,depthTest:false,depthWrite:false
 });
-
-</script>
-<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 const anglingShoreForegroundMesh=new THREE.Mesh(
   new THREE.ShapeGeometry(anglingShoreLipShape),
   anglingShoreForegroundMat
 );
 anglingShoreForegroundMesh.position.z=.314;
+
+</script>
+<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 anglingShoreForegroundMesh.renderOrder=1105;
 anglingBankGroup.add(anglingShoreForegroundMesh);
 const anglingShoreShadowMat=new THREE.MeshBasicMaterial({color:0x70767e,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,depthTest:false,alphaMap:anglingBankShadowFadeTex,blending:THREE.NormalBlending});
@@ -46636,11 +46923,11 @@ const anglingMarkerStem=cylinderBetween(
 anglingMarkerStem.renderOrder=61;
 anglingMarkerGroup.add(anglingMarkerStem);
 const anglingMarkerArrow=new THREE.Mesh(new THREE.ConeGeometry(.34,.78,14),anglingMarkerMat);
+anglingMarkerArrow.position.set(0,5.25,.48);
+anglingMarkerArrow.renderOrder=61;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-anglingMarkerArrow.position.set(0,5.25,.48);
-anglingMarkerArrow.renderOrder=61;
 anglingMarkerGroup.add(anglingMarkerArrow);
 keepAboveAnglingPanoramaShadows(anglingMarkerGroup,1465);
 const anglingMarkerNightLight=new THREE.PointLight(0xfff0c2,0,15,2);
@@ -46707,11 +46994,11 @@ anglingTargetAssistV.renderOrder=250;
 anglingTargetAssistGroup.add(anglingTargetAssistV);
 keepAboveAnglingPanoramaShadows(anglingTargetAssistGroup,1480);
 const anglingFeedAim3DGroup=new THREE.Group();
+anglingFeedAim3DGroup.visible=false;
+anglingScene.add(anglingFeedAim3DGroup);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-anglingFeedAim3DGroup.visible=false;
-anglingScene.add(anglingFeedAim3DGroup);
 const anglingFeedAim3DMat=new THREE.MeshBasicMaterial({color:0xffcf3d,transparent:true,opacity:.94,depthTest:true,depthWrite:false,side:THREE.DoubleSide});
 const anglingFeedAim3DRing=new THREE.Mesh(new THREE.RingGeometry(.42,.55,48),anglingFeedAim3DMat);
 anglingFeedAim3DRing.renderOrder=236;
@@ -46762,11 +47049,11 @@ anglingRodFlexBase.position.copy(anglingRodMid);
 anglingRodGroup.add(anglingRodFlexBase);
 const anglingRodUpperLocal=anglingRodUpper.clone().sub(anglingRodMid);
 const anglingRodTipLocal=anglingRodC.clone().sub(anglingRodUpper);
+const anglingRodLastGuideLocal=new THREE.Vector3(.07,.18,-2.96).sub(anglingRodUpper);
+const anglingRodFlexSection=anglingTaperedBetween(new THREE.Vector3(0,0,0),anglingRodUpperLocal,.0072,.0045,anglingRodDarkMat,14);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingRodLastGuideLocal=new THREE.Vector3(.07,.18,-2.96).sub(anglingRodUpper);
-const anglingRodFlexSection=anglingTaperedBetween(new THREE.Vector3(0,0,0),anglingRodUpperLocal,.0072,.0045,anglingRodDarkMat,14);
 anglingRodFlexBase.add(anglingRodFlexSection);
 const anglingRodTipFlex=new THREE.Group();
 anglingRodTipFlex.position.copy(anglingRodUpperLocal);
@@ -46814,14 +47101,14 @@ anglingReelSpool.add(anglingReelLipRear);
 const anglingReelDragKnob=new THREE.Mesh(new THREE.CylinderGeometry(.017,.021,.013,18),anglingRodMetalMat);
 anglingReelDragKnob.rotation.x=Math.PI/2;
 anglingReelDragKnob.position.z=-.036;
-
-</script>
-<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 anglingReelSpool.add(anglingReelDragKnob);
 const anglingReelBail=new THREE.Mesh(
   new THREE.TorusGeometry(.057,.00215,6,36,Math.PI*1.72),
   anglingRodMetalMat
 );
+
+</script>
+<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 anglingReelBail.position.z=-.010;
 anglingReelBail.rotation.z=.38;
 anglingReelRotorGroup.add(anglingReelBail);
@@ -46877,11 +47164,11 @@ anglingRodTipFlex.add(anglingRodGuideTip);
 const anglingRodTip=new THREE.Object3D();
 anglingRodTip.position.copy(anglingRodTipLocal);
 anglingRodTipFlex.add(anglingRodTip);
+const anglingRodButtRotated=new THREE.Vector3();
+anglingRodGroup.traverse(o=>{if(o.isMesh)o.renderOrder=1492;});
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingRodButtRotated=new THREE.Vector3();
-anglingRodGroup.traverse(o=>{if(o.isMesh)o.renderOrder=1492;});
 keepAboveAnglingPanoramaShadows(anglingRodGroup,1492);
 const anglingBobber=new THREE.Group();
 anglingBobber.visible=false;
@@ -46943,11 +47230,11 @@ anglingBobGlowReflection.visible=false;
 anglingBobGlowReflectionSoft.visible=false;
 anglingBobGlowReflection.layers.enable(7);
 anglingBobGlowReflectionSoft.layers.enable(7);
+anglingScene.add(anglingBobGlowReflectionSoft);
+anglingScene.add(anglingBobGlowReflection);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-anglingScene.add(anglingBobGlowReflectionSoft);
-anglingScene.add(anglingBobGlowReflection);
 const anglingBobHalo=new THREE.Mesh(
   new THREE.RingGeometry(.085,.145,28),
   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.30,depthTest:false,depthWrite:false,side:THREE.DoubleSide})
@@ -46994,11 +47281,11 @@ anglingScene.add(anglingDeeperReadyLine);
 const anglingDeeperReadyTip=new THREE.Vector3(),anglingDeeperReadyEnd=new THREE.Vector3();
 const ANGLING_READY_LINE_SEGMENTS=5;
 const anglingReadyLineGroup=new THREE.Group();
+anglingReadyLineGroup.visible=false;
+anglingReadyLineGroup.renderOrder=1484;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-anglingReadyLineGroup.visible=false;
-anglingReadyLineGroup.renderOrder=1484;
 anglingScene.add(anglingReadyLineGroup);
 const anglingReadyLineMat=new THREE.MeshBasicMaterial({
   color:0xe5ece8,transparent:true,opacity:.92,
@@ -47052,11 +47339,11 @@ const reelMiniKnob=new THREE.MeshStandardMaterial({color:0x0e1113,roughness:.54,
 const reelMiniGripA=new THREE.Vector3(.42,-.08,-.10);
 const reelMiniBlankC=new THREE.Vector3(.04,.18,-1.55);
 const reelMiniGripB=reelMiniGripA.clone().lerp(reelMiniBlankC,.45/1.45);
+const aczoMiniSeatEnd=reelMiniGripA.clone().lerp(reelMiniBlankC,.68/1.45);
+anglingReelMiniGroup.add(anglingTaperedBetween(reelMiniGripA,reelMiniGripB,.06,.035,reelMiniCork,16));
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const aczoMiniSeatEnd=reelMiniGripA.clone().lerp(reelMiniBlankC,.68/1.45);
-anglingReelMiniGroup.add(anglingTaperedBetween(reelMiniGripA,reelMiniGripB,.06,.035,reelMiniCork,16));
 anglingReelMiniGroup.add(anglingTaperedBetween(reelMiniGripB,reelMiniBlankC,.025,.007,reelMiniAccent,14));
 const anglingMiniReelBody=new THREE.Group();
 anglingMiniReelBody.position.set(.20,.02,-.47);
@@ -47107,9 +47394,6 @@ const anglingMiniBail=new THREE.Mesh(
 anglingMiniBail.position.z=-.016;
 anglingMiniBail.rotation.z=.38;
 anglingMiniRotorGroup.add(anglingMiniBail);
-
-</script>
-<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 const anglingMiniBailArmA=cylinderBetween(
   new THREE.Vector3(.071,.023,.002),
   new THREE.Vector3(.089,.044,-.021),
@@ -47120,6 +47404,9 @@ const anglingMiniBailArmB=cylinderBetween(
   new THREE.Vector3(-.089,-.041,-.021),
   .0044,reelMiniMetal,9
 );
+
+</script>
+<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 anglingMiniRotorGroup.add(anglingMiniBailArmA,anglingMiniBailArmB);
 const anglingMiniCrank=new THREE.Group();
 anglingMiniCrank.position.set(-.082,-.035,.070);
@@ -47167,11 +47454,11 @@ anglingReelMiniGroup.rotation.set(.08,-.28,-.40);
 anglingReelMiniGroup.position.set(-.03,.03,.18);
 anglingReelMiniCamera.position.set(1.28,-1.48,-.18);
 anglingReelMiniCamera.lookAt(.10,.02,-.72);
+const anglingFloatBufferSize=new THREE.Vector2();
+let anglingLureUnderwaterWorldReady=false;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingFloatBufferSize=new THREE.Vector2();
-let anglingLureUnderwaterWorldReady=false;
 let aczoAnglingUwPrewarmHandle=0;
 let aczoPerf26UwFullWarmReady=false,aczoPerf26UwFullWarmBusy=false,aczoPerf26UwFullWarmScheduled=false;
 let aczoPerf26UwFullTarget=null;
@@ -47236,11 +47523,11 @@ spoon.onBeforeRender=function(){
   anglingLureMetal.envMapIntensity=Math.max(.012,Math.min(2.5,hemi.intensity*.50+sun.intensity*1.12+moonLight.intensity*.20));
 };
 addLureRing(anglingSpinnerBlade,.173,.007);
+const anglingSpinnerHookPivot=new THREE.Group();
+anglingSpinnerHookPivot.position.set(0,-.175,.007);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingSpinnerHookPivot=new THREE.Group();
-anglingSpinnerHookPivot.position.set(0,-.175,.007);
 anglingSpinnerBlade.add(anglingSpinnerHookPivot);
 const anglingSpinnerHookSwing=new THREE.Group();
 anglingSpinnerHookSwing.position.set(0,-.018,0);
@@ -47288,13 +47575,13 @@ anglingFloatCamera.layers.enable(0);
 const ANGLING_LINE_POINTS=20;
 const anglingLineGeo=new THREE.BufferGeometry();
 anglingLineGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(ANGLING_LINE_POINTS*3),3));
-
-</script>
-<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 const anglingLine=new THREE.Line(anglingLineGeo,new THREE.LineBasicMaterial({
   color:0xffffff,transparent:true,opacity:.96,depthTest:false,depthWrite:false,toneMapped:false
 }));
 anglingLine.visible=false;
+
+</script>
+<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 anglingLine.renderOrder=1480;
 anglingScene.add(anglingLine);
 keepAboveAnglingPanoramaShadows(anglingLine,1480);
@@ -47366,11 +47653,11 @@ const anglingDrillLineInnerMat=new THREE.MeshBasicMaterial({
   color:0xf5fff8,transparent:true,opacity:.98,depthTest:false,depthWrite:false,toneMapped:false
 });
 const anglingDrillLineOuter=[],anglingDrillLineInner=[];
+const ANGLING_DRILL_LINE_RADIUS=ACZO_PERF10_IS_MOBILE_OS?.0049:.0038;
+const anglingDrillLineGeo=new THREE.CylinderGeometry(1,1,1,6,1,false);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const ANGLING_DRILL_LINE_RADIUS=ACZO_PERF10_IS_MOBILE_OS?.0049:.0038;
-const anglingDrillLineGeo=new THREE.CylinderGeometry(1,1,1,6,1,false);
 for(let i=0;i<ANGLING_DRILL_LINE_SEGMENTS;i++){
   const outer=new THREE.Mesh(anglingDrillLineGeo,anglingDrillLineOuterMat);
   const inner=new THREE.Mesh(anglingDrillLineGeo,anglingDrillLineInnerMat);
@@ -47428,11 +47715,11 @@ const anglingNetHandleMat=new THREE.MeshStandardMaterial({color:0x293a33,roughne
 const anglingNetMeshMat=new THREE.MeshBasicMaterial({color:0xb7cec4,transparent:true,opacity:.46,wireframe:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
 const anglingNetHoop=new THREE.Mesh(new THREE.TorusGeometry(.72,.035,8,40),anglingNetMetal);
 anglingNetHoop.scale.y=.72;
+anglingNetHoop.renderOrder=1507;
+anglingNetGroup.add(anglingNetHoop);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-anglingNetHoop.renderOrder=1507;
-anglingNetGroup.add(anglingNetHoop);
 const anglingNetBag=new THREE.Mesh(new THREE.CylinderGeometry(.67,.11,.68,24,7,true),anglingNetMeshMat);
 anglingNetBag.rotation.x=Math.PI/2;
 anglingNetBag.position.z=-.335;
@@ -47481,11 +47768,11 @@ let anglingHallOfFameCameraBase=null;
 let anglingHallOfFameTargetBase=null;
 let anglingHallOfFameFireworkTimer=.35;
 let anglingHallOfFameFireworkAccumulator=0;
+let anglingHallOfFameOverlayAccumulator=0;
+const anglingHallOfFameRockets=[];
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-let anglingHallOfFameOverlayAccumulator=0;
-const anglingHallOfFameRockets=[];
 const anglingHallOfFameParticles=[];
 let anglingCreatorEasterEggActive=false;
 let anglingCreatorEntryStarted=false;
@@ -47551,11 +47838,11 @@ let anglingCastControl=new THREE.Vector3();
 let anglingRetrieveStart=new THREE.Vector3();
 let anglingRetrieveEnd=new THREE.Vector3();
 let anglingRetrieveDuration=3.5;
+let anglingRetrieveStartDistance=0;
+let anglingRetrieveStepDistance=0.5;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-let anglingRetrieveStartDistance=0;
-let anglingRetrieveStepDistance=0.5;
 let anglingActionHeld=false;
 let anglingActionHoldPointer=null;
 let anglingActionHoldStartedAt=0;
@@ -47599,11 +47886,11 @@ let anglingLocalWaterDepth=1.5;
 let anglingCastDistance=10;
 let anglingBiteRate=0;
 let anglingCandidateEntries=[];
+let anglingPendingCatch=null;
+let anglingApproachDuration=0;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-let anglingPendingCatch=null;
-let anglingApproachDuration=0;
 let anglingApproachElapsed=0;
 let anglingTeaseTime=0;
 let anglingNextTease=5;
@@ -47647,11 +47934,11 @@ let anglingLandingNetTarget=0;
 const anglingLandingNetBase=new THREE.Vector3();
 const ANGLING_LANDING_NET_MAX_OFFSET=1.0;
 const ANGLING_LANDING_FISH_SPAN=3.25;
+const anglingLureSinkAnchor=new THREE.Vector3();
+const aczoSoftMotion={pitch:0,run:0,pause:0};
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingLureSinkAnchor=new THREE.Vector3();
-const aczoSoftMotion={pitch:0,run:0,pause:0};
 let anglingCurrentBiteProfile='twitch';
 let anglingCurrentFightProfile=null;
 let anglingFishTemperament='normal';
@@ -47705,11 +47992,11 @@ const anglingLineColR=new THREE.Vector3();
 const anglingLineColNormal=new THREE.Vector3();
 const anglingLineEntryTmp=new THREE.Vector3();
 const anglingTmpA=new THREE.Vector3();
+const anglingTmpB=new THREE.Vector3();
+const anglingTmpC=new THREE.Vector3();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const anglingTmpB=new THREE.Vector3();
-const anglingTmpC=new THREE.Vector3();
 const anglingTmpD=new THREE.Vector3();
 const anglingUp=new THREE.Vector3(0,0,1);
 const anglingWaterPlane=new THREE.Plane(anglingUp,0);
@@ -47774,11 +48061,11 @@ const anglingFeedRaycaster=new THREE.Raycaster();
 const anglingFeedPointerNdc=new THREE.Vector2();
 const anglingFeedWaterPlane=new THREE.Plane(new THREE.Vector3(0,0,1),-.31);
 const ANGLING_STORAGE_KEY='aczo56-angling-system-v1';
+const ANGLING_LEADERBOARD_INTRO_KEY='aczo56-angling-leaderboard-intro-v1';
+let anglingWasExistingPlayerAtLoad=false;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
-const ANGLING_LEADERBOARD_INTRO_KEY='aczo56-angling-leaderboard-intro-v1';
-let anglingWasExistingPlayerAtLoad=false;
 try{anglingWasExistingPlayerAtLoad=!!localStorage.getItem(ANGLING_STORAGE_KEY);}catch(err){}
 const anglingProgress={baitfish:0,totalCatches:0,xp:0,lifetimeXp:0,xpRevision:0,catches:[],records:{},bonusState:{lastFirstCatchDay:''},predatorPitPasteExpiries:{},
   naturalInventory:{worm:18,maggot:24,corn:20,premium_corn:0,maggot_mix:0,mistworm:0,mini_boilie:0,dew_worm:0,sturgeon_pellet:0,boilie:0,popup:0,bank_worm_bundle:0},
@@ -47920,11 +48207,11 @@ const anglingDailyQuestToast=document.getElementById('anglingDailyQuestToast');
 const anglingDailyQuestPanel=document.getElementById('anglingDailyQuestPanel');
 const anglingDailyQuestClose=document.getElementById('anglingDailyQuestClose');
 const anglingDailyQuestPanelSummary=document.getElementById('anglingDailyQuestPanelSummary');
+const anglingDailyQuestPanelList=document.getElementById('anglingDailyQuestPanelList');
+const anglingMainDailyQuestBtn=document.getElementById('anglingMainDailyQuestBtn');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-const anglingDailyQuestPanelList=document.getElementById('anglingDailyQuestPanelList');
-const anglingMainDailyQuestBtn=document.getElementById('anglingMainDailyQuestBtn');
 const anglingTimeOverlay=document.getElementById('anglingTimeOverlay');
 const anglingTimeOverlayTitle=document.getElementById('anglingTimeOverlayTitle');
 const anglingTimeOverlayClock=document.getElementById('anglingTimeOverlayClock');
@@ -47985,9 +48272,6 @@ const ANGLING_LURE_CATALOG={
   perch_special:{name:'Blinker Barsch-Spezial',icon:'perch_special',type:'spinner',price:35,desc:'Kompakt und aggressiv für Barsche.',tag:'Barsch ++',boost:{perch:1.75,pike:.88,zander:.82,catfish:.55}},
   catfish_special:{name:'Gummifisch Wels-Spezial',icon:'catfish_special',type:'softbait',price:40,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
 };
-
-</script>
-<script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
 const ANGLING_EQUIPMENT_CATALOG={
  boat_motor:{name:'E-Motor mit Batterie',icon:'boat_motor',price:1000,slot:'vehicle',shop:true,tag:'Boot am Ostufer · dauerhaft',desc:'Elektromotor mit Batterie für die Sabrina am Bootssteg des Ostufers. Ankern zum Angeln mit Pose oder Kunstköder. Manche Stellen erreicht man nur vom Wasser aus – und manchmal lohnt sich auch ein Blick nach oben.'},
   carp_set:{name:'Karpfenangelset',icon:'carp_set',price:4000,slot:'method',shop:true,maxCast:75,tag:'2 Grundruten · Rod Pod · dauerhaft',desc:'Edelstahl-Rod-Pod mit zwei Carbonruten, Rollen und leuchtenden, piependen Bissanzeigern. Nur am festen Ufer; auf Stegen bitte Angelstelle wechseln.'},
@@ -48024,6 +48308,9 @@ const ANGLING_EQUIPMENT_CATALOG={
   }
 };
 const aczoRodTextures={cork:aczoRodTexture('cork'),eva:aczoRodTexture('eva'),carbon:aczoRodTexture('carbon'),varnish:aczoRodTexture('varnish')};
+
+</script>
+<script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
 const aczoBlankMainMat=new THREE.MeshPhysicalMaterial({color:0x43505b,roughness:.27,metalness:.12,clearcoat:1,clearcoatRoughness:.10,envMap:aczoLureEnv,envMapIntensity:.8,map:aczoRodTextures.varnish,depthTest:true,depthWrite:true});
 const aczoBlankMiniMat=aczoBlankMainMat.clone();
 const aczoSeatMainMat=new THREE.MeshPhysicalMaterial({color:0x20262b,roughness:.3,metalness:.28,clearcoat:.7,clearcoatRoughness:.18,envMap:aczoLureEnv,envMapIntensity:.8});
@@ -48078,11 +48365,11 @@ anglingRodGroup.add(anglingRodTip);
 const aczoGuideFeet=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,5),aczoGuideMat,4);
 aczoGuideFeet.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 aczoGuideFeet.frustumCulled=false;
+aczoGuideFeet.renderOrder=1492;
+anglingRodGroup.add(aczoGuideFeet);
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-aczoGuideFeet.renderOrder=1492;
-anglingRodGroup.add(aczoGuideFeet);
 const aczoGripCore=new THREE.Mesh(new THREE.BufferGeometry(),aczoBlankMainMat);
 const aczoMiniCore=new THREE.Mesh(new THREE.BufferGeometry(),aczoBlankMiniMat);
 const aczoMiniGrip=anglingReelMiniGroup.children[0],aczoMiniBlank=anglingReelMiniGroup.children[1];
@@ -48147,9 +48434,6 @@ const ACZO_SOFTBAIT_DEFAULT_DECOR={
 let aczoSoftbaitDecorByLure={};
 try{aczoSoftbaitDecorByLure=JSON.parse(localStorage.getItem(ACZO_SOFTBAIT_DECOR_KEY)||'{}')||{};}catch(_){aczoSoftbaitDecorByLure={};}
 const ACZO_SPINNER_DECOR_KEY='aczo56-spinner-decors-v1';
-
-</script>
-<script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
 const ACZO_SPINNER_DECORS={
   silver_blue:{name:'Silber / Blau',group:'natural',metal:0xdbe5e8,accent:0x2d6fb8,accent2:0xf0f8fb,roughness:.045,css:'linear-gradient(135deg,#eef5f6 0 48%,#2b6fb8 48% 67%,#c7d6d9 67%)'},
   gold_copper:{name:'Gold / Kupfer',group:'natural',metal:0xe0b34f,accent:0xa54f28,accent2:0xffdc76,roughness:.052,css:'linear-gradient(135deg,#f0c45e 0 48%,#a54f28 48% 68%,#ffe08b 68%)'},
@@ -48158,6 +48442,9 @@ const ACZO_SPINNER_DECORS={
 };
 const ACZO_SPINNER_DEFAULT_DECOR={
  predatorpit_spinner:'gold_copper',spinner_basic:'silver_blue',spinner_premium:'gold_copper',pike_special:'firetiger',perch_special:'gold_copper'};
+
+</script>
+<script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
 let aczoSpinnerDecorByLure={};
 try{aczoSpinnerDecorByLure=JSON.parse(localStorage.getItem(ACZO_SPINNER_DECOR_KEY)||'{}')||{};}catch(_){aczoSpinnerDecorByLure={};}
 let anglingSelectedLureId=anglingProgress.selectedLureId||'spinner_basic';
@@ -48278,11 +48565,11 @@ let anglingPreviousLastActiveAt='';
 try{anglingPreviousLastActiveAt=String(localStorage.getItem(ANGLING_LAST_VISIT_KEY)||'');}catch(err){}
 let anglingWelcomeBackShownForSession=false;
 let anglingWelcomeBackDurationText='';
+let anglingLatestRecentPlayers=[];
+let anglingLatestActivePlayers=[];
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-let anglingLatestRecentPlayers=[];
-let anglingLatestActivePlayers=[];
 let anglingWelcomeBackTimer=null;
 let anglingLastCloudMessage='';
 let anglingPresenceTimer=null;
@@ -48354,11 +48641,11 @@ const anglingHallOfFameWaterProject=new THREE.Vector3();
 const anglingHallOfFameWaterProjectionCache={points:[],waterLine:0,width:0,height:0,validUntil:0,valid:false};
 const ANGLING_HOF_CANVAS_DPR_CAP=(window.matchMedia?.('(pointer:coarse)')?.matches||(Number(navigator.hardwareConcurrency)||8)<=4)?1:1.25;
 const anglingHallOfFameFlagWorld=flagPoleMapToWorld(FLAGPOLE_CFG.mapX,FLAGPOLE_CFG.mapY);
+const ANGLING_HOF_FIRE_COLORS=['#ffd166','#ff7b7b','#8fe6ff','#c4a7ff','#a8f0a5','#fff3b0'];
+let anglingOnlinePromptMode='';
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-const ANGLING_HOF_FIRE_COLORS=['#ffd166','#ff7b7b','#8fe6ff','#c4a7ff','#a8f0a5','#fff3b0'];
-let anglingOnlinePromptMode='';
 let anglingOnlinePromptPendingCatch=null;
 let anglingCloudWarmPromise=null;
 let anglingCloudWarmAt=0;
@@ -48443,11 +48730,11 @@ const anglingIntroFlag=new THREE.Vector3();
 const anglingIntroDesiredUp=new THREE.Vector3();
 const anglingIntroAscentP1=new THREE.Vector3();
 const anglingIntroAscentP2=new THREE.Vector3();
+const anglingIntroAscentLook1=new THREE.Vector3();
+const anglingIntroAscentLook2=new THREE.Vector3();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-const anglingIntroAscentLook1=new THREE.Vector3();
-const anglingIntroAscentLook2=new THREE.Vector3();
 const anglingBobberDeepWaterColor=new THREE.Color(0x426b70);
 const ANGLING_JUMP_SPECIES=[
   ['carp',24],['mirrorcarp',18],['bream',16],['roach',14],['rudd',8],
@@ -48543,11 +48830,11 @@ predatorPitPasteFxPoints.renderOrder=48;
 anglingScene.add(predatorPitPasteFxPoints);
 const predatorPitPasteFxVel=Array.from({length:PREDATOR_PIT_FX_COUNT},()=>new THREE.Vector3());
 let predatorPitPasteFxCursor=0,predatorPitPasteFxHasLast=false;
+const predatorPitPasteFxLast=new THREE.Vector3(),predatorPitPasteFxMove=new THREE.Vector3(),predatorPitPasteFxTmp=new THREE.Vector3();
+const aczoDrillLineColor=new THREE.Color();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Bedienung und Spielsysteme werden vorbereitet">
-const predatorPitPasteFxLast=new THREE.Vector3(),predatorPitPasteFxMove=new THREE.Vector3(),predatorPitPasteFxTmp=new THREE.Vector3();
-const aczoDrillLineColor=new THREE.Color();
 const aczoDrillLineWhite=new THREE.Color(0xf2fff6);
 const aczoDrillLineYellow=new THREE.Color(0xffe04b);
 const aczoDrillLineOrange=new THREE.Color(0xff8a2a);
@@ -49902,7 +50189,7 @@ aczoK5dInit();
  // V36: zusätzliche Sicherheitsleine für 3D. Selbst bei starkem Drehen/Pan
  // bleibt die Kamera oberhalb der Karte; ein Blick von unten ist ausgeschlossen.
  if(!is2D && !fishMode && !skyLookMode && !anglingMode){
-   const minCamZ=1.7;
+   const minCamZ=window.__aczoMobileMapNav.mobile()?.32:1.7;
    if(camera.position.z<minCamZ){
      camera.position.z=minCamZ;
      controls.update();
