@@ -7,8 +7,9 @@
 /* K0a DIAGNOSE ONLY: isolated storage, read-only network, bounded phase log. */
 (function () {
   'use strict';
-  const requestedGraphics = new URLSearchParams(location.search).get('gfx') === 'performance' ? 'performance' : 'standard';
-  const LOG_KEY = 'aczo56-k0a-diagnose-v2-auto-' + requestedGraphics;
+  const profileParam = new URLSearchParams(location.search).get('gfx');
+  const requestedGraphics = ['standard','performance','ultra'].includes(profileParam) ? profileParam : 'standard';
+  const LOG_KEY = 'aczo56-k0a-diagnose-v3-auto-' + requestedGraphics;
   const reportOnly = new URLSearchParams(location.search).get('k0a') === 'report' || location.hash === '#k0a-report';
   let realStorage = null, previous = null, savedQuality = null;
   try {
@@ -23,7 +24,7 @@
     renderer: null, finalModuleDone: false, failed: false
   };
   function snapshot() {
-    return {build: 'K23-K0a-DIAGNOSE-2-AUTO', time: new Date().toISOString(),
+    return {build: 'K23-K0a-DIAGNOSE-3-AUTO', time: new Date().toISOString(),
       target: 'iPhone 17 Pro Max / Safari (Nutzerangabe)', mode: diag.mode,
       lastPhase: diag.lastPhase, requestedGraphics, milestones: diag.milestones,
       metricsSample: 'first-render-return; counters are not live totals',
@@ -41,7 +42,7 @@
       building: 'Szenenaufbau läuft …', held: 'A: Synchroner Szenenaufbau abgeschlossen. Jetzt 10 Sekunden warten.',
       drawing: 'B: Erste 3D-Ausgabe wird aufgerufen …',
       'frame-returned': 'B: Renderaufruf zurückgekehrt. Jetzt 10 Sekunden warten.',
-      running: 'Automatischer Start · ' + (requestedGraphics === 'performance' ? 'Leistung' : 'Standard') + ' · ohne Cloud/Konten',
+      running: 'Automatischer Start · ' + ({performance:'Leistung',standard:'Standard',ultra:'Ultra'}[requestedGraphics]) + ' · ohne Cloud/Konten',
       failed: 'Startfehler erfasst. Bitte Protokoll kopieren oder Bildschirm fotografieren.',
       report: 'Gespeichertes Protokoll des vorherigen Starts'
     };
@@ -142,6 +143,7 @@
     const setProfile = profile => { const u = new URL(location.href); u.hash = ''; u.searchParams.delete('k0a'); u.searchParams.set('gfx', profile); location.assign(u.href); };
     document.getElementById('k0a-standard').onclick = () => setProfile('standard');
     document.getElementById('k0a-performance').onclick = () => setProfile('performance');
+    document.getElementById('k0a-ultra').onclick = () => setProfile('ultra');
     panel.classList.add('k0a-compact');
     document.getElementById('k0a-draw').onclick = () => {
       if (diag.mode !== 'held' || !diag.drawScene || !diag.renderScene) return;
@@ -5380,18 +5382,19 @@ Tatsächlich geprüft: ursprünglicher Fehler reproduziert; reale LED-Funktion b
 </style>
 <aside id="k0a-panel" aria-label="Automatischer Startvergleich">
  <h1>K0a · automatischer Grafikvergleich</h1>
- <small>Diagnose 2 · ursprüngliche Startreihenfolge ohne A/B/C-Haltepunkte · keine Reparatur</small>
+ <small>Diagnose 3 · alle drei Grafikstufen · automatische Startreihenfolge · keine Reparatur</small>
  <p id="k0a-status" role="status">Automatischer Start läuft …</p>
  <p id="k0a-phase">Letzte Phase: HTML</p>
  <button id="k0a-draw" type="button" hidden disabled></button>
  <button id="k0a-run" type="button" hidden disabled></button>
  <button id="k0a-standard" type="button">Mit Standard neu starten</button>
  <button id="k0a-performance" type="button">Mit Leistung neu starten</button>
- <details><summary>Protokoll und Hinweise</summary><p>Erster Aufruf: Standard. 60 Sekunden warten, Protokoll kopieren. Danach mit Leistung neu starten und wieder 60 Sekunden warten. Die Grafikstufe gilt nur für diese Diagnose; die gespeicherte Spieleinstellung bleibt unverändert.</p><p>Cloud und Konten bleiben gesperrt; Spielstände sind flüchtig. Das erste Renderbild wird gemessen, die angezeigten Grafikzähler sind keine laufenden Gesamtwerte. Auch die reine Protokollansicht lädt und parst weiterhin die große HTML.</p><pre id="k0a-log"></pre></details>
+ <button id="k0a-ultra" type="button">Mit Ultra neu starten</button>
+ <details><summary>Protokoll und Hinweise</summary><p>Erster Aufruf: Standard. 60 Sekunden warten, Protokoll kopieren. Danach Leistung und Ultra jeweils per Knopf neu starten, 60 Sekunden warten und das zugehörige Protokoll kopieren. Die Grafikstufe gilt nur für diese Diagnose; die gespeicherte Spieleinstellung bleibt unverändert.</p><p>Cloud und Konten bleiben gesperrt; Spielstände sind flüchtig. Das erste Renderbild wird gemessen, die angezeigten Grafikzähler sind keine laufenden Gesamtwerte. Auch die reine Protokollansicht lädt und parst weiterhin die große HTML.</p><pre id="k0a-log"></pre></details>
  <button id="k0a-copy" type="button">Protokoll kopieren</button>
  <button id="k0a-report" type="button">Nur letztes Protokoll öffnen</button>
  <button id="k0a-again" type="button" hidden>Neuen Diagnosestart öffnen</button>
- <small>Bei Safari-Abbruch: dieselbe Adresse mit <b>#k0a-report</b> öffnen. Leistung direkt: <b>?gfx=performance</b>, Bericht dazu: <b>?gfx=performance#k0a-report</b>. Keine Kontodaten eingeben.</small>
+ <small>Bei Safari-Abbruch: an die jeweilige Testadresse <b>#k0a-report</b> anhängen. Ultra direkt: <b>?gfx=ultra</b>, Ultra-Protokoll: <b>?gfx=ultra#k0a-report</b>. Keine Kontodaten eingeben.</small>
 </aside>
 <div class="wrap">
  <div class="controls">
