@@ -7,7 +7,8 @@
 /* K0a DIAGNOSE ONLY: isolated storage, read-only network, bounded phase log. */
 (function () {
   'use strict';
-  const LOG_KEY = 'aczo56-k0a-diagnose-v1';
+  const requestedGraphics = new URLSearchParams(location.search).get('gfx') === 'performance' ? 'performance' : 'standard';
+  const LOG_KEY = 'aczo56-k0a-diagnose-v2-auto-' + requestedGraphics;
   const reportOnly = new URLSearchParams(location.search).get('k0a') === 'report' || location.hash === '#k0a-report';
   let realStorage = null, previous = null, savedQuality = null;
   try {
@@ -17,14 +18,16 @@
   } catch (_) {}
   const started = performance.now();
   const diag = window.__aczoK0a = {
-    mode: reportOnly ? 'report' : 'building', reportOnly, safe: false,
-    entries: [], metrics: {}, previous, lastPhase: 'diagnose-start', blockedRequests: 0,
+    mode: reportOnly ? 'report' : 'running', automatic: true, reportOnly, safe: false,
+    entries: [], milestones: {}, metrics: {}, previous, lastPhase: 'diagnose-start', blockedRequests: 0,
     renderer: null, finalModuleDone: false, failed: false
   };
   function snapshot() {
-    return {build: 'K23-K0a-DIAGNOSE-1', time: new Date().toISOString(),
+    return {build: 'K23-K0a-DIAGNOSE-2-AUTO', time: new Date().toISOString(),
       target: 'iPhone 17 Pro Max / Safari (Nutzerangabe)', mode: diag.mode,
-      lastPhase: diag.lastPhase, entries: diag.entries.slice(-40), metrics: diag.metrics,
+      lastPhase: diag.lastPhase, requestedGraphics, milestones: diag.milestones,
+      metricsSample: 'first-render-return; counters are not live totals',
+      entries: diag.entries.slice(-40), metrics: diag.metrics,
       blockedRequests: diag.blockedRequests, failurePhase: diag.failurePhase || null};
   }
   function persist() {
@@ -38,7 +41,7 @@
       building: 'Szenenaufbau läuft …', held: 'A: Synchroner Szenenaufbau abgeschlossen. Jetzt 10 Sekunden warten.',
       drawing: 'B: Erste 3D-Ausgabe wird aufgerufen …',
       'frame-returned': 'B: Renderaufruf zurückgekehrt. Jetzt 10 Sekunden warten.',
-      running: 'C: Normaler Ablauf freigegeben · Diagnose ohne Cloud/Konten',
+      running: 'Automatischer Start · ' + (requestedGraphics === 'performance' ? 'Leistung' : 'Standard') + ' · ohne Cloud/Konten',
       failed: 'Startfehler erfasst. Bitte Protokoll kopieren oder Bildschirm fotografieren.',
       report: 'Gespeichertes Protokoll des vorherigen Starts'
     };
@@ -56,6 +59,7 @@
     diag.lastPhase = safe;
     const entry = {phase: safe, ms: Math.round(performance.now() - started)};
     if (typeof detail === 'number' && Number.isFinite(detail)) entry.value = detail;
+    if (!(safe in diag.milestones) && Object.keys(diag.milestones).length < 64) diag.milestones[safe] = entry.ms;
     diag.entries.push(entry);
     if (diag.entries.length > 40) diag.entries.shift();
     persist(); diag.refresh();
@@ -94,7 +98,7 @@
   }
   let storageSafe = false, networkSafe = false;
   try {
-    Object.defineProperty(window, 'localStorage', {configurable: true, value: memoryStorage(savedQuality)});
+    Object.defineProperty(window, 'localStorage', {configurable: true, value: memoryStorage(requestedGraphics)});
     Object.defineProperty(window, 'sessionStorage', {configurable: true, value: memoryStorage(null)});
     storageSafe = true;
   } catch (_) { diag.fail('storage-isolation-failed'); }
@@ -135,6 +139,10 @@
   function mount() {
     const panel = document.getElementById('k0a-panel'); if (!panel) return;
     if (reportOnly && previous) diag.lastPhase = previous.lastPhase || 'unknown';
+    const setProfile = profile => { const u = new URL(location.href); u.hash = ''; u.searchParams.delete('k0a'); u.searchParams.set('gfx', profile); location.assign(u.href); };
+    document.getElementById('k0a-standard').onclick = () => setProfile('standard');
+    document.getElementById('k0a-performance').onclick = () => setProfile('performance');
+    panel.classList.add('k0a-compact');
     document.getElementById('k0a-draw').onclick = () => {
       if (diag.mode !== 'held' || !diag.drawScene || !diag.renderScene) return;
       const loader = document.getElementById('mapStartupLoader');
@@ -179,7 +187,7 @@
   const wrapped = new WeakSet();
   const counters = {render: 0, compile: 0, initTexture: 0, setRenderTarget: 0};
   const blocked = {render: 0, compile: 0, initTexture: 0, setRenderTarget: 0};
-  let drawSerial = 0;
+  let drawSerial = 0, firstAutomaticRenderSeen = false;
   const refresh = () => { if (typeof diag.refresh === 'function') diag.refresh(); };
   const metric = (name, value) => {
     if (typeof value === 'number' && Number.isFinite(value)) diag.addMetric(name, value);
@@ -220,10 +228,12 @@
           metric(name + '_blocked', blocked[name]);
           return undefined;
         }
-        const firstDraw = diag.mode === 'drawing' && name === 'render';
+        const firstAutomatic = diag.automatic && !firstAutomaticRenderSeen && name === 'render';
+        if (firstAutomatic) firstAutomaticRenderSeen = true;
+        const firstDraw = (diag.mode === 'drawing' && name === 'render') || firstAutomatic;
         if (firstDraw) diag.record('renderer-render-before');
         const result = original.apply(this, args);
-        if (firstDraw) diag.record('renderer-render-after');
+        if (firstDraw) { captureMetrics(); diag.record('renderer-render-after'); }
         return result;
       };
     }
@@ -277,7 +287,7 @@
 </script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56 K0a · iPhone-Startdiagnose · keine Reparatur</title>
+<title>ACZO56 K0a · automatischer Grafik-/Startvergleich</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- ACZO56 V.2.1: Neues Anmeldesystem mit Benutzername und Passwort. -->
 <!-- 02.10.2026 PATCH 5: Welssetup + Köderfisch = 75 % Wels / 25 % Hecht-Zander-Aal-Beifang. Karpfensetup + Köderfisch nutzt unverändert die normale Einzelruten-/Posen-Köderfischlogik. -->
@@ -5366,21 +5376,22 @@ Tatsächlich geprüft: ursprünglicher Fehler reproduziert; reale LED-Funktion b
 <body>
 <style id="k0a-diagnostic-style">
 #k0a-panel{position:fixed;z-index:2147483647;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;max-width:650px;margin:auto;max-height:85dvh;overflow:auto;padding:14px;border:2px solid #f0c361;border-radius:14px;background:#102b24;color:#fff;font:14px/1.45 system-ui,-apple-system,sans-serif;box-shadow:0 8px 35px #0007;touch-action:pan-y;pointer-events:auto;isolation:isolate}
-#k0a-panel *{box-sizing:border-box}#k0a-panel h1{font-size:18px;margin:0 0 6px;color:#ffe0a0}#k0a-panel p{margin:7px 0}#k0a-panel small{display:block;color:#c8dbd3;font-size:12px}#k0a-panel button{min-height:44px;padding:10px 12px;margin:5px 4px 0 0;border:1px solid #b3d1c1;border-radius:8px;background:#eff7f0;color:#102b24;font:600 14px system-ui;touch-action:manipulation}#k0a-panel button:disabled{opacity:.45}#k0a-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;font:11px/1.4 ui-monospace,monospace;max-height:230px;overflow:auto;background:#071d17;padding:8px}#k0a-panel summary{padding:10px 0;cursor:pointer}#k0a-panel.k0a-compact .k0a-instructions{display:none}#k0a-panel.k0a-compact{max-height:38dvh}
+#k0a-panel [hidden]{display:none!important}#k0a-panel *{box-sizing:border-box}#k0a-panel h1{font-size:18px;margin:0 0 6px;color:#ffe0a0}#k0a-panel p{margin:7px 0}#k0a-panel small{display:block;color:#c8dbd3;font-size:12px}#k0a-panel button{min-height:44px;padding:10px 12px;margin:5px 4px 0 0;border:1px solid #b3d1c1;border-radius:8px;background:#eff7f0;color:#102b24;font:600 14px system-ui;touch-action:manipulation}#k0a-panel button:disabled{opacity:.45}#k0a-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;font:11px/1.4 ui-monospace,monospace;max-height:230px;overflow:auto;background:#071d17;padding:8px}#k0a-panel summary{padding:10px 0;cursor:pointer}#k0a-panel.k0a-compact .k0a-instructions{display:none}#k0a-panel.k0a-compact{max-height:38dvh}
 </style>
-<aside id="k0a-panel" aria-label="K0a Startdiagnose">
- <h1>K0a · iPhone-Startdiagnose</h1>
- <small>Vollständige K23 mit Messinstrumentierung · keine reparierte Spielversion</small>
- <p id="k0a-status" role="status">Diagnose wird vorbereitet …</p>
+<aside id="k0a-panel" aria-label="Automatischer Startvergleich">
+ <h1>K0a · automatischer Grafikvergleich</h1>
+ <small>Diagnose 2 · ursprüngliche Startreihenfolge ohne A/B/C-Haltepunkte · keine Reparatur</small>
+ <p id="k0a-status" role="status">Automatischer Start läuft …</p>
  <p id="k0a-phase">Letzte Phase: HTML</p>
- <div class="k0a-instructions"><p><b>A:</b> Nach dem Szenenaufbau 10 Sekunden warten. Dann <b>B</b> drücken und erneut 10 Sekunden warten. Bleibt die Seite stabil, <b>C</b> drücken.</p><small>WebGL-Kontext und Bilddekodierung können bereits bei A Speicher belegen. B prüft einen isolierten Szenenrender; die regulären Spielupdates folgen erst bei C. „Render zurückgekehrt“ beweist keine abgeschlossene GPU-Arbeit.</small><p>Konten und Cloud sind gesperrt; Spielstände werden in dieser Diagnose nur flüchtig gespeichert. Die gespeicherte Grafikstufe wird für den Vergleich übernommen.</p></div>
- <button id="k0a-draw" type="button" disabled>B · Erste 3D-Ausgabe testen</button>
- <button id="k0a-run" type="button" disabled>C · Normalen Ablauf starten</button>
- <details><summary>Protokoll und letzter Start</summary><pre id="k0a-log"></pre></details>
+ <button id="k0a-draw" type="button" hidden disabled></button>
+ <button id="k0a-run" type="button" hidden disabled></button>
+ <button id="k0a-standard" type="button">Mit Standard neu starten</button>
+ <button id="k0a-performance" type="button">Mit Leistung neu starten</button>
+ <details><summary>Protokoll und Hinweise</summary><p>Erster Aufruf: Standard. 60 Sekunden warten, Protokoll kopieren. Danach mit Leistung neu starten und wieder 60 Sekunden warten. Die Grafikstufe gilt nur für diese Diagnose; die gespeicherte Spieleinstellung bleibt unverändert.</p><p>Cloud und Konten bleiben gesperrt; Spielstände sind flüchtig. Das erste Renderbild wird gemessen, die angezeigten Grafikzähler sind keine laufenden Gesamtwerte. Auch die reine Protokollansicht lädt und parst weiterhin die große HTML.</p><pre id="k0a-log"></pre></details>
  <button id="k0a-copy" type="button">Protokoll kopieren</button>
  <button id="k0a-report" type="button">Nur letztes Protokoll öffnen</button>
  <button id="k0a-again" type="button" hidden>Neuen Diagnosestart öffnen</button>
- <small>Bei erneutem Safari-Seitenfehler: dieselbe Adresse mit <b>#k0a-report</b> am Ende öffnen. Dann beginnt der Weltaufbau nicht erneut. Keine Kontodaten eingeben.</small>
+ <small>Bei Safari-Abbruch: dieselbe Adresse mit <b>#k0a-report</b> öffnen. Leistung direkt: <b>?gfx=performance</b>, Bericht dazu: <b>?gfx=performance#k0a-report</b>. Keine Kontodaten eingeben.</small>
 </aside>
 <div class="wrap">
  <div class="controls">
@@ -6849,6 +6860,8 @@ window.__aczoK0a.record('renderer-and-quality-created');
 const ACZO_MOBILE_PERF=ACZO_PERF8_MOBILE_BOOT;
 const ACZO_BASE_PIXEL_RATIO=aczoGraphicsTargetPixelRatio();
 renderer.setPixelRatio(ACZO_BASE_PIXEL_RATIO);
+window.__aczoK0a.addMetric('initial_pixel_ratio',renderer.getPixelRatio());
+window.__aczoK0a.record('graphics-profile-applied');
 renderer.outputEncoding=THREE.sRGBEncoding;
 // Echte weiche Schatten für Unterwasserhindernisse und sichtbare 3D-Objekte.
 renderer.shadowMap.enabled=true;
@@ -53451,7 +53464,7 @@ window.__aczoK0a.finalModuleDone=true;
  d.renderScene=()=>aczoRenderMainView();
  d.addMetric('selected_ultra',aczoGraphicsMode==='ultra');
  d.addMetric('selected_performance',aczoGraphicsMode==='performance');
- d.mode='held';d.record('synchronous-scene-build-complete');
+ d.mode='running';d.record('automatic-synchronous-scene-build-complete');
 })();
 </script>
 </body>
