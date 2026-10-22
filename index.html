@@ -155,7 +155,7 @@
 </script>
 <style>.aczo-safe-starting .wrap,.aczo-safe-starting .wrap *{pointer-events:none!important}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56 · K25 Mosel</title>
+<title>ACZO56 · K26 Mosel</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- ACZO56 V.2.1: Neues Anmeldesystem mit Benutzername und Passwort. -->
 <!-- 02.10.2026 PATCH 5: Welssetup + Köderfisch = 75 % Wels / 25 % Hecht-Zander-Aal-Beifang. Karpfensetup + Köderfisch nutzt unverändert die normale Einzelruten-/Posen-Köderfischlogik. -->
@@ -5460,7 +5460,7 @@ function aczoSetIconText(element,value){
   let finished=false;
 
   function tryFinish(){
-    if(finished||!firstFrameReady||!satelliteSettled||!weatherPrepared||(!mobileMapFirst&&(!underwaterPrepared||!anglingPrepared)))return;
+    if(finished||!firstFrameReady||!satelliteSettled||!weatherPrepared)return;
     const wait=Math.max(0,minimumVisibleMs-(performance.now()-startedAt));
     window.setTimeout(()=>finish(false),wait);
   }
@@ -9848,6 +9848,12 @@ function aczoAddVesselNavigationLights(root,type){
  if(type===0){light(0,-length*.36,7.35,0x4185ff,'all',.75);const cone=new THREE.Mesh(new THREE.ConeGeometry(.28,.58,12),new THREE.MeshBasicMaterial({color:0x326bd0}));cone.rotation.x=-Math.PI/2;cone.position.set(0,-length*.36,7.4);cone.name='BLAUER_KEGEL_TANKSCHIFF';root.add(cone);root.userData.dangerCone=cone;}
  root.userData.navigationLights=lights;
 }
+function aczoK26ShipSearchPose(state){
+ const l=Math.hypot(state.direction.x,state.direction.y)||1,dx=state.direction.x/l,dy=state.direction.y/l;
+ const along=state.type===2?-61.4:state.type===3?32.5:-state.length*.37+3.05;
+ const roof=state.type===2?8.97:state.type===3?6.99:6.65;
+ return {origin:new THREE.Vector3(state.position.x+dx*along,state.position.y+dy*along,ACZO_MOSEL_SURFACE_Z+.02+roof),direction:new THREE.Vector3(dx,dy,-.018).normalize(),range:420};
+}
 function aczoUpdateRegionalNight(state,ship){
  const night=simulationEnabled?THREE.MathUtils.clamp((1-satUniforms.dayLight.value)*1.28,0,1):0;aczoBridgeLightingUniforms.aczoBridgeNight.value=is2D?0:night;
  aczoShipMaterials.trainGlass.emissive.setRGB(.24*night,.17*night,.07*night);aczoShipMaterials.bridgeLamp.color.setRGB(.15+.85*night,.13+.68*night,.075+.32*night);
@@ -9856,13 +9862,13 @@ function aczoUpdateRegionalNight(state,ship){
   for(const m of ship.userData.navigationLights||[]){const sector=m.userData.sector,visible=sector==='all'||sector==='forward'&&Math.abs(angle)<1.9635||sector==='stern'&&Math.abs(angle)>1.9635||sector==='port'&&angle<0&&angle> -1.9635||sector==='starboard'&&angle>0&&angle<1.9635;const wp=m.getWorldPosition(new THREE.Vector3());m.visible=wp.x>=-500&&wp.x<=300&&wp.y>=-630&&wp.y<=200;m.material.opacity=visible?night*.88:0;}
   if(ship.userData.dangerCone)ship.userData.dangerCone.visible=night<.5;
  }
- const crossing=new THREE.Vector3(-315.8,-497,0).addScaledVector(new THREE.Vector3(.807,-.591,0).normalize(),state.type===1||state.type===2?-32.5:4.5),ahead=(crossing.x-state.position.x)*state.direction.x+(crossing.y-state.position.y)*state.direction.y;
- const enabled=!is2D&&waterSurface.visible&&state.visible&&night>.12&&ahead<180&&ahead> -state.length*.55,strength=enabled?night*THREE.MathUtils.smoothstep(ahead,-state.length*.55,-state.length*.35):0;aczoBridgeLightingUniforms.aczoSearchStrength.value=strength;
- for(let i=0;i<2;i++){
-  const origin=new THREE.Vector3(state.position.x,state.position.y,(state.type===2?8.85:state.type===3?6.85:6.65)+ACZO_MOSEL_SURFACE_Z-.20).addScaledVector(new THREE.Vector3(state.direction.x,state.direction.y,0),state.length*(state.type===3?.27:state.type===2?-.44:-.37)).addScaledVector(new THREE.Vector3(state.direction.y,-state.direction.x,0),i?2.4:-2.4),pierY=(state.type===1||state.type===2)?(i?-14.5:-50.5):(i?23.5:-14.5),target=new THREE.Vector3(-315.8,-497,4.6).addScaledVector(new THREE.Vector3(.807,-.591,0).normalize(),pierY),direction=target.clone().sub(origin).normalize();
-  aczoBridgeLightingUniforms['aczoSearchOrigin'+i].value.copy(origin);aczoBridgeLightingUniforms['aczoSearchDirection'+i].value.copy(direction);
-  const beam=aczoShipSearchBeams[i],length=origin.distanceTo(target);beam.visible=strength>.01;beam.material.opacity=.055*strength;beam.position.copy(origin);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),direction);beam.scale.set(length*.055,length*.055,length);
- }
+ const pose=aczoK26ShipSearchPose(state),bridgeDelta=new THREE.Vector2(-315.8-pose.origin.x,-497-pose.origin.y),ahead=bridgeDelta.x*state.direction.x+bridgeDelta.y*state.direction.y;
+ const enabled=!is2D&&waterSurface.visible&&state.visible&&night>.12&&ahead<340&&ahead> -30;
+ const strength=enabled?night*1.6*THREE.MathUtils.smoothstep(ahead,-30,-8)*(1-THREE.MathUtils.smoothstep(ahead,295,340)):0;
+ aczoBridgeLightingUniforms.aczoSearchStrength.value=strength;
+ aczoBridgeLightingUniforms.aczoSearchOrigin0.value.copy(pose.origin);aczoBridgeLightingUniforms.aczoSearchDirection0.value.copy(pose.direction);
+ // Legacy second uniform remains zero-use for material compatibility; only one emitter exists.
+ const beam=aczoShipSearchBeams[0];beam.visible=strength>.01;beam.material.opacity=.028*strength;beam.position.copy(pose.origin);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),pose.direction);beam.scale.set(pose.range*.228,pose.range*.228,pose.range);
 }
 function aczoInstallBridgeNightShader(mat){
  const clip=mat.onBeforeCompile;mat.onBeforeCompile=shader=>{if(clip)clip(shader);Object.assign(shader.uniforms,aczoBridgeLightingUniforms);
@@ -9873,14 +9879,14 @@ aczoLitPoint=instanceMatrix*aczoLitPoint;
 #endif
 aczoLitWorld=(modelMatrix*aczoLitPoint).xyz;`);
   shader.fragmentShader=aczoK25SearchlightGLSL+aczoBridgeDownlightGLSL+`varying vec3 aczoLitWorld;
-float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);return smoothstep(.990,.999,dot(normalize(d),direction))*max(.12,dot(normal,-normalize(d)))*clamp(1.-distance/230.,0.,1.)*aczoK25SearchVisibility(aczoLitWorld,origin);}
+float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);return smoothstep(.975,.993,dot(normalize(d),direction))*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);}
 `+shader.fragmentShader;
   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
-float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal)+aczoSearchSpot(aczoSearchOrigin1,aczoSearchDirection1,aczoNormal);
-outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*2.7;
+float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
+outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*5.4;
 outgoingLight+=vec3(1.,.70,.34)*aczoBridgeDownlight(aczoLitWorld,aczoNormal)*1.65;
 gl_FragColor = vec4( outgoingLight, diffuseColor.a );`);
- };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlights-k4a';mat.needsUpdate=true;
+ };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlight-k26';mat.needsUpdate=true;
 }
 function aczoK23FishingSprayGain(x,y){
  if(!anglingMode||is2D||fishMode||anglingCinematicView!=='shore'||anglingCameraTransition
@@ -12142,7 +12148,7 @@ function aczoK7bSample(t,out,dir){
 }
 function aczoVisitorRouteLength(a){return a.aczoK7bRoute?aczoK7bLength:a.aczoBridgeRoute?aczoBridgeVisitorLength:radwegGesamtlaenge;}
 function aczoK7bInit(){
- for(let i=0;i<6;i++)trafficActors.push({obj:i<3?(i===0?aczoK7dPerson(0):createWalker()):createBike(),t:.08+i*.153,speed:i<3?.85+i*.13:2.7+(i-3)*.25,dir:i%2?-1:1,aczoK7bRoute:true});
+ for(let i=0;i<6;i++)trafficActors.push({obj:i<3?(i===0?aczoK7dPerson(0):createWalker()):createBike(),t:.08+i*.153,speed:i<3?.85+i*.13:2.7+(i-3)*.25,dir:i%2?-1:1,aczoK7bRoute:i%2===0,aczoBridgeRoute:i%2===1});
  // Fill only the existing narrow land path. No paving across any water pixel.
  const pos=[],uv=[],ix=[];
  for(let i=1;i<aczoK7bPoints.length;i++){
@@ -14511,9 +14517,9 @@ function softPointMaterial(color,useFog=false){
       #include <fog_pars_vertex>
       attribute float pSize;attribute float pAlpha;varying float vAlpha;
       void main(){
-        vec4 mv=modelViewMatrix*vec4(position,1.0);
-        gl_PointSize=pSize*(150.0/max(1.0,-mv.z));
-        vAlpha=pAlpha;gl_Position=projectionMatrix*mv;
+        vec4 mvPosition=modelViewMatrix*vec4(position,1.0);
+        gl_PointSize=pSize*(150.0/max(1.0,-mvPosition.z));
+        vAlpha=pAlpha;gl_Position=projectionMatrix*mvPosition;
         #include <fog_vertex>
       }
     `,
@@ -38095,10 +38101,15 @@ function aczoMoselDepth(x,y){
  // This is the sole runtime Mosel depth interface; same point, same value.
  return aczoMoselDraftDepth(x,y);
 }
+function aczoK26RiverWave(x,y,t,w,dx,dy,gradient=false){
+ const sx=-dy,sy=dx,qx=x-(dx*(.48+.38*w)+.12)*t,qy=y-(dy*(.48+.38*w)+.075)*t;
+ let height=0,gx=0,gy=0;
+ for(const [along,across,ea,es,phase,ep,weight] of aczoK26RiverWaveModes){const kx=dx*along+sx*across,ky=dy*along+sy*across,ex=dx*ea+sx*es,ey=dy*ea+sy*es,a=qx*kx+qy*ky+phase,u=qx*ex+qy*ey+ep,envelope=.58+.42*Math.sin(u),sin=Math.sin(a);height+=sin*envelope*weight;if(gradient){const co=Math.cos(a),du=.42*Math.cos(u);gx+=(co*kx*envelope+sin*du*ex)*weight;gy+=(co*ky*envelope+sin*du*ey)*weight;}}
+ const amplitude=.014+.044*w;return gradient?{height:height*amplitude,dx:gx*amplitude,dy:gy*amplitude}:height*amplitude;
+}
 function aczoMoselWindElevation(x,y){
- const t=aczoK25RiverClock.value,w=THREE.MathUtils.clamp(waterUniforms.windStrength.value,0,1),raw=waterUniforms.cloudWindDir.value,l=Math.hypot(raw.x,raw.y),dx=l>.01?raw.x/l:0,dy=l>.01?raw.y/l:-1,sx=-dy,sy=dx;
- const a=x*(dx*.29+sx*.035)+y*(dy*.29+sy*.035)-t*(.62+.32*w),b=x*(dx*.47-sx*.065)+y*(dy*.47-sy*.065)-t*(.84+.38*w)+1.8,c=x*(dx*.73+sx*.12)+y*(dy*.73+sy*.12)-t*(1.08+.44*w)+3.1;
- return (.014+.044*w)*(Math.sin(a)*.58+Math.sin(b)*.27+Math.sin(c)*.15)/.22;
+ const t=aczoK25RiverClock.value,w=THREE.MathUtils.clamp(waterUniforms.windStrength.value,0,1),raw=waterUniforms.cloudWindDir.value,l=Math.hypot(raw.x,raw.y),dx=l>.01?raw.x/l:0,dy=l>.01?raw.y/l:-1;
+ return aczoK26RiverWave(x,y,t,w,dx,dy)/.22;
 }
 function aczoMoselSurfaceZ(x,y){
  const g=aczoWaveGrid,fx=(x+500)/800*g.w-.5,fy=(200-y)/830*g.h-.5,ix=Math.floor(fx),iy=Math.floor(fy);let height=0;
@@ -38230,10 +38241,11 @@ function aczoMoselFishingEnd(){
  rt.savedActors.forEach((f,i)=>{f.obj.visible=rt.savedVisibility[i];});
  if(rt.bottom){scene.remove(rt.bottom);rt.bottom.visible=false;if(!rt.cachedBed){rt.bottom.traverse(o=>{if(o.geometry)o.geometry.dispose();});for(const m of rt.materials)m.dispose();}}
  aczoRiverBed.visible=rt.savedBedVisible;
+ if(rt.k26PondEntryTargets){fishEntryTargets.splice(0,fishEntryTargets.length,...rt.k26PondEntryTargets);fishEntryFocus=rt.k26PondEntryFocus;}
  aczoMoselFishing=null;if(aczoK12BankSkirt)aczoK12BankSkirt.visible=!!waterVisible;aczoK8dSyncBedSeam(false);
 }
 function aczoMoselFishingStart(shore,inward,mapCenter=null){
- const stages={started:performance.now()};aczoMoselFishingEnd();stages.restoreMs=performance.now()-stages.started;let mark=performance.now();const surfaceOnly=anglingMode&&!fishMode&&!mapCenter&&!anglingUsesArtificialLure()&&!anglingUsesDeeper();if(!surfaceOnly){ensureAnglingLureUnderwaterWorld();buildFishWorld();}stages.baseAssetsMs=performance.now()-mark;
+ const stages={started:performance.now()};aczoMoselFishingEnd();stages.restoreMs=performance.now()-stages.started;let mark=performance.now();const surfaceOnly=anglingMode&&!fishMode&&!mapCenter;if(!surfaceOnly){ensureAnglingLureUnderwaterWorld();buildFishWorld();}stages.baseAssetsMs=performance.now()-mark;
  cancelHuntEvent();
  const center=mapCenter?mapCenter.clone():shore.clone().addScaledVector(inward,24);center.z=-1.2;
  const rt={center,savedActors:fishActors.slice(),savedVisibility:fishActors.map(f=>f.obj.visible),savedBedVisible:aczoRiverBed.visible,bottom:null,materials:[]};
@@ -40582,7 +40594,7 @@ function aczoPerf6PrepareRigidBatches(observeBatch){
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.__aczoStartup={mainReady:false,rendererState:'pending',rendererAttempts:[],firstError:null,errors:[],skippedModules:[]};
 const VIEWER_VERSION='ACZO56-Interaktiv-V.4.0 · Testversion';
-const ACZO_INTERNAL_BUILD='4.0-Mosel-K25-MOSEL-V1';
+const ACZO_INTERNAL_BUILD='4.0-Mosel-K26-TRANSITIONS-V1';
 window.__aczoBootAudit?.mark('engine-script');
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -43062,11 +43074,26 @@ const moselPosCount=moselWaterGeo.getAttribute('position').count;
 moselWaterGeo.computeVertexNormals();
 const moselWaterMat=waterMat.clone();
 moselWaterMat.side=ACZO_MOBILE_PERF?THREE.FrontSide:THREE.DoubleSide;
-{const first=moselWaterMat.vertexShader.indexOf('     float ws='),end=moselWaterMat.vertexShader.indexOf('     vec4 world=',first);if(first<0||end<0)throw Error('River wave anchor');moselWaterMat.vertexShader=moselWaterMat.vertexShader.slice(0,first)+"\n     float wind=clamp(windStrength,0.,1.),amp=.014+.044*wind;\n     vec2 dir=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),side=vec2(-dir.y,dir.x);\n     vec2 k1=dir*.29+side*.035,k2=dir*.47-side*.065,k3=dir*.73+side*.12;\n     float a=dot(p.xy,k1)-time*(.62+.32*wind),b=dot(p.xy,k2)-time*(.84+.38*wind)+1.8,c=dot(p.xy,k3)-time*(1.08+.44*wind)+3.1;\n     float wave=sin(a)*.58+sin(b)*.27+sin(c)*.15;\n     float shoreFade=smoothstep(1.,3.4,max(shoreDist,0.));\n     float localAmp=amp*shoreFade;\n     p.z+=wave*localAmp;\n     // Näherungs-Normale aus denselben Wellen.\n     vec2 gradient=(cos(a)*k1*.58+cos(b)*k2*.27+cos(c)*k3*.15)*localAmp;\n     vec3 n=normalize(vec3(-gradient,1.));\n"+moselWaterMat.vertexShader.slice(end);}
+{const first=moselWaterMat.vertexShader.indexOf('     float ws='),end=moselWaterMat.vertexShader.indexOf('     vec4 world=',first);if(first<0||end<0)throw Error('River wave anchor');moselWaterMat.vertexShader=moselWaterMat.vertexShader.slice(0,first)+"\n     float wind=clamp(windStrength,0.,1.),amp=.014+.044*wind;\n     vec2 dir=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),side=vec2(-dir.y,dir.x);\n     vec2 q=p.xy-(dir*(.48+.38*wind)+vec2(.12,.075))*time;\n     vec2 k1=dir*.38+side*.14,k2=dir*.65-side*.23,k3=dir*.98+side*.31;\n     vec2 e1=dir*.071+side*.117,e2=dir*.103-side*.083,e3=dir*.137+side*.157;\n     float a=dot(q,k1),b=dot(q,k2)+1.8,c=dot(q,k3)+3.1;\n     float u=dot(q,e1)+.7,v=dot(q,e2)+2.4,w=dot(q,e3)+4.8;\n     vec3 envelope=vec3(.58)+.42*sin(vec3(u,v,w));\n     float wave=sin(a)*envelope.x*.45+sin(b)*envelope.y*.32+sin(c)*envelope.z*.23;\n     float shoreFade=smoothstep(1.,3.4,max(shoreDist,0.));\n     float localAmp=amp*shoreFade;\n     p.z+=wave*localAmp;\n     // Näherungs-Normale aus denselben Wellen.\n     vec2 gradient=((cos(a)*k1*envelope.x+sin(a)*cos(u)*e1*.42)*.45\n       +(cos(b)*k2*envelope.y+sin(b)*cos(v)*e2*.42)*.32\n       +(cos(c)*k3*envelope.z+sin(c)*cos(w)*e3*.42)*.23)*localAmp;\n     vec3 n=normalize(vec3(-gradient,1.));\n"+moselWaterMat.vertexShader.slice(end);}
 moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(/float waveBands\(vec2 p\)\{[\s\S]*?float surfaceRipples\(vec2 p\)\{[\s\S]*?\n   \}/,`
- float waveBands(vec2 p){vec2 d=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),s=vec2(-d.y,d.x);vec2 q=p-d*time*(.44+cloudWindSpeed*.24);return sin(dot(q,d*.68+s*.11))*.62+sin(dot(q,d*1.13-s*.18)+1.8)*.26+sin(dot(q,d*1.72+s*.26)+3.1)*.12;}
- float surfaceRipples(vec2 p){vec2 d=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),s=vec2(-d.y,d.x);vec2 q=p-d*time*(.44+cloudWindSpeed*.24);return .5+.5*(sin(dot(q,d*1.65+s*.20))*.64+sin(dot(q,d*2.42-s*.31)+1.7)*.36);}
+
+ uniform float windStrength;
+ // Fixed, advected domains give short, uneven wind crests rather than ruler bands.
+ vec2 aczoK26RiverDrift(vec2 p){vec2 d=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.));return p-(d*(.48+.38*clamp(windStrength,0.,1.))+vec2(.12,.075))*time;}
+ float aczoK26RiverHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+ float aczoK26RiverNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(aczoK26RiverHash(i),aczoK26RiverHash(i+vec2(1.,0.)),f.x),mix(aczoK26RiverHash(i+vec2(0.,1.)),aczoK26RiverHash(i+vec2(1.)),f.x),f.y);}
+ float aczoK26RiverCrests(vec2 p,float scale){
+  vec2 d=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),s=vec2(-d.y,d.x),q=aczoK26RiverDrift(p);
+  vec2 uv=vec2(dot(q,d),dot(q,s))*scale;
+  float packetMask=aczoK26RiverNoise(uv*vec2(.075,.16)+vec2(2.8,7.1));
+  float curve=uv.x+sin(uv.y*.31+uv.x*.085)*1.7+sin(uv.y*.67-uv.x*.12)*.7;
+  float crest=sin(curve+packetMask*2.4)*.61+sin(curve*1.61-uv.y*.23+1.8)*.25+sin(uv.x*.71+uv.y*.58+3.4)*.14;
+  return crest*(.22+.78*smoothstep(.20,.78,packetMask));
+ }
+ float waveBands(vec2 p){return aczoK26RiverCrests(p,.67);}
+ float surfaceRipples(vec2 p){return .5+.5*aczoK26RiverCrests(p,1.63);}
  `);
+moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('float fine=(fine1*.68+fine2*.32)*.5+.5;','float fine=.5+.5*aczoK26RiverCrests(vWorldPos.xy,2.47);');
 const aczoK25RiverClock={value:0};
 const moselWaterUniforms={...waterUniforms,time:aczoK25RiverClock,anglingView:{value:0},clipToPond:{value:0.0}};
 moselWaterMat.uniforms=moselWaterUniforms;
@@ -43086,10 +43113,10 @@ moselWaterMat.vertexShader=moselWaterMat.vertexShader.replace(
 moselWaterMat.polygonOffset=true;
 moselWaterMat.polygonOffsetFactor=-4;
 moselWaterMat.polygonOffsetUnits=-4;
-aczoClipMoselMaterial(moselWaterMat,'vWorldPos.xy');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+aczoClipMoselMaterial(moselWaterMat,'vWorldPos.xy');
 aczoInstallShipWakeOnRiver();
 const moselWaterSurface=new THREE.Mesh(moselWaterGeo,moselWaterMat);
 directSunMoselReflectionMat=makeDirectCelestialReflectionMaterial(0xfff0bd);
@@ -43149,10 +43176,10 @@ moselWaterBase.frustumCulled=false;
 moselWaterBase.visible=false;
 const moselCelestialDepthMat=celestialDepthMat.clone();
 const moselCelestialDepthUniforms={...celestialDepthUniforms,clipToPond:{value:0.0}};
-moselCelestialDepthMat.uniforms=moselCelestialDepthUniforms;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+moselCelestialDepthMat.uniforms=moselCelestialDepthUniforms;
 moselCelestialDepthMat.depthTest=true;
 aczoClipMoselMaterial(moselCelestialDepthMat,'vWorldPos.xy');
 const moselCelestialDepthLift=new THREE.Mesh(moselWaterGeo,moselCelestialDepthMat);
@@ -43318,10 +43345,10 @@ const aczoBridgeBuilder=new AczoVesselBuilder('GRUENE_VOLLWANDTRAEGER_GLEIS_UND_
 }
 const aczoBridgeSteel=aczoBridgeBuilder.finish();
 aczoBridgeSteel.scale.x=-1;
-aczoBridgeSteel.userData.radarArmCount=4;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+aczoBridgeSteel.userData.radarArmCount=4;
 aczoBridgeSteel.position.set(ACZO_KONZ_BRIDGE.center.x,ACZO_KONZ_BRIDGE.center.y,0);
 aczoBridgeSteel.rotation.z=Math.atan2(-ACZO_KONZ_BRIDGE.direction.x,ACZO_KONZ_BRIDGE.direction.y);
 aczoKonzerGroup.add(aczoBridgeSteel);
@@ -43379,7 +43406,7 @@ const aczoNavigationGlowTexture=(()=>{
  const c=document.createElement('canvas');c.width=c.height=48;const x=c.getContext('2d'),g=x.createRadialGradient(24,24,1,24,24,23);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.13,'rgba(255,255,255,.9)');g.addColorStop(.34,'rgba(255,255,255,.22)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,48,48);return new THREE.CanvasTexture(c);
 })();
 const aczoBridgeLightingUniforms={aczoBridgeNight:{value:0},aczoSearchStrength:{value:0},aczoSearchOrigin0:{value:new THREE.Vector3()},aczoSearchOrigin1:{value:new THREE.Vector3()},aczoSearchDirection0:{value:new THREE.Vector3(0,1,0)},aczoSearchDirection1:{value:new THREE.Vector3(0,1,0)}};
-const aczoK25SearchlightGLSL="uniform float aczoSearchStrength;uniform vec3 aczoSearchOrigin0,aczoSearchOrigin1,aczoSearchDirection0,aczoSearchDirection1;\n bool aczoK25SearchBox(vec3 p,vec3 d,float lengthToLight,vec3 lo,vec3 hi){\n  vec3 safe=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,abs(d.z)<.0001?.0001:d.z);\n  vec3 a=(lo-p)/safe,b=(hi-p)/safe,enter=min(a,b),leave=max(a,b);\n  float first=max(max(enter.x,enter.y),enter.z),last=min(min(leave.x,leave.y),leave.z);\n  return max(first,.12)<min(last,lengthToLight-.12);\n }\n float aczoK25SearchVisibility(vec3 point,vec3 origin){\n  vec2 axis=normalize(vec2(.807,-.591)),crossAxis=vec2(-axis.y,axis.x),delta=point.xy-vec2(-315.8,-497.);\n  vec3 deltaLight=origin-point;float distance=length(deltaLight);if(distance<1.)return 1.;\n  vec3 p=vec3(dot(delta,crossAxis),dot(delta,axis),point.z),d=vec3(dot(deltaLight.xy,crossAxis),dot(deltaLight.xy,axis),deltaLight.z)/distance;\n  // Small bias avoids shadowing the illuminated masonry face with its simplified blocker.\n  p+=d*.55;distance-=.55;\n  if(aczoK25SearchBox(p,d,distance,vec3(-4.3,-108.5,10.90),vec3(4.3,108.5,11.16)))return 0.;\n  for(int i=0;i<6;i++){float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   if(aczoK25SearchBox(p,d,distance,vec3(-4.0,y-1.35,-.3),vec3(4.0,y+1.35,9.15)))return 0.;}\n  return 1.;\n }\n vec3 aczoK25SearchContribution(vec3 point,vec3 normal,vec3 origin,vec3 beam,bool water){\n  vec3 toward=origin-point;float distance=length(toward);if(distance<.1||distance>230.)return vec3(0.);\n  vec3 L=toward/distance;float cone=smoothstep(.990,.999,dot(-L,beam));if(cone<.002)return vec3(0.);\n  float visibility=aczoK25SearchVisibility(point,origin);if(visibility<.5)return vec3(0.);\n  float fade=pow(max(0.,1.-distance/230.),2.);\n  float value=water?(.006+pow(max(0.,dot(reflect(-L,normal),normalize(cameraPosition-point))),42.)*1.5)*max(.03,dot(normal,L)):max(0.,dot(normal,L))*.60;\n  return vec3(.82,.89,1.)*value*cone*fade*aczoSearchStrength;\n }\n vec3 aczoK25SearchWater(vec3 point,vec3 normal){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,normal,aczoSearchOrigin0,aczoSearchDirection0,true)+aczoK25SearchContribution(point,normal,aczoSearchOrigin1,aczoSearchDirection1,true);\n }\n vec3 aczoK25SearchLand(vec3 point){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,vec3(0.,0.,1.),aczoSearchOrigin0,aczoSearchDirection0,false)+aczoK25SearchContribution(point,vec3(0.,0.,1.),aczoSearchOrigin1,aczoSearchDirection1,false);\n }\n";
+const aczoK25SearchlightGLSL="uniform float aczoSearchStrength;uniform vec3 aczoSearchOrigin0,aczoSearchOrigin1,aczoSearchDirection0,aczoSearchDirection1;\n bool aczoK25SearchBox(vec3 p,vec3 d,float lengthToLight,vec3 lo,vec3 hi){\n  vec3 safe=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,abs(d.z)<.0001?.0001:d.z);\n  vec3 a=(lo-p)/safe,b=(hi-p)/safe,enter=min(a,b),leave=max(a,b);\n  float first=max(max(enter.x,enter.y),enter.z),last=min(min(leave.x,leave.y),leave.z);\n  return max(first,.12)<min(last,lengthToLight-.12);\n }\n float aczoK25SearchVisibility(vec3 point,vec3 origin){\n  vec2 axis=normalize(vec2(.807,-.591)),crossAxis=vec2(-axis.y,axis.x),delta=point.xy-vec2(-315.8,-497.);\n  vec3 deltaLight=origin-point;float distance=length(deltaLight);if(distance<1.)return 1.;\n  vec3 p=vec3(dot(delta,crossAxis),dot(delta,axis),point.z),d=vec3(dot(deltaLight.xy,crossAxis),dot(deltaLight.xy,axis),deltaLight.z)/distance;\n  // Small bias avoids shadowing the illuminated masonry face with its simplified blocker.\n  p+=d*.55;distance-=.55;\n  if(aczoK25SearchBox(p,d,distance,vec3(-4.3,-108.5,10.90),vec3(4.3,108.5,11.16)))return 0.;\n  for(int i=0;i<6;i++){float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   if(aczoK25SearchBox(p,d,distance,vec3(-4.0,y-1.35,-.3),vec3(4.0,y+1.35,9.15)))return 0.;}\n  return 1.;\n }\n vec3 aczoK25SearchContribution(vec3 point,vec3 normal,vec3 origin,vec3 beam,bool water){\n  vec3 toward=origin-point;float distance=length(toward);if(distance<.1||distance>420.)return vec3(0.);\n  vec3 L=toward/distance;float cone=smoothstep(.975,.993,dot(-L,beam));if(cone<.002)return vec3(0.);\n  float visibility=aczoK25SearchVisibility(point,origin);if(visibility<.5)return vec3(0.);\n  float fade=(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018);\n  float facing=max(0.,dot(normal,L));\n  float value=water?(.10+pow(max(0.,dot(reflect(-L,normal),normalize(cameraPosition-point))),28.)*4.6)*(.35+.65*facing):(.04+.96*facing)*.85;\n  return vec3(.82,.89,1.)*value*cone*fade*aczoSearchStrength;\n }\n vec3 aczoK25SearchWater(vec3 point,vec3 normal){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,normal,aczoSearchOrigin0,aczoSearchDirection0,true);\n }\n vec3 aczoK25SearchLand(vec3 point){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,vec3(0.,0.,1.),aczoSearchOrigin0,aczoSearchDirection0,false);\n }\n";
 const aczoBridgeDownlightGLSL=`
 uniform float aczoBridgeNight;
 uniform vec3 aczoBridgeLamp0,aczoBridgeLamp1,aczoBridgeLamp2,aczoBridgeLamp3;
@@ -43399,7 +43426,7 @@ float aczoBridgeDownlight(vec3 point,vec3 normal){
 const aczoSearchBeamGeo=new THREE.ConeGeometry(1,1,16,1,true);
 aczoSearchBeamGeo.rotateX(Math.PI/2);
 aczoSearchBeamGeo.translate(0,0,-.5);
-const aczoShipSearchBeams=[0,1].map(i=>{const m=new THREE.Mesh(aczoSearchBeamGeo,new THREE.MeshBasicMaterial({color:0xe4efff,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));m.name='BRUECKENSUCHSCHEINWERFER_'+i;m.visible=false;scene.add(m);return m;});
+const aczoShipSearchBeams=[0].map(i=>{const m=new THREE.Mesh(aczoSearchBeamGeo,new THREE.MeshBasicMaterial({color:0xe4efff,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));m.name='BRUECKENSUCHSCHEINWERFER_'+i;m.visible=false;scene.add(m);return m;});
 const aczoBridgeLampPools=[];
 const aczoBridgeLampWorldPositions=[];
 for(const y of [-14.5,23.5])for(const face of [-1,1]){
@@ -43426,10 +43453,10 @@ aczoClipMoselMaterial(aczoNeighbourPondMat,'vWorldPos.xy');
 aczoNeighbourPondMat.fragmentShader=aczoNeighbourPondMat.fragmentShader.replace('if(aczoRiverMask(vWorldPos.xy)<.98)','if(aczoNeighbourPondMask(vWorldPos.xy)<.98)');
 const aczoNeighbourPondGeo=new THREE.PlaneGeometry(80,90,48,54);
 aczoNeighbourPondGeo.translate(20,150,0);
-aczoNeighbourPondGeo.setAttribute('shoreDist',new THREE.Float32BufferAttribute(new Float32Array(aczoNeighbourPondGeo.attributes.position.count).fill(3.2),1));
 
 </script>
 <script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+aczoNeighbourPondGeo.setAttribute('shoreDist',new THREE.Float32BufferAttribute(new Float32Array(aczoNeighbourPondGeo.attributes.position.count).fill(3.2),1));
 const aczoNeighbourPondSurface=new THREE.Mesh(aczoNeighbourPondGeo,aczoNeighbourPondMat);
 aczoNeighbourPondSurface.name='NORDOESTLICHER_NACHBARWEIHER_WASSER';
 aczoNeighbourPondSurface.position.z=.16;
@@ -44173,26 +44200,47 @@ traffic2DGroup.visible=false;
 scene.add(traffic2DGroup);
 const aczoBridgeVisitorPoints=[];
 {
- const groundZ=ACZO_SATELLITE_GROUND_Z-.03;
- const prefix=radwegRoute.filter(p=>p.y>=-425.34).map(p=>new THREE.Vector3(p.x,p.y,groundZ));aczoBridgeVisitorPoints.push(...prefix);
- const north=aczoNorthRailCurve.getPoints(180);
- function offsetPoint(points,i){const p=points[i],d=points[Math.min(points.length-1,i+1)].clone().sub(points[Math.max(0,i-1)]),side=new THREE.Vector3(d.y,-d.x,0).normalize();return p.clone().addScaledVector(side,-2.48).add(new THREE.Vector3(0,0,-.14));}
- const start=north.findIndex(p=>p.y< -414),rampStart=prefix[prefix.length-1],rampEnd=offsetPoint(north,start),ascent=[];
- for(let i=1;i<=24;i++)ascent.push(rampStart.clone().lerp(rampEnd,i/24));
- aczoBridgeVisitorPoints.push(...ascent);
- for(let i=start+1;i<north.length;i++)aczoBridgeVisitorPoints.push(offsetPoint(north,i));
+ const north=aczoNorthRailCurve.getPoints(150),south=aczoSouthRailCurve.getPoints(100);
+ const inMap=p=>p.x>=-500&&p.x<=300&&p.y>=-630&&p.y<=200;
+ function offsetPoint(points,i){
+  const p=points[i],d=points[Math.min(points.length-1,i+1)].clone().sub(points[Math.max(0,i-1)]),side=new THREE.Vector3(d.y,-d.x,0).normalize();
+  const out=p.clone().addScaledVector(side,-2.48);out.z=Math.max(.30,p.z-.14)-.03;return out;
+ }
+ // Fourteen centimetres of supported green footway on the existing ramp top.
+ // Its full width stays inside the original 8.8 m embankment; no new ground strip.
+ function cap(points,isNorth){
+  const pos=[],uv=[],ix=[];let run=[];
+  function finish(){
+   if(run.length<2){run=[];return;}
+   const first=pos.length/3;
+   for(let j=0;j<run.length;j++){
+    const i=run[j],p=points[i],q=offsetPoint(points,i),d=points[Math.min(points.length-1,i+1)].clone().sub(points[Math.max(0,i-1)]),s=new THREE.Vector3(d.y,-d.x,0).normalize(),base=Math.max(.16,p.z-.28)-.003,top=q.z+.03;
+    for(const [w,z]of [[-1.18,base],[-1.18,top],[1.18,top],[1.18,base]]){pos.push(q.x+s.x*w,q.y+s.y*w,z);uv.push(j*.15,w);}
+    if(j){const a=first+(j-1)*4;for(let k=0;k<4;k++){const c=(k+1)%4;ix.push(a+k,a+c,a+k+4,a+c,a+c+4,a+k+4);}}
+   }
+   ix.push(first,first+2,first+1,first,first+3,first+2);const last=pos.length/3-4;ix.push(last,last+1,last+2,last,last+2,last+3);run=[];
+  }
+  for(let i=0;i<points.length;i++){
+   const p=points[i],fromBridge=p.distanceTo(new THREE.Vector3(aczoBridgeB.x,aczoBridgeB.y,11.3));
+   // The south road underpass already has a solid deck at this exact footway height.
+   const onExistingRoadDeck=!isNorth&&fromBridge>56&&fromBridge<90;
+   if(!inMap(p)||onExistingRoadDeck){finish();continue;}
+   // Match the original deck's segment endpoints, so its last panel and this cap meet.
+   if(!isNorth&&!run.length&&i>0&&inMap(points[i-1])){
+    const previousDistance=points[i-1].distanceTo(new THREE.Vector3(aczoBridgeB.x,aczoBridgeB.y,11.3));
+    if(previousDistance>56&&previousDistance<90)run.push(i-1);
+   }
+   run.push(i);
+  }
+  finish();if(!pos.length)return;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();
+  const m=new THREE.Mesh(g,aczoShipMaterials.earth);m.name=isNorth?'K26_FUSSWEG_AUF_NORDRAMPE':'K26_FUSSWEG_AUF_SUEDRAMPE';m.receiveShadow=true;aczoKonzerGroup.add(m);
+ }
+ cap(north,true);cap(south,false);
+ for(let i=0;i<north.length;i++)if(inMap(north[i]))aczoBridgeVisitorPoints.push(offsetPoint(north,i));
  const side=new THREE.Vector3(ACZO_KONZ_BRIDGE.direction.y,-ACZO_KONZ_BRIDGE.direction.x,0);
  for(let i=1;i<=108;i++)aczoBridgeVisitorPoints.push(new THREE.Vector3(aczoBridgeA.x,aczoBridgeA.y,11.13).lerp(new THREE.Vector3(aczoBridgeB.x,aczoBridgeB.y,11.13),i/108).addScaledVector(side,-2.48));
- const south=aczoSouthRailCurve.getPoints(100);for(let i=1;i<south.length;i++)aczoBridgeVisitorPoints.push(offsetPoint(south,i));
- // Only the ascent has a new mesh; the photographed ground path stays clear.
- const positions=[],uv=[],ix=[],ramp=[rampStart,...ascent];
- for(let i=0;i<ramp.length;i++){const p=ramp[i],d=ramp[Math.min(ramp.length-1,i+1)].clone().sub(ramp[Math.max(0,i-1)]),s=new THREE.Vector3(d.y,-d.x,0).normalize(),base=ACZO_SATELLITE_GROUND_Z-.02;
-  for(const [width,z] of [[-1.90,base],[-1.18,p.z],[1.18,p.z],[1.90,base]]){positions.push(p.x+s.x*width,p.y+s.y*width,z);uv.push(i*.15,width);}
-  if(i){const a=(i-1)*4;for(let j=0;j<3;j++)ix.push(a+j,a+j+1,a+j+4,a+j+1,a+j+5,a+j+4);}
- }
- ix.push(0,2,1,0,3,2);const last=(ramp.length-1)*4;ix.push(last,last+1,last+2,last,last+2,last+3);
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();
- const m=new THREE.Mesh(g,aczoShipMaterials.earth);m.name='K25_GRUENER_AUFGANG_VOM_UFERWEG';aczoKonzerGroup.add(m);
+ for(let i=1;i<south.length;i++)if(inMap(south[i]))aczoBridgeVisitorPoints.push(offsetPoint(south,i));
 }
 const aczoBridgeVisitorLengths=[0];
 
@@ -44210,9 +44258,8 @@ const ACZO_K20_VEST_RINGS=[[.94,.145,.083],[1.00,.190,.115],[1.08,.212,.132],[1.
 const aczoK7d2Pool=[];
 let aczoK7d2NextBuild=0;
 const ACZO_K7B_PATH=Object.freeze([[299.028468,-163.251447],[263.910968,-181.163729],[241.284928,-192.948125],[221.487142,-202.375642],[200.27523,-212.981598],[181.655884,-223.587554],[152.194895,-238.907269],[129.804542,-251.163041],[118.020146,-257.526615],[111.420885,-262.004685],[106.471438,-265.068628],[103.878871,-269.546698],[102.700432,-273.553393],[90.740386,-313.816925],[86.534555,-327.75093],[82.159362,-331.980283],[75.888251,-337.959714],[19.027449,-382.421632],[2.401715,-396.713929],[-13.932339,-410.714547],[-54.115005,-451.873828],[-80.390327,-477.595985],[-105.006155,-501.382066],[-122.707424,-519.083335],[-133.217553,-525.444729],[-142.897935,-529.870046],[-154.237811,-533.742199],[-164.471357,-537.337769],[-172.768827,-541.763087],[-178.577056,-548.677645],[-184.661867,-557.251698],[-185.491614,-565.549168],[-180.071997,-582.626089],[-175.829615,-590.168103],[-186.199883,-589.461039],[-242.529296,-551.279596],[-254.440977,-540.90266],[-293.39063,-510.814093],[-386.359695,-439.678078],[-404.056694,-425.410336],[-424.934931,-396.951218],[-443.268267,-364.787126],[-431.373764,-372.833408],[-389.043328,-409.56643],[-385.195107,-421.460933],[-386.244622,-430.206891],[-401.287669,-447.348968],[-414.231687,-454.345735],[-424.376998,-461.342501],[-437.321016,-471.83765],[-452.014225,-484.43183],[-466.357596,-499.125039],[-477.202583,-512.418895],[-499.242397,-538.30693]]);
-const aczoK7bPoints=[...ACZO_K7B_PATH.slice(0,35).map(p=>new THREE.Vector3(p[0],p[1],ACZO_VISITOR_GROUND_Z)),
- ...aczoBridgeVisitorPoints.slice(radwegRoute.filter(p=>p.y>=-425.34).length-1).reverse().map(p=>p.clone()),
- ...ACZO_K7B_PATH.slice(45).map(p=>new THREE.Vector3(p[0],p[1],ACZO_VISITOR_GROUND_Z))];
+const aczoK7bGroundPoints=ACZO_K7B_PATH.slice(0,35).map(p=>new THREE.Vector3(p[0],p[1],ACZO_VISITOR_GROUND_Z));
+const aczoK7bPoints=[...aczoK7bGroundPoints,...aczoK7bGroundPoints.slice(0,-1).reverse().map(p=>p.clone())];
 const aczoK7bLengths=[0];
 for(let i=1;i<aczoK7bPoints.length;i++)aczoK7bLengths.push(aczoK7bLengths[i-1]+aczoK7bPoints[i].distanceTo(aczoK7bPoints[i-1]));
 const aczoK7bLength=aczoK7bLengths[aczoK7bLengths.length-1];
@@ -44286,10 +44333,10 @@ let aczoCloudMotionLastAt=0;
 let aczoCloudVisualSpeed=0;
 const rainRippleGroup=new THREE.Group();
 scene.add(rainRippleGroup);
-const rainRipples=[];
 
 </script>
 <script type="application/x-aczo-stage" data-label="Gebäude und Landschaft werden aufgebaut">
+const rainRipples=[];
 const rainRippleTex=makeRainRippleTexture();
 const rainRippleGeo=new THREE.PlaneGeometry(1,1);
 const MAX_RAIN_RIPPLES=84;
@@ -45976,7 +46023,7 @@ const aczoBoarEyeMat=new THREE.MeshStandardMaterial({color:0x090806,roughness:.4
 const aczoBoarTuskMat=new THREE.MeshStandardMaterial({color:0xd8d0b5,roughness:.72});
 
 </script>
-<script type="application/x-aczo-stage" data-label="Vollständiger Baumbestand wird vorbereitet">
+<script type="application/x-aczo-stage" data-label="Angelwelt wird vorbereitet">
 const aczoBoarBristleMat=new THREE.LineBasicMaterial({color:0x211c18,transparent:true,opacity:.82});
 const aczoWildBoarActors=[];
 [
@@ -48559,6 +48606,7 @@ const ACZO_K8E_HABITAT_POLICY=Object.freeze({enabled:false,affectsCatches:false,
  zander:'edges, depth transitions and bank breaks',catfish:'deep holes and downstream bridge pockets',
  coarseFish:'sheltered vegetation and substrate',surveyedObjects:false});
 let aczoK8ePierCache=null;
+const aczoK26RiverWaveModes=[[.38,.14,.071,.117,0,.7,.45],[.65,-.23,.103,-.083,1.8,2.4,.32],[.98,.31,.137,.157,3.1,4.8,.23]];
 let aczoK12StreamPending=null,aczoK12LastStream=0,aczoK12BankSkirt=null;
 const aczoK12StreamStats={switches:0,cancelled:0,stages:[],maxCached:0};
 const ACZO_K20_MOSEL_EDGE_SPANS=Object.freeze([[-500,-543.826667,-500,-630.0],[300,45.506667,300,-26.173333],[-500.0,-630,-359.826667,-630]]);
@@ -48604,6 +48652,9 @@ aczoEl('aczoShowRecover').addEventListener('click',()=>{
   aczoEl('aczoRegisterSubmit').textContent='Spielerkonto erstellen';
   aczoSetAccountMode('register');
 });
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 aczoEl('aczoCheckRecovery').addEventListener('click',async()=>{
   if(aczoAccountBusy)return;
   const code=normalizeAnglingRecoveryCode(aczoEl('aczoRegisterRecovery').value||'');
@@ -48628,9 +48679,6 @@ aczoEl('aczoCheckRecovery').addEventListener('click',async()=>{
   }catch(err){aczoRecoveryLookup=null;out.textContent=err?.message||'Code konnte nicht geprüft werden.';aczoRenderAccount();}
   finally{aczoAccountBusy=false;btn.disabled=false;}
 });
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 aczoEl('aczoResetCheck').addEventListener('click',async()=>{
   if(aczoAccountBusy)return;
   const code=normalizeAnglingRecoveryCode(aczoEl('aczoResetCode').value||'');
@@ -48804,6 +48852,239 @@ aczoEl('anglingRecentPlayers').addEventListener('click',e=>{const id=e.target.cl
 aczoEl('anglingActivePlayers').addEventListener('click',e=>{const id=e.target.closest('[data-public-id]')?.dataset.publicId;if(id)aczoOpenCard(id);});
 for(const id of ['anglingRecentPlayers','anglingActivePlayers'])aczoEl(id).addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const key=e.target.closest('[data-public-id]')?.dataset.publicId;if(key){e.preventDefault();aczoOpenCard(key);}}});
 aczoResumeSession();
+(function aczoInstallK26Transitions(){
+ const prep={busy:false,generation:0,queue:[],active:null,error:null,stats:[],completed:[],gpu:new WeakMap(),bufferIds:new WeakMap(),nextBufferId:1,materialKeys:new WeakMap(),shaderIds:new Map(),nextShaderId:1,cpu:new Set(),target:null,contextLost:false,dialog:null,deferUntilAction:false};
+ window.__aczoTransitionPrep=prep;
+ const cancelled=()=>Object.assign(new Error('Preparation superseded'),{aczoCancelled:true});
+ function valid(job){return job.generation===prep.generation&&(!job.valid||job.valid())&&!prep.contextLost;}
+ function check(job){if(!valid(job))throw cancelled();}
+ function paint(){return new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));}
+ function dialog(){
+  if(prep.dialog)return prep.dialog;
+  const host=document.createElement('div');host.id='aczoTransitionPreparation';host.setAttribute('role','status');host.setAttribute('aria-live','polite');host.hidden=true;
+  Object.assign(host.style,{position:'fixed',inset:'0',zIndex:'2147483000',display:'none',alignItems:'center',justifyContent:'center',background:'rgba(5,20,17,.30)',padding:'20px',boxSizing:'border-box',touchAction:'none'});
+  const card=document.createElement('div');Object.assign(card.style,{maxWidth:'330px',width:'100%',background:'#102e29',border:'1px solid #8ba99b',borderRadius:'14px',padding:'18px',boxSizing:'border-box',boxShadow:'0 8px 35px #0006',color:'#f1f5eb',font:'15px system-ui,sans-serif',textAlign:'center'});
+  const title=document.createElement('strong'),detail=document.createElement('div'),retry=document.createElement('button'),abort=document.createElement('button');
+  Object.assign(detail.style,{fontSize:'13px',lineHeight:'1.5',marginTop:'8px',color:'#d4e2d8'});retry.type='button';retry.textContent='Erneut versuchen';retry.hidden=true;
+  Object.assign(retry.style,{marginTop:'14px',border:'1px solid #b2cbb9',borderRadius:'9px',padding:'8px 16px',background:'#287951',color:'#fff',font:'inherit'});
+  abort.type='button';abort.textContent='Abbrechen';Object.assign(abort.style,{marginTop:'14px',marginLeft:'8px',border:'1px solid #90a698',borderRadius:'9px',padding:'8px 16px',background:'transparent',color:'#fff',font:'inherit'});
+  abort.onclick=()=>{const dive=prep.active?.key.startsWith('dive|')||prep.error?.job.key.startsWith('dive|');cancel();if(dive&&fishMode)finishLeavingFishView();};
+  retry.onclick=()=>{const failed=prep.error;if(!failed)return;prep.error=null;retry.hidden=true;prep.queue.unshift(failed.job);pump();};
+  card.append(title,detail,retry,abort);host.append(card);document.body.append(host);prep.dialog={host,title,detail,retry,abort};return prep.dialog;
+ }
+ function status(job,label){const ui=dialog();ui.host.hidden=false;ui.host.style.display='flex';ui.title.textContent=job.label;ui.detail.textContent=label;ui.retry.hidden=true;job.phase=label;}
+ function hide(){if(prep.dialog){prep.dialog.host.hidden=true;prep.dialog.host.style.display='none';}}
+ async function step(job,label,work){
+  check(job);status(job,label);await paint();check(job);
+  const start=performance.now(),result=work();
+  if(result&&typeof result.then==='function')await result;
+  check(job);prep.stats.push({key:job.key,phase:label,ms:performance.now()-start});if(prep.stats.length>100)prep.stats.shift();
+ }
+ function request(key,label,work,isValid){
+  if(prep.contextLost)return;
+  if((prep.active?.key===key&&prep.active.generation===prep.generation)||prep.queue.some(job=>job.key===key&&job.generation===prep.generation))return;
+  const job={key,label,work,valid:isValid,generation:prep.generation,phase:'Ansicht wird vorbereitet …'};
+  prep.queue.push(job);prep.busy=true;status(job,job.phase);pump();
+ }
+ async function pump(){
+  if(prep.active||prep.error)return;
+  while(prep.queue.length){
+   const job=prep.queue.shift();if(!valid(job))continue;
+   prep.active=job;prep.busy=true;
+   try{await job.work(job);check(job);prep.completed.push(job.key);if(prep.completed.length>30)prep.completed.shift();}
+   catch(error){
+    if(!error.aczoCancelled){prep.error={job,message:String(error.message||error)};const ui=dialog();ui.title.textContent='Vorbereitung unterbrochen';ui.detail.textContent='Die Ansicht ist noch nicht bereit. Bitte die Vorbereitung erneut starten.';ui.retry.hidden=false;console.warn('K26 transition preparation:',job.key,error);}
+   }finally{prep.active=null;}
+   if(prep.error)return;
+  }
+  prep.busy=false;clock.getDelta();hide();
+ }
+ function cancel(){prep.generation++;prep.queue.length=0;prep.error=null;prep.deferUntilAction=true;if(!prep.active){prep.busy=false;clock.getDelta();}hide();}
+ prep.cancel=cancel;
+ // Atomic swaps: a frame/await is never allowed while the saved pond population
+ // is temporarily installed. Live river actors and catch influence survive.
+ function withPond(work){
+  const rt=aczoMoselFishing;if(!rt)return work();
+  const river=fishActors.slice(),entryTargets=fishEntryTargets.slice(),entryFocus=fishEntryFocus;
+  fishActors.splice(0,fishActors.length,...rt.savedActors);
+  fishEntryTargets.splice(0,fishEntryTargets.length,...(rt.k26PondEntryTargets||entryTargets));
+  fishEntryFocus=rt.k26PondEntryFocus||entryFocus;
+  aczoMoselFishing=null;
+  try{
+   const result=work();rt.savedActors=fishActors.slice();
+   rt.savedVisibility=rt.savedActors.map((f,i)=>i<rt.savedVisibility.length?rt.savedVisibility[i]:f.obj.visible);
+   rt.k26PondEntryTargets=fishEntryTargets.slice();rt.k26PondEntryFocus=fishEntryFocus;
+   rt.savedActors.forEach(f=>{f.obj.visible=false;});return result;
+  }finally{aczoMoselFishing=rt;fishActors.splice(0,fishActors.length,...river);fishEntryTargets.splice(0,fishEntryTargets.length,...entryTargets);fishEntryFocus=entryFocus;}
+ }
+ async function baseWorld(job){
+  if(anglingLureUnderwaterWorldReady)return;
+  const jobs=[['static','Unterwassergrundlagen …',ensureUnderwaterStaticAssets],['pond','Gewässerboden …',syncFishPondGeometryFromPond],['wall','Ufer unter Wasser …',rebuildFishBankWall]];
+  for(const [key,label,work] of jobs)if(!prep.cpu.has(key)){await step(job,label,()=>withPond(work));prep.cpu.add(key);}
+  while(!fishWorldBuilt)await step(job,'Fischwelt … ('+(fishWorldBuildIndex+1)+'/'+fishWorldBuildPlan.length+')',()=>withPond(buildFishWorldStep));
+  for(const [key,label,work] of [['plants','Wasserpflanzen …',rebuildFishPlants],['objects','Unterwasserdetails …',rebuildUnderwaterObjects]])if(!prep.cpu.has(key)){await step(job,label,()=>withPond(work));prep.cpu.add(key);}
+  const started=performance.now();
+  while(fishTexturePendingCount>0){await step(job,'Fischgrafiken … ('+fishTexturePendingCount+')',()=>{});if(performance.now()-started>30000)throw new Error('Fish textures are still decoding');}
+  check(job);anglingLureUnderwaterWorldReady=true;aczoStartupUwPrewarmFinished=true;window.__markMapStartupUnderwaterPrepared?.();
+ }
+ async function riverBed(job,rt){
+  if(!rt?.pendingBedCenter)return;
+  const center=rt.pendingBedCenter.clone();let entry;
+  await step(job,'Moselgrund am gewählten Platz …',()=>{entry=aczoMoselGetLocalBed(center);});
+  check(job);if(aczoMoselFishing!==rt)throw cancelled();
+  rt.bottom=entry.group;rt.materials=[];rt.cachedBed=true;rt.habitats=entry.group.userData.aczoK8e?.habitats||[];rt.bottom.visible=false;scene.add(rt.bottom);delete rt.pendingBedCenter;
+ }
+ function materials(object){return Array.isArray(object.material)?object.material:[object.material];}
+ function profile(underwater){return [renderer.outputEncoding,renderer.shadowMap.enabled,renderer.shadowMap.type,underwater?'underwater':'shore',scene.fog?.isFogExp2?'exp':'linear'].join('|');}
+ function bufferId(attribute){if(!attribute)return '';let id=prep.bufferIds.get(attribute);if(!id)prep.bufferIds.set(attribute,id=prep.nextBufferId++);return id;}
+ function shaderId(source){if(!source)return '';let id=prep.shaderIds.get(source);if(!id)prep.shaderIds.set(source,id=prep.nextShaderId++);return id;}
+ function materialKey(material){
+  if(!material)return '';
+  const cached=prep.materialKeys.get(material);if(cached?.version===material.version)return cached.key;
+  // A version bump is a request to reconsider shader state, not proof of a new
+  // GPU resource. The game's main fishing line sets needsUpdate on every update.
+  // Retain only actual program/texture configuration so ordinary casts stay warm.
+  const flags=['type','side','vertexColors','fog','flatShading','skinning','morphTargets','morphNormals','sizeAttenuation','alphaTest','premultipliedAlpha','dithering','depthPacking','toneMapped','precision','glslVersion','combine','normalMapType'];
+  const textures=['map','matcap','envMap','lightMap','aoMap','emissiveMap','bumpMap','normalMap','displacementMap','roughnessMap','metalnessMap','specularMap','alphaMap','gradientMap'];
+  const values=flags.map(name=>material[name]);
+  values.push(textures.map(name=>{const texture=material[name];return texture?[texture.id,texture.encoding,texture.mapping]:null;}));
+  values.push(Object.keys(material.defines||{}).sort().map(name=>[name,material.defines[name]]),material.extensions||null);
+  values.push(shaderId(material.vertexShader),shaderId(material.fragmentShader),shaderId(material.customProgramCacheKey?.()||String(material.onBeforeCompile)));
+  const key=material.id+':'+JSON.stringify(values);prep.materialKeys.set(material,{version:material.version,key});return key;
+ }
+ function signature(object,key){return key+'|'+object.type+'|'+materials(object).map(materialKey).join(',')+'|'+!!object.receiveShadow+'|'+(object.isInstancedMesh?bufferId(object.instanceMatrix)+','+bufferId(object.instanceColor):'');}
+ function nodes(roots,key){
+  const output=[],seen=new Set();
+  for(const root of roots){if(!root)continue;root.updateWorldMatrix(true,true);root.traverse(object=>{
+   if(!(object.isMesh||object.isLine||object.isPoints||object.isSprite)||!object.geometry&&!object.isSprite)return;
+   const geometry=object.geometry||object.material;if(!geometry)return;
+   const id=geometry.id+'|'+signature(object,key);if(seen.has(id))return;seen.add(id);
+   if(prep.gpu.get(geometry)?.has(signature(object,key)))return;output.push(object);
+  });}
+  return output;
+ }
+ function selectedRoots(){
+  const roots=[anglingMarkerGroup,anglingRodGroup,anglingRodThreadGroup,anglingReadyLineGroup,anglingMainLineGroup,anglingLine,anglingNetGroup,anglingBobber,anglingFishShadow,anglingFishVisual,anglingBankGroup,anglingPhotoHorizon,anglingPhotoShadowGroup];
+  if(anglingUsesArtificialLure())roots.push(anglingLure);
+  if(anglingUsesDeeper())roots.push(anglingDeeper,anglingDeeperReadyLine);
+  if(anglingUsesBankSet()&&anglingBankRuntime.group){const rt=anglingBankRuntime;roots.push(rt.pods[anglingProgress.selectedEquipment],rt.castBall,...rt.lines,...rt.feedBalls.map(ball=>ball.mesh));if(rt.netPass)roots.push(rt.netPass.netScene,rt.netPass.depthScene);}
+  return roots;
+ }
+ function underwaterRoots(){return [fishGroup,fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightShafts,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,bloodPool.points,underwaterStones,fishBottomClutterGroup,aczoMoselFishing?.bottom,waterSurface,moselWaterSurface];}
+ function lights(warmScene){
+  scene.traverseVisible(light=>{
+   if(!light.isLight)return;const copy=light.clone(false);copy.position.copy(light.getWorldPosition(new THREE.Vector3()));
+   if(light.target){copy.target=light.target.clone(false);copy.target.position.copy(light.target.getWorldPosition(new THREE.Vector3()));warmScene.add(copy.target);}
+   // Existing shadow textures can be read, but preparation never renders a
+   // full-world shadow map or changes the live light/target.
+   if(copy.shadow&&light.shadow){copy.shadow.map=light.shadow.map;copy.shadow.mapPass=light.shadow.mapPass;}
+   warmScene.add(copy);
+  });
+ }
+ function drawBatch(batch,underwater){
+  if(prep.contextLost||renderer.getContext().isContextLost())throw new Error('WebGL context is unavailable');
+  const warmScene=new THREE.Scene();warmScene.fog=underwater?fishUnderwaterFog:scene.fog;lights(warmScene);
+  const cam=new THREE.PerspectiveCamera(56,1,.045,2000);cam.up.set(0,0,1);cam.position.set(0,0,3);cam.lookAt(0,5,0);cam.updateMatrixWorld(true);
+  for(const source of batch){
+   const proxy=source.clone(false);proxy.visible=true;proxy.frustumCulled=false;proxy.matrixAutoUpdate=false;proxy.matrix.copy(source.matrixWorld);proxy.matrixWorld.copy(source.matrixWorld);proxy.layers.set(0);
+   if(source.isInstancedMesh){proxy.instanceMatrix=source.instanceMatrix;proxy.instanceColor=source.instanceColor;proxy.count=Math.min(1,source.count);}
+   if(source.isSkinnedMesh){proxy.skeleton=source.skeleton;proxy.bindMatrix.copy(source.bindMatrix);proxy.bindMatrixInverse.copy(source.bindMatrixInverse);}
+   warmScene.add(proxy);
+  }
+  const target=prep.target||(prep.target=new THREE.WebGLRenderTarget(96,96,{depthBuffer:true,stencilBuffer:false}));target.texture.encoding=renderer.outputEncoding;
+  const old={target:renderer.getRenderTarget(),viewport:renderer.getViewport(new THREE.Vector4()),scissor:renderer.getScissor(new THREE.Vector4()),scissorTest:renderer.getScissorTest(),autoClear:renderer.autoClear,shadowAuto:renderer.shadowMap.autoUpdate,shadowDirty:renderer.shadowMap.needsUpdate};
+  const under=waterUniforms.underwaterView.value,angling=waterUniforms.anglingView.value;
+  try{
+   waterUniforms.underwaterView.value=underwater?1:0;waterUniforms.anglingView.value=anglingMode?1:0;
+   renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false;renderer.autoClear=true;renderer.setRenderTarget(target);renderer.setViewport(0,0,96,96);renderer.setScissorTest(false);renderer.render(warmScene,cam);
+   if(renderer.getContext().isContextLost())throw new Error('WebGL context was lost during preparation');
+  }finally{
+   waterUniforms.underwaterView.value=under;waterUniforms.anglingView.value=angling;
+   renderer.setRenderTarget(old.target);renderer.setViewport(old.viewport);renderer.setScissor(old.scissor);renderer.setScissorTest(old.scissorTest);renderer.autoClear=old.autoClear;renderer.shadowMap.autoUpdate=old.shadowAuto;renderer.shadowMap.needsUpdate=old.shadowDirty;
+   // Proxy instances share the production buffers/materials. Nothing is disposed.
+   warmScene.clear();
+  }
+ }
+ async function gpu(job,roots,underwater){
+  const key=profile(underwater),pending=nodes(roots,key);let index=0;
+  while(index<pending.length){
+   const batch=pending.slice(index,index+4);
+   await step(job,'Grafik wird vorbereitet … ('+Math.min(index+batch.length,pending.length)+'/'+pending.length+')',()=>drawBatch(batch,underwater));
+   for(const object of batch){const geometry=object.geometry||object.material;let ready=prep.gpu.get(geometry);if(!ready)prep.gpu.set(geometry,ready=new Set());ready.add(signature(object,key));}index+=batch.length;
+  }
+ }
+ function equipmentKey(){return [anglingProgress.selectedEquipment,anglingProgress.selectedRod,anglingProgress.selectedNet,anglingSelectedBait,anglingSelectedLureId].join('|');}
+ async function equipment(job){
+  if(anglingUsesBankSet())await step(job,'Angelausrüstung …',()=>{anglingBankBuildModels();anglingBankEnsureLandingPass();});
+  await gpu(job,selectedRoots(),false);
+ }
+ async function underwater(job){
+  await baseWorld(job);const rt=aczoMoselFishing;await riverBed(job,rt);
+  await gpu(job,underwaterRoots(),true);await gpu(job,selectedRoots(),true);
+  check(job);if(rt&&aczoMoselFishing!==rt)throw cancelled();
+  aczoPerf26UwFullWarmReady=true;
+ }
+ function needsUnderwater(){return anglingUsesArtificialLure()||anglingUsesDeeper();}
+ function prepareShore(){
+  if(prep.deferUntilAction||!anglingMode||!anglingSelection||!['ready','shore-flight'].includes(anglingState)||anglingUi.classList.contains('line-active'))return;
+  const selection=anglingSelection,key=equipmentKey(),wet=needsUnderwater();
+  if(!nodes(selectedRoots(),profile(false)).length&&(!wet||(anglingLureUnderwaterWorldReady&&aczoPerf26UwFullWarmReady&&!aczoMoselFishing?.pendingBedCenter&&!nodes(underwaterRoots(),profile(true)).length)))return;
+  request('shore|'+key,'Angelplatz wird vorbereitet',async job=>{await equipment(job);if(wet)await underwater(job);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','shore-flight'].includes(anglingState));
+ }
+ // Replace optional all-scene warmups. They used to run large renders after an
+ // idle timeout and race the first shore flight/cast. Actual requested resources
+ // now pass through the one coordinator above.
+ aczoRunStartupUnderwaterPrewarm=()=>{aczoStartupUwPrewarmScheduled=false;};
+ aczoScheduleStartupUnderwaterPrewarm=()=>{};
+ aczoRunAnglingWarmup=()=>{aczoAnglingWarmup.scheduled=false;};
+ aczoScheduleAnglingWarmup=()=>{};
+ anglingBankPrewarm=()=>{};
+ aczoPerf26ForceFullUnderwaterPrewarm=()=>false;
+ aczoPerf26ScheduleFullUnderwaterPrewarm=()=>{};
+ scheduleAnglingLureUnderwaterPrewarm=prepareShore;
+ // K6a's optional surface/local-bed warm jobs were unbounded full-scene draws.
+ // Detailed beds and river meshes remain intact and are warmed on real entry.
+ aczoK6aQueue=()=>{};
+ aczoK6aRunJob=()=>{aczoK6aPreparation.scheduled=false;};
+ const originalStart=startAnglingMode,originalConfirm=confirmAnglingShore,originalChange=changeAnglingSpot,originalCast=startAnglingCast,originalDive=enterFishView,originalLeave=beginLeaveAngling;
+ startAnglingMode=function(){
+  const was=anglingMode,result=originalStart.apply(this,arguments);
+  if(!was&&anglingMode){prep.deferUntilAction=false;if(nodes([anglingMarkerGroup],profile(false)).length)request('selection','Angelspiel wird vorbereitet',job=>gpu(job,[anglingMarkerGroup],false),()=>anglingMode&&['overview-flight','selecting'].includes(anglingState));}
+  return result;
+ };
+ confirmAnglingShore=function(){const result=originalConfirm.apply(this,arguments);if(anglingState==='shore-flight')prep.deferUntilAction=false;prepareShore();return result;};
+ changeAnglingSpot=function(){const result=originalChange.apply(this,arguments);if(anglingMode&&anglingState==='overview-flight'&&nodes([anglingMarkerGroup],profile(false)).length)request('selection','Stellenauswahl wird vorbereitet',job=>gpu(job,[anglingMarkerGroup],false),()=>anglingMode&&['overview-flight','selecting'].includes(anglingState));return result;};
+ startAnglingCast=function(){
+  if(!anglingMode||anglingState!=='ready'||!anglingSelection||!anglingAimLocked)return originalCast.apply(this,arguments);
+  prep.deferUntilAction=false;
+  const wet=needsUnderwater(),selection=anglingSelection,key=equipmentKey(),self=this,args=arguments;
+  const cold=nodes(selectedRoots(),profile(false)).length||(wet&&(!anglingLureUnderwaterWorldReady||!aczoPerf26UwFullWarmReady||aczoMoselFishing?.pendingBedCenter||nodes(underwaterRoots(),profile(true)).length));
+  if(!cold)return originalCast.apply(self,args);
+  request('cast|'+key,'Auswurf wird vorbereitet',async job=>{await equipment(job);if(wet)await underwater(job);check(job);originalCast.apply(self,args);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','casting'].includes(anglingState));
+ };
+ enterFishView=function(){
+  if(fishMode||anglingMode)return originalDive.apply(this,arguments);
+  const entry=aczoK8fResolveEntry();if(!entry)return originalDive.apply(this,arguments);
+  prep.deferUntilAction=false;
+  const self=this,args=arguments;
+  request('dive|'+entry.waterBody,'Unterwasserwelt wird vorbereitet',async job=>{
+   await baseWorld(job);
+   if(entry.waterBody==='mosel')await step(job,'Moselgrund an der Tauchstelle …',()=>aczoMoselGetLocalBed(entry.point));
+   check(job);originalDive.apply(self,args);
+   if(!fishMode)throw cancelled();
+   await gpu(job,underwaterRoots(),true);check(job);aczoPerf26UwFullWarmReady=true;
+  },()=>!anglingMode);
+ };
+ beginLeaveAngling=function(){const result=originalLeave.apply(this,arguments);if(!anglingMode||anglingState==='exit-flight')cancel();return result;};
+ renderer.domElement.addEventListener('webglcontextlost',()=>{prep.contextLost=true;cancel();});
+ renderer.domElement.addEventListener('webglcontextrestored',()=>{prep.contextLost=false;prep.gpu=new WeakMap();prep.deferUntilAction=false;aczoPerf26UwFullWarmReady=false;if(anglingMode&&['ready','shore-flight'].includes(anglingState))prepareShore();});
+ prep.prepareShore=prepareShore;
+ prep.pending=()=>{const describe=(roots,key)=>nodes(roots,key).map(object=>({name:object.name||'',type:object.type,geometry:object.geometry?.id,materials:materials(object).filter(Boolean).map(material=>({id:material.id,version:material.version,key:materialKey(material)}))}));return {shore:describe(selectedRoots(),profile(false)),underwater:describe(underwaterRoots(),profile(true))};};
+ prep.snapshot=()=>({busy:prep.busy,active:prep.active?{key:prep.active.key,phase:prep.active.phase}:null,queued:prep.queue.map(job=>job.key),error:prep.error?.message||null,worldReady:anglingLureUnderwaterWorldReady,underwaterGpuReady:aczoPerf26UwFullWarmReady,completed:prep.completed.slice(),stats:prep.stats.slice(-30)});
+})();
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 anglingStartBtn.addEventListener('click',startAnglingFromMainButton);
 anglingFixedMenuBtn.addEventListener('click',openAnglingMainMenu);
 document.getElementById('anglingMainCloseBtn')?.addEventListener('click',closeAnglingMainMenu);
@@ -48814,9 +49095,6 @@ anglingMainLeaveBtn.addEventListener('click',()=>{anglingMainMenuReturnFromSubpa
 anglingMainSaveProfileBtn.addEventListener('click',saveAnglingMainProfile);
 anglingFirstSetupContinueBtn.addEventListener('click',finishAnglingSetupAndStart);
 anglingMainCopyRecoveryBtn.addEventListener('click',copyAnglingRecoveryCode);
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 anglingMainNewRecoveryBtn.addEventListener('click',rotateAnglingRecoveryCode);
 anglingMainRecoveryDetailsBtn.addEventListener('click',()=>openAnglingMainSubpanel(openAnglingRecoveryPanel));
 anglingMainLeaderboardBtn.addEventListener('click',()=>openAnglingMainSubpanel(openAnglingLeaderboard));
@@ -48890,6 +49168,9 @@ anglingShopClose.addEventListener('click',closeAnglingGamePanels);
   panel.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
   panel.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
 });
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 anglingRecoveryBtn?.addEventListener('click',openAnglingRecoveryPanel);
 anglingRecoveryClose.addEventListener('click',returnToAnglingMainMenu);
 anglingRecoveryCopyBtn.addEventListener('click',copyAnglingRecoveryCode);
@@ -48910,9 +49191,6 @@ anglingRecoveryInput.addEventListener('keydown',e=>{
   restoreAnglingPlayerFromCode();
 });
 anglingGameHelpBtn?.addEventListener('click',openAnglingGameHelp);
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 anglingGameHelpClose.addEventListener('click',()=>{
   if(anglingHelpOpenedFromMap){
     closeAnglingGamePanels();
@@ -48974,6 +49252,9 @@ document.querySelectorAll('[data-angling-drag]').forEach(btn=>{
     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
   },{capture:true,passive:false});
 });
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 const ACZO_DRAG_WHEEL_LEVELS=['loose','medium','tight'];
 let anglingDragWheelAccumulator=0;
 let anglingDragWheelLastStep=0;
@@ -49000,9 +49281,6 @@ anglingDrillPanel.addEventListener('click',e=>e.stopPropagation());
     e.preventDefault();e.stopPropagation();
   },{capture:true,passive:false});
 });
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 anglingReelBtn.addEventListener('pointerdown',e=>{
   if(anglingState!=='drilling')return;
   e.preventDefault();anglingReelBtn.setPointerCapture?.(e.pointerId);setAnglingReeling(true);
@@ -49253,6 +49531,9 @@ const ACZO_K5D_LEVELS=Object.freeze([
  [200,0,1,.145,0],[279,0,1,.145,0],[280,.10,1.08,.160,0],
  [300,.72,3.8,.250,0],[350,.94,9,.400,.18],[600,1,24,.620,1]
 ]);
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 let aczoK5dProfile=aczoMoselHydroProfile(200),aczoK5dLastTime=null,aczoK5dPool=null;
 const aczoK5dUniforms={aczoMoselBrown:{value:0},aczoMoselFlowClock:{value:0}};
 const aczoK5dBlue=new THREE.Color(0x174f68),aczoK5dRiver=new THREE.Color(0x303b29),aczoK5dBrown=new THREE.Color(0x4b301c);
@@ -49263,12 +49544,17 @@ skyMat.depthWrite=false;
 sky.renderOrder=-10000;
 skyMat.vertexShader='uniform vec3 aczoSkyWorldFocus;\n'+skyMat.vertexShader.replace('vWorldPosition=worldPosition.xyz;','vWorldPosition=worldPosition.xyz-aczoSkyWorldFocus;');
 skyMat.needsUpdate=true;
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 Object.values(aczoShipMaterials).forEach(aczoClipRegionalAssetMaterial);
 for(const key of ['bridgeGreen','bridgeEdge','bridgeRail','bridgeStone','bridgeDark','railSteel','path','earth'])aczoInstallBridgeNightShader(aczoShipMaterials[key]);
-for(const beam of aczoShipSearchBeams)aczoClipRegionalAssetMaterial(beam.material);
+for(const beam of aczoShipSearchBeams){
+ aczoClipRegionalAssetMaterial(beam.material);const bounds=beam.material.onBeforeCompile;
+ beam.material.onBeforeCompile=shader=>{bounds(shader);Object.assign(shader.uniforms,aczoBridgeLightingUniforms);
+  shader.vertexShader='varying vec3 aczoK26BeamWorld;\n'+shader.vertexShader;
+  shader.vertexShader=shader.vertexShader.replace('aczoAssetWorldXY=(modelMatrix*aczoAssetPoint).xy;','aczoAssetWorldXY=(modelMatrix*aczoAssetPoint).xy;aczoK26BeamWorld=(modelMatrix*aczoAssetPoint).xyz;');
+  shader.fragmentShader=aczoK25SearchlightGLSL+'varying vec3 aczoK26BeamWorld;\n'+shader.fragmentShader;
+  shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );','if(aczoK25SearchVisibility(aczoK26BeamWorld,aczoSearchOrigin0)<.5)discard;float aczoK26BeamRange=length(aczoK26BeamWorld-aczoSearchOrigin0);gl_FragColor = vec4( outgoingLight, diffuseColor.a*(1.-smoothstep(270.,420.,aczoK26BeamRange)) );');
+ };beam.material.customProgramCacheKey=()=> 'aczo-one-search-beam-occlusion-k26';beam.material.needsUpdate=true;
+}
 const clock=new THREE.Clock();
 let aczoLastRenderedFrameAt=0;
 let aczoMapGestureFrame=0;
@@ -49321,6 +49607,7 @@ aczoK5dInit();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
+ if(window.__aczoTransitionPrep?.busy){clock.getDelta();return;}
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
 
  // P17 PERFORMANCE: Animation und Bedienung bekommen ein klares Framebudget.
@@ -49704,6 +49991,9 @@ aczoK5dInit();
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
  schedulePersonalCampScene();
 })();
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 window.__aczoStartup.mainReady=true;
 window.__aczoBootAudit?.mark('engine-ready');
 aczoStartMoselLevelOnce();
@@ -50081,11 +50371,11 @@ function tournamentUpdateEntry(){
   else label='Bereit · Ein Wettbewerb alle 24 Stunden';
   const tag=q('aczoTournamentCooldownTag');if(tag&&tag.textContent!==label)tag.textContent=label;
   entry.classList.toggle('cooldown',left>0&&!tournamentResumeCandidate(identity));
-  entryBtn.disabled=disabled;
+  entryBtn.disabled=tournamentBusy();
   if(homeStatus.textContent!==label)homeStatus.textContent=label;
   homeStatus.classList.toggle('is-loading',N.loading&&!tournamentBusy()&&left<=0);homeBtn.disabled=disabled;
   const caption=!identity?'Zum Profil':S.phase==='loading'?'Bitte warten …':tournamentResumeCandidate(identity)?'Wettangeln fortsetzen':'Wettangeln starten';
-  if(homeBtn.textContent!==caption)homeBtn.textContent=caption;if(entryAction.textContent!==caption)entryAction.textContent=caption;entryBtn.setAttribute('aria-label',caption+' · '+label);
+  if(homeBtn.textContent!==caption)homeBtn.textContent=caption;const entryCaption=disabled&&S.phase==='idle'?'Wettangeln':caption;if(entryAction.textContent!==entryCaption)entryAction.textContent=entryCaption;entryBtn.setAttribute('aria-label',entryCaption+' · '+label);
 }
 function tournamentOpenProfile(){openAnglingMainMenu();aczoMainNavigate('profile');}
 function tournamentNewRequestId(){
@@ -50545,11 +50835,16 @@ function goToPlayerSpot(){
   const spot=cloneSelection(S.spots[S.player.spotId]);
   if(!spot){abortTournament('Der zugeloste Angelplatz ist nicht verfügbar.');return;}
   tournamentPrestartCheckpoint('flight');S.phase='flight';anglingState='selecting';anglingSelection=spot;anglingMarkerGroup.visible=false;confirmAnglingShore();
-  const generation=S.generation,deadline=performance.now()+Math.max(6500,((anglingCameraTransition?.duration||0)+2)*1000);
+  const generation=S.generation,flightBudget=Math.max(6500,((anglingCameraTransition?.duration||0)+2)*1000);
+  let flightElapsed=0,flightLastAt=performance.now(),flightWasPreparing=!!window.__aczoTransitionPrep?.busy;
   const wait=()=>{
     if(S.generation!==generation||S.phase!=='flight')return;
+    const now=performance.now(),preparing=!!window.__aczoTransitionPrep?.busy;
+    if(!preparing&&!flightWasPreparing)flightElapsed+=Math.max(0,now-flightLastAt);
+    flightLastAt=now;flightWasPreparing=preparing;
+    if(preparing){later(wait,100);return;}
     if(anglingState==='ready'){startCountdown();return;}
-    if(performance.now()>=deadline){abortTournament('Kameraflug zum Angelplatz konnte nicht abgeschlossen werden.');return;}
+    if(flightElapsed>=flightBudget){abortTournament('Kameraflug zum Angelplatz konnte nicht abgeschlossen werden.');return;}
     later(wait,100);
   };
   later(wait,100);
@@ -50561,6 +50856,7 @@ function startCountdown(){
 }
 function beginFishing(){
   if(S.phase!=='countdown')return;
+  if(window.__aczoTransitionPrep?.busy){later(beginFishing,100);return;}
   if(tournamentIdentity()?.playerId!==S.ownerId){abortTournament('Spielerkonto wurde gewechselt.');return;}
   tournamentMusicStop();
   clearTimers();showOverlay(false);toast.classList.remove('show');
@@ -50740,8 +51036,7 @@ function updateTournament(){
   if(previousIdentity!==N.identityKey&&N.identityKey&&tournamentBusy())tournamentRefreshStatus(true);
   const homeVisible=ui.classList.contains('main-menu-open')&&!q('aczo-main-overview')?.hidden;
   const showEntry=anglingMode&&anglingState==='selecting'&&S.phase==='idle'&&
-    !anglingGamePanelOpen()&&!aczoBoatActive()&&!anglingHallOfFameActive&&!anglingTimeShiftActive&&
-    (tournamentCooldownLeft()<=0||!!tournamentResumeCandidate())&&!N.loading;
+    !anglingGamePanelOpen()&&!aczoBoatActive()&&!anglingHallOfFameActive&&!anglingTimeShiftActive;
   entry.classList.toggle('show',!!showEntry);
   const visible=showEntry||homeVisible;
   if(visible&&!document.hidden&&tournamentIdentity()&&!N.loading&&
@@ -50933,7 +51228,15 @@ beginLeaveAngling=function(){
   return ORIG_TOURNAMENT_BEGIN_LEAVE();
 };
 
-entryBtn.addEventListener('click',startTournament);
+entryBtn.addEventListener('click',()=>{
+  if(tournamentBusy())return;
+  const identity=tournamentIdentity();
+  if(!identity){tournamentOpenProfile();return;}
+  if((tournamentCooldownLeft()>0&&!tournamentResumeCandidate(identity))||N.loading||(N.error&&!N.checked)){
+    openAnglingMainMenu();aczoMainNavigate('overview');tournamentUpdateEntry();return;
+  }
+  startTournament();
+});
 skipBtn.addEventListener('click',()=>{if(S.phase==='draw')skipDraw();else if(S.phase==='results'&&S.skipReady)revealResults(true)});
 window.addEventListener('resize',syncHudPosition,{passive:true});
 
@@ -51568,7 +51871,10 @@ document.addEventListener('visibilitychange',tournamentOnResume);
  .angling-ui .aczo-tournament-entry small,.angling-ui .aczo-tournament-entry strong,.angling-ui .aczo-tournament-entry span{display:none!important}
  .angling-ui .aczo-tournament-entry .aczo-tournament-action{display:block!important;font:650 13px/1.3 system-ui!important;color:#f5f2de!important}
  .angling-ui .aczo-tournament-entry .aczo-tournament-action::before{content:'🏁 ';}
- .angling-ui .aczo-tournament-entry.cooldown{display:none!important}
+ .angling-ui .aczo-tournament-entry #aczoTournamentCooldownTag{display:block!important;max-width:190px;margin:3px 0 0!important;padding:0!important;border:0!important;border-radius:0!important;background:none!important;font:500 10px/1.25 system-ui!important;color:#e1e9d9!important;white-space:normal!important}
+ .angling-ui .aczo-tournament-entry.cooldown button{opacity:1!important;filter:none!important;cursor:pointer!important}
+ .angling-ui .aczo-tournament-entry button{max-width:216px!important;text-align:left!important}
+ @media(max-width:390px){.angling-ui .aczo-tournament-entry{max-width:180px!important}.angling-ui .aczo-tournament-entry #aczoTournamentCooldownTag{max-width:154px}}
  </style><script>window.__aczoSafeStart.start();</script>
 </body>
 </html>
