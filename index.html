@@ -5259,13 +5259,37 @@ Tatsächlich geprüft: ursprünglicher Fehler reproduziert; reale LED-Funktion b
 @media(max-height:420px){#mapStartupLoader .map-loader-card{padding:12px 16px}#mapStartupLoader .map-loader-icon{display:none}.map-loader-tip{margin-top:9px;padding-top:8px}#mapStartupTip{min-height:2.8em;font-size:11px}#mapStartupLoader .map-loader-card strong{font-size:14px}}
 @media(prefers-reduced-motion:reduce){#mapStartupLoader .map-loader-track[data-indeterminate="true"] #mapStartupBar{animation:none;transform:translateX(80%)}#mapStartupLoader #mapStartupBar{transition:none}}
 </style>
-<script id="aczoK29ApprovedStartupTips">window.ACZO_STARTUP_PRIORITY_TIPS=["Für ein schärferes Bild kannst du unter Einstellungen die höchste Auflösung ausprobieren. Wähle die Stufe, mit der dein Gerät flüssig läuft.","Investiere deine gesammelten EP im Shop in bessere Ausrüstung."];window.ACZO_STARTUP_TIPS=["Ein Finger verschiebt die 2D-Karte und dreht die 3D-Ansicht.","Mit zwei Fingern zoomst und verschiebst du die Karte. Im Nahbereich reagiert sie feiner.","Möchtest du den Himmel betrachten? Wische in der 3D-Ansicht am Horizont weiter nach oben.","Tippe oder klicke in der Kartenansicht auf das Wasser, um die Tiefe abzufragen.","Die Mosel-Tiefenkarte findest du im Kartenmenü.","Im freien Erkunden kannst du an geeigneten Uferstellen „Hier angeln“ wählen.","Rapfen, Döbel, Barben und Nasen findest du im Spiel nur in der Mosel.","Vorbeifahrende Schiffe bringen stärkere Wellen an die Mosel.","Wechsle beim Führen sinkender Kunstköder zwischen gleichmäßigem Einholen und kurzen Absinkpausen.","Steinpackungen, Kanten und tiefere Rinnen bieten unterschiedliche Bereiche zum Angeln."];(function installStartupTextFit(){
+<script id="aczoK29ApprovedStartupTips">window.ACZO_STARTUP_TIPS=["Ein Finger verschiebt die 2D-Karte und dreht die 3D-Ansicht.","Mit zwei Fingern zoomst und verschiebst du die Karte. Im Nahbereich reagiert sie feiner.","Möchtest du den Himmel betrachten? Wische in der 3D-Ansicht am Horizont weiter nach oben.","Tippe oder klicke in der Kartenansicht auf das Wasser, um die Tiefe abzufragen.","Die Mosel-Tiefenkarte findest du im Kartenmenü.","Im freien Erkunden kannst du an geeigneten Uferstellen „Hier angeln“ wählen.","Rapfen, Döbel, Barben und Nasen findest du im Spiel nur in der Mosel.","Vorbeifahrende Schiffe bringen stärkere Wellen an die Mosel.","Wechsle beim Führen sinkender Kunstköder zwischen gleichmäßigem Einholen und kurzen Absinkpausen.","Steinpackungen, Kanten und tiefere Rinnen bieten unterschiedliche Bereiche zum Angeln.","Für ein schärferes Bild kannst du unter Einstellungen die höchste Auflösung ausprobieren. Wähle die Stufe, mit der dein Gerät flüssig läuft.","Investiere deine gesammelten EP im Shop in bessere Ausrüstung."];(function installShuffledStartupTips(){
+ const storageKey='aczo-startup-tip-last-v1';
+ let last='',remaining=[];const seen=new Set();
+ try{last=localStorage.getItem(storageKey)||'';}catch(_error){}
+ function randomIndex(length){
+  try{const values=new Uint32Array(1);crypto.getRandomValues(values);return Math.floor(values[0]/4294967296*length);}catch(_error){}
+  return Math.floor(Math.random()*length);
+ }
+ function shuffle(list){
+  for(let i=list.length-1;i>0;i--){const j=randomIndex(i+1),value=list[i];list[i]=list[j];list[j]=value;}return list;
+ }
+ window.__aczoStartupTipDeck={next(texts){
+  const pool=[...new Set((Array.isArray(texts)?texts:[]).filter(text=>typeof text==='string'&&text.trim()))];
+  if(!pool.length)return '';
+  const eligible=new Set(pool);
+  remaining=remaining.filter(text=>eligible.has(text)&&!seen.has(text));
+  const waiting=new Set(remaining),added=pool.filter(text=>!seen.has(text)&&!waiting.has(text));
+  if(added.length)remaining=shuffle(remaining.concat(added));
+  if(!remaining.length){seen.clear();remaining=shuffle(pool.slice());}
+  if(remaining.length>1&&remaining[0]===last){const j=1+randomIndex(remaining.length-1),value=remaining[0];remaining[0]=remaining[j];remaining[j]=value;}
+  last=remaining.shift();seen.add(last);
+  try{localStorage.setItem(storageKey,last);}catch(_error){}
+  return last;
+ }};
+})();(function installStartupTextFit(){
  let acceptedSlot=-1,line='',serial=0,readUntil=0,record=null;
  const reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const api={get readUntil(){return readUntil;},
   select(slot,tips){
    const now=performance.now();if(line&&(now<readUntil||acceptedSlot===slot))return line;
-   acceptedSlot=slot;const priority=window.ACZO_STARTUP_PRIORITY_TIPS||[],index=serial++;line=priority[index]||window.__aczoInfoText?.startupTip(Math.max(0,index-priority.length))||tips[slot];readUntil=now+5000;return line;
+   acceptedSlot=slot;const index=serial++;line=window.__aczoInfoText?.startupTip(index)||window.__aczoStartupTipDeck.next(tips);readUntil=now+5000;return line;
   },
   fit(node,text){
    if(record?.node===node&&record.text===text&&record.width===node.clientWidth&&record.height===node.clientHeight)return;
@@ -5319,6 +5343,18 @@ html.aczo-screen-mode #viewer{min-height:0!important;max-height:none!important}
  if(meta&&!/viewport-fit\s*=/.test(meta.content))meta.content+=',viewport-fit=cover';
  document.documentElement.style.setProperty('--aczo-screen-height',Math.round(window.innerHeight||document.documentElement.clientHeight||1)+'px');
 })();</script>
+
+<style id="aczoK33MapMenuOverlay">
+/* Map tools overlay the scene; their height never changes the canvas. */
+#viewer > #mapToolsPanel{position:absolute;top:8px;left:8px;right:8px;bottom:auto;z-index:91;width:auto;max-height:calc(100% - 16px);margin:0;padding:6px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;visibility:hidden;opacity:0;pointer-events:none;transform:translateY(-4px);border-color:rgba(44,86,65,.24);box-shadow:0 6px 20px rgba(0,0,0,.22);transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s}
+#viewer > #mapToolsPanel.open{max-height:calc(100% - 16px);margin:0;visibility:visible;opacity:1;pointer-events:auto;transform:translateY(0);transition-delay:0s}
+#mapToolsBackdrop{position:absolute;inset:0;z-index:90;background:rgba(6,31,21,.18);touch-action:none}
+#mapToolsBackdrop[hidden]{display:none!important}
+.wrap.fish-mode #mapToolsBackdrop,.wrap.angling-mode #mapToolsBackdrop{display:none!important}
+@media(max-width:700px){#viewer > #mapToolsPanel{top:5px;left:5px;right:5px;padding:5px 4px;max-height:calc(100% - 10px)}#viewer > #mapToolsPanel.open{max-height:calc(100% - 10px)}}
+@media(prefers-reduced-motion:reduce){#viewer > #mapToolsPanel{transition:none;transform:none}}
+@media print{#mapToolsPanel,#mapToolsBackdrop{display:none!important}}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -5332,7 +5368,13 @@ html.aczo-screen-mode #viewer{min-height:0!important;max-height:none!important}
   <button id="mapMenuToggle" aria-label="Werkzeuge und Anzeige öffnen" aria-expanded="false">☰ Menü</button>
   <button id="helpBtn" aria-label="Hilfe und Bedienung">❔ Hilfe</button>
  </div>
- <div id="mapToolsPanel" class="map-tools-panel" aria-hidden="true">
+ <div id="fishCollection" class="fish-collection" aria-label="Gefundene Fischarten">
+   <div id="fishCollectionProgress" class="fish-collection-progress">0 von 16 Fischarten gefunden</div>
+   <div id="fishCollectionItems" class="fish-collection-items"></div>
+ </div>
+ <div id="viewer">
+  <div id="mapToolsBackdrop" class="map-tools-backdrop" hidden aria-hidden="true"></div>
+ <div id="mapToolsPanel" class="map-tools-panel" aria-hidden="true" inert>
   <button type="button" id="aczoMapFullscreen" data-aczo-fullscreen aria-pressed="false">⛶ Vollbild</button>
   <button id="resetView" aria-label="Ansicht zurücksetzen">↻ Reset</button>
   <button id="landscapeOverview" aria-label="Weiher und gesamten Moselabschnitt anzeigen">🌍 Gesamtgebiet</button>
@@ -5351,11 +5393,7 @@ html.aczo-screen-mode #viewer{min-height:0!important;max-height:none!important}
     </div>
   </div>
  </div>
- <div id="fishCollection" class="fish-collection" aria-label="Gefundene Fischarten">
-   <div id="fishCollectionProgress" class="fish-collection-progress">0 von 16 Fischarten gefunden</div>
-   <div id="fishCollectionItems" class="fish-collection-items"></div>
- </div>
- <div id="viewer">
+
 <div id="mapStartupLoader" role="region" aria-label="Spielstart">
   <div class="map-loader-water"></div>
   <div class="map-loader-card">
@@ -6653,8 +6691,59 @@ function aczoSelectionMapUpdateButtons(){
 function setAnglingMobilePerformance(active){
  anglingMobilePerfActive=!!active&&(ACZO_MOBILE_PERF||anglingPhoneLayoutActive());anglingMobileSavedPixelRatio=null;
 }
-function aczoApplyAudioSessionPolicy(){
-  try{const session=navigator.audioSession;if(session&&session.type!=='ambient')session.type='ambient';}catch(_e){}
+function aczoRecordAudioState(reason,error=null){
+  const state=aczoAudioEvidence;
+  state.contextState=aczoAudioCtx?String(aczoAudioCtx.state):null;
+  state.lastError=error?String(error.name||error.message||error).slice(0,120):null;
+  state.events.push({reason:String(reason).slice(0,64),time:Math.round(performance.now()),type:state.observedType,context:state.contextState,session:state.sessionState,error:state.lastError});
+  if(state.events.length>16)state.events.splice(0,state.events.length-16);
+}
+function aczoAudioStateSnapshot(){
+  return {...aczoAudioEvidence,events:aczoAudioEvidence.events.map(event=>({...event}))};
+}
+function aczoObserveAudioContext(ctx){
+  if(!ctx||ctx===aczoAudioObservedContext)return;
+  aczoAudioObservedContext=ctx;
+  if(typeof ctx.addEventListener==='function')ctx.addEventListener('statechange',()=>{
+    aczoRecordAudioState('context-statechange');
+    if(ctx.state==='running')aczoApplyAudioSessionPolicy('context-running');
+  });
+  aczoRecordAudioState('context-created');
+}
+function aczoApplyAudioSessionPolicy(reason='policy'){
+  const state=aczoAudioEvidence;
+  try{
+    const session=navigator.audioSession;
+    state.supported=!!session;
+    if(!session){state.observedType=null;state.sessionState=null;aczoRecordAudioState(reason);return false;}
+    // Assign before and after activation. Equal assignments may still be deduplicated
+    // by WebKit; the readback below proves only the page's requested category.
+    session.type='ambient';state.observedType=String(session.type);
+    state.sessionState='state' in session?String(session.state):null;
+    if(session!==aczoAudioObservedSession&&typeof session.addEventListener==='function'){
+      aczoAudioObservedSession=session;
+      session.addEventListener('statechange',()=>{
+        try{state.sessionState='state' in session?String(session.state):null;}catch(_e){state.sessionState=null;}
+        aczoRecordAudioState('session-statechange');
+        if(state.sessionState==='active'&&aczoAudioCtx?.state==='running')aczoApplyAudioSessionPolicy('session-active');
+      });
+    }
+    aczoRecordAudioState(reason);return state.observedType==='ambient';
+  }catch(error){state.observedType=null;state.sessionState=null;aczoRecordAudioState(reason,error);return false;}
+}
+function aczoResumeAudioContext(ctx){
+  if(!ctx||!aczoSoundEnabled||document.hidden)return Promise.resolve(false);
+  aczoObserveAudioContext(ctx);aczoApplyAudioSessionPolicy('resume-before');
+  let result;
+  // Keep resume synchronous in the original gesture; no timer/permission step precedes it.
+  try{result=ctx.resume();}catch(error){aczoRecordAudioState('resume-error',error);return Promise.reject(error);}
+  return Promise.resolve(result).then(()=>{
+    aczoApplyAudioSessionPolicy('resume-after');aczoRecordAudioState('resume-complete');return ctx.state==='running';
+  },error=>{aczoRecordAudioState('resume-error',error);throw error;});
+}
+function aczoReconcileAudioOnReturn(){
+  if(document.hidden)return;
+  aczoApplyAudioSessionPolicy('page-return');aczoObserveAudioContext(aczoAudioCtx);aczoSyncAudioOutput();
 }
 function aczoSyncAudioOutput(){
   if(aczoAudioOutputGain)aczoAudioOutputGain.gain.value=aczoSoundEnabled?(aczoAudioOutputLimiter?1.35:1):0;
@@ -6680,11 +6769,13 @@ function aczoAudioDestination(ctx){
   return gain;
 }
 function aczoEnsureAudioContext(){
-  aczoApplyAudioSessionPolicy();
-  if(aczoAudioCtx||!ACZO_AUDIO_CTOR)return aczoAudioCtx;
+  if(aczoAudioCtx){aczoObserveAudioContext(aczoAudioCtx);return aczoAudioCtx;}
+  if(!ACZO_AUDIO_CTOR)return null;
+  aczoApplyAudioSessionPolicy('context-before');
   try{aczoAudioCtx=new ACZO_AUDIO_CTOR({latencyHint:'interactive'});}catch(_e){
     try{aczoAudioCtx=new ACZO_AUDIO_CTOR();}catch(_e2){aczoAudioCtx=null;}
   }
+  aczoObserveAudioContext(aczoAudioCtx);aczoApplyAudioSessionPolicy('context-after');
   return aczoAudioCtx;
 }
 function aczoDataUriArrayBuffer(uri){
@@ -6928,7 +7019,7 @@ function aczoStartHallOfFameMusic(){
   const generation=aczoHofMusicGeneration;
   if(ctx.state!=='running'){
     try{
-      const resumed=ctx.resume();
+      const resumed=aczoResumeAudioContext(ctx);
       if(resumed&&typeof resumed.then==='function')resumed.then(()=>{
         if(ctx.state==='running'&&generation===aczoHofMusicGeneration&&aczoHofMusicAllowed())aczoStartHallOfFameMusic();
       }).catch(()=>{});
@@ -7214,14 +7305,14 @@ function aczoMenuSoundAllowed(){
 function aczoPlayMenuClick(){
   if(!aczoMenuSoundAllowed())return false;
   const generation=++aczoMenuSoundGeneration,requestSerial=++aczoSoundRequestSerial;
-  const ctx=aczoEnsureAudioContext();if(!ctx)return false;
+  const ctx=aczoEnsureAudioContext();if(!ctx)return false;aczoApplyAudioSessionPolicy('menu-gesture');
   const play=()=>aczoSoundPlay('infoTick',{volume:ACZO_PERF10_IS_MOBILE_OS?.05:.04,rate:1.08,uiClick:true});
   if(ctx.state==='running'&&aczoAudioBuffers.infoTick)return play();
   const startedAt=performance.now();
   // resume direkt in der Benutzeraktion aufrufen; nur dieser kurze Clip wird
   // benötigt. Weder Umgebungsgeräusche noch Musik für das Startmenü vorbereiten.
   try{
-    const resume=ctx.state==='running'?Promise.resolve():ctx.resume();
+    const resume=ctx.state==='running'?Promise.resolve():aczoResumeAudioContext(ctx);
     Promise.all([resume,aczoDecodeSoundKey('infoTick')]).then(()=>{
       if(generation!==aczoMenuSoundGeneration||requestSerial!==aczoSoundRequestSerial
         ||performance.now()-startedAt>750||!aczoMenuSoundAllowed()||ctx.state!=='running')return;
@@ -7245,7 +7336,7 @@ function aczoSoundSetLineRun(active){
 function aczoUnlockSounds(){
   if(!aczoSoundEnabled||typeof anglingMode==='undefined'||!anglingMode)return;
   const ctx=aczoEnsureAudioContext();aczoPrepareSounds();
-  if(!ctx)return;
+  if(!ctx)return;aczoApplyAudioSessionPolicy('game-gesture');
   if(ctx.state==='running'){
     if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();
     if(anglingState==='drilling'&&!aczoDrillMusicSource)aczoStartDrillMusic();
@@ -7253,7 +7344,7 @@ function aczoUnlockSounds(){
     window.dispatchEvent(new Event('aczo-sound-unlocked'));
     return;
   }
-  const p=ctx.resume();
+  const p=aczoResumeAudioContext(ctx);
   if(p&&typeof p.then==='function')p.then(()=>{
     aczoSoundUnlocked=true;
     if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();
@@ -10758,6 +10849,9 @@ function setMapToolsOpen(open){
   if(mapToolsPanel){
     mapToolsPanel.classList.toggle('open',mapToolsOpen);
     mapToolsPanel.setAttribute('aria-hidden',mapToolsOpen?'false':'true');
+    mapToolsPanel.inert=!mapToolsOpen;
+    const backdrop=document.getElementById('mapToolsBackdrop');
+    if(backdrop)backdrop.hidden=!mapToolsOpen;
   }
   if(mapMenuToggle){
     mapMenuToggle.classList.toggle('on',mapToolsOpen);
@@ -40266,7 +40360,7 @@ function aczoK7aSample(route,d,out,dir){
 function aczoK7aDensity(hour,night){if(night>.55||hour<6||hour>=22)return 4;if((hour>=7&&hour<9)||(hour>=16&&hour<19))return 18;return 13;}
 function aczoK7aCarModel(type,index){
  if(!aczoK7aPrototypes.has(type)){
-  const root=new THREE.Group(),bins=new Map(),truck=type==='truck',van=type==='van'||type==='ambulance',suv=type==='suv',estate=type==='estate'||type==='police';
+  const root=new THREE.Group(),bins=new Map(),truck=type==='truck',van=type==='van'||type==='ambulance'||type==='fire',suv=type==='suv',estate=type==='estate'||type==='police';
   const dims={length:truck?10.6:van?5.9:estate?4.8:suv?4.55:type==='sedan'?4.65:4.15,width:truck?2.45:van?2.08:suv?1.96:1.84,height:truck?3.55:van?2.75:suv?1.86:1.57};
   const mats={paint:new THREE.MeshLambertMaterial({color:0x75828a}),glass:new THREE.MeshPhongMaterial({color:0x172b34,shininess:65}),rubber:new THREE.MeshLambertMaterial({color:0x202226}),metal:new THREE.MeshLambertMaterial({color:0xadb3b6}),cargo:new THREE.MeshLambertMaterial({color:0xd3d8d6}),blue:new THREE.MeshLambertMaterial({color:0x126aaf}),orange:new THREE.MeshLambertMaterial({color:0xf05b23}),white:new THREE.MeshLambertMaterial({color:0xf2f3df})};
   const add=(key,g,x=0,y=0,z=0,rx=0,ry=0,rz=0)=>{g.rotateX(rx);g.rotateY(ry);g.rotateZ(rz);g.translate(x,y,z);if(!bins.has(key))bins.set(key,[]);bins.get(key).push(g);};
@@ -40293,36 +40387,47 @@ function aczoK7aCarModel(type,index){
    }
    // Opaque windscreen inset above hood, angled with the cabin.
    const wind=new THREE.BoxGeometry(W*.86,.045,.52);add('glass',wind,0,frontY+.02,H-.27,-.52);box('glass',0,rearY-.04,H-.28,W*.85,.045,.42);
-   if(type==='police'||type==='ambulance')for(const side of [-1,1]){box(type==='police'?'blue':'orange',side*(W/2+.045),-.15,.88,.035,L*.78,.32);box('white',side*(W/2+.065),-.4,.90,.025,.62,.055);if(type==='ambulance'){box('orange',side*(W/2+.05),-.8,1.77,.035,.16,.74);box('orange',side*(W/2+.055),-.8,1.77,.04,.7,.16);}}
+   if(type==='police'||type==='ambulance'||type==='fire')for(const side of [-1,1]){box(type==='police'?'blue':type==='fire'?'white':'orange',side*(W/2+.045),-.15,.88,.035,L*.78,.32);box('white',side*(W/2+.065),-.4,.90,.025,.62,.055);if(type==='ambulance'){box('orange',side*(W/2+.05),-.8,1.77,.035,.16,.74);box('orange',side*(W/2+.055),-.8,1.77,.04,.7,.16);}}
   }
   box('rubber',0,0,.30,W*.78,L*.94,.20);
   const radius=truck?.49:van?.39:suv?.38:.33,axles=truck?[-3.9,-2.5,3.9]:[-L*.30,L*.29];
   for(const y of axles)for(const side of [-1,1]){const x=side*(W/2+.03);add('rubber',new THREE.CylinderGeometry(radius,radius,truck?.34:.23,16),x,y,radius,0,0,Math.PI/2);add('metal',new THREE.CylinderGeometry(radius*.56,radius*.56,truck?.355:.245,12),x+side*.012,y,radius,0,0,Math.PI/2);add('rubber',new THREE.CylinderGeometry(radius*.19,radius*.19,truck?.365:.255,8),x+side*.02,y,radius,0,0,Math.PI/2);}
   for(const y of [-L/2,L/2]){box('metal',0,y,.55,W*.95,.12,.18);box('white',0,y+Math.sign(y)*.075,.56,.48,.02,.10);}
   box('rubber',0,L/2+.075,.86,W*.57,.035,.19);for(let j=0;j<4;j++)box('metal',0,L/2+.095,.80+j*.04,W*.51,.02,.012);
-  if(type==='ambulance'||type==='police')box('rubber',0,0,H+.06,W*.75,.28,.11);
+  if(type==='ambulance'||type==='police'||type==='fire')box('rubber',0,0,H+.06,W*.75,.28,.11);
   for(const [key,parts]of bins){const mesh=new THREE.Mesh(aczoLureMergeGeometry(parts),mats[key]);mesh.name='konz-'+key;root.add(mesh);}root.userData={...dims,type,closedShell:true};aczoK7aPrototypes.set(type,root);
  }
- const root=aczoK7aPrototypes.get(type).clone(true),dims={...root.userData};const paint=root.getObjectByName('konz-paint');paint.material=paint.material.clone();paint.material.color.setHex(type==='police'?0xe9eeef:type==='ambulance'?0xf4f2de:[0x456477,0xc5c9c8,0x7d302a,0x34403c,0x9e936f,0x1b2c3f][index%6]);
+ const root=aczoK7aPrototypes.get(type).clone(true),dims={...root.userData};const paint=root.getObjectByName('konz-paint');paint.material=paint.material.clone();paint.material.color.setHex(type==='police'?0xe9eeef:type==='ambulance'?0xf4f2de:type==='fire'?0xb92322:[0x456477,0xc5c9c8,0x7d302a,0x34403c,0x9e936f,0x1b2c3f][index%6]);
  const front=new THREE.MeshBasicMaterial({color:0xffedb5}),rear=new THREE.MeshBasicMaterial({color:0x6d1413}),amber=new THREE.MeshBasicMaterial({color:0xffa51b}),right=[],blue=[];
  for(const side of [-1,1])for(const end of [-1,1]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(dims.width*.18,.06,.16),end>0?front:rear);lamp.position.set(side*dims.width*.33,end*(dims.length/2+.1),.76);root.add(lamp);}
  for(const y of [-dims.length/2-.11,dims.length/2+.11]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.13),amber);lamp.position.set(dims.width*.44,y,.77);lamp.visible=false;root.add(lamp);right.push(lamp);}
  const beamGeo=new THREE.BufferGeometry();beamGeo.setAttribute('position',new THREE.Float32BufferAttribute([-.7,2,.018,.7,2,.018,3.5,18,.018,-3.5,18,.018],3));beamGeo.setIndex([0,1,2,0,2,3]);const beam=new THREE.Mesh(beamGeo,new THREE.MeshBasicMaterial({color:0xf5e6ad,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));root.add(beam);
- if(type==='police'||type==='ambulance')for(const side of [-1,1]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.30,.25,.17),new THREE.MeshBasicMaterial({color:0x147bff}));lamp.position.set(side*dims.width*.30,0,dims.height+.16);root.add(lamp);blue.push(lamp);}
+ if(type==='police'||type==='ambulance'||type==='fire')for(const side of [-1,1]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.30,.25,.17),new THREE.MeshBasicMaterial({color:0x147bff}));lamp.position.set(side*dims.width*.30,0,dims.height+.16);root.add(lamp);blue.push(lamp);}
  root.userData={...dims,front,rear,right,beam,blue,paint};root.name='KONZ_'+type.toUpperCase();root.traverse(o=>{o.castShadow=false;o.receiveShadow=false;});return root;
 }
 function aczoK7aInit(){
  if(aczoK7aRoot)return;aczoK7aBuildPaths();aczoK7aRoot=new THREE.Group();aczoK7aRoot.name='KONZ_STRASSENVERKEHR';scene.add(aczoK7aRoot);
- for(let i=0;i<18;i++)aczoK7aFleet.push({active:false,index:i,type:['truck','estate','hatchback','suv','van','sedan','estate','hatchback','truck','suv','van','sedan','estate','hatchback','suv','sedan','police','ambulance'][i],obj:null,distance:0,speed:0,dir:new THREE.Vector3(),pos:new THREE.Vector3(),committed:false});
+ for(let i=0;i<18;i++)aczoK7aFleet.push({active:false,index:i,type:['truck','estate','hatchback','suv','van','sedan','estate','hatchback','truck','suv','fire','sedan','estate','hatchback','suv','sedan','police','ambulance'][i],obj:null,distance:0,speed:0,dir:new THREE.Vector3(),pos:new THREE.Vector3(),committed:false});
 }
 function aczoK7aSpawn(night){
- const emergencyDue=night>.55&&aczoK7aClock>aczoK7aEmergencyAt;const a=aczoK7aFleet.find(a=>!a.active&&(emergencyDue?(a.type==='police'||a.type==='ambulance'):(a.type!=='police'&&a.type!=='ambulance')));if(!a)return false;
+ const emergencyDue=night>.55&&aczoK7aClock>=aczoK7aEmergencyAt&&!aczoK7aFleet.some(a=>a.active&&a.emergency);
+ let a=null;
+ if(emergencyDue){
+  for(let i=0;i<ACZO_K33_EMERGENCY_TYPES.length;i++){
+   const type=ACZO_K33_EMERGENCY_TYPES[(aczoK33EmergencyCursor+i)%ACZO_K33_EMERGENCY_TYPES.length];
+   a=aczoK7aFleet.find(v=>!v.active&&v.type===type);if(a)break;
+  }
+ }else a=aczoK7aFleet.find(v=>!v.active&&!ACZO_K33_EMERGENCY_TYPES.includes(v.type));
+ if(!a)return false;
  const route=aczoK7aPaths[[0,2,1,0,3,4,0,2,5,1][aczoK7aSerial%10]];aczoK7aSample(route,0,aczoK7aPos,aczoK7aDir);
  if(aczoK7aFleet.some(v=>v.active&&v.pos.distanceTo(aczoK7aPos)<24))return false;
  if(!a.obj){a.obj=aczoK7aCarModel(a.type,a.index);aczoK7aRoot.add(a.obj);}
  
- a.active=true;a.route=route;a.distance=0;a.speed=8;a.committed=false;a.emergency=night>.55&&aczoK7aClock>aczoK7aEmergencyAt&&(a.type==='police'||a.type==='ambulance');
- if(a.emergency)aczoK7aEmergencyAt=aczoK7aClock+180+(aczoK7aSerial%5)*37;
+ a.active=true;a.route=route;a.distance=0;a.speed=8;a.committed=false;a.emergency=emergencyDue&&ACZO_K33_EMERGENCY_TYPES.includes(a.type);
+ if(a.emergency){
+  aczoK33EmergencyCursor=(ACZO_K33_EMERGENCY_TYPES.indexOf(a.type)+1)%ACZO_K33_EMERGENCY_TYPES.length;
+  aczoK7aEmergencyAt=aczoK7aClock+120+(aczoK7aSerial%3)*30;
+ }
  a.obj.visible=true;a.pos.copy(aczoK7aPos);a.dir.copy(aczoK7aDir);a.obj.position.copy(a.pos);a.obj.position.z=ACZO_SATELLITE_GROUND_Z;aczoK7aSerial++;return true;
 }
 function aczoK7aMustYield(a){
@@ -40341,6 +40446,11 @@ function aczoK7aTick(dt){
  if(!aczoStartupHeavyWorkAllowed())return;
  aczoK7aInit();const step=Math.min(.1,Math.max(0,dt));aczoK7aClock+=step;
  const night=simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0,hour=simulationEnabled?seasonHourOfDate(viewerNow()):12,density=aczoK7aDensity(hour,night);
+ const isNight=night>.55;
+ // Count the first dispatch from actual nightfall, including a session started at night.
+ if(isNight&&!aczoK33NightActive)aczoK7aEmergencyAt=aczoK7aClock+25;
+ else if(!isNight)aczoK7aEmergencyAt=Infinity;
+ aczoK33NightActive=isNight;
  const active=aczoK7aFleet.filter(a=>a.active).length;
  if(active<density&&aczoK7aClock>=aczoK7aNextSpawn){if(aczoK7aSpawn(night))aczoK7aNextSpawn=aczoK7aClock+(night>.55?7:2.8);else aczoK7aNextSpawn=aczoK7aClock+.8;}
  aczoK7aRoot.visible=!anglingPhotoWallsActive();
@@ -40667,7 +40777,7 @@ function aczoPerf6PrepareRigidBatches(observeBatch){
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.__aczoStartup={mainReady:false,rendererState:'pending',rendererAttempts:[],firstError:null,errors:[],skippedModules:[]};
 const VIEWER_VERSION='ACZO56-Interaktiv-V.4.0 · Testversion';
-const ACZO_INTERNAL_BUILD='4.0-Mosel-K32-START-ULTRA-V1';
+const ACZO_INTERNAL_BUILD='4.0-Mosel-K33-MENU-TIPPS-V1';
 window.__aczoBootAudit?.mark('engine-script');
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -40872,6 +40982,8 @@ const ACZO_SOUND_VOLUMES={catfishBells:.62,
 };
 const ACZO_AMBIENT_SOUND_KEYS=new Set(['birdAmbient','frogAmbient','heronAmbient']);
 let aczoAudioOutputGain=null,aczoAudioOutputLimiter=null;
+let aczoAudioObservedContext=null,aczoAudioObservedSession=null;
+const aczoAudioEvidence={requestedType:'ambient',supported:false,observedType:null,contextState:null,sessionState:null,lastError:null,events:[],nativeRouteKnown:false,hardwareMuteKnown:false};
 let aczoMenuPeakBuffer=null,aczoMenuPeak=0;
 const ACZO_MOSEL_LEVEL_CONFIG=Object.freeze({
  uuid:'3bec53ca-444e-4014-a7b0-07b3591e954b',number:'26500100',name:'Trier UP',unit:'cm',
@@ -40909,8 +41021,9 @@ document.querySelectorAll('[data-aczo-sound]').forEach(btn=>{
 });
 aczoSyncSoundButtons();
 window.addEventListener('pagehide',()=>aczoSoundStopAll());
-document.addEventListener('visibilitychange',()=>{if(document.hidden)aczoSoundStopAll();else{aczoApplyAudioSessionPolicy();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();}});
-window.addEventListener('pageshow',()=>{aczoApplyAudioSessionPolicy();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){aczoSoundStopAll();aczoRecordAudioState('page-hidden');}else{aczoReconcileAudioOnReturn();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();}});
+window.addEventListener('pageshow',()=>{aczoReconcileAudioOnReturn();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
+window.addEventListener('focus',aczoReconcileAudioOnReturn);
 renderer.domElement.style.touchAction='none';
 renderer.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 renderer.domElement.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
@@ -40933,6 +41046,9 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 renderer.domElement.addEventListener('pointermove',e=>{
   if(activeViewerPointers.has(e.pointerId))markViewerInput();
 },true);
+
+</script>
+<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.addEventListener('pointerup',releaseViewerPointer,true);
 window.addEventListener('pointercancel',e=>{releaseViewerPointer(e);resetViewerGestureState();},true);
 renderer.domElement.addEventListener('lostpointercapture',e=>{
@@ -40940,9 +41056,6 @@ renderer.domElement.addEventListener('lostpointercapture',e=>{
   releaseViewerPointer(e);
   if(wasActive)resetViewerGestureState();
 },true);
-
-</script>
-<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 renderer.domElement.addEventListener('touchend',e=>{
   // OrbitControls setzt beim normalen 2->1-Wechsel den verbleibenden Pointer
   // selbst neu. Hier nur Aktivität markieren; ein harter Reset ist ausschließlich
@@ -41190,12 +41303,12 @@ let skyLookYaw=0;
 let skyLookPitch=.12;
 let skyLookPointer=null;
 let skyLookLastX=0;
-let skyLookLastY=0;
-let skyLookArmDistance=0;
-let skyLookPointerIsTouch=false;
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+let skyLookLastY=0;
+let skyLookArmDistance=0;
+let skyLookPointerIsTouch=false;
 const skyLookReturnPosition=new THREE.Vector3();
 const skyLookReturnTarget=new THREE.Vector3();
 let skyLookHasReturnPose=false;
@@ -41238,12 +41351,12 @@ const anglingResetAllBtn=document.getElementById('anglingResetAllBtn');
 const anglingResetNewUserBtn=document.getElementById('anglingResetNewUserBtn');
 const anglingMainStatus=document.getElementById('anglingMainStatus');
 const anglingUi=document.getElementById('anglingUi');
-const anglingEpPopup=document.getElementById('anglingEpPopup');
-if(anglingEpPopup&&anglingUi&&anglingEpPopup.parentElement!==anglingUi)anglingUi.appendChild(anglingEpPopup);
-const anglingSelectTitle=document.getElementById('anglingSelectTitle');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingEpPopup=document.getElementById('anglingEpPopup');
+if(anglingEpPopup&&anglingUi&&anglingEpPopup.parentElement!==anglingUi)anglingUi.appendChild(anglingEpPopup);
+const anglingSelectTitle=document.getElementById('anglingSelectTitle');
 const anglingSelectText=document.getElementById('anglingSelectText');
 const anglingConfirmBtn=document.getElementById('anglingConfirmBtn');
 const anglingReselectBtn=document.getElementById('anglingReselectBtn');
@@ -41359,12 +41472,12 @@ const anglingGameHelpClose=document.getElementById('anglingGameHelpClose');
 const anglingLeaderboardBtn=document.getElementById('anglingLeaderboardBtn');
 const anglingLeaderboardPanel=document.getElementById('anglingLeaderboardPanel');
 const anglingLeaderboardClose=document.getElementById('anglingLeaderboardClose');
-const anglingLeaderboardSpecies=document.getElementById('anglingLeaderboardSpecies');
-const anglingLeaderboardRefresh=document.getElementById('anglingLeaderboardRefresh');
-const anglingLeaderboardState=document.getElementById('anglingLeaderboardState');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingLeaderboardSpecies=document.getElementById('anglingLeaderboardSpecies');
+const anglingLeaderboardRefresh=document.getElementById('anglingLeaderboardRefresh');
+const anglingLeaderboardState=document.getElementById('anglingLeaderboardState');
 const anglingLeaderboardList=document.getElementById('anglingLeaderboardList');
 const anglingLeaderboardName=document.getElementById('anglingLeaderboardName');
 const anglingLeaderboardConsent=document.getElementById('anglingLeaderboardConsent');
@@ -41407,12 +41520,12 @@ const anglingDeeperCtx=anglingDeeperCanvas?.getContext('2d');
 const anglingDeeperSaveSpotBtn=document.getElementById('anglingDeeperSaveSpotBtn');
 const anglingReelZoom=document.getElementById('anglingReelZoom');
 const anglingReelCaption=document.getElementById('anglingReelCaption');
-const anglingFloatCaption=document.getElementById('anglingFloatCaption');
-const anglingQte=document.getElementById('anglingQte');
-const anglingUnderwaterEntry=document.getElementById('anglingUnderwaterEntry');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingFloatCaption=document.getElementById('anglingFloatCaption');
+const anglingQte=document.getElementById('anglingQte');
+const anglingUnderwaterEntry=document.getElementById('anglingUnderwaterEntry');
 const anglingQteLabel=document.getElementById('anglingQteLabel');
 const anglingDrillPanel=document.getElementById('anglingDrillPanel');
 const anglingDrillTitle=document.getElementById('anglingDrillTitle');
@@ -41455,12 +41568,12 @@ const anglingLandingProgress=document.getElementById('anglingLandingProgress');
 const anglingLandingBtn=document.getElementById('anglingLandingBtn');
 const anglingToast=document.getElementById('anglingToast');
 const anglingSnagPrompt=document.getElementById('anglingSnagPrompt');
+
+</script>
+<script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
 const anglingSnagPromptTitle=document.getElementById('anglingSnagPromptTitle');
 const anglingSnagPromptText=document.getElementById('anglingSnagPromptText');
 const anglingSnagResolveBtn=document.getElementById('anglingSnagResolveBtn');
-
-</script>
-<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 const anglingOnlinePrompt=document.getElementById('anglingOnlinePrompt');
 const anglingOnlinePromptKicker=document.getElementById('anglingOnlinePromptKicker');
 const anglingOnlinePromptTitle=document.getElementById('anglingOnlinePromptTitle');
@@ -44155,6 +44268,10 @@ let overlaysVisible=true;
 let mapToolsOpen=false;
 let legendCollapsed=false;
 mapMenuToggle?.addEventListener('click',()=>setMapToolsOpen(!mapToolsOpen));
+const mapToolsBackdrop=document.getElementById('mapToolsBackdrop');
+for(const type of ['click','touchend'])mapToolsBackdrop?.addEventListener(type,e=>{e.preventDefault();e.stopPropagation();if(!mapToolsOpen)return;setMapToolsOpen(false);mapMenuToggle?.focus({preventScroll:true});},{passive:false});
+for(const type of ['pointerdown','pointermove','pointerup','pointercancel','touchstart','touchmove','wheel'])mapToolsBackdrop?.addEventListener(type,e=>{e.stopPropagation();if(e.cancelable)e.preventDefault();},{passive:false});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mapToolsOpen){e.preventDefault();setMapToolsOpen(false);mapMenuToggle?.focus({preventScroll:true});}});
 legendToggle?.addEventListener('click',e=>{
   e.preventDefault();
   e.stopPropagation();
@@ -48923,8 +49040,9 @@ let anglingSelectionMagnetSelection=null;
  };
  api.startupTip=function(slot){
   if(startupSlot===slot&&startupLine)return startupLine;startupSlot=slot;
-  const pool=data.S.map((_,index)=>'S'+(index+1)),c=isReady()?context(true):null;
-  startupLine=pick(pool,'startup',c?secrets(c,true):[])?.text||data.S[0];return startupLine;
+  const normal=Array.isArray(window.ACZO_STARTUP_TIPS)?window.ACZO_STARTUP_TIPS:data.S,c=isReady()?context(true):null;
+  const pool=normal.concat(c?secrets(c,true).map(id=>records[id]?.text).filter(Boolean):[]);
+  startupLine=window.__aczoStartupTipDeck?.next(pool)||data.S[0];return startupLine;
  };
  api.eligible=()=>{if(!isReady())return [];return eligible(context()).map(id=>records[id]);};
  api.secretCandidates=()=>{if(!isReady())return [];return secrets(context()).map(id=>records[id]);};
@@ -50368,7 +50486,9 @@ if(!ACZO_PERF8_MOBILE_BOOT)anglingBankPrewarm();
 const ACZO_K7A_ROAD={center:new THREE.Vector2(-43,-501),radius:21.5};
 const ACZO_K11_MARKED={"2":[[299.914525,-223.146165],[271.70377,-237.68651],[250.949602,-249.244221],[230.071158,-260.801931],[198.877768,-278.69774],[178.1236,-291.249662],[157.493709,-304.050137],[126.8335,-324.563947],[93.077948,-348.139253],[83.396669,-356.331176],[54.128255,-378.160583],[34.35102,-395.439819],[21.461236,-407.858025],[0.083058,-421.376579],[-16.422153,-435.366711],[-24.596162,-444.326682],[-30.883862,-452.186307],[-39.529449,-461.303471],[-53.367147,-473.140146],[-58.32332,-477.694467],[-63.815294,-482.78459],[-68.369615,-488.544466],[-79.079254,-501.559807],[-90.151336,-513.54505],[-102.364869,-525.758583],[-116.518871,-541.967198],[-134.325518,-558.974829],[-149.11122,-577.155648],[-178.955386,-605.060532]],"3":[[-39.927765,-629.631707],[-41.971267,-619.257003],[-44.329154,-602.123022],[-44.957924,-580.744844],[-39.627637,-555.071175],[-31.142151,-528.323447],[-29.793522,-522.413565],[-24.997378,-512.452342],[-20.939102,-502.306652],[-21.861437,-491.423093],[-22.224841,-471.794332],[-18.904433,-462.017576],[-12.263618,-450.765083],[2.71067,-431.877034],[17.122442,-415.480828],[30.326611,-403.691391],[58.448046,-380.839996],[71.977057,-366.23938]],"4":[[-185.343024,-622.472054],[-146.363399,-581.885022],[-131.896734,-566.078851],[-119.037476,-553.755396],[-105.910317,-541.565891],[-89.836245,-529.376386],[-74.508969,-520.521462],[-60.990415,-514.862532],[-47.314669,-515.491302],[-37.88312,-517.063227],[-29.866303,-514.07657],[-25.622106,-510.775527],[-23.264218,-508.732025]],"5":[[-153.547386,-589.330338],[-144.11238,-583.105179],[-131.467527,-571.141203],[-123.588811,-562.484342],[-116.97458,-556.45372],[-108.609523,-548.866808],[-96.159206,-539.820875],[-87.754428,-534.965597],[-81.324799,-532.018684],[-76.770479,-529.205721],[-71.680356,-528.93782],[-63.375419,-529.339672],[-57.347641,-532.420536],[-54.400728,-536.171153],[-50.918013,-543.002633],[-50.38221,-550.771768],[-51.721716,-559.880409],[-52.123568,-566.71189],[-51.721716,-574.481025],[-49.176655,-587.340282],[-47.212181,-610.510892],[-43.887845,-629.572813]],"6":[[-23.007836,-492.93405],[-27.988447,-486.846636],[-32.600125,-482.234959],[-40.53221,-479.836887],[-47.357492,-479.836887],[-52.707038,-482.050492],[-57.134248,-487.400037],[-60.270189,-493.302984],[-61.561458,-499.021464],[-64.881866,-502.710806],[-77.425628,-510.642891],[-91.076193,-521.341982],[-106.202495,-532.963409],[-116.901586,-541.81783]],"7":[[-60.950776,-500.201855],[-60.007621,-506.332362],[-56.863771,-512.620062],[-54.191499,-514.191987],[-48.532569,-520.636879],[-43.659602,-524.723883],[-41.773292,-533.99824],[-42.24487,-542.801019],[-43.973987,-551.132221],[-46.646259,-560.406578],[-49.509258,-576.294726],[-48.824387,-586.567792]]};
 const aczoK7aPaths=[],aczoK7aFleet=[];
-let aczoK7aRoot=null,aczoK7aClock=0,aczoK7aNextSpawn=0,aczoK7aSerial=0,aczoK7aEmergencyAt=120;
+let aczoK7aRoot=null,aczoK7aClock=0,aczoK7aNextSpawn=0,aczoK7aSerial=0,aczoK7aEmergencyAt=Infinity;
+const ACZO_K33_EMERGENCY_TYPES=['police','ambulance','fire'];
+let aczoK33EmergencyCursor=0,aczoK33NightActive=false;
 const aczoK7aPrototypes=new Map(),aczoK7aPos=new THREE.Vector3(),aczoK7aDir=new THREE.Vector3(),aczoK7aAhead=new THREE.Vector3(),aczoK7aTmpDir=new THREE.Vector3();
 let aczoK20MainRoadCache=null;
 let aczoK19BirdColourMat=null;
@@ -50381,6 +50501,9 @@ let aczoK17Patrol=null,aczoK17NextPatrol=310+Math.random()*340;
 let aczoK25MapNearSaved=null;
 const aczoPerf6RigidStats=aczoPerf6PrepareRigidBatches();
 aczoK5dInit();
+
+</script>
+<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
@@ -50768,9 +50891,6 @@ aczoK5dInit();
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
  schedulePersonalCampScene();
 })();
-
-</script>
-<script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
 window.__aczoStartup.mainReady=true;
 window.__aczoBootAudit?.mark('engine-ready');
 aczoStartMoselLevelOnce();
@@ -51255,7 +51375,7 @@ function tournamentMusicStart(){
   if(ctx.state!=='running'){
     if(tournamentMusicResumeTask)return false;
     try{
-      const task=Promise.resolve(ctx.resume()).then(()=>{
+      const task=Promise.resolve(aczoResumeAudioContext(ctx)).then(()=>{
         if(ctx.state==='running'&&generation===tournamentMusicGeneration&&S.musicWanted&&tournamentMusicAllowed())tournamentMusicStart();
       }).catch(()=>{});
       tournamentMusicResumeTask=task;
@@ -51277,7 +51397,7 @@ function tournamentMusicStart(){
     const src=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;
     src.buffer=tournamentMusicBuffer;src.loop=true;
     gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(.11,now+.65);
-    src.connect(gain);gain.connect(ctx.destination);S.musicSource=src;S.musicGain=gain;
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));S.musicSource=src;S.musicGain=gain;
     src.onended=()=>{
       if(S.musicSource===src){S.musicSource=null;S.musicGain=null;}
       try{src.disconnect();gain.disconnect();}catch(_e){}
@@ -51747,7 +51867,7 @@ function tournamentSignal(kind){
     if(typeof aczoEnsureAudioContext==='function')aczoEnsureAudioContext();
     const ctx=typeof aczoAudioCtx!=='undefined'?aczoAudioCtx:null;if(!ctx||ctx.state!=='running')return;
     const pattern=kind==='finish'?[[880,.00,.15],[660,.18,.15],[880,.36,.32]]:kind==='start'?[[620,.00,.12],[820,.16,.22]]:[[760,.00,.11],[760,.15,.11]];
-    for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+delay;o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.055,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+dur+.03)}
+    for(const [freq,delay,dur] of pattern){const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+delay;o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.055,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(aczoAudioDestination(ctx));o.start(t);o.stop(t+dur+.03)}
   }catch(_e){}
 }
 function competitionContextMessages(now){
