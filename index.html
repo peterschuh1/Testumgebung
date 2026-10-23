@@ -155,7 +155,7 @@
 </script>
 <style>.aczo-safe-starting .wrap,.aczo-safe-starting .wrap *{pointer-events:none!important}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ACZO56 · Finalversion Korrektur</title>
+<title>ACZO56 · Angelspiel</title>
 <!-- ACZO56 BETA 1.2: Hänger-, Fischkontakt-, Touch- und Idle-Korrekturen auf bestehender Basis. -->
 <!-- ACZO56 V.2.1: Neues Anmeldesystem mit Benutzername und Passwort. -->
 <!-- 02.10.2026 PATCH 5: Welssetup + Köderfisch = 75 % Wels / 25 % Hecht-Zander-Aal-Beifang. Karpfensetup + Köderfisch nutzt unverändert die normale Einzelruten-/Posen-Köderfischlogik. -->
@@ -5259,13 +5259,13 @@ Tatsächlich geprüft: ursprünglicher Fehler reproduziert; reale LED-Funktion b
 @media(max-height:420px){#mapStartupLoader .map-loader-card{padding:12px 16px}#mapStartupLoader .map-loader-icon{display:none}.map-loader-tip{margin-top:9px;padding-top:8px}#mapStartupTip{min-height:2.8em;font-size:11px}#mapStartupLoader .map-loader-card strong{font-size:14px}}
 @media(prefers-reduced-motion:reduce){#mapStartupLoader .map-loader-track[data-indeterminate="true"] #mapStartupBar{animation:none;transform:translateX(80%)}#mapStartupLoader #mapStartupBar{transition:none}}
 </style>
-<script id="aczoK29ApprovedStartupTips">window.ACZO_STARTUP_TIPS=["Ein Finger verschiebt die 2D-Karte und dreht die 3D-Ansicht.","Mit zwei Fingern zoomst und verschiebst du die Karte. Im Nahbereich reagiert sie feiner.","Möchtest du den Himmel betrachten? Wische in der 3D-Ansicht am Horizont weiter nach oben.","Tippe oder klicke in der Kartenansicht auf das Wasser, um die Tiefe abzufragen.","Die Mosel-Tiefenkarte findest du im Kartenmenü.","Im freien Erkunden kannst du an geeigneten Uferstellen „Hier angeln“ wählen.","Rapfen, Döbel, Barben und Nasen findest du im Spiel nur in der Mosel.","Vorbeifahrende Schiffe bringen stärkere Wellen an die Mosel.","Wechsle beim Führen sinkender Kunstköder zwischen gleichmäßigem Einholen und kurzen Absinkpausen.","Steinpackungen, Kanten und tiefere Rinnen bieten unterschiedliche Bereiche zum Angeln."];(function installStartupTextFit(){
+<script id="aczoK29ApprovedStartupTips">window.ACZO_STARTUP_PRIORITY_TIPS=["Für ein schärferes Bild kannst du unter Einstellungen die höchste Auflösung ausprobieren. Wähle die Stufe, mit der dein Gerät flüssig läuft.","Investiere deine gesammelten EP im Shop in bessere Ausrüstung."];window.ACZO_STARTUP_TIPS=["Ein Finger verschiebt die 2D-Karte und dreht die 3D-Ansicht.","Mit zwei Fingern zoomst und verschiebst du die Karte. Im Nahbereich reagiert sie feiner.","Möchtest du den Himmel betrachten? Wische in der 3D-Ansicht am Horizont weiter nach oben.","Tippe oder klicke in der Kartenansicht auf das Wasser, um die Tiefe abzufragen.","Die Mosel-Tiefenkarte findest du im Kartenmenü.","Im freien Erkunden kannst du an geeigneten Uferstellen „Hier angeln“ wählen.","Rapfen, Döbel, Barben und Nasen findest du im Spiel nur in der Mosel.","Vorbeifahrende Schiffe bringen stärkere Wellen an die Mosel.","Wechsle beim Führen sinkender Kunstköder zwischen gleichmäßigem Einholen und kurzen Absinkpausen.","Steinpackungen, Kanten und tiefere Rinnen bieten unterschiedliche Bereiche zum Angeln."];(function installStartupTextFit(){
  let acceptedSlot=-1,line='',serial=0,readUntil=0,record=null;
  const reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const api={get readUntil(){return readUntil;},
   select(slot,tips){
    const now=performance.now();if(line&&(now<readUntil||acceptedSlot===slot))return line;
-   acceptedSlot=slot;line=window.__aczoInfoText?.startupTip(serial++)||tips[slot];readUntil=now+5000;return line;
+   acceptedSlot=slot;const priority=window.ACZO_STARTUP_PRIORITY_TIPS||[],index=serial++;line=priority[index]||window.__aczoInfoText?.startupTip(Math.max(0,index-priority.length))||tips[slot];readUntil=now+5000;return line;
   },
   fit(node,text){
    if(record?.node===node&&record.text===text&&record.width===node.clientWidth&&record.height===node.clientHeight)return;
@@ -5713,7 +5713,7 @@ function aczoSetIconText(element,value){
            <div>
              <small>AC 1956 · ANGELSPIEL</small>
              <strong>🎣 Hauptmenü</strong>
-             <p id="anglingMainSubtitle">Spiel starten, Fortschritt verwalten und Einstellungen öffnen.</p>
+             <p id="anglingMainSubtitle">Spiel starten, Profil verwalten und Einstellungen öffnen.</p>
            </div>
            <div class="angling-main-head-actions">
              <div id="anglingMainEpBadge" class="angling-ep-badge"><small>EP</small><strong>0</strong></div>
@@ -5724,7 +5724,7 @@ function aczoSetIconText(element,value){
 <nav class="aczo-main-nav" aria-label="Bereiche im Hauptmenü"><button type="button" data-main-target="overview" aria-controls="aczo-main-overview" aria-pressed="true">Übersicht</button><button type="button" data-main-target="profile" aria-controls="aczo-main-profile" aria-pressed="false">Profil</button><button type="button" data-main-target="community" aria-controls="aczo-main-community" aria-pressed="false">Community</button><button type="button" data-main-target="settings" aria-controls="aczo-main-settings" aria-pressed="false">Einstellungen</button></nav><div class="angling-main-grid"><div id="aczo-main-overview" data-main-page="overview"><section class="angling-main-section angling-main-section-play">
              <div class="angling-main-section-title">
                <div><small>SPIEL</small><h3>🎣 Angeln</h3></div>
-               <p>Hier steuerst du nur die aktuelle Angelsitzung.</p>
+               <p>Deine aktuelle Angelsitzung verwalten.</p>
              </div>
              <div class="angling-main-actions">
                <button id="anglingMainPlayBtn" class="angling-main-btn primary">Angelstelle wählen</button>
@@ -5747,7 +5747,7 @@ function aczoSetIconText(element,value){
            </section><section id="aczoGuestNudge" class="angling-main-section" hidden><strong>🔐 Deinen Spielstand sichern?</strong><p>Mit einem Spielerkonto kannst du auch auf einem anderen Gerät weiterspielen.</p><div class="angling-main-actions"><button type="button" id="aczoNudgeNow" class="angling-main-btn primary">Jetzt sichern</button><button type="button" id="aczoNudgeLater" class="angling-main-btn">Später</button></div></section></div><div id="aczo-main-profile" data-main-page="profile" hidden><section class="angling-main-section">
              <div class="angling-main-section-title">
                <div><small>MEIN ANGLER</small><h3>👤 Profil & Spielstand</h3></div>
-               <p>Spielerkonto, Privatsphäre und Cloud-Sicherung gehören hier zusammen.</p>
+               <p>Konto, Privatsphäre und Online-Sicherung verwalten.</p>
              </div>
 
              <div id="aczoAccountArea" class="aczo-account-area">
@@ -5763,7 +5763,7 @@ function aczoSetIconText(element,value){
                  <button type="button" id="aczoGuestStart" class="angling-main-btn">🎣 Als Gastangler spielen</button>
                </div>
                <form id="aczoLoginForm" class="aczo-account-form" method="post" autocomplete="on" hidden>
-                 <h4>👤 Spielerkonto anmelden</h4><p>Melde dich an, um deinen vorhandenen Spielstand auf diesem Gerät zu laden.</p>
+                 <h4>👤 Spielerkonto anmelden</h4><p>Melde dich an, um deinen Spielstand zu laden.</p>
                  <label for="aczoLoginName">Benutzername</label><input id="aczoLoginName" name="username" type="text" autocapitalize="none" spellcheck="false" autocomplete="username" required>
                  <label for="aczoLoginPassword">Passwort</label><input id="aczoLoginPassword" name="password" type="password" autocomplete="current-password" required>
                  <button class="angling-main-btn primary" type="submit">Anmelden</button>
@@ -5772,9 +5772,9 @@ function aczoSetIconText(element,value){
                </form>
                <form id="aczoRegisterForm" class="aczo-account-form" method="post" autocomplete="on" hidden>
                  <h4 id="aczoRegisterTitle">🔐 Spielerkonto erstellen</h4>
-                 <p id="aczoRegisterIntro">Sichere diesen vorhandenen Spielstand mit Benutzername und Passwort und nutze ihn auf mehreren Geräten.</p>
+                 <p id="aczoRegisterIntro">Sichere deinen Spielstand mit Benutzername und Passwort.</p>
                  <div id="aczoRegisterLegacyBlock" hidden>
-                   <p>Gib zuerst nur den Wiederherstellungscode ein. Danach prüft das Spiel, ob zu diesem Spieler bereits ein Spielerkonto gehört.</p>
+                   <p>Gib deinen Wiederherstellungscode ein, um deinen vorhandenen Spielstand zu finden.</p>
                    <label for="aczoRegisterRecovery">Wiederherstellungscode</label><input id="aczoRegisterRecovery" name="legacy-recovery-code" type="text" autocapitalize="characters" spellcheck="false" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
                    <button type="button" id="aczoCheckRecovery" class="angling-main-btn primary">Code prüfen</button>
                    <div id="aczoRecoveryLookupResult" class="aczo-account-status" aria-live="polite"></div>
@@ -5789,7 +5789,7 @@ function aczoSetIconText(element,value){
                </form>
                <form id="aczoResetForm" class="aczo-account-form" method="post" autocomplete="on" hidden>
                  <h4>🔑 Passwort zurücksetzen</h4>
-                 <p>Gib zuerst nur deinen Wiederherstellungscode ein. Das Spiel findet damit automatisch dein bestehendes Spielerkonto.</p>
+                 <p>Gib deinen Wiederherstellungscode ein, um dein Konto zu finden.</p>
                  <div id="aczoResetLookupBlock">
                    <label for="aczoResetCode">Wiederherstellungscode</label><input id="aczoResetCode" name="recovery-code" type="text" autocapitalize="characters" spellcheck="false" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" required>
                    <button id="aczoResetCheck" class="angling-main-btn primary" type="button">Code prüfen</button>
@@ -5841,14 +5841,14 @@ function aczoSetIconText(element,value){
 
              <div class="angling-main-recovery-block">
                <div class="angling-main-subheading">🔑 Wiederherstellungscode</div>
-               <p>Privat aufbewahren. Auf einem neuen Gerät kann der ursprüngliche Code nur mit deiner Kopie eingegeben werden.</p>
+               <p>Bewahre den Code privat auf. Du brauchst deine Kopie zur Wiederherstellung.</p>
                <div class="angling-main-recovery-line">
                  <textarea id="anglingMainRecoveryCode" class="angling-main-recovery" readonly rows="2" aria-label="Wiederherstellungscode">Wird eingerichtet …</textarea>
                  <button id="anglingMainCopyRecoveryBtn" class="angling-main-btn">Kopieren</button>
                  <button id="anglingMainNewRecoveryBtn" class="angling-main-btn warn new-code-btn" hidden>Neuen Code</button>
                </div>
                <div id="aczoAttachRecovery" class="aczo-attach-recovery" hidden>
-                 <p>Der Code liegt nur auf dem Gerät, auf dem er erstellt wurde. Kopiere ihn dort aus dem Profil und füge ihn hier ein.</p>
+                 <p>Kopiere den Code im Profil des ersten Geräts und füge ihn hier ein.</p>
                  <label for="aczoAttachRecoveryInput">Vorhandenen Code auf diesem Gerät hinterlegen</label>
                  <input id="aczoAttachRecoveryInput" type="text" maxlength="29" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
                  <button id="aczoAttachRecoveryBtn" type="button" class="angling-main-btn">Code prüfen und speichern</button>
@@ -5860,12 +5860,12 @@ function aczoSetIconText(element,value){
              <button id="anglingMainRecoveryDetailsBtn" class="angling-main-btn" type="button">🔑 Notfall-Wiederherstellung</button>
              <details id="aczoProfileStorageDetails" class="angling-main-details">
                <summary>Was wird gespeichert und was ist öffentlich?</summary>
-               <p>Cloud-Sicherung speichert EP, Fortschritt, Käufe, Bestände, persönliche Rekorde und die im Unterwasser-Tauchmodus entdeckten Fischarten. Das Fangbuch mit einzelnen Fängen bleibt lokal. Öffentliche Rekorde und dein sichtbarer Online-Name sind zwei getrennte freiwillige Freigaben.</p>
+               <p>Fortschritt, Käufe, Vorräte und Rekorde werden online gesichert. Das einzelne Fangbuch bleibt auf diesem Gerät. Name und Rekorde veröffentlichst du freiwillig.</p>
              </details>
            </section></div><div id="aczo-main-community" data-main-page="community" hidden><section class="angling-main-section">
              <div class="angling-main-section-title">
                <div><small>COMMUNITY</small><h3>👥 Am Weiher</h3></div>
-               <p>Die neuesten Profile und Angler, die gerade am Weiher sind. Die gesamte Community findest du unter „Alle Angler“.</p>
+               <p>Hier siehst du neue und aktive Angler. Unter „Alle Angler“ findest du die gesamte Community.</p>
              </div>
              <div class="aczo-community-nav"><button type="button" data-community-view="pond">🟢 Am Weiher</button><button type="button" data-community-view="all">👥 Alle Angler</button><button type="button" data-community-view="rank">🏆 Bestenlisten</button></div>
              <div id="aczoCommunityPond" class="angling-main-community-wrap">
@@ -5884,7 +5884,7 @@ function aczoSetIconText(element,value){
            </section></div><div id="aczo-main-settings" data-main-page="settings" hidden><section class="angling-main-section angling-main-section-settings">
              <div class="angling-main-section-title">
                <div><small>SYSTEM</small><h3>⚙️ Einstellungen</h3></div>
-               <p>Seltene Funktionen und Zurücksetzen. Im normalen Spiel brauchst du diesen Bereich kaum.</p>
+               <p>Weitere Einstellungen und Zurücksetzen.</p>
              </div>
              <button id="anglingMainSettingsBtn" class="angling-main-btn alt angling-main-open-btn">Einstellungen & Zurücksetzen öffnen</button>
              <button type="button" id="aczoGameFullscreen" class="angling-main-btn alt" data-aczo-fullscreen aria-pressed="false">⛶ Vollbild</button>
@@ -5892,23 +5892,23 @@ function aczoSetIconText(element,value){
              <div id="anglingMainSettings" class="angling-main-settings-inner" style="display:none">
                <div class="angling-main-reset-card aczo-graphics-settings-card">
                  <strong>🖥️ Grafikqualität</strong>
-                 <p>Leistung, Standard und Qualität ändern die interne 3D-Auflösung. Ultra bietet auf Mobilgeräten zusätzlich den detaillierten Desktop-Wald, feinere Schatten und Wasserreflexionen. Ultra wird bewusst gewählt und benötigt mehr Grafikleistung.</p>
+                 <p>Ändert die Bildauflösung: Leistung, Standard oder Ultra.</p>
                  <div class="aczo-graphics-segments" role="group" aria-label="Grafikqualität im Angelspiel wählen">
                    <button type="button" data-aczo-graphics="performance">Leistung</button>
                    <button type="button" data-aczo-graphics="standard">Standard</button>
                    <!-- K6a 337067: former Quality is now Ultra -->
       <button type="button" data-aczo-graphics="ultra">Ultra</button>
                  </div>
-                 <small class="aczo-graphics-settings-note">Leistung, Standard und Ultra verwenden auf Handy und PC denselben vollständigen Baumbestand. Die interne Auflösung steigt mit der Stufe; Ultra bietet die höchste Schärfe. Die Auswahl gilt für alle Ansichten und wird auf diesem Gerät gespeichert.</small>
+                 <small class="aczo-graphics-settings-note">Ändert die Bildauflösung: Leistung, Standard oder Ultra.</small>
                </div>
                <div class="angling-main-reset-card aczo-sound-settings-card">
                  <strong>🔊 Spieltöne</strong>
-                 <p>Spielsounds sind ausschließlich im Angelspiel standardmäßig aktiv; die normale 2D-/3D-Karte bleibt vollständig stumm. Hier kannst du sie auf diesem Gerät vollständig ein- oder ausschalten. Flucht, Bremse und Warnung besitzen getrennte Tonspuren.</p>
+                 <p>Schaltet die Spieltöne ein oder aus.</p>
                  <div class="aczo-sound-segments" role="group" aria-label="Spieltöne ein- oder ausschalten">
                    <button type="button" data-aczo-sound="on">Töne an</button>
                    <button type="button" data-aczo-sound="off">Töne aus</button>
                  </div>
-                 <small class="aczo-graphics-settings-note">Die Auswahl wird nur auf diesem Gerät gespeichert. PC, Android und iPhone verwenden dieselbe Soundlogik.</small>
+                 <small class="aczo-graphics-settings-note">Die Auswahl gilt für dieses Gerät.</small>
                </div>
                <div class="angling-main-reset-card">
                  <strong>🐟 Unterwasser-Tauchmodus</strong>
@@ -5917,12 +5917,12 @@ function aczoSetIconText(element,value){
                </div>
                <div class="angling-main-reset-card danger">
                  <strong>↺ Spielstand zurücksetzen</strong>
-                 <p>Setzt nur deinen Spielfortschritt auf Anfang: EP, Gesamt-EP, Highscores, Käufe, Bestände, Tauchmodus-Sammlung und Fangbuch. Benutzername, Spieler-ID, Cloud-Verknüpfung und Wiederherstellungscode bleiben erhalten.</p>
+                 <p>Löscht Fortschritt, EP, Rekorde, Käufe, Vorräte, Fischsammlung und Fangbuch. Dein Konto und Wiederherstellungscode bleiben erhalten.</p>
                  <button id="anglingResetAllBtn" class="angling-main-btn danger angling-main-open-btn">Spielstand zurücksetzen</button>
                </div>
                <div class="angling-main-reset-card danger angling-new-user-reset">
                  <strong>🧨 Komplett neu beginnen</strong>
-                 <p>Löscht zusätzlich dein bisheriges Spielerprofil, Benutzername, Cloud-Zuordnung, Wiederherstellungscode und lokale Einstellungen. Beim nächsten Start von „Angeln“ erscheint wieder die einmalige Ersteinrichtung wie bei einem neuen Benutzer.</p>
+                 <p>Löscht auch dein Profil, die Online-Verknüpfung, den Wiederherstellungscode und lokale Einstellungen. Danach beginnst du als neuer Spieler.</p>
                  <button id="anglingResetNewUserBtn" class="angling-main-btn danger angling-main-open-btn">Komplett neu beginnen</button>
                </div>
              </div>
@@ -5976,7 +5976,7 @@ function aczoSetIconText(element,value){
        <div class="angling-recovery-body">
          <div class="angling-recovery-card angling-recovery-restore-card">
            <h3>Spielstand auf diesem Gerät laden</h3>
-           <p>Mit einem Spielerkonto meldest du dich unter „Profil“ mit Benutzername und Passwort an. Für ein Gastprofil oder eine Wiederherstellung gib hier deinen privaten Code ein. Er lädt das zugehörige Cloud-Profil mit Fortschritt, Bestwerten, Käufen, Beständen und Fischsammlung; einzelne Fangbuchzeilen bleiben lokal.</p>
+           <p>Melde dich unter „Profil“ mit Benutzername und Passwort an. Gastspielstände lädst du mit dem privaten Code. Das einzelne Fangbuch bleibt auf dem bisherigen Gerät.</p>
            <div class="angling-recovery-code-row">
              <input id="anglingRecoveryInput" type="text" maxlength="29" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" aria-label="Wiederherstellungscode eingeben">
            </div>
@@ -5984,7 +5984,7 @@ function aczoSetIconText(element,value){
          </div>
          <div class="angling-recovery-card angling-recovery-own-card">
            <h3>Dein Wiederherstellungscode</h3>
-           <p>Dieser private Code dient der Wiederherstellung und beim Spielerkonto zum Zurücksetzen eines vergessenen Passworts. Für den normalen Gerätewechsel meldest du dich mit Benutzername und Passwort an. Bewahre den Code sicher auf.</p>
+           <p>Der private Code hilft bei der Wiederherstellung und bei vergessenem Passwort. Zum Anmelden reichen Benutzername und Passwort. Bewahre ihn sicher auf.</p>
            <div class="angling-recovery-code-row">
              <input id="anglingRecoveryCodeDisplay" type="text" readonly value="Wird eingerichtet …" aria-label="Wiederherstellungscode">
              <button id="anglingRecoveryCopyBtn">Kopieren</button>
@@ -6001,48 +6001,48 @@ function aczoSetIconText(element,value){
          <button id="anglingGameHelpClose" class="angling-panel-close" aria-label="Spielhilfe schließen"><span>‹</span><small>Zurück</small></button>
        </div>
        <div class="angling-help-content">
-         <section><h3>🎯 Angelstelle & Auswurf</h3><p>Wähle einen Uferplatz am Weiher oder an der Mosel. Beim Bewegen über das andere Gewässer wechselt der Auswahlcursor in beide Richtungen; „Weiher“ beziehungsweise „Mosel“ ist passend hervorgehoben. Die Knöpfe erlauben auch einen direkten Wechsel.</p><p>Am Weiher stehen außerdem Gitterroststege, Nordsteg und Bootssteg zur Wahl. Der Nordsteg bietet die Spitze geradeaus sowie zwei mittlere Plätze parallel zum Ufer. Bestätige deinen Platz, setze anschließend das Zielkreuz im Wasser und bestätige den Auswurfpunkt. Tiefe, Struktur, Wetter und Tageszeit beeinflussen die Fischaktivität.</p></section>
-         <section><h3>🚶 Freies Erkunden</h3><p>Starte „Freies Erkunden“ in der Stellenauswahl. Du beginnst zwischen Haupthaus und Pavillon und bewegst dich auf Kopfhöhe. Nutze den Steuerkreis oder am Computer WASD beziehungsweise die Pfeiltasten; mit gedrückter Maustaste oder Finger schaust du dich um. Am Computer aktiviert ein Doppelklick ins Bild den freien Mausblick; Escape gibt die Maus wieder frei. Die Tore öffnen bei Annäherung und schließen nach dem Passieren wieder. Beim Angeln führt der kleine Fußspuren-Knopf neben „Stelle wechseln“ nach dem Einholen direkt an dieser Uferstelle zurück ins freie Erkunden. „Stelle wechseln“ öffnet die normale Stellenauswahl.</p><p>Stehst du an einem geeigneten Ufer und blickst aufs Wasser, erscheint „Hier angeln“. Bestätige den Knopf oder drücke E beziehungsweise Enter. „Zurück“ führt zur Stellenauswahl; mit freier Maus geht das auch über Escape. Die Umgebungsgeräusche und Predatorpits Bissanzeiger sind bei eingeschaltetem Ton in der Nähe zu hören und werden mit der Entfernung leiser.</p></section>
-         <section><h3>🌊 Angeln an der Mosel</h3><p>Die Pose treibt langsam mit der Strömung von Westen nach Osten. Bei gespannter Schnur wird sie zum Ufer geführt; Bisse bleiben möglich. Vorbeifahrende Schiffe können die Drift kurz umkehren und Wellen bis ans Ufer schicken.</p><p>Beim Rodpod kann Schiffssog einzelne oder mehrere kurze Signale auslösen, ohne den Köder durch den Schiffssog zu versetzen. Das ist noch kein bestätigter Biss; achte auf die normale Bissanzeige. Welsrutenspitzen wippen bei der Passage leicht. Diese Schiffseffekte gelten an der Mosel. Flusstiefen und Fischverteilung sind in dieser Testversion noch vorläufig.</p></section>
-         <section><h3>🌧️ Moselpegel & Sicht</h3><p>Der angezeigte Pegel verändert Trübung, braune Wasserfarbe, Strömung, Verwirbelungen und Treibgut. Der mittlere Wasserspiegel bleibt in dieser Version fest. Unter Wasser ist die Mosel deutlich trüber als der Weiher; bei höherem Pegel sinkt die Sicht weiter.</p></section>
-         <section><h3>📱 Mobile Steuerung</h3><p>Tippe in die Szene, um Ziel oder Aktion auszuführen. Halten kurbelt kontinuierlich; ein Doppeltipp holt Kunstköder oder Deeper schnell vollständig zum Ufer zurück. Während des Drills hältst du „Kurbeln“ gedrückt und führst Rute beziehungsweise Finger auf die Gegenseite des Fisches. Beim Keschern bewegst du den Kescher mit dem Finger unter den Fisch. Textauswahl, iOS-Lupe und Kontextmenü sind während der aktiven Spielsteuerung gesperrt.</p></section>
-         <section><h3>🖱️ Desktop-Steuerung</h3><p>Klick und Halten bedienen die Angelaktionen; Kunstköder oder Deeper können per Rechtsklick schnell zurückgeholt werden. Im Drill bewegt die Maus die Rute. Das Mausrad verstellt die Rollenbremse stufenweise: nach oben/von dir weg = fester, nach unten/zu dir = lockerer. Das Mausrad verändert die Bremse nur während eines laufenden Drills und zoomt dann nicht die Karte.</p></section>
-         <section><h3>🖥️ Grafikqualität</h3><p>Leistung, Standard und Ultra verwenden auf Handy und PC denselben vollständigen Baumbestand. Die interne Auflösung steigt mit der Stufe; Ultra bietet die höchste Schärfe. Die Auswahl gilt für alle Ansichten und wird auf diesem Gerät gespeichert.</p></section>
-         <section><h3>🏁 Wettangeln</h3><p>Das Wettangeln startest du direkt über „Wettangeln starten“ im Hauptmenü oder in der Angelplatz-Auswahl. Für die Teilnahme benötigst du ein angemeldetes Spielerkonto. Vor dem Start müssen alle Montagen eingeholt und laufende Aktionen beendet sein.</p><p>Nach dem Klick wird zuerst die Teilnahme online gespeichert. Während „Teilnahme wird gespeichert …“ bleiben Kamera und Auslosung stehen. Erst nach Bestätigung beginnen die Hausfahrt und die Auslosung. Bei einer fehlgeschlagenen oder abgelehnten Bestätigung startet kein Wettkampf. Ein erneuter Versuch verwendet dieselbe unbestätigte Startanfrage. Die 24-Stunden-Sperre beginnt zum bestätigten Serverzeitpunkt; Abbruch und Neuladen setzen sie nicht zurück. Im Hauptmenü und in der Stellenauswahl siehst du den gleichen Countdown. Bei der Ankunft am Angelplatz gibt es keine zweite Teilnahmespeicherung und keine zusätzliche Speicher-Wartephase.</p><p>8–12 Teilnehmer erhalten ausgeloste Plätze. Dein Platz bleibt für den Wettkampf fest. Nach der Auslosung und dem Flug zum Angelplatz beginnen die 15 Angelminuten mit einem kurzen Countdown. Geangelt wird ausschließlich mit der Posenrute. Rotauge, Rotfeder, Flussbarsch, Sonnenbarsch, Grundel, Brasse und Schleie sind Wertungsfische; entscheidend ist ihr Gesamtgewicht. Andere Angelmethoden und nicht zugelassene Köder bleiben währenddessen gesperrt.</p><p>Ein vor dem Schlusssignal erfolgreich angeschlagener Fisch darf noch zu Ende gedrillt und gekeschert werden und zählt zur Wertung. Die vier besten Plätze erhalten zusätzliche EP: 2.000, 1.500, 1.000 und 500 EP. Gewonnene EP werden mit dem normalen Spielstand gespeichert. Online gesichert wird die letzte Teilnahme für die Sperrzeit; eine eigene Wettkampfergebnis-Historie oder Wiederaufnahme nach Neuladen gibt es nicht.</p></section>
-         <section><h3>🎒 Köder- & Tacklebox</h3><p>Alle Köder besitzen einen echten Bestand. Die Standardrute mit 50 m Wurfweite gehört von Beginn an dir. Die mittlere Rute wirft 75 m und die beste 100 m. Weitere Ruten, Kescher, der Deeper sowie zusätzliche Angel- und Boots-Ausrüstung können im Tackle-Shop gegen EP freigeschaltet werden. Gekaufte Ausrüstung wird dauerhaft in deiner Tacklebox gespeichert. Lockfutter wird dort mit seinem aktuellen Vorrat angezeigt. Nicht vorhandene kaufbare Artikel sind ausgegraut und führen direkt in den Tackle-Shop.</p><p>Einige Ausrüstungsgegenstände schalten zusätzliche Angelmöglichkeiten und Funktionen frei. Dazu gehören spezielle Setups für verschiedene Angelmethoden und die Ausrüstung für Sabrina. Wie diese Funktionen bedient werden, erfährst du in den jeweiligen Abschnitten der Spielanleitung.</p></section>
-         <section><h3>🌽 Naturköder</h3><p>Wurm, Made, Mais und Spezial-Naturköder werden beim erfolgreichen Anhieb verbraucht. Bei einem verpassten Anhieb besteht eine kleinere Chance auf Köderverlust. Einfaches Einholen verbraucht keinen Naturköder. Das Wurmbündel wird aus 12 Tauwürmern montiert und ist ausschließlich als spezieller Welsköder gedacht; ein montiertes Bündel bleibt bis zum tatsächlichen Verbrauch als Wurmbündel aktiv.</p></section>
-         <section><h3>🐟 Köderfisch</h3><p>Geeignete gefangene Kleinfische erhöhen deinen Köderfischbestand. Ein Köderfisch wird bei einer Raubfischattacke verbraucht. Er kann nicht gekauft werden.</p></section>
-         <section><h3>🌀 Kunstköder</h3><p>Blinker und Gummifisch fangen nur in Bewegung. Gummifische besitzen sechs, Blinker vier lokal gespeicherte Dekore; sie ändern die 3D-Farbe des Köders, ohne neue Shopartikel oder Cloud-Bestände anzulegen. Klick oder Tipp holt etwa 0,5 m ein, Halten kurbelt kontinuierlich. Mobil holt ein Doppeltipp schnell komplett ein; am Desktop übernimmt der Rechtsklick. Beim Schnelleinholen folgt die Unterwasserkamera dem Köder ruhig bis kurz vor das Ufer; dort steigt der Köder weich aus dem Wasser und die Uferansicht übernimmt. Während dieses Schnellrückwegs kann kein Fisch gerissen werden, die Hängerkollisionen mit Unterwasserholz, Bäumen und Stegen bleiben aber vollständig aktiv. Dasselbe Hängerprinzip gilt für „Zum Ufer“, es gibt keinen Hindernis-Bypass. Maus- oder Fingerbewegung nach oben/unten verändert die Rutenhöhe und Lauftiefe; links/rechts gibt einen kleinen seitlichen Impuls. Ein Fisch kann nur dann gerissen werden, wenn der Kunstköder beim normalen aktiven Einkurbeln den Fischkörper unmittelbar berührt. Beim freien Absinken oder reglosen Köder ist das ausgeschlossen. Berührt ein Fisch die Unterwasserschnur, reagieren kleine und mittlere Arten zuverlässig mit einer ruckartigen Flucht. Karpfenartige Großfische, Stör, Wels, Hecht und Zander reagieren außerhalb einer Attacke mit 50:50-Chance. Ein Räuber, der den Kunstköder bereits aktiv verfolgt oder attackiert, bleibt schnur-unscheu; nur der unmittelbare Bereich direkt am Kunstköder ist zusätzlich geometrisch geschützt. Verfolgende Räuber beschleunigen beim Aufholen stärker und aktualisieren ihre Nachlaufspur häufiger, ein Biss bleibt aber weiterhin eine echte Attacke und ist nicht garantiert. Läuft die Schnur über mehrere Hindernisse, kann sie auf mehreren Punkten gleichzeitig aufliegen und mehrere Knicke bilden; beim Einholen wird der Köder zuerst zum jeweils nächsten Kontaktpunkt geführt.</p></section>
-         <section><h3>🎨 Gummifisch-Dekore</h3><p>Bei jedem Gummifisch stehen sechs Dekore zur Wahl: Fire Tiger, UV-Giftgrün, Hot Chartreuse sowie Barsch, Rotauge/Silber und Motoroil. Die Farbe ist kein eigener Kaufartikel und wird nur auf diesem Gerät gespeichert. Auffällige Dekore erhalten bei wenig Licht, starker Bewölkung, Regen, Nacht oder größerer Ködertiefe einen kleinen Bonus. Natürliche Dekore profitieren eher bei hellem Tageslicht. Ein unpassendes Dekor kostet höchstens wenige Prozent Fangchance und macht den Köder niemals unbrauchbar.</p></section>
-         <section><h3>🐊 Spezialköder</h3><p>Premium- und artspezifische Köder erhöhen die Gewichtung bestimmter Fischarten, garantieren aber keinen Biss. Standort, Tiefe, Aktivität und Zufall bleiben relevant.</p></section>
-         <section><h3>🟢 Predatorpit Lockpaste</h3><p>Die Lockpaste wird in der Tacklebox auf den montierten Blinker oder Gummifisch aufgetragen. Eine Packung kostet 100 EP und enthält acht Anwendungen. Jede Anwendung wirkt vier Minuten auf genau diesen Kunstköder, erhöht seine Räuberattraktivität und erzeugt eine grüne Spur unter Wasser. Die Restzeit wird in der Angelansicht angezeigt; beim Köderwechsel wirkt die Paste nicht auf den neu montierten Köder. Ein Biss ist weiterhin nicht garantiert.</p></section>
-         <section><h3>🟡 Lockfutter & Futterplätze</h3><p>Die drei Lockfuttersorten besitzen unterschiedliche Stärke und einen echten Vorrat. Wähle eine Sorte, setze den Zielpunkt im Wasser und bestätige den Wurf. Bis zu zwei Futterplätze können gleichzeitig wirken; ihre Markierung zeigt Sorte und Restzeit. Eine sauber im Futterplatz liegende Pose verbessert die Fangchance zusätzlich.</p></section>
-         <section><h3>📡 Deeper-Echolot</h3><p>Kaufe und montiere den Deeper in der Tacklebox, wähle einen Messpunkt und wirf ihn wie einen Köder aus. Das Sonar zeigt aktuelle Tiefe, Bodenverlauf, Messkegel und erkannte Fischsignale. Mit „Stelle speichern“ setzt du am Messpunkt eine Markierung. Ziehe den Deeper normal ein oder hole ihn am Desktop per Rechtsklick und mobil per Doppeltipp schnell zurück.</p></section>
-         <section><h3>🚤 Sabrina &amp; Boots-Setup</h3><p>Mit dem E-Motor kannst du Sabrina für deine Touren über den Weiher nutzen. Zum Einsteigen müssen alle Montagen eingeholt sein. Während der Fahrt steuerst du mit einem Finger auf dem halbtransparenten Steuerkreis. Die acht Richtungen verbinden Vorwärts- oder Rückwärtsfahrt mit Links- und Rechtslenken; du kannst den Finger während der Fahrt in die gewünschte Richtung verschieben. In der Mitte ist die Steuerung neutral. Beim Loslassen endet der Fahrbefehl und das Boot bremst ab. Am Computer bleiben die Pfeiltasten (Cursor-Tasten) verfügbar. Geankert drehst du mit „Blick links“ und „Blick rechts“ die Ansicht; „Ablegen“ aktiviert wieder die Fahrt. Alle Bootsknöpfe sind in einer gemeinsamen Bedienfläche zusammengefasst. „Zum Steg“ startet die automatische Rückfahrt; trifft sie auf ein Hindernis, kannst du wieder selbst übernehmen.</p><p>Zum Angeln zuerst ankern. Auf dem Boot stehen Posenangeln und Kunstköder zur Verfügung; Karpfen- und Welsset sowie der geworfene Deeper werden dort nicht benutzt. Während der Fahrt arbeitet stattdessen das Sonar am Heck und zeigt Tiefe, Bodenverlauf und Fischsignale.</p><p>Ein kleiner Tipp: Es kann sich lohnen, mit offenen Augen unterwegs zu sein. Nicht alles Interessante befindet sich direkt auf dem Wasser oder auf Augenhöhe. Manchmal lohnt sich ein genauer Blick in die Umgebung … vielleicht sogar nach oben. Mehr wird an dieser Stelle nicht verraten.</p></section>
-         <section><h3>🎣 Karpfen- und Welsangelset</h3><p>Kaufe das gewünschte Set im Tackle-Shop unter „Ruten“ und rüste es in der Tacklebox aus. Wähle linke oder rechte Rute, montiere einen freigegebenen Köder und wirf beide Ruten einzeln über das Zielkreuz aus. Eine Tiefeneinstellung ist nicht nötig. Die Sets benötigen festen Uferboden. Vor einem Methoden- oder Platzwechsel beide Ruten einholen. Liegen beide Ruten im Wasser, wird das große HUD durch eine kleine Rutenauswahl ersetzt. Sobald eine Rute neu vorbereitet werden muss, erscheint es wieder. Beim Karpfenset die betreffende Rute über das Aufnahmefeld übernehmen. Beim Welsset im grünen Zielbereich anschlagen. Anschließend wie gewohnt drillen und keschern.</p><p>Beim Karpfen- und Welsangeln kann die aufgestellte Ausrüstung den Kescherweg begrenzen. Führe den Fisch gegebenenfalls in den freien Kescherbereich.</p></section>
-         <section><h3>🟡 Boilies und Anfüttern</h3><p>Nach dem Kauf des Karpfensets sind Boilies und Pop-Ups unter „Köder“ verfügbar. Wähle die gewünschte Variante aus dem gemeinsamen Vorrat. Eine Boilie-Tüte enthält 60 Stück, eine Pop-Up-Dose 10 Stück. Boilies und Pop-Ups können mit passenden sinkenden Boilies angefüttert werden. Bei anderen Ködern ist Anfüttern nicht verfügbar.</p></section>
-         <section><h3>🔔 Welsruten</h3><p>Beim Welsset stehen Köderfisch und Wurmbündel zur Wahl. Ein Wurmbündel wird aus zwölf Tauwürmern vorbereitet. Glocken und nachts leuchtende Knicklichter zeigen den Biss an. Beim Biss wird nicht einfach die Rute aufgenommen: Schlage im grünen Zielbereich an. Ein besonders genauer Treffer verbessert den Start in den Drill. Anschließend den Fisch wie gewohnt drillen und keschern.</p></section>
-         <section><h3>⚡ Biss, Anhieb & Hänger</h3><p>Beim Posenangeln zeigt der Schwimmer zuerst den Biss. Danach läuft das Reaktions-QTE zweimal vollständig. Ein exakt mittiger Treffer gilt als perfekter Anhieb und bringt beim Fang +8 EP. Triff den grünen beziehungsweise besonders guten Bereich. Ein früher Fehlversuch beendet nicht sofort den gesamten Versuch. Kurze Randimpulse unterstützen Biss und Hänger visuell; der Hänger bleibt anschließend ein echter Zustand und muss gelöst werden, statt durch Schnelleinholen oder „Zum Ufer“ übersprungen zu werden.</p></section>
-         <section><h3>🎣 Drill & Bremse</h3><p>Beobachte Schnurspannung, Fisch-Ausdauer und Entfernung. Halte „Kurbeln“ gedrückt und führe die Rute auf die Gegenseite des Fisches: Fisch links bedeutet Rute rechts, Fisch rechts bedeutet Rute links. Die Rutenhaltung ist Teil der Drillphysik: Zeigt die Rute fast direkt zum Fisch, richtet sich der Blank auf und die Schnur übernimmt mehr Last; mit größerem Winkel biegt die Rute stärker und puffert Fluchtspitzen. Eine lockere Bremse lässt mehr Schnur frei und schützt besonders bei starken Fischen, eine feste Bremse holt direkter ein, erhöht aber das Risiko. Auf dem Desktop stellst du die Bremse zusätzlich mit dem Mausrad ein: ↑ fester, ↓ lockerer. Die sichtbare Drillschnur wechselt mit der Belastung von Weiß über Gelb und Orange zu Rot. Bei echter Flucht und Schnurabzug reagieren Randpuls, Belastungsbalken und Rutenfederung sichtbar stärker. Große Fische mit viel Rest-Ausdauer können kurz vor dem Ufer erneut nach draußen flüchten. Bei zu hoher Spannung musst du Last herausnehmen, sonst droht Schnurbruch; ein montierter Kunstköder geht dabei verloren.</p></section>
-         <section><h3>🥅 Keschern</h3><p>Bewege den Kescher mit Maus oder Finger nach links/rechts unter den Fisch und keschere im passenden Moment. Der Standardkescher gehört zur Startausrüstung. Der größere Pro Kescher kann im Shop gekauft werden und vergrößert die reale Fangzone um rund 18 %. Der erste knappe Fehlversuch wird weiterhin verziehen.</p></section>
-         <section><h3>📤 Fang teilen</h3><p>Nach einem gelandeten Fisch steht auf der Fangkarte ein kleiner Kamera-Button bereit. Er öffnet zunächst eine animierte Vorschau der lokal erzeugten PNG-Fangkarte. Erst dort kann über „Per WhatsApp teilen“ der native Teilen-Dialog geöffnet werden. Fischart, Länge und Gewicht stehen direkt im Bild; je nach Fang wird zusätzlich „Persönlicher Rekord“, „Neue Art“, „Kapitaler Fang“, „Perfekter Anhieb“ oder „Sicher gelandet“ eingeblendet. Der Begleittext bleibt bewusst kurz. Wird Datei-Sharing vom Browser nicht unterstützt, wird die PNG-Fangkarte stattdessen als Bild bereitgestellt.</p></section>
-         <section><h3>⏱️ Zeitwechsel</h3><p>Der Zeitwechsel steht ausschließlich in der Ufer-Angelperspektive bereit, solange die Angel noch nicht ausgeworfen wurde und du den Auswurfpunkt wählen kannst. In Stellenauswahl, Unterwasseransicht, nach dem Auswurf, bei Biss, Drill und Keschern ist die Funktion ausgeblendet. Du kannst die Spielzeit in 1-Stunden-Schritten bis maximal 24 Stunden vor- oder zurückspulen. Jede Stunde kostet 1 EP und läuft in 0,65 Sekunden ab. Einsteiger besitzen pro Sitzung einen Vorwärts- und einen Rückwärtswechsel; höhere Anglerstufen erhalten zusätzliche Wechsel. Bei eingeschaltetem Ton begleitet die leise Kescher-Musik den Zeitraffer. Fischsprünge bleiben sichtbar, ihre Geräusche sind während des Spulens stumm.</p></section>
-         <section><h3>🌗 Aktivitätszeiten</h3><p>Die Fischaktivität verändert sich mit der Tageszeit. Hecht und Barsch profitieren vor allem von Morgen- und Abendphasen. Zander wird besonders in Dämmerung, Nacht und bei Bewölkung aktiv; Aal und Wels bevorzugen überwiegend Abend und Nacht. Zwischen ungefähr 13 und 15 Uhr tritt eine allgemeine, leicht schwankende Mittags-Beißflaute auf. Sie reduziert die Bisschance deutlich, aber niemals auf null.</p></section>
-         <section><h3>📏 Fischgrößen &amp; Gewichte</h3><p>Fischgrößen und Gewichte werden artspezifisch berechnet. Besonders große Exemplare bleiben selten und können sich im Drill deutlich von durchschnittlichen Fischen unterscheiden. Persönliche Rekorde, Highscore und Online-Bestenliste verwenden dieselbe Bewertung.</p></section>
-         <section><h3>⭐ EP &amp; Shop</h3><p>Gefangene Fische bringen EP; größere, seltenere und besonders sauber gelandete Fänge können zusätzliche Belohnungen erhalten. EP sind die ausgebbare Währung im Tackle-Shop. Gesamt-EP bestimmen dauerhaft deine Anglerstufe und werden durch Einkäufe nicht reduziert. Es gibt 20 Stufen bis 80.000 Gesamt-EP: Die Höchststufe heißt ACZO56-Legende. Im Profil siehst du deinen Titel, den schmalen Fortschrittsbalken und die fehlenden EP; öffentliche Anglerkarten zeigen Stufe und Titel. Echte Stufenaufstiege werden mit einer goldenen Einblendung und einem kurzen Klang bei eingeschaltetem Ton gefeiert. Die Feier wartet auf freie Sicht nach Fangkarte, Hinweisen oder Siegerehrung und wird bei Biss, Drill und Menüs zurückgestellt. Mehrere gleichzeitig erreichte Stufen werden gemeinsam angezeigt.</p></section>
-         <section><h3>🎯 Tagesaufgaben</h3><p>Jeden Spieltag warten drei Aufgaben mit unterschiedlicher Schwierigkeit. Jede erledigte Aufgabe bringt EP; wer alle drei schafft, erhält den zusätzlichen Tagesbonus. Nach der kurzen Einblendung bleiben die Aufgaben jederzeit im Hauptmenü abrufbar.</p></section>
-         <section><h3>🏆 Highscore &amp; Bestenliste</h3><p>Deine persönlichen Bestfänge stehen im Highscore. Mit Anzeigename und aktivierter Veröffentlichung können deine freigegebenen Artenrekorde automatisch mit der öffentlichen Bestenliste abgeglichen werden. Die Liste lädt beim Öffnen selbstständig.</p></section>
-         <section><h3>✨ Hall of Fame</h3><p>Die Hall of Fame zeigt Gesamtwertung, Artenrekorde, Vielfalt, Erfahrung, Aktivität und besondere Ehrenfänge. Ihre Daten werden im Hintergrund vorgeladen. Nach der Kamerafahrt zur Hütte erscheint die Begrüßung; die Ranglisten folgen, sobald die Online-Daten bereitstehen. Während der Präsentation pausiert das Spiel. „Produced by Predatorpit“ öffnet ein zusätzliches Porträt; „Zurück“ führt zur Hall of Fame beziehungsweise zur zuvor gespeicherten Angelansicht.</p></section>
-         <section class="aczo-account-help"><h3>👤 Spielerkonto &amp; Gastspieler</h3><p>Du kannst das Angelspiel als Gast beginnen oder deinen Spielstand mit einem Spielerkonto sichern. Bei einem neuen Konto legst du einen freien Benutzernamen und ein Passwort fest. Der Benutzername muss 3 bis 30 Zeichen haben; erlaubt sind Buchstaben, Zahlen, Leerzeichen, Punkt, Unterstrich und Bindestrich. Das Passwort braucht mindestens 12 und höchstens 256 Zeichen.</p><p>Hast du bereits als Gast oder mit einem älteren Spielstand gespielt, aktiviere genau diesen vorhandenen Spielstand als Konto. Spieler-ID, EP, Gesamt-EP, Rekorde, Käufe, Bestände und weiterer Cloud-Fortschritt bleiben erhalten. Es wird kein neuer Spieler angelegt. Besitzt du bereits ein Spielerkonto, erstelle für einen Gerätewechsel kein zweites Konto.</p></section>
-         <section class="aczo-account-help"><h3>🔐 Anmeldung &amp; Gerätewechsel</h3><p>Besitzt du bereits ein Spielerkonto, meldest du dich auf einem neuen oder zurückgesetzten Gerät einfach mit Benutzername und Passwort an. Das Spiel verbindet dich wieder mit demselben Spieler und lädt den vorhandenen Cloud-Spielstand. Auf einem bekannten Gerät wird eine noch gültige Sitzung normalerweise automatisch wieder aufgenommen.</p><p>Das einzelne Fangbuch bleibt auf dem jeweiligen Gerät. Cloud-Fortschritt, Fangsumme und persönliche Rekorde werden geladen; einzelne Fangbuchzeilen werden nicht automatisch zwischen Geräten übertragen.</p></section>
-         <section class="aczo-account-help"><h3>🔑 Wiederherstellungscode &amp; Notfall-Wiederherstellung</h3><p>Der private Wiederherstellungscode ist deine zusätzliche Absicherung. Für die normale Anmeldung und einen normalen Gerätewechsel brauchst du ihn nicht; dafür reichen Benutzername und Passwort. Bewahre den Code trotzdem sicher außerhalb des Browsers auf und teile ihn niemals öffentlich.</p><p>Bei einem älteren Gastspielstand kannst du über „Alten Spielstand wiederherstellen“ zuerst den Wiederherstellungscode prüfen. Gehört zu diesem Spieler bereits ein Konto, erkennt das Spiel dieses Konto und verhindert, dass versehentlich ein zweiter Spieler angelegt wird. Gehört noch kein Konto dazu, kann der bestehende Spielstand anschließend mit Benutzername und Passwort aktiviert werden, ohne Spieler-ID oder Fortschritt zu verlieren.</p><p>Hast du bei einem bestehenden Konto das Passwort vergessen, wähle „Passwort vergessen?“. Gib zuerst nur deinen Wiederherstellungscode ein und lasse ihn prüfen. Das Spiel erkennt den zugehörigen Benutzernamen automatisch. Danach vergibst du zweimal ein neues Passwort und meldest dich wieder an. Alte Sitzungen werden dabei ungültig; andere Geräte müssen sich anschließend erneut anmelden. Einen Zurücksetzen-Link per E-Mail gibt es nicht.</p></section>
-         <section class="aczo-account-help"><h3>📱 Passwort speichern &amp; automatisch ausfüllen</h3><p>Safari, iPhone oder dein PC-Browser können Benutzername und Passwort im jeweiligen Passwortmanager speichern und beim nächsten Anmelden automatisch ausfüllen. Auch automatisch erzeugte starke Passwörter können verwendet werden. Ob und wann der Browser das Speichern anbietet, entscheidet das Gerät beziehungsweise der Browser und nicht das Angelspiel.</p></section>
-         <section class="aczo-account-help"><h3>⚙️ Benutzername, Passwort &amp; Abmelden</h3><p>Unter „Profil“ kannst du den Benutzernamen oder das Passwort deines bestehenden Kontos ändern. Eine Änderung des Benutzernamens erzeugt keinen neuen Spieler und keinen neuen Spielstand; deine Spieler-ID und dein Fortschritt bleiben erhalten. Nach einer Passwortänderung müssen andere Geräte sich erneut anmelden.</p><p>„Auf diesem Gerät abmelden“ beendet nur die Sitzung auf diesem Gerät. Konto und Cloud-Spielstand werden dadurch nicht gelöscht. Vor dem Abmelden versucht das Spiel, den aktuellen Cloud-Spielstand zu sichern.</p></section>
-         <section class="aczo-account-help"><h3>👥 Community &amp; Privatsphäre</h3><p>Unter „Community“ findest du aktive Angler, „Alle Angler“, die Suche und öffentliche Anglerkarten. Bei einem neu erstellten Spielerkonto sind „Rekorde öffentlich anzeigen“ und „Online mit Namen sichtbar“ zunächst aktiviert. Danach kannst du beide Einstellungen jederzeit selbst ändern. Die Namensfreigabe wird online gespeichert; die Rekordfreigabe gilt auf dem jeweiligen Gerät für zukünftige Veröffentlichungen. Bereits veröffentlichte Rekorde bleiben öffentlich. Passwort und Wiederherstellungscode erscheinen niemals auf einer Anglerkarte.</p></section>
-         <section><h3>🟢 Angler online</h3><p>Ist „Online mit Namen sichtbar“ aktiviert, kann dein Name bei der Online-Anzeige erscheinen und eine kurze Einblendung auf andere gerade aktive Angler hinweisen. Ist die Funktion deaktiviert, wird dein Name dort nicht freigegeben. Private Spieler-ID, Passwort und Wiederherstellungscode werden dabei nicht angezeigt.</p></section>
-         <section><h3>☁️ Cloud-Spielstand</h3><p>EP, Gesamt-EP, Fortschritt, persönliche Bestwerte, Köderfische, gekaufte Köder und Futterbestände sowie weitere zum Spieler gehörende Käufe und Freischaltungen werden automatisch online gespeichert. Das Fangbuch mit den einzelnen Fangereignissen bleibt ausschließlich lokal. Ein Spielerkonto wird auf einem anderen Gerät über Benutzername und Passwort geladen; der Wiederherstellungscode ist für Notfälle und ältere Gastspielstände gedacht.</p></section>
-         <section><h3>🔊 Spieltöne</h3><p>Die Spieltöne sind standardmäßig eingeschaltet und können unter „Einstellungen & Zurücksetzen“ jederzeit deaktiviert werden. Geräusche folgen den echten Spielzuständen: Schnurabzug läuft nur während einer tatsächlichen Flucht und stoppt sofort, wenn die Flucht endet; Bremsverstellung und Schnurwarnung besitzen eigene parallele Tonspuren. Der Biss-Splash startet erst mit dem sichtbaren Abtauchen der Pose. Während des Anhieb-QTE läuft ein dezenter Spannungspuls; normaler Treffer und goldener Perfektbereich haben eigene kurze Bestätigungen. Im Drill läuft leise Hintergrundmusik unter den Spielgeräuschen. Beim Zeitraffer erklingt die Kescher-Musik; Fischsprung-Geräusche bleiben dabei stumm. Die Kescher-Sequenz erhält einen dunklen Spannungs-Puls und endet akustisch sofort mit Fang, Fehlschlag oder Abbruch. Ködermontage erhält einen kurzen Klick, Lockfutter beim Wasserkontakt einen Splash. Auch Kescherzug und ein entkommener Fisch haben kurze Wassergeräusche; beim tatsächlichen Kunstköderbiss gibt es einen dumpfen Impuls. Allgemeine Hinweise wie aktive Mitangler, gespeicherte Rekorde oder Statusmeldungen bekommen nur einen sehr dezenten Hinweiston. Der bekannte EP-Ton bleibt ausschließlich für die hochfliegenden EP. Fliegt tatsächlich ein Vogel über die 3D-Szene, kann bei ruhigem Spiel gelegentlich ein echter Vogelruf ertönen.</p></section>
-         <section><h3>🎵 Naturton-Quellen</h3><p>Vogel: „Birds singing in garden“ · Public Domain · Frosch: „Single Frog Croak“ – MichaeltheFox8621, CC BY-SA 4.0 · Graureiher: vom Nutzer bereitgestellte Flugruf-Aufnahme. Alle drei Naturtöne sind komprimiert direkt in dieser HTML eingebettet; es werden dafür keine externen Audiodateien geladen.</p></section>
+         <section><h3>🎯 Angelstelle & Auswurf</h3><p>Wähle einen Uferplatz. Über „Weiher“ und „Mosel“ wechselst du das Gewässer.</p><p>Wähle am Weiher auch zwischen Stegen und drei Nordsteg-Plätzen. Bestätige den Platz und anschließend dein Wurfziel im Wasser.</p></section>
+         <section><h3>🚶 Freies Erkunden</h3><p>Bewege dich mit Steuerkreis, WASD oder Pfeiltasten. Finger oder gedrückte Maustaste drehen den Blick; am PC aktiviert Doppelklick den freien Mausblick, Escape beendet ihn. Nach dem Einholen führt der Fußspuren-Knopf zurück ins Erkunden.</p><p>Am geeigneten Ufer wählst du „Hier angeln“ oder drückst E beziehungsweise Enter. „Zurück“ öffnet die Stellenauswahl.</p></section>
+         <section><h3>🌊 Angeln an der Mosel</h3><p>Die Strömung treibt Pose und Kunstköder ab. Gespannte Schnur führt die Pose zum Ufer. Schiffe bringen zusätzliche Wellen.</p><p>Schiffssog kann Bissanzeiger kurz piepen lassen. Warte auf die normale Bissanzeige; Welsrutenspitzen können bei der Passage wippen.</p></section>
+         <section><h3>🌧️ Moselpegel & Sicht</h3><p>Ein höherer Pegel verstärkt Strömung und Trübung. Unter Wasser ist die Sicht an der Mosel geringer als am Weiher.</p></section>
+         <section><h3>📱 Mobile Steuerung</h3><p>Tippen führt Aktionen aus, Halten kurbelt. Doppeltipp holt Kunstköder oder Deeper schnell zurück. Im Drill führst du die Rute gegen den Fisch; zum Keschern schiebst du den Kescher darunter.</p></section>
+         <section><h3>🖱️ Desktop-Steuerung</h3><p>Klicken führt Aktionen aus, Halten kurbelt. Rechtsklick holt Kunstköder oder Deeper schnell zurück. Im Drill bewegt die Maus die Rute; das Mausrad stellt die Bremse ein: ↑ fester, ↓ lockerer.</p></section>
+         <section><h3>🖥️ Grafikqualität</h3><p>Ändert die Bildauflösung: Leistung, Standard oder Ultra.</p></section>
+         <section><h3>🏁 Wettangeln</h3><p>Starte das Wettangeln im Hauptmenü oder bei der Stellenauswahl. Melde dich vorher an und hole alle Montagen ein.</p><p>Eine Teilnahme ist alle 24 Stunden möglich. Nach der Online-Bestätigung beginnt die Auslosung. Abbruch oder Neuladen setzen die Wartezeit nicht zurück.</p><p>8–12 Teilnehmer angeln 15 Minuten mit der Posenrute auf ausgelosten Plätzen. Das Gesamtgewicht zählt. Wertungsfische: Rotauge, Rotfeder, Flussbarsch, Sonnenbarsch, Grundel, Brasse und Schleie.</p><p>Ein vor Schluss gehakter Fisch zählt auch nach dem Signal. Die besten vier Plätze erhalten 2.000, 1.500, 1.000 und 500 EP. Nach Neuladen lässt sich der Wettkampf nicht fortsetzen.</p></section>
+         <section><h3>🎒 Köder- & Tacklebox</h3><p>Die Standardrute wirft 50 m; bessere Ruten erreichen 75 m oder 100 m. Kaufe Ausrüstung mit EP im Shop und rüste sie in der Tacklebox aus. Köder und Futter haben einen begrenzten Vorrat.</p><p>Neue Ausrüstung eröffnet weitere Angelmethoden und Bootsfahrten.</p></section>
+         <section><h3>🌽 Naturköder</h3><p>Naturköder werden beim erfolgreichen Anhieb verbraucht; bei Fehlversuchen können sie verloren gehen. Einholen verbraucht keinen Köder. Ein Wurmbündel besteht aus 12 Tauwürmern und ist nur für Wels gedacht.</p></section>
+         <section><h3>🐟 Köderfisch</h3><p>Geeignete gefangene Kleinfische werden zu Köderfischen. Eine Raubfischattacke verbraucht einen Köderfisch; kaufen kannst du ihn nicht.</p></section>
+         <section><h3>🌀 Kunstköder</h3><p>Blinker und Gummifische fangen in Bewegung. Tippen oder Klicken holt etwa 0,5 m ein, Halten kurbelt. Doppeltipp oder Rechtsklick holt schnell zurück. Rutenhöhe und seitliche Bewegung verändern die Führung; Hindernisse können Köder und Schnur festhalten.</p></section>
+         <section><h3>🎨 Gummifisch-Dekore</h3><p>Wähle aus sechs Dekoren: Fire Tiger, UV-Giftgrün, Hot Chartreuse, Barsch, Rotauge/Silber und Motoroil. Auffällige Farben helfen bei wenig Licht, natürliche eher am Tag. Die Farbwahl ist kostenlos.</p></section>
+         <section><h3>🐊 Spezialköder</h3><p>Spezialköder locken bestimmte Fischarten stärker an. Platz, Tiefe und Aktivität bleiben wichtig.</p></section>
+         <section><h3>🟢 Predatorpit Lockpaste</h3><p>Im Shop: 100 EP für acht Anwendungen. Trage die Paste auf Blinker oder Gummifisch auf: vier Minuten mehr Lockwirkung und eine grüne Spur. Die Paste wirkt nur auf den behandelten Köder.</p></section>
+         <section><h3>🟡 Lockfutter & Futterplätze</h3><p>Wähle Futter und Zielpunkt, dann wirf aus. Bis zu zwei Futterplätze wirken gleichzeitig; die Markierung zeigt Sorte und Restzeit. Angle möglichst im Futterplatz.</p></section>
+         <section><h3>📡 Deeper-Echolot</h3><p>Deeper ausrüsten, auswerfen und langsam einholen. Er zeigt Tiefe, Boden und Fischsignale. Mit „Stelle speichern“ markierst du interessante Plätze; Doppeltipp oder Rechtsklick holt ihn schnell zurück.</p></section>
+         <section><h3>🚤 Sabrina &amp; Boots-Setup</h3><p>Mit E-Motor steuerst du Sabrina per Steuerkreis oder Pfeiltasten. Loslassen bremst das Boot. „Zum Steg“ fährt automatisch zurück; bei Hindernissen übernimmst du wieder selbst.</p><p>Zum Angeln zuerst ankern. Auf Sabrina nutzt du Pose oder Kunstköder. Während der Fahrt zeigt das Hecksonar Tiefe, Boden und Fischsignale.</p><p>Halte unterwegs die Augen offen – auch über dem Wasser und zwischen den Ästen gibt es etwas zu entdecken.</p></section>
+         <section><h3>🎣 Karpfen- und Welsangelset</h3><p>Set kaufen und ausrüsten, linke oder rechte Rute wählen und einzeln auswerfen. Beide Sets brauchen festen Uferboden. Vor Methoden- oder Platzwechsel beide Ruten einholen. Karpfenruten aufnehmen; beim Wels im grünen Bereich anschlagen.</p><p>Führe den Fisch beim Keschern an der aufgestellten Ausrüstung vorbei.</p></section>
+         <section><h3>🟡 Boilies und Anfüttern</h3><p>Nach dem Karpfenset-Kauf findest du Boilies und Pop-Ups unter „Köder“. Eine Tüte enthält 60 Boilies, eine Dose 10 Pop-Ups. Mit passenden sinkenden Boilies kannst du anfüttern.</p></section>
+         <section><h3>🔔 Welsruten</h3><p>Wähle Köderfisch oder ein Bündel aus zwölf Tauwürmern. Glocken und Knicklichter melden den Biss. Schlage im grünen Zielbereich an; ein genauer Treffer erleichtert den Drill.</p></section>
+         <section><h3>⚡ Biss, Anhieb & Hänger</h3><p>Bei einem Biss triffst du den grünen Bereich. Du hast zwei Durchläufe; ein mittiger Treffer bringt beim Fang +8 EP. Festsitzende Köder musst du lösen.</p></section>
+         <section><h3>🎣 Drill & Bremse</h3><p>Halte „Kurbeln“ und führe die Rute gegen die Fluchtrichtung. Bei hoher Schnurspannung loslassen oder die Bremse lockern. Am PC gilt: Mausrad ↑ fester, ↓ lockerer. Rot warnt vor Schnurbruch.</p></section>
+         <section><h3>🥅 Keschern</h3><p>Schiebe den Kescher mit Maus oder Finger unter den Fisch und löse im passenden Moment aus. Der Pro Kescher bietet rund 18 % mehr Fangzone. Ein knapper Fehlversuch wird verziehen.</p></section>
+         <section><h3>📤 Fang teilen</h3><p>Öffne nach dem Fang den Kamera-Knopf auf der Fangkarte. Teile die Vorschau per WhatsApp oder speichere sie als Bild.</p></section>
+         <section><h3>⏱️ Zeitwechsel</h3><p>Vor dem Auswurf kannst du bis zu 24 Stunden vor- oder zurückspulen. Je Stunde: 1 EP und 0,65 Sekunden Zeitraffer. Einsteiger haben je Sitzung einen Vorwärts- und Rückwärtswechsel; höhere Stufen erhalten mehr.</p></section>
+         <section><h3>🌗 Aktivitätszeiten</h3><p>Hecht und Barsch sind morgens und abends aktiver, Zander auch bei Dunkelheit und Wolken. Aal und Wels bevorzugen Abend und Nacht. Zwischen 13 und 15 Uhr sinkt die allgemeine Beißlust.</p></section>
+         <section><h3>📏 Fischgrößen &amp; Gewichte</h3><p>Große Fische sind selten und kämpfen stärker. Persönliche und öffentliche Rekorde werden gleich bewertet.</p></section>
+         <section><h3>⭐ EP &amp; Shop</h3><p>Fänge bringen EP für den Shop. Deine Gesamt-EP bestimmen dauerhaft die Anglerstufe. Es gibt 20 Stufen bis 80.000 Gesamt-EP und zum Titel „ACZO56-Legende“. Den Fortschritt siehst du im Profil.</p></section>
+         <section><h3>🎯 Tagesaufgaben</h3><p>Jeden Spieltag warten drei Aufgaben mit EP-Belohnungen. Für alle drei gibt es einen Tagesbonus. Du findest sie jederzeit im Hauptmenü.</p></section>
+         <section><h3>🏆 Highscore &amp; Bestenliste</h3><p>Im Highscore stehen deine Bestfänge. Mit Anzeigename und Freigabe erscheinen deine Artenrekorde auch in der Online-Bestenliste.</p></section>
+         <section><h3>✨ Hall of Fame</h3><p>Die Hall of Fame zeigt Ranglisten und besondere Ehrenfänge. Während der Präsentation pausiert das Spiel. „Zurück“ bringt dich wieder zum Angeln.</p></section>
+         <section class="aczo-account-help"><h3>👤 Spielerkonto &amp; Gastspieler</h3><p>Starte als Gast oder sichere deinen Spielstand mit einem Konto. Name: 3 bis 30 Zeichen aus Buchstaben, Zahlen, Leerzeichen, Punkt, Unterstrich oder Bindestrich. Passwort: 12 bis 256 Zeichen.</p><p>Aktiviere deinen vorhandenen Gastspielstand als Konto, damit der Fortschritt erhalten bleibt. Für einen Gerätewechsel meldest du dich mit deinem bestehenden Konto an.</p></section>
+         <section class="aczo-account-help"><h3>🔐 Anmeldung &amp; Gerätewechsel</h3><p>Melde dich auf dem anderen Gerät mit Benutzername und Passwort an. Dein Online-Spielstand wird geladen; bekannte Geräte bleiben meist angemeldet.</p><p>Fortschritt und Rekorde wechseln mit deinem Konto das Gerät. Einzelne Fangbucheinträge bleiben auf dem bisherigen Gerät.</p></section>
+         <section class="aczo-account-help"><h3>🔑 Wiederherstellungscode &amp; Notfall-Wiederherstellung</h3><p>Bewahre deinen privaten Wiederherstellungscode sicher außerhalb des Browsers auf. Teile ihn niemals öffentlich.</p><p>Für ältere Gastspielstände wählst du „Alten Spielstand wiederherstellen“ und gibst den Code ein. Danach kannst du den vorhandenen Spielstand mit einem Konto sichern.</p><p>Bei „Passwort vergessen?“ prüfst du zuerst deinen Wiederherstellungscode und vergibst dann zweimal ein neues Passwort. Andere Geräte müssen sich danach erneut anmelden.</p></section>
+         <section class="aczo-account-help"><h3>📱 Passwort speichern &amp; automatisch ausfüllen</h3><p>Dein Browser kann Benutzername und Passwort speichern und automatisch ausfüllen. Nutze dafür seinen Passwortmanager.</p></section>
+         <section class="aczo-account-help"><h3>⚙️ Benutzername, Passwort &amp; Abmelden</h3><p>Benutzername und Passwort änderst du im Profil. Dein Fortschritt bleibt erhalten; nach einer Passwortänderung müssen sich andere Geräte erneut anmelden.</p><p>„Auf diesem Gerät abmelden“ beendet nur diese Anmeldung. Konto und Online-Spielstand bleiben erhalten.</p></section>
+         <section class="aczo-account-help"><h3>👥 Community &amp; Privatsphäre</h3><p>In der Community findest du Angler und öffentliche Profile. Neue Konten geben Name und Rekorde zunächst frei; beides änderst du im Profil. Die Rekordfreigabe gilt auf diesem Gerät für neue Fänge. Bereits veröffentlichte Rekorde bleiben öffentlich.</p></section>
+         <section><h3>🟢 Angler online</h3><p>Mit „Online mit Namen sichtbar“ erscheint dein Name für andere aktive Angler. Schalte die Freigabe im Profil ein oder aus.</p></section>
+         <section><h3>☁️ Cloud-Spielstand</h3><p>Fortschritt, EP, Rekorde, Käufe und Vorräte werden online gesichert. Einzelne Fangbucheinträge bleiben auf diesem Gerät. Auf anderen Geräten meldest du dich mit deinem Konto an.</p></section>
+         <section><h3>🔊 Spieltöne</h3><p>Spieltöne begleiten Bisse, Drill und Fang. Du kannst sie in den Einstellungen ein- oder ausschalten.</p></section>
+         <section><h3>🎵 Naturton-Quellen</h3><p>Vogel: „Birds singing in garden“ · Public Domain. Frosch: „Single Frog Croak“ – MichaeltheFox8621, CC BY-SA 4.0. Graureiher: bereitgestellte Flugruf-Aufnahme.</p></section>
        </div>
      </div>
      <div id="anglingTimePanel" class="angling-game-panel angling-time-panel" aria-hidden="true">
@@ -6055,7 +6055,7 @@ function aczoSetIconText(element,value){
          <div class="angling-time-choice"><strong id="anglingTimeChoice">+6 Stunden</strong><small id="anglingTimeDuration">Dauer 3,0 Sekunden · Kosten 6 EP</small></div>
          <div class="angling-time-meta"><div id="anglingTimeForwardLeft">Vorwärts: 1 verfügbar</div><div id="anglingTimeBackwardLeft">Zurück: 1 verfügbar</div></div>
          <button id="anglingTimeStart" class="angling-time-start">Zeitraffer starten</button>
-        <div class="angling-time-note">1 Spielstunde entspricht 0,65 Sekunden Zeitraffer. Die Funktion ist nur am Ufer vor dem Auswurf verfügbar. Während des Zeitraffers sind alle Angelaktionen gesperrt.</div>
+        <div class="angling-time-note">1 Spielstunde dauert 0,65 Sekunden Zeitraffer. Nur am Ufer vor dem Auswurf verfügbar.</div>
        </div>
      </div>
      <div id="anglingJumpLabPanel" class="angling-game-panel angling-jump-lab-panel" aria-hidden="true">
@@ -6064,7 +6064,7 @@ function aczoSetIconText(element,value){
          <button id="anglingJumpLabClose" class="angling-panel-close" aria-label="Sprung-Labor schließen"><span>‹</span><small>Zurück</small></button>
        </div>
        <div class="angling-jump-lab-body">
-         <div class="angling-jump-lab-note">Hier kannst du Fischsprünge sichtbar auslösen und die Dichte im Zeitraffer anheben. Für den besten Eindruck im Uferblick vor dem Auswurf öffnen.</div>
+         <div class="angling-jump-lab-note">Löse Fischsprünge aus und erhöhe ihre Häufigkeit. Am besten vor dem Auswurf in der Uferansicht testen.</div>
          <div class="angling-jump-lab-row">
            <label for="anglingJumpRate"><span>Zeitraffer-Sprungdichte</span><strong id="anglingJumpRateValue">200 %</strong></label>
            <input id="anglingJumpRate" type="range" min="100" max="500" step="10" value="200" aria-label="Zeitraffer-Sprungdichte">
@@ -6123,7 +6123,7 @@ function aczoSetIconText(element,value){
        <div id="anglingLeaderboardState" class="angling-leaderboard-state">Die Online-Bestenliste wird automatisch geladen …</div>
        <div class="angling-leaderboard-columns" aria-hidden="true"><span>Rang</span><span>Name</span><span>Fischart</span><span>Größe</span><span>Gewicht</span></div>
        <div id="anglingLeaderboardList" class="angling-leaderboard-list"></div>
-       <div class="angling-leaderboard-note">Veröffentlicht wird später nur der gewählte Anzeigename/Nickname sowie Fischart, Länge, Gewicht und Datum. Dein lokales Fangbuch bleibt davon getrennt.</div>
+       <div class="angling-leaderboard-note">Öffentlich sind Anzeigename, Fischart, Länge, Gewicht und Datum. Dein Fangbuch bleibt auf diesem Gerät.</div>
      </div>
      <div id="anglingBaitBoxPanel" class="angling-game-panel" aria-hidden="true">
        <div class="angling-game-panel-head">
@@ -6282,36 +6282,36 @@ function aczoSetIconText(element,value){
        <h2 id="helpTitle">🗺️ Bedienung der Tiefenkarte</h2>
        <p class="help-intro">Die wichtigsten Funktionen und Steuerungen im Überblick.</p>
        <div class="help-grid">
-         <div class="help-item"><strong>🗺️ 2D / 3D</strong><span>Wechselt zwischen der dreh- und verschiebbaren Draufsicht und der räumlichen 3D-Ansicht. Mit den Pfeiltasten verschiebst du die Karte. Kamera und Kartenausschnitt bleiben an das Spielfeld gebunden.</span></div>
-         <div class="help-item"><strong>🖱️📱 Steuerung 2D</strong><span>Desktop: linke Maustaste verschiebt, rechte Maustaste dreht, Mausrad zoomt. Mobil: ein Finger verschiebt; zwei Finger zoomen und drehen die flache Draufsicht.</span></div>
-         <div class="help-item"><strong>🖱️ Desktop 3D</strong><span>Linke Maustaste: Karte drehen. Rechte Maustaste: verschieben. Mausrad: zoomen. Am Horizont weiter nach oben ziehen öffnet den freien Himmelblick.</span></div>
-         <div class="help-item"><strong>📱 Mobile 3D</strong><span>Ein Finger dreht die Karte, zwei Finger zoomen und verschieben. Für den Himmel die Ansicht bis zum Horizont kippen und mit einem Finger deutlich weiter nach oben wischen. Die Gestenhilfe erscheint beim Einstieg beziehungsweise Ansichtswechsel kurz und blendet sich danach automatisch aus.</span></div>
-         <div class="help-item"><strong>🌌 Himmelblick</strong><span>Im freien Himmelblick mit Maus oder Finger nach links/rechts und oben/unten schauen. Zum Zurückkehren den Blick wieder bis zum Horizont nach unten ziehen beziehungsweise wischen.</span></div>
-         <div class="help-item"><strong>☰ Menü & Werkzeuge</strong><span>Die seltener benötigten Funktionen Reset, Drucken, Tiefenlinien, Messen, Standort, Anzeigen und Grafikqualität liegen im ausklappbaren Menü. Die Funktionen selbst sind unverändert.</span></div>
-         <div class="help-item"><strong>↻ Reset / 🌍 Gesamtgebiet</strong><span>Reset stellt den gewohnten Weiherblick wieder her. Menü → Gesamtgebiet zeigt die erweiterte Landschaft mit dem Moselabschnitt und gegenüberliegendem Ufer.</span></div>
-         <div class="help-item"><strong>🖥️ Grafikqualität</strong><span>Leistung, Standard und Ultra verwenden auf Handy und PC denselben vollständigen Baumbestand. Die interne Auflösung steigt mit der Stufe; Ultra bietet die höchste Schärfe. Die Auswahl gilt für alle Ansichten und wird auf diesem Gerät gespeichert.</span></div>
+         <div class="help-item"><strong>🗺️ 2D / 3D</strong><span>Wechselt zwischen Draufsicht und räumlicher 3D-Ansicht. Pfeiltasten verschieben die Karte.</span></div>
+         <div class="help-item"><strong>🖱️📱 Steuerung 2D</strong><span>Maus: links verschieben, rechts drehen, Mausrad zoomen. Handy: ein Finger verschiebt, zwei Finger zoomen und drehen.</span></div>
+         <div class="help-item"><strong>🖱️ Desktop 3D</strong><span>Linke Maustaste dreht, rechte verschiebt, Mausrad zoomt. Ziehe am Horizont weiter nach oben, um in den Himmel zu schauen.</span></div>
+         <div class="help-item"><strong>📱 Mobile 3D</strong><span>Ein Finger dreht, zwei Finger zoomen und verschieben. Wische am Horizont weiter nach oben, um in den Himmel zu schauen.</span></div>
+         <div class="help-item"><strong>🌌 Himmelblick</strong><span>Schaue mit Maus oder Finger frei umher. Ziehe den Blick zum Horizont zurück, um zur Karte zu gelangen.</span></div>
+         <div class="help-item"><strong>☰ Menü & Werkzeuge</strong><span>Im Menü findest du Kartenwerkzeuge, Anzeigen und Einstellungen.</span></div>
+         <div class="help-item"><strong>↻ Reset / 🌍 Gesamtgebiet</strong><span>„Reset“ zeigt den Weiher. „Gesamtgebiet“ zeigt die erweiterte Landschaft mit der Mosel.</span></div>
+         <div class="help-item"><strong>🖥️ Grafikqualität</strong><span>Ändert die Bildauflösung: Leistung, Standard oder Ultra.</span></div>
          <div class="help-item"><strong>👁️ Anzeigen</strong><span>Blendet Wetterfenster, Tiefenlegende und Kompass gemeinsam ein oder aus.</span></div>
-         <div class="help-item"><strong>💧 Wasser: AN/AUS</strong><span>Blendet die bewegten Gewässeroberflächen der Karte ein oder aus. Standardmäßig ist Wasser aktiv.</span></div>
-         <div class="help-item"><strong>🌦️ Wetter LIVE / NEUTRAL</strong><span>LIVE verwendet aktuelle Wetterdaten und Tageszeit. NEUTRAL entfernt Wetter- und Tageszeiteinflüsse und dient als klare Referenzansicht.</span></div>
-         <div class="help-item"><strong>☀️ Sonne & 🌙 Mond</strong><span>Folgen Datum, Uhrzeit und Standort. Licht, Schatten und Wasserwirkung verändern sich mit Tageszeit und Blickrichtung. Desktop und mobiler Ultra-Modus nutzen die aufwendige direkte Spiegelbahn. In den übrigen mobilen Grafikstufen erscheinen auf Weiher und Mosel leichtere, weich bewegte Sonne-/Mondreflexe.</span></div>
-         <div class="help-item"><strong>✨ Sterne & Wolken</strong><span>Sternenhimmel und Himmelskörper sind astronomisch ausgerichtet. Die Wolken ziehen entsprechend Windrichtung und Windgeschwindigkeit und bleiben auch aus der Unterwasseransicht sichtbar.</span></div>
-         <div class="help-item"><strong>🌧️ Wind und Regen</strong><span>Wellenrichtung, Wolkenbewegung, Regen und Regentropfen reagieren auf die aktuellen Wetter- und Winddaten.</span></div>
-         <div class="help-item"><strong>〰️ Tiefenlinien</strong><span>Blendet die Tiefenkonturen der normalen 2D-/3D-Karte ein oder aus. Unter Wasser bleiben sie automatisch verborgen.</span></div>
-         <div class="help-item"><strong>🌊 Tiefenlegende</strong><span>Die Farbskala rechts oben ist beim Start immer eingeblendet und kann über „Tiefe“ manuell ein- und ausgeklappt werden.</span></div>
-         <div class="help-item"><strong>📌 Tiefenabfrage</strong><span>Desktop: gewünschte Stelle auf der Karte anklicken. Mobil: antippen. Der Tiefen-Pin bleibt bis zur nächsten Auswahl stehen. Beim bloßen Bewegen des Mauszeigers erfolgt keine Tiefenabfrage. Das Messwerkzeug behält seine eigene Vorschau.</span></div>
+         <div class="help-item"><strong>💧 Wasser: AN/AUS</strong><span>Blendet die Wasseroberflächen ein oder aus.</span></div>
+         <div class="help-item"><strong>🌦️ Wetter LIVE / NEUTRAL</strong><span>LIVE zeigt aktuelles Wetter und Tageszeit. NEUTRAL zeigt die Karte bei gleichmäßiger Beleuchtung.</span></div>
+         <div class="help-item"><strong>☀️ Sonne & 🌙 Mond</strong><span>Sonne und Mond folgen Datum und Uhrzeit und verändern Licht und Spiegelungen.</span></div>
+         <div class="help-item"><strong>✨ Sterne & Wolken</strong><span>Sterne folgen dem Nachthimmel; Wolken ziehen mit dem Wind.</span></div>
+         <div class="help-item"><strong>🌧️ Wind und Regen</strong><span>Wind und Regen verändern Himmel und Wasser.</span></div>
+         <div class="help-item"><strong>〰️ Tiefenlinien</strong><span>Blendet die Tiefenlinien der Karte ein oder aus.</span></div>
+         <div class="help-item"><strong>🌊 Tiefenlegende</strong><span>Die Farbskala zeigt die Wassertiefe. Mit „Tiefe“ blendest du sie ein oder aus.</span></div>
+         <div class="help-item"><strong>📌 Tiefenabfrage</strong><span>Tippe oder klicke auf eine Stelle, um ihre Tiefe anzuzeigen.</span></div>
          <div class="help-item"><strong>📏 Messen</strong><span>Start- und Zielpunkt auf der Karte setzen; Entfernung und Zieltiefe werden angezeigt.</span></div>
          <div class="help-item"><strong>📍 Standort</strong><span>Zeigt nach Freigabe die eigene Position im Bereich des Weihers.</span></div>
-         <div class="help-item"><strong>🖨️ Drucken / Export</strong><span>Erstellt aus der aktuellen 3D-/2D-Kartenansicht ein eigenes hochauflösendes Druckbild und öffnet dafür ein separates Druckdokument. So werden auf Mobilgeräten und in Safari das Abdunkeln sowie das Durchscheinen der eigentlichen Webseite deutlich reduziert.</span></div>
-         <div class="help-item"><strong>🌿 Unterwasserwelt</strong><span>Die Kartenmitte bestimmt den Tauchplatz im Weiher oder in der Mosel. Über flachem Ufer wird eine nahe sichere Wasserstelle gewählt. In der Mosel folgen die Detailabschnitte dem Tauchgang; die Tiefen sind noch vorläufig. Erneut klicken führt zur vorherigen Kartenansicht zurück.</span></div>
-         <div class="help-item"><strong>🐟 Unterwasser Desktop</strong><span>In Weiher und Mosel schwimmen und die Blickrichtung frei steuern. Fische können angeklickt werden; die Minikarte zeigt die Position. In der Mosel stehen dort auch Wassertiefe und Kameratiefe. Die Fischsammlung bleibt gemeinsam.</span></div>
-         <div class="help-item"><strong>📱 Unterwasser mobil</strong><span>Ein Finger steuert die Schwimmbewegung, zwei Finger verändern Blickrichtung und Tauchwinkel. Antippen öffnet Fischinformationen. Die Gestenhilfe erscheint bei jedem Einstieg kurz automatisch.</span></div>
-         <div class="help-item"><strong>🎣 Angelspiel</strong><span>Die Bedienung des Angelspiels, des freien Erkundens und des Wettangelns findest du in der Spielanleitung über den Knopf unten.</span></div>
-         <div class="help-item"><strong>🚶🚲🚗 Umgebung</strong><span>Menschen, Tiere, Straßenverkehr, Züge und Schiffe beleben die erweiterte Landschaft. Bei Ruhe reduziert die mobile Version automatisch die Bildrate.</span></div>
+         <div class="help-item"><strong>🖨️ Drucken / Export</strong><span>Druckt oder exportiert die aktuelle Kartenansicht als Bild.</span></div>
+         <div class="help-item"><strong>🌿 Unterwasserwelt</strong><span>Tauche an der Kartenmitte in Weiher oder Mosel ab. Erneutes Antippen führt zur Karte zurück.</span></div>
+         <div class="help-item"><strong>🐟 Unterwasser Desktop</strong><span>Schwimme frei und klicke Fische für Informationen an. Die Minikarte zeigt deine Position und an der Mosel auch die Tiefe.</span></div>
+         <div class="help-item"><strong>📱 Unterwasser mobil</strong><span>Ein Finger bewegt dich, zwei Finger drehen den Blick und ändern den Tauchwinkel. Tippe auf Fische für Informationen.</span></div>
+         <div class="help-item"><strong>🎣 Angelspiel</strong><span>Die Spielanleitung erklärt Angeln, Erkunden und Wettangeln.</span></div>
+         <div class="help-item"><strong>🚶🚲🚗 Umgebung</strong><span>Menschen, Tiere, Fahrzeuge, Züge und Schiffe beleben die Landschaft.</span></div>
        </div>
        <div class="help-note"><strong>Version</strong><br>
   <span id="helpVersion"></span><br>
 Interaktive Tiefenkarte & Angelspiel · Live-Wetter · astronomisches Licht · Unterwasserwelt · Fischsammlung<br>
-Bitte gefundene Darstellungs-, Steuerungs- oder Spielfehler mit Gerät, Browser und betroffenem Modus melden.
+Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
@@ -6525,7 +6525,7 @@ function showViewerError(message){
   box.textContent='Viewer-Fehler: '+first;
   if(boot&&boot.rendererState==='failed'){
     box.append(document.createElement('br'));
-    box.append(document.createTextNode('Der Browser konnte keine WebGL-3D-Ansicht bereitstellen. Auch das Standard-GPU-Profil wurde geprüft. Die Spielinitialisierung wurde angehalten; Folge-Module werden erst nach erfolgreichem Start aktiviert.'));
+    box.append(document.createTextNode("Die 3D-Ansicht konnte nicht gestartet werden. Bitte lade die Seite erneut."));
   }
 }
 function pondGridUFromWorld(x){return (x-D.xmin)/(D.xmax-D.xmin);}
@@ -6613,7 +6613,7 @@ function aczoGraphicsScale(mode=aczoGraphicsMode){
 }
 function aczoGraphicsTargetPixelRatio(mode=aczoGraphicsMode){
  const normalized=aczoNormalizeGraphicsMode(mode);
- const selected=normalized==='ultra'?Math.min(2.40,Math.max(ACZO_STANDARD_PIXEL_RATIO*1.60,(window.devicePixelRatio||1)*1.10)):Math.max(.55,ACZO_STANDARD_PIXEL_RATIO*aczoGraphicsScale(normalized));
+ const selected=normalized==='ultra'?(ACZO_PERF8_MOBILE_BOOT?ACZO_STANDARD_PIXEL_RATIO*aczoGraphicsScale(normalized):Math.min(2.40,Math.max(ACZO_STANDARD_PIXEL_RATIO*1.60,(window.devicePixelRatio||1)*1.10))):Math.max(.55,ACZO_STANDARD_PIXEL_RATIO*aczoGraphicsScale(normalized));
  return ACZO_PERF8_MOBILE_BOOT&&window.__aczoSafeStart.initializing?Math.min(1,selected):selected;
 }
 function syncAczoGraphicsButtons(){
@@ -6653,7 +6653,34 @@ function aczoSelectionMapUpdateButtons(){
 function setAnglingMobilePerformance(active){
  anglingMobilePerfActive=!!active&&(ACZO_MOBILE_PERF||anglingPhoneLayoutActive());anglingMobileSavedPixelRatio=null;
 }
+function aczoApplyAudioSessionPolicy(){
+  try{const session=navigator.audioSession;if(session&&session.type!=='ambient')session.type='ambient';}catch(_e){}
+}
+function aczoSyncAudioOutput(){
+  if(aczoAudioOutputGain)aczoAudioOutputGain.gain.value=aczoSoundEnabled?(aczoAudioOutputLimiter?1.35:1):0;
+}
+function aczoAudioDestination(ctx){
+  if(aczoAudioOutputGain)return aczoAudioOutputGain;
+  const gain=ctx.createGain();
+  let destination=ctx.destination;
+  if(ACZO_PERF10_IS_MOBILE_OS&&typeof ctx.createWaveShaper==='function'){
+    try{
+      const limiter=ctx.createWaveShaper(),curve=new Float32Array(4097);
+      // Linear below .75; the rare overlapping peaks bend smoothly below .941.
+      // No audio worklet, timer or additional AudioContext is needed.
+      for(let i=0;i<curve.length;i++){
+        const x=i*2/(curve.length-1)-1,a=Math.abs(x);
+        curve[i]=Math.sign(x)*(a<=.75?a:.75+.25*Math.tanh((a-.75)/.25));
+      }
+      limiter.curve=curve;limiter.oversample='none';limiter.connect(ctx.destination);
+      aczoAudioOutputLimiter=limiter;destination=limiter;
+    }catch(_e){aczoAudioOutputLimiter=null;}
+  }
+  gain.connect(destination);aczoAudioOutputGain=gain;aczoSyncAudioOutput();
+  return gain;
+}
 function aczoEnsureAudioContext(){
+  aczoApplyAudioSessionPolicy();
   if(aczoAudioCtx||!ACZO_AUDIO_CTOR)return aczoAudioCtx;
   try{aczoAudioCtx=new ACZO_AUDIO_CTOR({latencyHint:'interactive'});}catch(_e){
     try{aczoAudioCtx=new ACZO_AUDIO_CTOR();}catch(_e2){aczoAudioCtx=null;}
@@ -6728,7 +6755,7 @@ function aczoStartWebSound(key,opts={}){
     const base=Number(ACZO_SOUND_VOLUMES[key]??.55);
     const vol=opts.volume==null?base*(opts.gain==null?1:Number(opts.gain)||0):Number(opts.volume)||0;
     gain.gain.value=key==='infoTick'&&opts.uiClick?aczoMenuClickGain(buf,vol):Math.max(0,Math.min(1,vol));
-    src.connect(gain);gain.connect(ctx.destination);
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));
     const set=aczoActiveSet(key);set.add(src);
     src.onended=()=>{set.delete(src);try{src.disconnect();gain.disconnect();}catch(_e){}};
     const offset=Math.max(0,Math.min(Math.max(0,buf.duration-.01),Number(opts.offset)||0));
@@ -6754,8 +6781,8 @@ function aczoRenderMoselLevel(){
  const el=document.getElementById('aczoMoselLevel');if(!el)return;
  const s=aczoMoselHydrology();
  el.textContent=s.test?'TEST-Pegel: '+Math.round(s.measurementCm)+' cm':s.available?'Pegel: '+Math.round(s.measurementCm)+' cm':s.status==='pending'?'Pegel: …':'Pegel: –';
- const detail=s.test?'Interner Spieltest, kein gemessener Pegel. Rücksetzen: __aczoMoselTest.reset()':s.available?'Messstelle Trier UP · Messung '+new Date(s.measuredAt).toLocaleString('de-DE')+' · beim Laden abgerufen; für diese Sitzung gespeichert.'
-  :s.status==='pending'?'Moselpegel Trier wird einmalig geladen.':'Messstelle Trier UP · nicht verfügbar. Kein gemessener Wert; Mosel-Spielmodell verwendet vorläufig Normalwasser.';
+ const detail=s.test?'Interner Spieltest, kein gemessener Pegel. Rücksetzen: __aczoMoselTest.reset()':s.available?'Messstelle Trier UP · Messung '+new Date(s.measuredAt).toLocaleString('de-DE')+" · beim Start abgerufen."
+  :s.status==='pending'?'Moselpegel Trier wird einmalig geladen.':"Pegel Trier UP nicht verfügbar. Gespielt wird vorläufig mit Normalwasser.";
  el.title=detail;el.setAttribute('aria-label',el.textContent+' · '+detail);el.dataset.status=s.status;
 }
 function aczoStartMoselLevelOnce(){
@@ -6833,7 +6860,7 @@ function aczoPlayPredatorAlarmBeep(){
     const src=ctx.createBufferSource(),gain=ctx.createGain();
     src.buffer=buf;src.loop=false;
     gain.gain.value=Math.max(0,Math.min(.78,spatialGain));
-    src.connect(gain);gain.connect(ctx.destination);
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));
     const set=aczoActiveSet('predatorAlarm');set.add(src);aczoPredatorAlarmVoices.add(src);
     src.onended=()=>{set.delete(src);aczoPredatorAlarmVoices.delete(src);try{src.disconnect();gain.disconnect();}catch(_e){}};
     src.start();
@@ -6857,7 +6884,7 @@ function aczoStartDrillMusic(hallOfFameMode=false){
     src.buffer=buf;src.loop=true;
     gain.gain.setValueAtTime(0,now);
     gain.gain.linearRampToValueAtTime(ACZO_DRILL_MUSIC_LEVEL,now+.8);
-    src.connect(gain);gain.connect(ctx.destination);
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));
     aczoDrillMusicSource=src;aczoDrillMusicGain=gain;
     src.onended=()=>{if(aczoDrillMusicSource===src){aczoDrillMusicSource=null;aczoDrillMusicGain=null;}
       try{src.disconnect();gain.disconnect();}catch(_e){}};
@@ -6920,7 +6947,7 @@ function aczoStartHallOfFameMusic(){
     const src=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;
     src.buffer=aczoHofMusicBuffer;src.loop=true;
     gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(ACZO_HOF_MUSIC_LEVEL,now+.8);
-    src.connect(gain);gain.connect(ctx.destination);
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));
     src.onended=()=>{
       if(aczoHofMusicSource===src){aczoHofMusicSource=null;aczoHofMusicGain=null;}
       try{src.disconnect();gain.disconnect();}catch(_e){}
@@ -6980,7 +7007,7 @@ function aczoStartTimeShiftMusic(){
     src.buffer=buf;src.loop=true;
     gain.gain.setValueAtTime(0,now);
     gain.gain.linearRampToValueAtTime(ACZO_SOUND_VOLUMES.landingTension,now+.25);
-    src.connect(gain);gain.connect(ctx.destination);
+    src.connect(gain);gain.connect(aczoAudioDestination(ctx));
     aczoTimeShiftMusicSource=src;aczoTimeShiftMusicGain=gain;
     src.onended=()=>{
       if(aczoTimeShiftMusicSource===src){aczoTimeShiftMusicSource=null;aczoTimeShiftMusicGain=null;}
@@ -7161,7 +7188,7 @@ function aczoSoundStopAll(){
   window.dispatchEvent(new Event('aczo-sound-stop-all'));
 }
 function aczoSetSoundEnabled(enabled,{persist=true}={}){
-  aczoSoundEnabled=!!enabled;if(!aczoSoundEnabled)aczoSoundStopAll();
+  aczoSoundEnabled=!!enabled;aczoSyncAudioOutput();if(!aczoSoundEnabled)aczoSoundStopAll();
   if(persist)try{localStorage.setItem(ACZO_SOUND_ENABLED_KEY,aczoSoundEnabled?'1':'0');}catch(_e){}
   aczoSyncSoundButtons();
 }
@@ -7188,7 +7215,7 @@ function aczoPlayMenuClick(){
   if(!aczoMenuSoundAllowed())return false;
   const generation=++aczoMenuSoundGeneration,requestSerial=++aczoSoundRequestSerial;
   const ctx=aczoEnsureAudioContext();if(!ctx)return false;
-  const play=()=>aczoSoundPlay('infoTick',{volume:.04,rate:1.08,uiClick:true});
+  const play=()=>aczoSoundPlay('infoTick',{volume:ACZO_PERF10_IS_MOBILE_OS?.05:.04,rate:1.08,uiClick:true});
   if(ctx.state==='running'&&aczoAudioBuffers.infoTick)return play();
   const startedAt=performance.now();
   // resume direkt in der Benutzeraktion aufrufen; nur dieser kurze Clip wird
@@ -7216,7 +7243,7 @@ function aczoSoundSetLineRun(active){
   }else aczoSoundStop('lineRun');
 }
 function aczoUnlockSounds(){
-  if(typeof anglingMode==='undefined'||!anglingMode)return;
+  if(!aczoSoundEnabled||typeof anglingMode==='undefined'||!anglingMode)return;
   const ctx=aczoEnsureAudioContext();aczoPrepareSounds();
   if(!ctx)return;
   if(ctx.state==='running'){
@@ -10635,7 +10662,7 @@ function updateLocationButton(){
 }
 function startLocation(){
   if(!navigator.geolocation){
-    showLocationStatus('Standort ist hier nicht verfügbar. Auf der späteren HTTPS-Webseite funktioniert die GPS-Freigabe.',true);
+    showLocationStatus("Standort nicht verfügbar. Bitte prüfe die Standortfreigabe deines Browsers.",true);
     return;
   }
 
@@ -20853,7 +20880,7 @@ function anglingTriggerSnaggedFish(actor){
   anglingState='snag-return';anglingStateTime=0;anglingActionHeld=false;
   // Keine alte kleine Toast-Meldung mehr. Die eindeutige große Meldung wird
   // erst nach der Kamerarückkehr gezeigt, unmittelbar vor dem Drill.
-  setAnglingStatus('Fischkontakt','Kunstköder hat einen vorbeischwimmenden Fisch tatsächlich berührt.');
+  setAnglingStatus('Fischkontakt',"Der Kunstköder hat einen Fisch seitlich gehakt.");
   // Wie bei einem erfolgreichen Anhieb fährt die Kamera sauber zum Angler zurück.
   // BETA 1.14: Während dieses Kameraflugs bleibt die First-Person-Rute aus.
   // Erst am fertigen Uferbild erscheint sie für den Drill.
@@ -24250,7 +24277,7 @@ function aczoBoatInstallUi(){
  `;document.head.append(style);
  const ui=document.createElement('div');ui.className='aczo-boat-controls';ui.hidden=true;ui.setAttribute('role','group');ui.setAttribute('aria-label','Boot steuern');rt.ui=ui;rt.buttons={};
  const heading=document.createElement('div');heading.className='aczo-boat-heading';heading.innerHTML='<strong>SABRINA</strong><span>STEUERN</span>';ui.append(heading);rt.controlCaption=heading.querySelector('span');
- const pad=document.createElement('div');pad.className='aczo-boat-pad';pad.tabIndex=0;pad.setAttribute('role','group');pad.setAttribute('aria-label','Boot steuern: acht Richtungen. Diagonal vorwärts oder rückwärts lenken. Am Computer Pfeiltasten verwenden.');rt.pad=pad;
+ const pad=document.createElement('div');pad.className='aczo-boat-pad';pad.tabIndex=0;pad.setAttribute('role','group');pad.setAttribute('aria-label',"Steuere mit dem Steuerkreis oder den Pfeiltasten. Diagonal fahren und lenken.");rt.pad=pad;
  const vectors=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
  const point=(r,a)=>[80+Math.sin(a)*r,80-Math.cos(a)*r].map(v=>v.toFixed(2)).join(' ');
  const sectors=vectors.map((_,i)=>{const a=i*Math.PI/4-Math.PI/8+.035,b=i*Math.PI/4+Math.PI/8-.035;return '<g class="boat-direction" data-direction="'+i+'"><path class="boat-sector" d="M '+point(30,a)+' L '+point(72,a)+' A 72 72 0 0 1 '+point(72,b)+' L '+point(30,b)+' A 30 30 0 0 0 '+point(30,a)+' Z"/><path d="M 74 29 L 80 23 L 86 29 M 80 23 V 37" transform="rotate('+(i*45)+' 80 80)" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>';}).join('');
@@ -24401,7 +24428,7 @@ function aczoBoatTick(dt){
   if(aczoBoatWalkCamera(dt)){rt.phase='entering';rt.time=0;rt.startCamera=camera.position.clone();rt.startTarget=controls.target.clone();}
  }else if(rt.phase==='entering'){
   const t=THREE.MathUtils.smoothstep(rt.time,0,1.1);aczoBoatCamera();const eye=camera.position.clone(),target=controls.target.clone();camera.position.lerpVectors(rt.startCamera,eye,t);controls.target.lerpVectors(rt.startTarget,target,t);camera.lookAt(controls.target);
-  if(rt.time>=1.1){rt.phase='driving';anglingState='boat-driving';rt.time=0;setAnglingStatus('Boot steuern','Steuerkreis oder Pfeiltasten · diagonal fahren und lenken · Ankern zum Angeln.');}
+  if(rt.time>=1.1){rt.phase='driving';anglingState='boat-driving';rt.time=0;setAnglingStatus('Boot steuern',"Steuerkreis oder Pfeiltasten zum Fahren · Ankern zum Angeln.");}
  }else if(rt.phase==='driving'){
   const turn=(rt.input.right?1:0)-(rt.input.left?1:0),throttle=(rt.input.forward?1:0)-(rt.input.reverse?1:0);
   if(!aczoBoatMotion(dt,throttle,turn)&&rt.time-(rt.lastBlocked||-10)>2){rt.lastBlocked=rt.time;showAnglingToast('Ufer, Flachwasser oder Hindernis · bitte abdrehen.',1450);}
@@ -24533,7 +24560,7 @@ function aczoBoatBuildTin(){
  const note=document.createElement('div');note.className='aczo-sabrina-note';note.hidden=true;note.setAttribute('role','dialog');note.setAttribute('aria-modal','true');note.setAttribute('aria-label','Notiz in der Köderdose der Sabrina');
  const card=document.createElement('article'),title=document.createElement('h3');title.textContent='Für den nächsten Angler der Sabrina';card.append(title);
  const reward=document.createElement('p');reward.className='sabrina-reward';card.append(reward);rt.tinReward=reward;
- for(const text of ['Die Köder in dieser Dose kannst du gebrauchen. Meine zwei besonderen Lieblinge habe ich leider beim Werfen verloren – einen im Osten, einen im Westen.','Beide hängen wohl noch über dem Wasser. Vom Ufer kam ich nicht mehr dran. Wenn zwischen den Ästen etwas aufblitzt, schau genauer hin …','Petri! – Predator Pit']){const p=document.createElement('p');p.textContent=text;card.append(p);}
+ for(const text of ["In der Dose liegen Köder. Meine zwei Lieblinge habe ich beim Werfen verloren: einen im Osten, einen im Westen.","Beide hängen noch über dem Wasser. Schau nach etwas Glänzendem zwischen den Ästen …",'Petri! – Predator Pit']){const p=document.createElement('p');p.textContent=text;card.append(p);}
  const close=document.createElement('button');close.type='button';close.textContent='Notiz einstecken';close.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();note.hidden=true;rt.input={};aczoBoatRefreshUi();});card.append(close);rt.noteClose=close;
  for(const event of ['pointerdown','pointerup','click'])note.addEventListener(event,e=>e.stopPropagation());note.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();note.hidden=true;rt.input={};aczoBoatRefreshUi();}else if(e.key==='Tab'){e.preventDefault();e.stopPropagation();close.focus?.();}});note.append(card);anglingUi.append(note);rt.note=note;const saving=document.createElement('div');saving.className='aczo-sabrina-saving';saving.hidden=true;saving.textContent='Fund wird gesichert …';saving.setAttribute('role','status');anglingUi.append(saving);rt.saving=saving;
 }
@@ -24576,7 +24603,7 @@ function aczoBoatUpdateMotor(){
  if(!rt.motor){try{
   const gain=ctx.createGain(),filter=ctx.createBiquadFilter();gain.gain.value=0;filter.type='lowpass';filter.frequency.value=440;
   const oscillators=[ctx.createOscillator(),ctx.createOscillator()];oscillators[0].type='sine';oscillators[1].type='triangle';
-  rt.motor={gain,filter,oscillators};for(const osc of oscillators){osc.connect(filter);osc.start();}filter.connect(gain);gain.connect(ctx.destination);
+  rt.motor={gain,filter,oscillators};for(const osc of oscillators){osc.connect(filter);osc.start();}filter.connect(gain);gain.connect(aczoAudioDestination(ctx));
  }catch(err){aczoBoatStopMotor();return;}}
  const load=Math.min(1,Math.abs(rt.speed)/3.8),gas=!!(rt.input.forward||rt.input.reverse||rt.phase==='returning'),motor=rt.motor;
  motor.gain.gain.setTargetAtTime((.007+load*.010)*(gas?1:.35),ctx.currentTime,.18);
@@ -24645,7 +24672,7 @@ async function aczoBoatClaimReward(key){
    try{
     data=await aczoApi('claimBoatFind',{...access,findKey:key,revision:saved.player.revision});
     samePlayer();
-    if(!data?.player||Number(data.apiVersion)<21)throw new Error('Für die Funde bitte den Google-Code V3.0 veröffentlichen.');
+    if(!data?.player||Number(data.apiVersion)<21)throw new Error("Die Fundbelohnung ist online derzeit nicht verfügbar.");
    }catch(err){
     samePlayer();
     if(!anglingCloudErrorIsTransient(err))throw err;
@@ -24698,7 +24725,7 @@ function anglingBankCloudPurchaseAllowed(){
  if(!anglingCloudEnabled)return true;
  if(anglingBankRuntime.cloudApi>=ANGLING_REQUIRED_CLOUD_API)return true;
  prewarmAnglingCloudBackend(true).then(()=>refreshAnglingCommerceViews());
- showAnglingToast(anglingBankRuntime.cloudApi===null?'Cloud-Freigabe wird geprüft. Bitte kurz warten und erneut wählen.':'Angelsets benötigen das aktualisierte Cloud-Backend (API 19).',2600);return false;
+ showAnglingToast(anglingBankRuntime.cloudApi===null?"Online-Freigabe wird geprüft. Bitte kurz warten.":"Dieses Angelset ist online derzeit nicht verfügbar.",2600);return false;
 }
 function normalizeAnglingBankState(value){
  const v=value&&typeof value==='object'?value:{};
@@ -24733,7 +24760,7 @@ function anglingBankMountBait(id){
 }
 function anglingBankShoreAllowed(selection=anglingSelection,notify=false){
  const allowed=!selection||!(selection.pierSpot||selection.boatPierSpot||selection.smallPierNumber);
- if(!allowed&&notify)showAnglingToast('Karpfen- und Welsangeln brauchen festen Boden. Bitte die Angelstelle wechseln und einen Platz am Ufer wählen.',3200);
+ if(!allowed&&notify)showAnglingToast("Karpfen- und Welssets brauchen festen Uferboden. Bitte wähle einen Uferplatz.",3200);
  return allowed;
 }
 function anglingBankEquipmentSelected(id){
@@ -26234,7 +26261,7 @@ function updateAnglingBankSet(dt){
   if(rt.group)rt.group.visible=false;rt.lines.forEach(l=>l.visible=false);rt.markers.forEach(m=>m.hidden=true);if(rt.ui)rt.ui.hidden=true;anglingBankShoreDepth(false);
   anglingRodGroup.visible=false;anglingRodThreadGroup.visible=false;anglingLure.visible=false;anglingBobber.visible=false;anglingDeeper.visible=false;anglingReadyLineGroup.visible=false;anglingDeeperReadyLine.visible=false;
   anglingActionBtn.disabled=true;anglingActionBtn.textContent='Angelstelle wechseln';anglingExitBtn.disabled=false;anglingExitBtn.textContent='Angelstelle wechseln';
-  if(rt.invalidSpot!==anglingSelection){rt.invalidSpot=anglingSelection;setAnglingStatus('Ansitz nur am Ufer','Bitte die Angelstelle wechseln. Auf Stegen fehlt der feste Boden für beide Sets.');}
+  if(rt.invalidSpot!==anglingSelection){rt.invalidSpot=anglingSelection;setAnglingStatus('Ansitz nur am Ufer',"Karpfen- und Welssets brauchen festen Uferboden. Bitte wähle einen Uferplatz.");}
   return;
  }
  rt.invalidSpot=null;
@@ -26346,7 +26373,7 @@ function aczoShowLocalProgressSaveState(saved){
  if(!saved&&!banner){
   banner=document.createElement('div');banner.id='aczoLocalProgressWarning';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');
   banner.style.cssText='position:fixed;z-index:9900;top:calc(44px + env(safe-area-inset-top));left:12px;right:12px;max-width:540px;margin:auto;padding:10px 13px;border:1px solid #e5bf65;border-radius:10px;background:#493914;color:#fff2ce;font:700 12px/1.4 system-ui;box-shadow:0 3px 14px #0005';
-  banner.textContent='⚠️ Lokales Speichern fehlgeschlagen. Änderungen sind auf diesem Gerät nicht dauerhaft gesichert. Spiel geöffnet lassen und die Cloud-Sicherung im Profil prüfen.';
+  banner.textContent="⚠️ Speichern fehlgeschlagen. Lass das Spiel geöffnet und prüfe die Online-Sicherung im Profil.";
   document.body.append(banner);
  }
  if(banner)banner.hidden=saved;
@@ -26419,7 +26446,7 @@ function aczoPlayLevelUpSound(isMax=false){
         gain.gain.linearRampToValueAtTime(volume,at+.012);
         gain.gain.exponentialRampToValueAtTime(.0001,at+.63);
         gain.gain.linearRampToValueAtTime(0,at+.7);
-        osc.connect(gain);gain.connect(ctx.destination);
+        osc.connect(gain);gain.connect(aczoAudioDestination(ctx));
         aczoLevelUpRuntime.audio.add(voice);
         osc.onended=()=>{aczoLevelUpRuntime.audio.delete(voice);try{osc.disconnect();gain.disconnect();}catch(_e){}};
         osc.start(at);osc.stop(at+.72);
@@ -26577,7 +26604,7 @@ function openAnglingJumpLab(){if(guardAnglingMenuOpen())return;closeAnglingGameP
 function triggerAnglingJumpLab(mode='near'){
   if(!anglingMode||!anglingSelection){setAnglingJumpLabStatus('Erst das Angelspiel starten und einen Uferplatz wählen.');return false;}
   if(anglingCinematicView==='underwater'||anglingState==='selecting'||anglingState==='overview-flight'||anglingState==='shore-flight'||anglingState==='exit-flight'){
-    setAnglingJumpLabStatus('Bitte in der normalen Ufer-Ansicht testen, nicht in Unterwasser- oder Flugphasen.');
+    setAnglingJumpLabStatus("Bitte in der Uferansicht vor dem Auswurf testen.");
     return false;
   }
   if(mode==='burst'){
@@ -28738,8 +28765,8 @@ function aczoStorageWrite(key,value){
   try{localStorage.setItem(key,value);return localStorage.getItem(key)===value;}catch(err){return false;}
 }
 function aczoReadableError(err){
-  if(err?.name==='AbortError'||/aborted|timeout/i.test(String(err?.message||'')))return 'Die Serverantwort hat zu lange gedauert oder die Verbindung wurde unterbrochen. Bitte erneut versuchen.';
-  if(err instanceof TypeError&&/fetch|network|load failed/i.test(String(err.message)))return 'Keine Verbindung zum Server. Bitte die Verbindung prüfen und erneut versuchen.';
+  if(err?.name==='AbortError'||/aborted|timeout/i.test(String(err?.message||'')))return "Verbindung unterbrochen. Bitte erneut versuchen.";
+  if(err instanceof TypeError&&/fetch|network|load failed/i.test(String(err.message)))return "Keine Verbindung. Bitte prüfe dein Internet und versuche es erneut.";
   return String(err?.message||'Der Vorgang konnte nicht abgeschlossen werden. Bitte erneut versuchen.');
 }
 function createAnglingPlayerId(){
@@ -28762,7 +28789,7 @@ function saveAnglingRecoveryCode(value,{keepInMemoryOnFailure=false}={}){
   if(!aczoStorageWrite(ANGLING_RECOVERY_KEY,code)){
     // A freshly generated code is only returned once: keep it copyable.
     if(keepInMemoryOnFailure)anglingRecoveryCode=code;
-    anglingRecoveryStorageWarning='Der Wiederherstellungscode konnte auf diesem Gerät nicht dauerhaft gespeichert werden. Bitte kopieren und sicher aufbewahren.';
+    anglingRecoveryStorageWarning="Der Code konnte nicht gespeichert werden. Bitte kopiere ihn und bewahre ihn sicher auf.";
     updateAnglingRecoveryUi();return false;
   }
   anglingRecoveryCode=code;anglingRecoveryStorageWarning='';
@@ -28780,7 +28807,7 @@ function updateAnglingRecoveryUi(){
     anglingRecoveryCodeDisplay.value=aczoAccount?'Auf diesem Gerät nicht hinterlegt':'Noch nicht erstellt';
     anglingRecoveryCopyBtn.disabled=true;
     anglingRecoveryRotateBtn.disabled=true;
-    anglingRecoveryStatus.textContent=anglingRecoveryStorageWarning||(aczoAccount?'Den vorhandenen Code vom ersten Gerät unter Profil hier im Profil hinterlegen.':'Der Code wird beim nächsten erfolgreichen Cloud-Abgleich automatisch erstellt.');
+    anglingRecoveryStatus.textContent=anglingRecoveryStorageWarning||(aczoAccount?"Kopiere den Code im Profil deines ersten Geräts und füge ihn hier ein.":"Dein Code wird bei der nächsten erfolgreichen Online-Sicherung erstellt.");
   }else{
     anglingRecoveryCodeDisplay.value=anglingRecoveryCode;
     anglingRecoveryCopyBtn.disabled=false;
@@ -28902,7 +28929,7 @@ function applyAnglingCloudPlayer(player,{force=false}={}){
   // Reject stale replies before changing stocks, XP or the selected method, even before casting.
   if(!force&&Number(player.revision||0)<Number(anglingProgress.xpRevision||0))return false;
   if(!force&&anglingBankNeedsCloud()&&(!Object.prototype.hasOwnProperty.call(player.equipmentInventory||{},'carp_set')||!Object.prototype.hasOwnProperty.call(player.naturalInventory||{},'boilie'))){
-    anglingLastCloudMessage='Die Cloud-Antwort enthält keine vollständigen Angelset-Daten. Der lokale Spielstand bleibt erhalten.';updateAnglingCloudStatus();return false;
+    anglingLastCloudMessage="Online-Spielstand unvollständig. Dein bisheriger Spielstand bleibt erhalten.";updateAnglingCloudStatus();return false;
   }
   if(force){
     if(aczoBoatActive())aczoBoatReset();
@@ -29033,7 +29060,7 @@ async function loadAnglingPlayerCloud({skipShared=false,retryTransient=true}={})
     if(!data){const err=new Error('Leere Serverantwort');err.retryable=true;throw err;}
     if(data.ok===false){const err=new Error(data.error||'Cloud-Lesefehler');err.retryable=false;throw err;}
     if(!current())return false;
-    if(data.player&&!aczoValidCloudPlayer(data.player,anglingPlayerProfile.id))throw new Error('Die Cloud-Antwort enthält keinen vollständigen Spielstand für diesen Spieler.');
+    if(data.player&&!aczoValidCloudPlayer(data.player,anglingPlayerProfile.id))throw new Error("Der Online-Spielstand ist unvollständig. Bitte erneut versuchen.");
     captureAnglingRecoveryCode(data);
 
     // Noch kein Online-Spielstand: kompletten lokalen Stand anlegen.
@@ -29121,8 +29148,8 @@ async function syncAnglingPlayerCloud(){
     if(!current())return false;
     if(!(anglingBankRuntime.cloudApi>=ANGLING_REQUIRED_CLOUD_API)){
       anglingLastCloudMessage=Number(anglingBankRuntime.cloudApi)>0
-        ?'Angelsets noch nicht online gesichert: Cloud-Backend API 19 oder neuer erforderlich'
-        :'Cloud-Verbindung nicht bestätigt. Die Backend-Version konnte noch nicht geprüft werden.';
+        ?"Angelsets sind derzeit nicht online gesichert."
+        :"Die Online-Verbindung konnte noch nicht bestätigt werden.";
       updateAnglingCloudStatus();return false;
     }
   }
@@ -29521,11 +29548,11 @@ function updateAnglingMainMenuUi(){
   anglingMainChangeSpotBtn.style.display=active?'':'none';
   anglingMainLeaveBtn.style.display=active?'':'none';
   anglingMainSubtitle.textContent=active
-    ?'Spielmenü geöffnet. Von hier verwaltest du Spiel, Statistik und Cloud-Spielstand.'
-    :'Spiel starten, Fortschritt verwalten und Einstellungen öffnen.';
+    ?"Spiel, Profil und Einstellungen verwalten."
+    :"Spiel starten, Profil verwalten und Einstellungen öffnen.";
   anglingMainStatus.textContent=anglingCloudEnabled
     ?'☁️ Cloud-Speicherung ist aktiviert.'
-    :'📱 Cloud-Speicherung ist deaktiviert. Fortschritt bleibt auf diesem Gerät.';
+    :"📱 Online-Sicherung aus. Dein Fortschritt bleibt auf diesem Gerät.";
   updateAnglingCloudStatus();
   // P33 CLOUD: Beim ersten Einrichten bzw. vor vorhandener Recovery-ID keine
   // zwei Community-GETs im Hintergrund starten. Das verhindert Konkurrenz mit
@@ -29563,8 +29590,8 @@ function openAnglingFirstSetup(){
 
   anglingMainSaveProfileBtn.style.display='none';
   anglingFirstSetupContinueBtn.style.display='';
-  anglingMainSubtitle.textContent='Willkommen beim Angelspiel. Richte einmal kurz dein Spielerprofil und die Speicheroptionen ein.';
-  anglingMainStatus.textContent='Online-Optionen sind vorausgewählt. Du kannst sie vor dem Speichern abwählen.';
+  anglingMainSubtitle.textContent="Richte kurz dein Profil und die Speicherung ein.";
+  anglingMainStatus.textContent="Online-Optionen kannst du vor dem Speichern abwählen.";
   const playSection=anglingMainPlayBtn.closest('.angling-main-section');
   if(playSection)playSection.style.display='none';
   anglingMainSettings.style.display='none';
@@ -29646,7 +29673,7 @@ function saveAnglingMainProfile(){
       updateAnglingMainMenuUi();
       anglingMainStatus.textContent=ok
         ?'☁️ Cloud-Spielstand ist aktiviert und abgeglichen.'
-        :'⚠️ Cloud ist aktiviert, der Abgleich konnte aber noch nicht bestätigt werden.';
+        :"⚠️ Die Online-Sicherung wurde noch nicht bestätigt.";
       // P40: Erst den eigentlichen Spielstand-Abgleich abschliessen. Danach
       // duerfen Bestenliste und Presence ihre eigenen Requests starten.
       if(ok&&anglingPlayerProfile.shareRecords)syncAnglingExistingPersonalBests();
@@ -29654,7 +29681,7 @@ function saveAnglingMainProfile(){
     });
   }else{
     if(anglingCloudSyncTimer){window.clearTimeout(anglingCloudSyncTimer);anglingCloudSyncTimer=null;}
-    anglingMainStatus.textContent='📱 Online-Speicherung deaktiviert. Der lokale Spielstand bleibt erhalten.';
+    anglingMainStatus.textContent="📱 Online-Sicherung aus. Dein Spielstand bleibt auf diesem Gerät.";
   }
   syncAnglingLeaderboardProfileUi();
   updateAnglingCloudStatus();
@@ -29677,7 +29704,7 @@ function returnToAnglingMainMenu(){
 function resetAnglingFoundSpeciesOnly(){
   const ok=window.confirm(
     'Nur die entdeckten Fischarten im Unterwasser-Tauchmodus zurücksetzen?\n\n'+
-    'Gemeint ist ausschließlich die Arten-Sammlung beim 3D-Tauchen. Gefangene Fische im Angelspiel, EP, Highscores, Käufe, Bestände und Fangbuch bleiben erhalten.'
+    "Nur die beim Tauchen entdeckten Arten werden zurückgesetzt. Fänge, EP, Rekorde, Käufe, Vorräte und Fangbuch bleiben erhalten."
   );
   if(!ok)return;
 
@@ -29744,7 +29771,7 @@ async function resetAnglingAsBrandNewUser(){
   if(aczoSessionToken){anglingMainStatus.textContent='Bitte melde dich im Profil ab. Dein Spielerkonto und Cloud-Spielstand bleiben erhalten.';aczoMainNavigate('profile');return;}
   const first=window.confirm(
     'KOMPLETT NEU BEGINNEN?\n\n'+
-    'Dabei werden nicht nur EP und Spielfortschritt gelöscht, sondern auch dein bisheriges Spielerprofil, Benutzername, Spieler-ID, Wiederherstellungscode und die Cloud-Verknüpfung.\n\n'+
+    "Profil, Spielfortschritt und Wiederherstellungscode werden endgültig gelöscht.\n\n"+
     'Dein bisheriger Wiederherstellungscode funktioniert danach nicht mehr.'
   );
   if(!first)return;
@@ -29851,7 +29878,7 @@ async function resetAnglingAsBrandNewUser(){
 
   // Nach dem Komplett-Neustart wird bewusst nicht sofort wieder ein Cloud-Spieler
   // erzeugt. Erst die erneute Ersteinrichtung legt das neue Profil an.
-  anglingMainStatus.textContent='✅ Bisheriges Spielerprofil gelöscht. Beim nächsten Start von „Angeln“ beginnt die Ersteinrichtung erneut.';
+  anglingMainStatus.textContent="✅ Profil gelöscht. Beim nächsten Angelstart richtest du ein neues ein.";
 
   window.setTimeout(()=>{
     anglingMainMenuReturnFromSubpanel=false;
@@ -29866,7 +29893,7 @@ async function resetAnglingEverything(){
   let cloudResetDone=false;
   const first=window.confirm(
     'Spielstand wirklich zurücksetzen?\n\n'+
-    'Gelöscht werden EP, Gesamt-EP, Fortschritt, persönliche Highscores, Käufe, Köder- und Futterbestände, die Tauchmodus-Fischsammlung und das lokale Fangbuch.\n\n'+
+    "Gelöscht werden EP, Fortschritt, Fänge, Rekorde, Käufe, Vorräte, Fischsammlung und Fangbuch.\n\n"+
     'Dein Benutzername, deine Spieler-ID und dein Wiederherstellungscode bleiben erhalten.'
   );
   if(!first)return;
@@ -29974,8 +30001,8 @@ async function fetchAnglingRecoveryPlayer(code){
   for(let attempt=0;attempt<timeouts.length;attempt++){
     if(attempt>0){
       anglingRecoveryStatus.textContent=attempt===1
-        ?'Der Cloud-Dienst braucht länger. Zweiter Versuch läuft automatisch …'
-        :'Verbindung ist ungewöhnlich langsam. Letzter Wiederherstellungsversuch läuft …';
+        ?"Die Wiederherstellung dauert länger. Ein weiterer Versuch läuft …"
+        :"Letzter Wiederherstellungsversuch läuft …";
       await new Promise(resolve=>window.setTimeout(resolve,attempt===1?450:900));
     }
     try{
@@ -30061,7 +30088,7 @@ async function deleteDisposableAnglingProfileAfterRecovery(previous,newPlayerId)
 }
 async function restoreAnglingPlayerFromCode(){
   if(aczoAccountBusy)return;
-  if(aczoSessionToken){anglingRecoveryStatus.textContent='Bitte den vorhandenen Code unter Profil prüfen und speichern. Für ein anderes Spielerkonto zuerst abmelden.';return;}
+  if(aczoSessionToken){anglingRecoveryStatus.textContent="Prüfe den vorhandenen Code im Profil. Für ein anderes Konto zuerst abmelden.";return;}
   const code=normalizeAnglingRecoveryCode(anglingRecoveryInput.value);
   if(code.replace(/-/g,'').length!==24){
     anglingRecoveryStatus.textContent='Bitte einen vollständigen Wiederherstellungscode eingeben.';
@@ -30106,7 +30133,7 @@ async function restoreAnglingPlayerFromCode(){
     anglingRecoveryInput.blur();
     setAnglingRecoveryInputActive(false);
     anglingRecoveryStatus.textContent=removedTemporaryProfile
-      ?'Spielstand erfolgreich wiederhergestellt. Das leere Geräteprofil wurde aus der Cloud entfernt; das lokale Fangbuch blieb erhalten.'
+      ?"Spielstand wiederhergestellt. Das Fangbuch auf diesem Gerät bleibt erhalten."
       :'Spielstand erfolgreich wiederhergestellt. Das lokale Fangbuch blieb erhalten.';
     showAnglingToast('Cloud-Spielstand wiederhergestellt.',1500);
     updateAnglingRecoveryUi();
@@ -30114,7 +30141,7 @@ async function restoreAnglingPlayerFromCode(){
   }catch(err){
     const timeout=err?.name==='AbortError'||/aborted|timeout/i.test(String(err?.message||''));
     anglingRecoveryStatus.textContent=timeout
-      ?'Wiederherstellung fehlgeschlagen: Der Cloud-Dienst antwortet auch nach mehreren Versuchen nicht. Bitte Verbindung prüfen und erneut versuchen.'
+      ?"Wiederherstellung nicht möglich. Bitte prüfe die Verbindung und versuche es erneut."
       :'Wiederherstellung fehlgeschlagen: '+String(err?.message||'unbekannter Fehler');
   }finally{
     anglingRecoveryRestoreBtn.disabled=false;aczoAccountBusy=false;
@@ -30152,7 +30179,7 @@ async function rotateAnglingRecoveryCode(){
         setStatus(anglingRecoveryStorageWarning||'✅ Wiederherstellungscode wurde eingerichtet.');
         return;
       }
-      setStatus('⚠️ Es konnte noch kein Code erzeugt werden. Bitte Cloud-Einstellungen einmal speichern und erneut versuchen.');
+      setStatus("⚠️ Bitte speichere zuerst die Online-Einstellungen im Profil.");
     }finally{
       setBusy(false);
     }
@@ -30219,7 +30246,7 @@ function createAnglingHallOfFameIntroSlide(){
     kicker:'AC 1956 · VEREINSWEIHER',
     title:'Hall of Fame',
     value:'Die Besten am Weiher',
-    detail:'Gesamtwertung, Rekorde, Artenvielfalt, Erfahrung und Aktivität – mit den ersten drei Plätzen jeder Disziplin.',
+    detail:"Die besten drei Angler jeder Wertung.",
     fireworks:3
   };
 }
@@ -30258,25 +30285,25 @@ function buildAnglingHallOfFameSlides(){
     '🎯 REKORDJÄGER','Die stärksten Artenrekorde',
     asArray(hof?.recordHunterTop3,hof?.recordHunter),
     r=>Number(r.qualityPercent||0).toLocaleString('de-DE',{maximumFractionDigits:0})+' %',
-    'Gewertet werden die fünf stärksten veröffentlichten Artenrekorde relativ zur jeweiligen Fischart.'
+    "Es zählen die fünf stärksten veröffentlichten Fänge im Vergleich zur jeweiligen Fischart."
   );
   rankingSlide(
     '🌐 ALLROUNDER','Die vielseitigsten Angler',
     asArray(hof?.allrounderTop3,hof?.allrounder),
     r=>(Number(r.speciesCount)||0)+'/'+(Number(r.speciesTotal)||16)+' Arten',
-    'Hier zählt, wie viele unterschiedliche Fischarten mit veröffentlichtem Bestfang vertreten sind.'
+    "Es zählt die Zahl deiner Fischarten mit veröffentlichtem Bestfang."
   );
   rankingSlide(
     '⭐ ERFAHRUNG','Die erfahrensten Angler',
     asArray(hof?.experiencedTop3,hof?.experienced),
     r=>(Number(r.lifetimeXp)||0).toLocaleString('de-DE')+' Gesamt-EP',
-    'Ausgegebene EP bleiben erhalten: Entscheidend ist die gesamte gesammelte Spielerfahrung.'
+    "Es zählen alle gesammelten EP, auch bereits ausgegebene."
   );
   rankingSlide(
     '🎣 AKTIVITÄT','Die fleißigsten Angler',
     asArray(hof?.activeTop3,hof?.active),
     r=>(Number(r.totalCatches)||0).toLocaleString('de-DE')+' Fänge',
-    'Gewertet wird die Gesamtzahl der im Cloud-Spielstand registrierten Fänge.'
+    "Es zählt die Gesamtzahl deiner online gesicherten Fänge."
   );
 
   let biggestTop=asArray(hof?.biggestCatchesTop3,hof?.biggestCatch);
@@ -30289,7 +30316,7 @@ function buildAnglingHallOfFameSlides(){
       const cm=Number(r?.lengthCm ?? r?.cm)||0;
       return (fishDisplayNames[species]||rawSpecies||'Fisch')+' · '+formatAnglingLength(cm);
     },
-    'Die drei aktuell längsten freiwillig veröffentlichten Fänge am Vereinsweiher.',3
+    "Die drei längsten veröffentlichten Fänge am Vereinsweiher.",3
   );
 
   const koiCatchers=Array.isArray(hof?.koiCatchers)&&hof.koiCatchers.length
@@ -30312,7 +30339,7 @@ function buildAnglingHallOfFameSlides(){
       kicker:'🏅 GELBER KOI · EHRENTAFEL',
       title:koiCatchers.length===1?'Ein besonderer Fang':koiCatchers.length+' eingetragene Fänger',
       value:koiCatchers.map(r=>String(r.name||'Anonym').slice(0,30)).join(' · '),
-      detail:'Öffentlich eingetragene Fänger des einzigen gelben Koi im Vereinsweiher.',
+      detail:"Die veröffentlichten Fänger des einzigen gelben Koi im Weiher.",
       fireworks:3
     });
   }
@@ -30341,7 +30368,7 @@ function buildAnglingHallOfFameSlides(){
     kicker:'AC 1956 · HALL OF FAME',
     title:'Petri Heil!',
     value:'Jeder Fang kann die Rangliste verändern.',
-    detail:'Gewertet werden ausschließlich freiwillig veröffentlichte Rekorde und freigegebene Spielstände.',
+    detail:"Es zählen nur freiwillig veröffentlichte Rekorde und freigegebene Spielstände.",
     fireworks:2
   });
 
@@ -30387,7 +30414,7 @@ async function loadAnglingHallOfFameRows(generation=anglingHallOfFameLoadGenerat
     if(generation!==anglingHallOfFameLoadGeneration||!anglingHallOfFameActive||anglingHallOfFamePhase==='returning')return;
     anglingHallOfFameRanking=data.ranking;anglingHallOfFameRows=data.rows;
     buildAnglingHallOfFameSlides();
-    aczoHofLoadStatus(data.stale?'Verbindung unterbrochen. Die zuletzt geladenen vollständigen Ranglisten werden angezeigt.':data.ranking?'':'Die vollständigen Ranglisten konnten noch nicht geladen werden.',data.stale||!data.ranking);
+    aczoHofLoadStatus(data.stale?"Verbindung unterbrochen. Die zuletzt geladene Rangliste wird angezeigt.":data.ranking?'':'Die vollständigen Ranglisten konnten noch nicht geladen werden.',data.stale||!data.ranking);
   }catch(err){console.warn('Hall-of-Fame-Bestenliste nicht verfügbar:',err);if(generation===anglingHallOfFameLoadGeneration&&anglingHallOfFameActive)aczoHofLoadStatus('Ranglisten gerade nicht erreichbar. Bitte erneut laden.',true);}
 }
 function updateAnglingHallOfFameDots(){
@@ -31035,7 +31062,7 @@ function showAnglingLeaderboardIntro(){
   anglingOnlinePromptMode='intro';
   anglingOnlinePromptKicker.textContent='ONLINE-BESTENLISTE';
   anglingOnlinePromptTitle.textContent='Deine Rekorde online anzeigen?';
-  anglingOnlinePromptText.textContent='Du kannst deine persönlichen Bestfänge freiwillig in der Online-Bestenliste veröffentlichen. Dafür legst du nur einen Anzeigenamen fest und aktivierst die Freigabe. Dein lokales Fangbuch funktioniert auch ohne Freigabe.';
+  anglingOnlinePromptText.textContent="Veröffentliche deine Bestfänge freiwillig mit einem Anzeigenamen. Dein Fangbuch kannst du auch privat nutzen.";
   anglingOnlinePromptOpen.textContent='Bestenliste einrichten';
   anglingOnlinePromptLater.textContent='Später';
   anglingOnlinePrompt.classList.add('show');
@@ -31208,7 +31235,7 @@ async function loadAnglingLeaderboard({forceRefresh=false}={}){
  }
 
  if(!ANGLING_LEADERBOARD_ENDPOINT){
-   anglingLeaderboardState.textContent='Vorbereitet: Die Google-Sheets-Verbindung ist noch nicht eingerichtet. Lokales Fangbuch und Spiel funktionieren vollständig unabhängig davon.';
+   anglingLeaderboardState.textContent="Die Online-Bestenliste ist noch nicht eingerichtet. Du kannst lokal weiterspielen.";
    return;
  }
 
@@ -31243,11 +31270,11 @@ async function loadAnglingLeaderboard({forceRefresh=false}={}){
      const fallback=filterAnglingLeaderboardRows(anglingLeaderboardAllRows,species);
      if(fallback.length||anglingLeaderboardAllRows.length){
        renderAnglingLeaderboard(fallback);
-       anglingLeaderboardState.textContent='Gespeicherte Rangliste wird angezeigt. Der Online-Abgleich wird beim nächsten Öffnen erneut versucht.';
+       anglingLeaderboardState.textContent="Gespeicherte Rangliste. Beim nächsten Öffnen wird erneut aktualisiert.";
      }else{
        anglingLeaderboardState.textContent=anglingCloudErrorIsTransient(err)
-         ?'Bestenliste braucht gerade länger. Beim nächsten Öffnen wird automatisch erneut verbunden.'
-         :'Bestenliste derzeit nicht erreichbar. Dein lokales Spiel ist davon nicht betroffen.';
+         ?"Die Bestenliste braucht länger. Bitte öffne sie später erneut."
+         :"Bestenliste nicht erreichbar. Du kannst weiterspielen.";
      }
    }
  }finally{
@@ -31317,7 +31344,7 @@ function updateAnglingSetupUi(){
   updateAnglingLevelUi();
   const artificial=anglingUsesArtificialLure(),deeper=anglingUsesDeeper();
   anglingDepth.disabled=artificial||deeper;
-  anglingSetupHint.textContent=deeper?'Deeper: Ziel wählen, auswerfen und langsam einholen. Das Sonar zeichnet dabei das Bodenprofil auf.':(artificial?'Kunstköder: nur Bewegung fängt. Kurbeln hebt ihn an, Pause lässt ihn absinken.':'Zielkreuz seitlich bewegen: Kamera schwenkt mit und erweitert den Wurfsektor.');
+  anglingSetupHint.textContent=deeper?"Deeper auswerfen und langsam einholen, um den Boden zu erkunden.":(artificial?'Kunstköder: nur Bewegung fängt. Kurbeln hebt ihn an, Pause lässt ihn absinken.':'Zielkreuz seitlich bewegen: Kamera schwenkt mit und erweitert den Wurfsektor.');
   anglingFloatZoom.classList.toggle('lure-cam',artificial);anglingFloatZoom.classList.toggle('deeper-cam',deeper);
   if(anglingLogBtn)aczoSetIconText(anglingLogBtn,'📒 Fangbuch · '+anglingProgress.catches.length);
   anglingAimDistance.textContent=Math.round(anglingCastDistance)+' m';
@@ -31693,15 +31720,15 @@ function selectAnglingShore(clientX,clientY,options={}){
     anglingMarkerGroup.visible=true;updateAnglingSelectionMarkerScale();anglingConfirmBtn.disabled=false;
     if(anglingUsesBankSet()){
       anglingConfirmBtn.disabled=true;anglingSelectTitle.textContent='Ansitz nur am Ufer';
-      anglingSelectText.textContent='Karpfen- und Welssets brauchen festen Boden. Bitte die Angelstelle wechseln und am Ufer wählen; auf Stegen sind beide Sets nicht möglich.';
+      anglingSelectText.textContent="Karpfen- und Welssets brauchen festen Uferboden. Bitte wähle einen Uferplatz.";
       if(!quiet)anglingBankShoreAllowed(pierSelection,true);return true;
     }
     anglingSelectTitle.textContent='✅ Angelplatz auf dem Steg';
     anglingSelectText.textContent=pierSelection.boatPierSpot
-      ?(pierSelection.pierLabel+' · Der komplette Bootssteg ist als Trefferfläche auswählbar.')
+      ?(pierSelection.pierLabel+" · Tippe auf den Bootssteg, um dort zu angeln.")
       :(pierSelection.smallPierNumber
         ?(pierSelection.pierLabel+' · Dieser Steg besitzt genau eine Blickrichtung.')
-        :(pierSelection.pierLabel+' · Spitze oder eine der beiden Stegseiten anklicken, um die Position zu wechseln.'));
+        :(pierSelection.pierLabel+" · Wähle die Spitze, linke oder rechte Stegseite."));
     return true;
   }
   // Magnet nur lösen, wenn der Finger wirklich aus der größeren Freigabezone
@@ -31734,7 +31761,7 @@ function selectAnglingShore(clientX,clientY,options={}){
   const inward2=anglingLocalPerpendicularInward(sample,new THREE.Vector2());
   const inward=new THREE.Vector3(inward2.x,inward2.y,0);
   if(!anglingShoreHasSafeLocalAxis(shore,inward)){
-    if(!quiet)showAnglingToast('Hier ist kein sauberer 90°-Blick zum gegenüberliegenden Ufer möglich.',1600);
+    if(!quiet)showAnglingToast("Hier ist kein geeigneter Blick aufs Wasser möglich.",1600);
     return false;
   }
   const straightYaw=Math.atan2(inward.x,inward.y);
@@ -31742,7 +31769,7 @@ function selectAnglingShore(clientX,clientY,options={}){
   const aim=anglingCenterInitialAim(shore,inward);
   const cameraPos=anglingCenterLandCamera(shore,inward);
   if(!cameraPos||pondDepthAt(cameraPos.x,cameraPos.y)!=null){
-    if(!quiet)showAnglingToast('Dieser Uferpunkt ist für den Angelplatz nicht sicher nutzbar.',1500);
+    if(!quiet)showAnglingToast("Bitte wähle eine andere Uferstelle.",1500);
     return false;
   }
   const lookTarget=anglingStraightLookTarget(cameraPos,inward,new THREE.Vector3());
@@ -31761,7 +31788,7 @@ function selectAnglingShore(clientX,clientY,options={}){
   anglingMarkerGroup.visible=true;updateAnglingSelectionMarkerScale();
   anglingConfirmBtn.disabled=false;
   anglingSelectTitle.textContent='✅ Angelplatz markiert';
-  anglingSelectText.textContent='Der gelbe Pfeil steht 90° zur lokalen Uferlinie und zeigt gerade zum gegenüberliegenden Ufer.';
+  anglingSelectText.textContent="Der gelbe Pfeil zeigt deine Angelrichtung.";
   return true;
 }
 function setAnglingStatus(title,text){
@@ -33221,7 +33248,7 @@ function startAnglingMode(){
   anglingToast.classList.remove('show');
   anglingSelection=null;anglingPendingCatch=null;anglingConfirmBtn.disabled=true;
   anglingSelectTitle.textContent='🎣 Angelplatz wählen';
-  anglingSelectText.textContent='Tippe auf die Uferkante oder auf den Nordsteg. Am Steg wählst du Spitze, linke oder rechte Seite.';
+  anglingSelectText.textContent="Wähle eine Uferstelle oder einen Steg. Am Nordsteg gibt es drei Plätze.";
   updateAnglingSetupUi();
   anglingSaved=anglingMapViewBeforeStart;
   controls.enabled=false;
@@ -33372,7 +33399,7 @@ function changeAnglingSpot(exploreOrigin=null){
   camera.near=.1;camera.updateProjectionMatrix();
   anglingConfirmBtn.disabled=true;
   anglingSelectTitle.textContent='🎣 Angelplatz wählen';
-  anglingSelectText.textContent='Tippe auf eine neue Uferstelle, einen kleinen Gitterroststeg oder eine der drei Positionen des Nordstegs.';
+  anglingSelectText.textContent="Wähle eine neue Uferstelle oder einen Steg.";
   beginAnglingOverviewCrossfade();
   waterUniforms.anglingView.value=0;anglingWaterTarget=0;
   aczoAnglingEntry=null;
@@ -33398,7 +33425,7 @@ function confirmAnglingShore(){
   if(!river&&aczoMoselFishing)aczoMoselFishingEnd();
   const safeCamera=onPier?anglingSelection.cameraPos.clone():(river?aczoSelectionMoselCamera(anglingSelection.shore,anglingSelection.inward):anglingCenterLandCamera(anglingSelection.shore,anglingSelection.inward));
   if(!safeCamera||(!onPier&&(river?aczoExploreBlocked(safeCamera.x,safeCamera.y):pondDepthAt(safeCamera.x,safeCamera.y)!=null))){
-    showAnglingToast('Dieser Angelplatz liegt kameraseitig nicht sicher an Land.',1600);
+    showAnglingToast("Bitte wähle einen sicheren Platz am Ufer.",1600);
     return;
   }
   // K2a: save the entry before any shore-camera transition or state reset.
@@ -33423,7 +33450,7 @@ function confirmAnglingShore(){
     ?(anglingSelection.boatPierSpot
       ?'Die Kamera stellt sich auf den Bootssteg am Südufer.'
       :(anglingSelection.smallPierNumber?'Die Kamera stellt sich auf den kleinen Gitterroststeg.':'Die Kamera stellt sich auf den Nordsteg.'))
-    :'Die Kamera setzt sich ruhig an die gewaehlte Uferstelle.');
+    :"Dein Angelplatz wird angefahren.");
   anglingActionBtn.disabled=true;anglingActionBtn.textContent='Bitte warten';
   anglingWaterTarget=1;
   camera.near=.045;camera.updateProjectionMatrix();
@@ -35852,7 +35879,7 @@ function beginFastAnglingRetrieve(){
       anglingLureGuidedDistance+=pullDistance;
       anglingActionBtn.disabled=true;anglingActionBtn.textContent='Schnell einholen …';
       const atPier=lineContact.kind==='north-pier'||lineContact.kind==='small-pier'||lineContact.kind==='east-boat-pier';
-      setAnglingStatus(atPier?'Schnur am Steg':'Schnur am Hindernis','Der Kunstköder wird schnell bis zum Umlenkpunkt gezogen.');
+      setAnglingStatus(atPier?'Schnur am Steg':'Schnur am Hindernis',"Der Köder wird bis zum nächsten Schnurkontakt eingeholt.");
       recalcAnglingAtCurrentTerminal();
       return;
     }
@@ -35973,7 +36000,7 @@ function retrieveAnglingLine(){
       const atPier=lineContact.kind==='north-pier'||lineContact.kind==='small-pier'||lineContact.kind==='east-boat-pier';
       setAnglingStatus(
         atPier?'Schnur am Steg':'Schnur am Hindernis',
-        'Die Schnur wird umgelenkt – der Köder wird zum Kontaktpunkt gezogen.'
+        "Die Schnur liegt am Hindernis an. Hole den Köder zum Kontaktpunkt ein."
       );
       recalcAnglingAtCurrentTerminal();
       return;
@@ -39249,8 +39276,8 @@ function aczoRenderAccount(){
   const registerTitle=aczoEl('aczoRegisterTitle'),registerIntro=aczoEl('aczoRegisterIntro');
   if(registerTitle)registerTitle.textContent=aczoRegisterLegacyMode?'♻️ Alten Spielstand wiederherstellen':'🔐 Spielerkonto erstellen';
   if(registerIntro)registerIntro.textContent=aczoRegisterLegacyMode
-    ?'Gib zuerst deinen Wiederherstellungscode ein. Das Spiel erkennt danach automatisch, ob du ein bestehendes Konto zurücksetzt oder erstmals ein Konto anlegst.'
-    :'Sichere diesen vorhandenen Spielstand mit Benutzername und Passwort und nutze ihn auf mehreren Geräten.';
+    ?"Gib deinen Wiederherstellungscode ein, um deinen vorhandenen Spielstand zu finden."
+    :"Sichere deinen Spielstand mit Benutzername und Passwort.";
   const credentials=aczoEl('aczoRegisterCredentials');
   if(credentials)credentials.hidden=aczoRegisterLegacyMode&&!aczoRecoveryLookup;
   const resetCredentials=aczoEl('aczoResetCredentials');
@@ -39286,14 +39313,14 @@ function aczoSetAccountMode(mode){aczoAccountMode=mode;if(mode!=='register'){acz
 async function aczoPasswordCredential(password,isNew=false){
   const value=String(password||'');
   if(value.length>256||value.length<(isNew?12:1))throw new Error(isNew?'Passwort: 12 bis 256 Zeichen.':'Bitte das Passwort eingeben.');
-  if(!globalThis.crypto?.subtle)throw new Error('Die Anmeldung benötigt einen aktuellen Browser und eine HTTPS-Spieladresse.');
+  if(!globalThis.crypto?.subtle)throw new Error("Bitte nutze einen aktuellen Browser und eine sichere Spieladresse.");
   const encoder=new TextEncoder();
   const key=await crypto.subtle.importKey('raw',encoder.encode(value),'PBKDF2',false,['deriveBits']);
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:encoder.encode('aczo56-account-client-kdf-v1'),iterations:600000},key,256);
   return Array.from(new Uint8Array(bits),b=>b.toString(16).padStart(2,'0')).join('');
 }
 function aczoValidateAccountResponse(action,data,fields={}){
-  const invalid=()=>{const err=new Error('Die Kontoantwort ist unvollständig oder passt nicht zur Anfrage. Bitte erneut versuchen.');err.retryable=true;throw err;};
+  const invalid=()=>{const err=new Error("Anmeldung nicht möglich. Bitte erneut versuchen.");err.retryable=true;throw err;};
   if(!data||data.ok!==true)invalid();
   if(action==='logoutAccount')return data;
   const account=data.account;
@@ -39336,7 +39363,7 @@ function aczoSaveSession(data){
   const token=data.sessionToken||aczoSessionToken;
   if(!/^[a-f0-9]{128}$/.test(String(token||''))||!data?.account?.playerId||!data?.account?.username)throw new Error('Keine gültige Sitzung erhalten. Bitte erneut anmelden.');
   aczoSessionToken=token;aczoAccount=data.account;
-  aczoSessionStorageWarning=aczoStorageWrite(ACZO_SESSION_KEY,token)?'':'Du bist angemeldet, aber der Browser konnte die Anmeldung nicht dauerhaft speichern. Nach dem Schließen kann eine erneute Anmeldung nötig sein.';
+  aczoSessionStorageWarning=aczoStorageWrite(ACZO_SESSION_KEY,token)?'':"Du bist angemeldet. Der Browser konnte die Anmeldung nicht speichern; später musst du dich eventuell erneut anmelden.";
   aczoResumeState='verified';aczoResumeSuccessAt=Date.now();
   aczoSetAccountMode('choices');
 }
@@ -39345,7 +39372,7 @@ function aczoArchiveLocalPlayer(){
   try{
     localStorage.setItem('aczo56-guest-backup-'+id,JSON.stringify(anglingProgress));
     localStorage.setItem('aczo56-account-local-'+id,JSON.stringify({profile:anglingPlayerProfile,presenceNamed:anglingPresenceNamed,recoveryCode:anglingRecoveryCode}));
-  }catch(err){throw new Error('Der lokale Spielstand konnte nicht gesichert werden. Bitte Speicherplatz im Browser freigeben.');}
+  }catch(err){throw new Error("Dein Spielstand konnte nicht gesichert werden. Bitte prüfe den Browserspeicher.");}
 }
 function aczoRestoreLocalPlayer(id){
   let saved=null,progress=null;
@@ -39357,14 +39384,14 @@ function aczoRestoreLocalPlayer(id){
   try{
     if(anglingRecoveryCode)localStorage.setItem(ANGLING_RECOVERY_KEY,anglingRecoveryCode);else localStorage.removeItem(ANGLING_RECOVERY_KEY);
     localStorage.setItem(ANGLING_PRESENCE_NAMED_KEY,anglingPresenceNamed?'1':'0');
-  }catch(err){anglingRecoveryStorageWarning='Der lokale Speicher ist nicht verfügbar. Bitte deinen Wiederherstellungscode sicher aufbewahren.';}
+  }catch(err){anglingRecoveryStorageWarning="Speichern nicht möglich. Bewahre deinen Wiederherstellungscode sicher auf.";}
 }
 function aczoApplyAccountPlayer(data){
   const id=String(data.account.playerId);
   const samePlayer=id===anglingPlayerProfile.id;
   if(!samePlayer){
     aczoArchiveLocalPlayer();
-    if(!aczoStorageWrite(ACZO_SESSION_KEY,data.sessionToken||aczoSessionToken))throw new Error('Kontowechsel nicht übernommen: Der Browser kann die Anmeldung nicht speichern. Dein bisheriger lokaler Spielstand bleibt erhalten.');
+    if(!aczoStorageWrite(ACZO_SESSION_KEY,data.sessionToken||aczoSessionToken))throw new Error("Anmeldung konnte nicht gespeichert werden. Dein bisheriger Spielstand bleibt aktiv.");
     aczoRestoreLocalPlayer(id);
     anglingSelectedBait='worm';
   }
@@ -39382,7 +39409,7 @@ function aczoApplyAccountPlayer(data){
     anglingPlayerProfile.shareRecords=data.player.shareRecords;
     saveAnglingPlayerProfile();
   }
-  if(data.player&&!olderSamePlayer&&!applyAnglingCloudPlayer(data.player,{force:!samePlayer}))throw new Error('Der Cloud-Spielstand konnte nicht vollständig übernommen werden. Bitte die Backend-Version prüfen.');
+  if(data.player&&!olderSamePlayer&&!applyAnglingCloudPlayer(data.player,{force:!samePlayer}))throw new Error("Der Online-Spielstand konnte nicht vollständig geladen werden. Bitte erneut versuchen.");
   saveAnglingProgress({preserveXpRevision:true,skipCloudSync:true,skipEpSync:true});
   aczoSaveSession(data);updateAnglingMainMenuUi();
 }
@@ -39501,22 +39528,22 @@ async function aczoSavePrivacy(){
     const presenceSaved=aczoStorageWrite(ANGLING_PRESENCE_NAMED_KEY,presenceNamed?'1':'0');
     aczoInvalidatePublicData();
     if(!await aczoSaveStableCloud())throw new Error(profileSaved&&presenceSaved
-      ?'Lokal gespeichert; die Cloud hat die Freigabe noch nicht bestätigt. Bitte erneut speichern.'
-      :'Die Freigabe konnte auf diesem Gerät nicht vollständig gespeichert werden; auch die Cloud hat sie noch nicht bestätigt. Bitte erneut speichern.');
+      ?"Auf diesem Gerät gespeichert. Bitte bestätige die Online-Freigabe durch erneutes Speichern."
+      :"Freigabe nicht vollständig gespeichert. Bitte erneut speichern.");
     aczoInvalidatePublicData();updateAnglingMainMenuUi();
     if(shareRecords)syncAnglingExistingPersonalBests();
     aczoStatus(profileSaved&&presenceSaved
       ?'Gespeichert. '+aczoPrivacySelectionText(shareRecords,presenceNamed)+(shareRecords?'':' Bereits veröffentlichte Rekorde bleiben öffentlich.')
-      :'Cloud-Abgleich bestätigt. Die Freigabe konnte auf diesem Gerät aber nicht dauerhaft gespeichert werden. Bitte den Browserspeicher prüfen und erneut speichern.');
+      :"Online gespeichert. Bitte speichere die Freigabe auf diesem Gerät erneut.");
   }catch(err){aczoStatus(err?.message||'Privatsphäre konnte nicht bestätigt werden. Bitte erneut speichern.');}
   finally{button.disabled=false;aczoAccountBusy=false;options.forEach((input,index)=>{input.disabled=disabledBefore[index];});}
 }
 async function aczoLogout(){
   const button=aczoEl('aczoLogout');if(button.disabled||aczoAccountBusy)return;
-  if(!window.confirm('Dein Cloud-Spielstand bleibt vollständig erhalten. Auf diesem Gerät wirst du lediglich abgemeldet.'))return;
+  if(!window.confirm("Du meldest dich nur auf diesem Gerät ab. Dein Online-Spielstand bleibt erhalten."))return;
   button.disabled=true;aczoAccountBusy=true;aczoAuthGeneration++;
   try{
-  if(!await aczoSaveStableCloud()){aczoStatus('Abmelden wartet auf die Cloud-Sicherung. Bitte den laufenden Fang beenden oder die Verbindung prüfen.');return;}
+  if(!await aczoSaveStableCloud()){aczoStatus("Bitte beende den Fang oder prüfe die Verbindung, bevor du dich abmeldest.");return;}
   try{aczoArchiveLocalPlayer();}catch(err){aczoStatus(err.message);return;}
   try{await aczoApi('logoutAccount',{sessionToken:aczoSessionToken});}catch(err){aczoStatus('Abmelden nicht bestätigt. Bitte Verbindung prüfen.');return;}
   stopAnglingPresence();if(anglingCloudSyncTimer)clearTimeout(anglingCloudSyncTimer);
@@ -39557,7 +39584,7 @@ function aczoResumeSession({force=false}={}){
         aczoSetAccountMode('login');aczoStatus('Bitte erneut anmelden. Dein Spielstand bleibt erhalten.');
       }else{
         aczoResumeState='error';
-        aczoStatus('Konto derzeit nicht erreichbar. Die gespeicherte Anmeldung bleibt erhalten. Du kannst die Verbindung erneut prüfen.');
+        aczoStatus("Konto nicht erreichbar. Bitte prüfe die Verbindung erneut.");
         aczoRenderAccount();
       }
       return false;
@@ -39663,7 +39690,7 @@ function aczoRenderAnglerCard(p){
   body.append(record);
   const since=new Date(p.createdAt||'');
   if(Number.isFinite(since.getTime()))body.append(aczoTextNode('p','aczo-card-since','Dabei seit '+since.toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'})));
-  body.append(aczoTextNode('p','aczo-card-note','Öffentliches Anglerprofil · Die Sichtbarkeit bestimmt jeder Angler selbst.'));
+  body.append(aczoTextNode('p','aczo-card-note',"Öffentliches Anglerprofil mit freiwillig freigegebenen Angaben."));
 }
 function aczoCloseAnglerCard(){aczoCardGeneration++;aczoEl('aczoAnglerCard').hidden=true;aczoEl('aczoCardBackdrop').hidden=true;aczoCardReturnFocus?.focus?.();}
 async function aczoOpenCard(publicId){
@@ -40640,7 +40667,7 @@ function aczoPerf6PrepareRigidBatches(observeBatch){
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.__aczoStartup={mainReady:false,rendererState:'pending',rendererAttempts:[],firstError:null,errors:[],skippedModules:[]};
 const VIEWER_VERSION='ACZO56-Interaktiv-V.4.0 · Testversion';
-const ACZO_INTERNAL_BUILD='4.0-Mosel-FINAL-K31-V1';
+const ACZO_INTERNAL_BUILD='4.0-Mosel-K32-START-ULTRA-V1';
 window.__aczoBootAudit?.mark('engine-script');
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -40662,11 +40689,11 @@ window.addEventListener('unhandledrejection',function(e){
   showViewerError(msg);
 });
 if(typeof THREE === 'undefined'){
-  showViewerError('Die benötigte Three.js-Bibliothek wurde nicht geladen. Bitte die Netzwerk- oder CDN-Fehlermeldung prüfen.');
+  showViewerError("Ein benötigter Spielbestandteil fehlt. Bitte lade die Seite erneut.");
   throw new Error('Three.js konnte nicht geladen werden.');
 }
 if(typeof THREE.OrbitControls!=='function'){
-  showViewerError('Die benötigte OrbitControls-Bibliothek wurde nicht geladen. Bitte die Netzwerk- oder CDN-Fehlermeldung prüfen.');
+  showViewerError("Die Kartensteuerung konnte nicht geladen werden. Bitte lade die Seite erneut.");
   throw new Error('OrbitControls konnte nicht geladen werden.');
 }
 const D={"ncols":136,"nrows":90,"maxDepth":4.812,"pondW":135.002,"pondH":137.246,"sceneW":198.751,"sceneH":201.191,"xmin":-71.061912,"xmax":63.939873,"ymin":-68.538688,"ymax":68.707169,"wms":"https://geo4.service24.rlp.de/wms/rp_dop20.fcgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=rp_dop20&STYLES=&SRS=EPSG:4326&BBOX=6.5760811746,49.7090631509,6.5788421427,49.7108704740&WIDTH=1600&HEIGHT=1600&FORMAT=image/jpeg"};
@@ -40844,6 +40871,7 @@ const ACZO_SOUND_VOLUMES={catfishBells:.62,
   frogAmbient:.18,heronAmbient:.16,feedSplash:.40,netSplash:.48,fishEscape:.34,lureAttackBass:.56
 };
 const ACZO_AMBIENT_SOUND_KEYS=new Set(['birdAmbient','frogAmbient','heronAmbient']);
+let aczoAudioOutputGain=null,aczoAudioOutputLimiter=null;
 let aczoMenuPeakBuffer=null,aczoMenuPeak=0;
 const ACZO_MOSEL_LEVEL_CONFIG=Object.freeze({
  uuid:'3bec53ca-444e-4014-a7b0-07b3591e954b',number:'26500100',name:'Trier UP',unit:'cm',
@@ -40881,8 +40909,8 @@ document.querySelectorAll('[data-aczo-sound]').forEach(btn=>{
 });
 aczoSyncSoundButtons();
 window.addEventListener('pagehide',()=>aczoSoundStopAll());
-document.addEventListener('visibilitychange',()=>{if(document.hidden)aczoSoundStopAll();else if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
-window.addEventListener('pageshow',()=>{if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)aczoSoundStopAll();else{aczoApplyAudioSessionPolicy();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();}});
+window.addEventListener('pageshow',()=>{aczoApplyAudioSessionPolicy();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
 renderer.domElement.style.touchAction='none';
 renderer.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 renderer.domElement.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
@@ -40912,6 +40940,9 @@ renderer.domElement.addEventListener('lostpointercapture',e=>{
   releaseViewerPointer(e);
   if(wasActive)resetViewerGestureState();
 },true);
+
+</script>
+<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 renderer.domElement.addEventListener('touchend',e=>{
   // OrbitControls setzt beim normalen 2->1-Wechsel den verbleibenden Pointer
   // selbst neu. Hier nur Aktivität markieren; ein harter Reset ist ausschließlich
@@ -40925,9 +40956,6 @@ renderer.domElement.addEventListener('touchend',e=>{
     },0);
   }
 },{capture:true,passive:true});
-
-</script>
-<script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 renderer.domElement.addEventListener('touchcancel',e=>{
   resetViewerGestureState();
   e.preventDefault();
@@ -41165,10 +41193,10 @@ let skyLookLastX=0;
 let skyLookLastY=0;
 let skyLookArmDistance=0;
 let skyLookPointerIsTouch=false;
-const skyLookReturnPosition=new THREE.Vector3();
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const skyLookReturnPosition=new THREE.Vector3();
 const skyLookReturnTarget=new THREE.Vector3();
 let skyLookHasReturnPose=false;
 let anglingMode=false;
@@ -41213,10 +41241,10 @@ const anglingUi=document.getElementById('anglingUi');
 const anglingEpPopup=document.getElementById('anglingEpPopup');
 if(anglingEpPopup&&anglingUi&&anglingEpPopup.parentElement!==anglingUi)anglingUi.appendChild(anglingEpPopup);
 const anglingSelectTitle=document.getElementById('anglingSelectTitle');
-const anglingSelectText=document.getElementById('anglingSelectText');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingSelectText=document.getElementById('anglingSelectText');
 const anglingConfirmBtn=document.getElementById('anglingConfirmBtn');
 const anglingReselectBtn=document.getElementById('anglingReselectBtn');
 const anglingCancelBtn=document.getElementById('anglingCancelBtn');
@@ -41334,10 +41362,10 @@ const anglingLeaderboardClose=document.getElementById('anglingLeaderboardClose')
 const anglingLeaderboardSpecies=document.getElementById('anglingLeaderboardSpecies');
 const anglingLeaderboardRefresh=document.getElementById('anglingLeaderboardRefresh');
 const anglingLeaderboardState=document.getElementById('anglingLeaderboardState');
-const anglingLeaderboardList=document.getElementById('anglingLeaderboardList');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingLeaderboardList=document.getElementById('anglingLeaderboardList');
 const anglingLeaderboardName=document.getElementById('anglingLeaderboardName');
 const anglingLeaderboardConsent=document.getElementById('anglingLeaderboardConsent');
 const anglingLeaderboardSaveProfile=document.getElementById('anglingLeaderboardSaveProfile');
@@ -41382,10 +41410,10 @@ const anglingReelCaption=document.getElementById('anglingReelCaption');
 const anglingFloatCaption=document.getElementById('anglingFloatCaption');
 const anglingQte=document.getElementById('anglingQte');
 const anglingUnderwaterEntry=document.getElementById('anglingUnderwaterEntry');
-const anglingQteLabel=document.getElementById('anglingQteLabel');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingQteLabel=document.getElementById('anglingQteLabel');
 const anglingDrillPanel=document.getElementById('anglingDrillPanel');
 const anglingDrillTitle=document.getElementById('anglingDrillTitle');
 const anglingDrillDirection=document.getElementById('anglingDrillDirection');
@@ -41430,10 +41458,10 @@ const anglingSnagPrompt=document.getElementById('anglingSnagPrompt');
 const anglingSnagPromptTitle=document.getElementById('anglingSnagPromptTitle');
 const anglingSnagPromptText=document.getElementById('anglingSnagPromptText');
 const anglingSnagResolveBtn=document.getElementById('anglingSnagResolveBtn');
-const anglingOnlinePrompt=document.getElementById('anglingOnlinePrompt');
 
 </script>
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
+const anglingOnlinePrompt=document.getElementById('anglingOnlinePrompt');
 const anglingOnlinePromptKicker=document.getElementById('anglingOnlinePromptKicker');
 const anglingOnlinePromptTitle=document.getElementById('anglingOnlinePromptTitle');
 const anglingOnlinePromptText=document.getElementById('anglingOnlinePromptText');
@@ -43764,7 +43792,7 @@ const aczoNeighbourPondGeo=new THREE.PlaneGeometry(80,90,48,54);
 aczoNeighbourPondGeo.translate(20,150,0);
 
 </script>
-<script type="application/x-aczo-stage" data-label="Gelände und Wasser werden aufgebaut">
+<script type="application/x-aczo-stage" data-label="Gebäude und Landschaft werden aufgebaut">
 aczoNeighbourPondGeo.setAttribute('shoreDist',new THREE.Float32BufferAttribute(new Float32Array(aczoNeighbourPondGeo.attributes.position.count).fill(3.2),1));
 const aczoNeighbourPondSurface=new THREE.Mesh(aczoNeighbourPondGeo,aczoNeighbourPondMat);
 aczoNeighbourPondSurface.name='NORDOESTLICHER_NACHBARWEIHER_WASSER';
@@ -47812,26 +47840,26 @@ const anglingCreatorBannerFocus=new THREE.Vector3();
 const anglingCreatorComposedFocus=new THREE.Vector3();
 let anglingCreatorBannerObject=null;
 const ANGLING_CREATOR_STORY_FACTS=[
-  {kicker:'FUN FACT 1 · DER ANFANG',title:'Eigentlich sollte es nur eine Tiefenkarte werden.',value:'Daraus entstand nach und nach eine komplette 3D-Welt.',detail:'Wetter, Fische, Unterwasseransicht und Angelspiel kamen Schritt für Schritt dazu.'},
-  {kicker:'FUN FACT 2 · ECHTE DATEN',title:'Kein erfundener See.',value:'Der Gewässerboden basiert auf echten Echolotdaten des Vereinsweihers.',detail:'Ufer, Wasserstand, Kanten und Tiefenzonen wurden immer wieder abgeglichen.'},
-  {kicker:'FUN FACT 3 · VON V0.1 BIS HEUTE',title:'Am Anfang stand ein sehr einfacher Angelspiel-Prototyp.',value:'Heute gehören Drill, Kescher, Deeper, Kunstköder und Community dazu.',detail:'Fast jedes System wurde unterwegs mehrfach überarbeitet.'},
-  {kicker:'FUN FACT 4 · FAST ALLES IN EINER DATEI',title:'Ein erstaunlich großer Teil des Weihers steckt in einer einzigen HTML-Datei.',value:'3D-Welt, Wetter, Fische, Angelspiel, Fangbuch und Hall of Fame',detail:'reisen gemeinsam im Browser.'},
-  {kicker:'FUN FACT 5 · DER ENDGEGNER',title:'Der härteste Gegner war nie der Zander.',value:'Uferkanten, Kamerawinkel, Zäune und Stege waren deutlich hartnäckiger.',detail:'Irgendetwas findet schließlich immer einen Weg, durch etwas anderes hindurchzuragen.'},
-  {kicker:'FUN FACT 6 · DIE MOSEL',title:'Die Mosel hatte zeitweise mehr Wasserschichten als eine Lasagne.',value:'Mehrere Flächen sorgten für Bänder, Flackern und andere optische Nettigkeiten.',detail:'Heute besitzt sie wieder genau so viel Wasseroberfläche, wie eine Mosel vernünftigerweise braucht.'},
-  {kicker:'FUN FACT 7 · ASTRONOMIE',title:'Sonne und Mond wurden genauer beobachtet als mancher Schwimmer.',value:'Position, Höhe, Wolken, Spiegelung und Himmelsrichtung müssen zusammenpassen.',detail:'Schon ein falscher Mond am Vormittag fällt erstaunlich schnell auf.'},
+  {kicker:'FUN FACT 1 · DER ANFANG',title:'Eigentlich sollte es nur eine Tiefenkarte werden.',value:'Daraus entstand nach und nach eine komplette 3D-Welt.',detail:"Entdecke Wetter, Fische und die Unterwasserwelt."},
+  {kicker:'FUN FACT 2 · ECHTE DATEN',title:'Kein erfundener See.',value:"Die Tiefenkarte des Weihers beruht auf echten Echolotmessungen.",detail:"Entdecke flache Ufer, Kanten und tiefe Bereiche."},
+  {kicker:'FUN FACT 3 · VON V0.1 BIS HEUTE',title:'Am Anfang stand ein sehr einfacher Angelspiel-Prototyp.',value:"Drillen, keschern, erkunden und Fänge mit anderen teilen.",detail:"Am Weiher und an der Mosel gibt es immer Neues zu entdecken."},
+  {kicker:'FUN FACT 4 · FAST ALLES IN EINER DATEI',title:"Weiher und Mosel laden zum Erkunden und Angeln ein.",value:'3D-Welt, Wetter, Fische, Angelspiel, Fangbuch und Hall of Fame',detail:'reisen gemeinsam im Browser.'},
+  {kicker:'FUN FACT 5 · DER ENDGEGNER',title:'Der härteste Gegner war nie der Zander.',value:"Entdecke Stege, Zäune und die vertrauten Plätze am Ufer.",detail:"Auch abseits des Angelplatzes lohnt sich ein genauer Blick."},
+  {kicker:'FUN FACT 6 · DIE MOSEL',title:'Die Mosel hatte zeitweise mehr Wasserschichten als eine Lasagne.',value:"Die Mosel hat ihre ganz eigene Stimmung.",detail:"Beobachte Strömung, Wellen und vorbeifahrende Schiffe."},
+  {kicker:'FUN FACT 7 · ASTRONOMIE',title:"Sonne und Mond verändern die Stimmung am Wasser.",value:"Beobachte Licht und Spiegelungen im Tagesverlauf.",detail:"Auch ein Blick in den Himmel lohnt sich."},
   {kicker:'FUN FACT 8 · UNTER WASSER',title:'Die Fische sind keine bloße Dekoration.',value:'Räuber jagen, Friedfische gründeln und Sediment kann vom Boden aufsteigen.',detail:'Tageszeit, Umgebung und Futter verändern, was unter Wasser passiert.'},
-  {kicker:'FUN FACT 9 · DIE ANGELSCHNUR',title:'Ausgerechnet die dünnste Sache im Spiel wurde zu einem eigenen Projekt.',value:'Sie muss auf Hindernissen aufliegen, Winkel bilden und den Köder daran entlangführen.',detail:'Für ein Stück Schnur erstaunlich viel Beschäftigung.'},
+  {kicker:'FUN FACT 9 · DIE ANGELSCHNUR',title:"Behalte beim Angeln auch deine Schnur im Blick.",value:"Hindernisse können die Schnur umlenken und den Köder festhalten.",detail:'Für ein Stück Schnur erstaunlich viel Beschäftigung.'},
   {kicker:'FUN FACT 11 · NACHTSCHICHT',title:'Auch nachts bleibt die Welt lebendig.',value:'Mond, Wasser, Beleuchtung, Schatten und Besucher verändern sich mit der Tageszeit.',detail:'Manche Details entdeckt man überhaupt erst nach Sonnenuntergang.'},
-  {kicker:'FUN FACT 12 · DER SOUND',title:'Der Weiher hat jetzt auch eine Stimme.',value:'Beim Angeln hört man Wasser, Bisse, Fluchten, Kescher und gelegentlich Naturgeräusche.',detail:'Die normale Tiefenkarte bleibt stumm. Im Angelspiel lässt sich der Ton jederzeit ein- und ausschalten.'},
+  {kicker:'FUN FACT 12 · DER SOUND',title:'Der Weiher hat jetzt auch eine Stimme.',value:"Wasser, Bisse und Naturgeräusche begleiten das Angeln.",detail:"Spieltöne lassen sich in den Einstellungen ein- und ausschalten."},
   {kicker:'FUN FACT 13 · FÜR DEN VEREIN',title:'Mehr als ein Spiel.',value:'Eine digitale Liebeserklärung an den AC 1956 Zewen-Oberkirch.',detail:'Gebaut für unseren Weiher. Für unseren Verein. Und für die Menschen, die ihn lebendig machen.'},
   {kicker:'FUN FACT 14 · VEREINSKENNER',title:'Wer den echten Weiher kennt, entdeckt mehr.',value:'Einige Figuren und Besucher sind bekannten Persönlichkeiten aus dem Vereinsumfeld nachempfunden.',detail:'Namen braucht es dafür nicht. Wer sie kennt, erkennt sie.'},
-  {kicker:'FUN FACT 15 · LIEBE ZUM DETAIL',title:'Selbst Kleinigkeiten bekommen ihre eigene Logik.',value:'Nachts reagiert der Bewegungsmelder auf Besucher und schaltet später wieder ab.',detail:'Viele dieser kleinen Abläufe bemerkt man erst, wenn man zufällig zur richtigen Zeit hinsieht.'},
+  {kicker:'FUN FACT 15 · LIEBE ZUM DETAIL',title:'Selbst Kleinigkeiten bekommen ihre eigene Logik.',value:"Nachts schaltet der Bewegungsmelder am Haus das Licht ein.",detail:"Manche kleinen Szenen zeigen sich erst zur richtigen Zeit."},
   {kicker:'FUN FACT 16 · WIND AM WEIHER',title:'Die Fahne steht nicht einfach dekorativ herum.',value:'Ihre Bewegung richtet sich nach Wind und Wetterlage.',detail:'Auch kleine Dinge sollen sich wie ein Teil derselben Welt anfühlen.'},
   {kicker:'FUN FACT 17 · ORIGINAL AM ZAUN',title:'Manche Details wurden direkt vom echten Vereinsgelände übernommen.',value:'Dazu gehören auch die originalen Banner und Elemente entlang des Zauns.',detail:'Nicht alles ist erfunden, nur weil es aus Polygonen besteht.'},
   {kicker:'FUN FACT 18 · TIERWELT',title:'Die Fische sind nicht die einzigen Tiere am Weiher.',value:'Auch über Wasser sorgen kleine tierische Besucher für Bewegung.',detail:'Manches davon fliegt so beiläufig durchs Bild, dass man es leicht übersieht.'},
-  {kicker:'FUN FACT 19 · VIERMAL ABGETAUCHT',title:'Die Tiefenkarte wurde mehrfach komplett neu aufgebaut.',value:'Neue Uferlinien, Tiefenverläufe und ein immer genauerer Gewässerboden',detail:'gehörten irgendwann einfach zur Entwicklung dazu.'},
-  {kicker:'FUN FACT 20 · JEDER ZENTIMETER ZÄHLT',title:'Die Echolot-Rohdaten wurden nicht einfach übernommen.',value:'Geberversatz, Wasserstand und fehlerhafte Tiefenwerte wurden nachträglich korrigiert.',detail:'Die heutige Karte zeigt den bestmöglich rekonstruierten Normalwasserstand.'},
-  {kicker:'FUN FACT 21 · MOBILE',title:'Was am PC locker läuft, bringt ein Smartphone erstaunlich schnell ins Schwitzen.',value:'Wolken, Schatten, Wasserreflexionen und Bäume wurden deshalb mehrfach optimiert.',detail:'Die Welt sollte schneller werden, ohne dabei leer zu werden.'},
+  {kicker:'FUN FACT 19 · VIERMAL ABGETAUCHT',title:'Die Tiefenkarte wurde mehrfach komplett neu aufgebaut.',value:"Entdecke die Ufer und Tiefen der Mosel.",detail:'gehörten irgendwann einfach zur Entwicklung dazu.'},
+  {kicker:'FUN FACT 20 · JEDER ZENTIMETER ZÄHLT',title:'Die Echolot-Rohdaten wurden nicht einfach übernommen.',value:"Die Tiefenkarte zeigt den Weiher bei Normalwasser.",detail:"Vergleiche die Tiefenzonen, bevor du deinen Angelplatz wählst."},
+  {kicker:'FUN FACT 21 · MOBILE',title:"Wähle die Auflösung, mit der dein Gerät flüssig läuft.",value:"Die Grafikqualität findest du in den Einstellungen.",detail:'Die Welt sollte schneller werden, ohne dabei leer zu werden.'},
   {kicker:'FUN FACT 22 · VERSTECKTE DETAILS',title:'Nicht alles wird erklärt.',value:'Figuren, Fahrzeuge, Tiere, Banner und kleine Szenen warten einfach darauf, entdeckt zu werden.',detail:'Einige Easter Eggs versteht man erst richtig, wenn man den echten Verein kennt.'}
 ];
 let anglingStateTime=0;
@@ -48278,8 +48306,8 @@ const ANGLING_POPULATION={
   sturgeon:3,zander:4,eel:8,tench:20,bream:30,koi:1,perch:50,sunfish:70,goby:160
 };
 const ANGLING_LURE_CATALOG={
- predatorpit_spinner:{name:'Predatorpit Blinker',icon:'predatorpit_spinner',type:'spinner',price:0,shop:false,hiddenUntilFound:true,unique:true,desc:'Seltener Fundköder mit erhöhter Raubfischattraktivität. Löst sich bei Hängern und bleibt erhalten.',tag:'Selten · Hecht / Barsch +++',boost:{pike:2.0,perch:1.8,zander:1.5,catfish:1.5}},
- predatorpit_softbait:{name:'Predatorpit Gummifisch',icon:'predatorpit_softbait',type:'softbait',price:0,shop:false,hiddenUntilFound:true,unique:true,desc:'Seltener Fundköder mit erhöhter Raubfischattraktivität. Löst sich bei Hängern und bleibt erhalten.',tag:'Selten · Zander / Wels +++',boost:{zander:2.0,catfish:1.8,pike:1.5,perch:1.5}},
+ predatorpit_spinner:{name:'Predatorpit Blinker',icon:'predatorpit_spinner',type:'spinner',price:0,shop:false,hiddenUntilFound:true,unique:true,desc:"Seltener Raubfischköder. Löst sich bei Hängern und bleibt erhalten.",tag:'Selten · Hecht / Barsch +++',boost:{pike:2.0,perch:1.8,zander:1.5,catfish:1.5}},
+ predatorpit_softbait:{name:'Predatorpit Gummifisch',icon:'predatorpit_softbait',type:'softbait',price:0,shop:false,hiddenUntilFound:true,unique:true,desc:"Seltener Raubfischköder. Löst sich bei Hängern und bleibt erhalten.",tag:'Selten · Zander / Wels +++',boost:{zander:2.0,catfish:1.8,pike:1.5,perch:1.5}},
   spinner_basic:{name:'Blinker Standard',icon:'spinner_basic',type:'spinner',price:15,desc:'Solider Allrounder für Raubfische.',tag:'Standard',boost:{}},
   softbait_basic:{name:'Gummifisch Standard',icon:'softbait_basic',type:'softbait',price:15,desc:'Grundnah stark, besonders auf Zander.',tag:'Standard',boost:{}},
   spinner_premium:{name:'Blinker Premium',icon:'spinner_premium',type:'spinner',price:25,desc:'Etwas auffälliger und insgesamt fängiger.',tag:'+15 % Attraktivität',boost:{pike:1.15,zander:1.15,perch:1.15,catfish:1.15}},
@@ -48290,38 +48318,38 @@ const ANGLING_LURE_CATALOG={
   catfish_special:{name:'Gummifisch Wels-Spezial',icon:'catfish_special',type:'softbait',price:40,desc:'Große Silhouette für Wels.',tag:'Wels ++',boost:{catfish:2.05,zander:.82,pike:.82,perch:.55}}
 };
 const ANGLING_EQUIPMENT_CATALOG={
- boat_motor:{name:'E-Motor mit Batterie',icon:'boat_motor',price:1000,slot:'vehicle',shop:true,tag:'Boot am Ostufer · dauerhaft',desc:'Elektromotor mit Batterie für die Sabrina am Bootssteg des Ostufers. Ankern zum Angeln mit Pose oder Kunstköder. Manche Stellen erreicht man nur vom Wasser aus – und manchmal lohnt sich auch ein Blick nach oben.'},
-  carp_set:{name:'Karpfenangelset',icon:'carp_set',price:4000,slot:'method',shop:true,maxCast:75,tag:'2 Grundruten · Rod Pod · dauerhaft',desc:'Edelstahl-Rod-Pod mit zwei Carbonruten, Rollen und leuchtenden, piependen Bissanzeigern. Nur am festen Ufer; auf Stegen bitte Angelstelle wechseln.'},
-  catfish_set:{name:'Welsangelset',icon:'catfish_set',price:3000,slot:'method',shop:true,maxCast:75,tag:'2 senkrechte Ruten · Glöckchen · dauerhaft',desc:'Zwei schwere Welsruten in einzelnen Bodenhaltern. Doppelglöckchen und Knicklichter an den Spitzen. Nur am festen Ufer; auf Stegen bitte Angelstelle wechseln.'},
+ boat_motor:{name:'E-Motor mit Batterie',icon:'boat_motor',price:1000,slot:'vehicle',shop:true,tag:'Boot am Ostufer · dauerhaft',desc:"E-Motor für Sabrina. Erkunde den Weiher und ankere zum Angeln. Schau unterwegs auch einmal nach oben."},
+  carp_set:{name:'Karpfenangelset',icon:'carp_set',price:4000,slot:'method',shop:true,maxCast:75,tag:'2 Grundruten · Rod Pod · dauerhaft',desc:"Zwei Karpfenruten mit Rod-Pod und Bissanzeigern. Nur am festen Ufer nutzbar."},
+  catfish_set:{name:'Welsangelset',icon:'catfish_set',price:3000,slot:'method',shop:true,maxCast:75,tag:'2 senkrechte Ruten · Glöckchen · dauerhaft',desc:"Zwei Welsruten mit Glocken und Knicklichtern. Nur am festen Ufer nutzbar."},
   rod_standard:{
     name:'Standardrute',icon:'rod_standard',price:0,slot:'rod',shop:false,maxCast:50,
     tag:'Wurfweite 50 m · Startausrüstung',
-    desc:'Solide Standardrute. Gehört von Spielbeginn an zu deiner persönlichen Tacklebox.'
+    desc:"Deine Rute für den Einstieg. Von Anfang an in der Tacklebox."
   },
   deeper:{
     name:'Deeper Echolot',icon:'deeper',price:1000,slot:'terminal',shop:true,
     tag:'Equipment · dauerhaft',
-    desc:'Auswerfbares Echolot. Scannt Tiefe, Bodenprofil und Fische beim Einholen.'
+    desc:"Auswerfbares Echolot für Tiefe, Boden und Fischsignale."
   },
   rod_distance:{
     name:'Allround 75',icon:'rod_distance',price:1200,slot:'rod',shop:true,maxCast:75,
     tag:'Wurfweite 75 m',
-    desc:'Moderne weiße Allround-Rute mit goldener Rolle. Spürbar mehr Reichweite für entfernte Kanten und Plätze.'
+    desc:"Allround-Rute mit mehr Wurfweite für entfernte Plätze."
   },
   rod_pro:{
     name:'Black Carbon 100',icon:'rod_pro',price:2500,slot:'rod',shop:true,maxCast:100,
     tag:'Wurfweite 100 m · Maximum',
-    desc:'Edle schwarze Carbonrute mit schwarzer Metallrolle. Nutzt die maximale mögliche Wurfweite von 100 Metern.'
+    desc:"Carbonrute mit bis zu 100 Metern Wurfweite."
   },
   net_standard:{
     name:'Standardkescher',icon:'net_standard',price:0,slot:'net',shop:false,
     tag:'Startausrüstung',
-    desc:'Solider Kescher. Gehört von Spielbeginn an zu deiner persönlichen Tacklebox.'
+    desc:"Dein Kescher für den Einstieg. Von Anfang an in der Tacklebox."
   },
   net_pro:{
     name:'Pro Kescher',icon:'net_pro',price:1500,slot:'net',shop:true,
     tag:'Größere Öffnung · leichteres Keschern',
-    desc:'Moderner großer Kescher. Die reale Fangzone ist rund 18 % größer als beim Standardkescher.'
+    desc:"Großer Kescher mit rund 18 % größerer Fangzone."
   }
 };
 const aczoRodTextures={cork:aczoRodTexture('cork'),eva:aczoRodTexture('eva'),carbon:aczoRodTexture('carbon'),varnish:aczoRodTexture('varnish')};
@@ -48429,9 +48457,9 @@ anglingReelMiniGroup.add(aczoMiniThread);
 const aczoMiniThreadTemp=new THREE.Vector3();
 const ANGLING_FEED_CATALOG={
   cheap:{name:'Lockfutter günstig',price:50,tag:'10 Min. · guter Effekt',desc:'Einfaches Lockfutter. Erhöht Aktivität und Bisschance am Futterplatz deutlich.',bite:1.45,attract:1.22,predator:1.08,radius:2.6},
-  normal:{name:'Lockfutter normal',price:80,tag:'10 Min. · starker Effekt',desc:'Kräftiger Futtermix. Baut einen klaren Futterplatz auf und zieht Fische spürbar an.',bite:1.80,attract:1.42,predator:1.13,radius:2.9},
-  premium:{name:'Lockfutter Premium',price:120,tag:'10 Min. · sehr starker Effekt',desc:'Hochwertiger Futtermix. Maximale Lockwirkung und deutlich erhöhte Aktivität am Spot.',bite:2.25,attract:1.68,predator:1.20,radius:3.2},
-  predator_pit_paste:{name:'Predatorpit Lockpaste',price:100,pack:8,special:'lurePaste',tag:'8 Anwendungen · je 4 Min.',desc:'Uranin-Kunstköderpaste für Blinker und Gummifische. Vier Minuten deutlich erhöhte Räuberattraktivität und eine giftgrüne Farbwolke unter Wasser.'}
+  normal:{name:'Lockfutter normal',price:80,tag:'10 Min. · starker Effekt',desc:"Kräftiger Futtermix mit stärkerer Lockwirkung.",bite:1.80,attract:1.42,predator:1.13,radius:2.9},
+  premium:{name:'Lockfutter Premium',price:120,tag:'10 Min. · sehr starker Effekt',desc:"Premiumfutter mit der stärksten Lockwirkung.",bite:2.25,attract:1.68,predator:1.20,radius:3.2},
+  predator_pit_paste:{name:'Predatorpit Lockpaste',price:100,pack:8,special:'lurePaste',tag:'8 Anwendungen · je 4 Min.',desc:"Lockpaste für Blinker und Gummifisch. Wirkt vier Minuten und hinterlässt eine grüne Spur."}
 };
 const ANGLING_FEED_DURATION=10*60*1000;
 const ANGLING_FEED_BUILDUP=4*60*1000;
@@ -49251,7 +49279,7 @@ aczoEl('aczoAttachRecoveryBtn').addEventListener('click',async()=>{
     },30000);
     if(!current())return;
     if(data?.ok!==true||data?.playerId!==playerId)throw new Error('Dieser Code gehört nicht zu deinem Spielerkonto.');
-    if(!saveAnglingRecoveryCode(code))throw new Error('Code ist gültig, konnte aber auf diesem Gerät nicht dauerhaft gespeichert werden. Bitte den Browserspeicher prüfen und erneut speichern.');
+    if(!saveAnglingRecoveryCode(code))throw new Error("Code gültig, aber nicht gespeichert. Bitte prüfe den Browserspeicher und versuche es erneut.");
     input.value='';status.textContent='Code auf diesem Gerät gespeichert.';
     aczoRenderAccount();
   }catch(err){if(current())status.textContent=aczoReadableError(err);}
@@ -49409,8 +49437,8 @@ aczoResumeSession();
   if(!job.progressTimer)job.progressTimer=setTimeout(()=>{job.progressTimer=null;if(valid(job)&&prep.active===job)reveal(job,job.phase);},delay);
  }
  function hide(){if(prep.dialog){prep.dialog.host.hidden=true;prep.dialog.host.style.display='none';}}
- async function step(job,label,work){
-  check(job);status(job,label);await paint();check(job);
+ async function step(job,label,work,paintBefore=true){
+  check(job);status(job,label);if(paintBefore)await paint();check(job);
   const start=performance.now(),result=work();
   if(result&&typeof result.then==='function')await result;
   check(job);prep.stats.push({key:job.key,phase:label,ms:performance.now()-start});if(prep.stats.length>100)prep.stats.shift();
@@ -49428,7 +49456,7 @@ aczoResumeSession();
    prep.active=job;prep.busy=true;
    try{await job.work(job);check(job);prep.completed.push(job.key);if(prep.completed.length>30)prep.completed.shift();job.resolve?.();}
    catch(error){
-    if(job.startup){job.reject(error);if(!error.aczoCancelled)prep.error={job,message:String(error.message||error)};}else if(!error.aczoCancelled){prep.error={job,message:String(error.message||error)};const ui=dialog();ui.host.hidden=false;ui.host.style.display='flex';ui.title.textContent='Vorbereitung unterbrochen';ui.detail.textContent='Die Ansicht ist noch nicht bereit. Bitte die Vorbereitung erneut starten.';ui.retry.hidden=false;console.warn('K26 transition preparation:',job.key,error);}
+    if(job.startup){job.reject(error);if(!error.aczoCancelled)prep.error={job,message:String(error.message||error)};}else if(!error.aczoCancelled){prep.error={job,message:String(error.message||error)};const ui=dialog();ui.host.hidden=false;ui.host.style.display='flex';ui.title.textContent='Vorbereitung unterbrochen';ui.detail.textContent="Die Ansicht ist noch nicht bereit. Bitte erneut versuchen.";ui.retry.hidden=false;console.warn('K26 transition preparation:',job.key,error);}
    }finally{clearTimeout(job.progressTimer);job.progressTimer=null;prep.active=null;}
    if(prep.error)return;
   }
@@ -49546,11 +49574,14 @@ aczoResumeSession();
   }
  }
  async function gpu(job,roots,underwater){
-  const key=profile(underwater),pending=nodes(roots,key);let index=0;
+  const key=profile(underwater),pending=nodes(roots,key);let index=0,sliceStarted=0,sliceBatches=0;
   while(index<pending.length){
    const batch=pending.slice(index,index+4);
-   await step(job,'Grafik wird vorbereitet … ('+Math.min(index+batch.length,pending.length)+'/'+pending.length+')',()=>drawBatch(batch,underwater));
-   for(const object of batch){const geometry=object.geometry||object.material;let ready=prep.gpu.get(geometry);if(!ready)prep.gpu.set(geometry,ready=new Set());ready.add(signature(object,key));}index+=batch.length;
+   // Keep each draw at four objects. Only fast startup draws share a paint;
+   // a slow batch consumes the slice, and interactive transitions keep pacing.
+   const paintBefore=!job.startup||sliceBatches===0||sliceBatches>=3||performance.now()-sliceStarted>=6;
+   await step(job,'Grafik wird vorbereitet … ('+Math.min(index+batch.length,pending.length)+'/'+pending.length+')',()=>{if(paintBefore){sliceStarted=performance.now();sliceBatches=0;}drawBatch(batch,underwater);},paintBefore);
+   for(const object of batch){const geometry=object.geometry||object.material;let ready=prep.gpu.get(geometry);if(!ready)prep.gpu.set(geometry,ready=new Set());ready.add(signature(object,key));}index+=batch.length;sliceBatches++;
   }
  }
  function equipmentKey(){return [anglingProgress.selectedEquipment,anglingProgress.selectedRod,anglingProgress.selectedNet,anglingSelectedBait,anglingSelectedLureId].join('|');}
@@ -49644,7 +49675,7 @@ aczoResumeSession();
   const began=performance.now();
   while(fishTexturePendingCount>0){
    await step(job,'Fischgrafiken werden dekodiert · '+fishTexturePendingCount+' ausstehend',()=>{});
-   if(performance.now()-began>30000)throw new Error('Fischgrafiken konnten noch nicht vollständig geladen werden.');
+   if(performance.now()-began>30000)throw new Error("Fische konnten nicht vollständig geladen werden. Bitte erneut versuchen.");
   }
  }
  function startupResourceStats(roots,templates){
@@ -49789,7 +49820,7 @@ aczoResumeSession();
   if(startup.state==='running')return startupPromise;
   const boot=window.__aczoSafeStart;
   if(!boot?.readyForFrames||!boot.gpuPrepared||boot.failed||prep.contextLost||anglingMode||fishMode){
-   const error=new Error('Die Kartenansicht ist noch nicht bereit für die Unterwasservorbereitung.');startupFailure(error,startupAttempt);return Promise.reject(error);
+   const error=new Error("Die Karte ist noch nicht bereit. Bitte kurz warten.");startupFailure(error,startupAttempt);return Promise.reject(error);
   }
   if(prep.error&&!prep.error.job.startup){const error=new Error(prep.error.message);startupFailure(error,startupAttempt);return Promise.reject(error);}
   prep.error=null;prep.deferUntilAction=false;
@@ -52729,7 +52760,7 @@ document.addEventListener('visibilitychange',tournamentOnResume);
   if(!help){
    help=document.createElement('dialog');help.id='aczoFullscreenHelp';help.setAttribute('aria-labelledby','aczoFullscreenHelpTitle');help.setAttribute('aria-modal','true');
    const iphone=/iPhone|iPad|iPod/i.test(navigator.userAgent||'')||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1;
-   help.innerHTML='<button type="button" id="aczoFullscreenHelpClose" aria-label="Vollbild-Hilfe schließen">×</button><h2 id="aczoFullscreenHelpTitle">Ohne Browserleiste spielen</h2><div class="aczo-fullscreen-intro"></div>'+(iphone?'<ol><li>Öffne das Spiel in <strong>Safari</strong>.</li><li>Tippe auf <strong>Teilen</strong> und dann auf <strong>Zum Home-Bildschirm hinzufügen</strong>.</li><li>Aktiviere <strong>Als Web-App öffnen</strong>, falls diese Option erscheint, und tippe auf <strong>Hinzufügen</strong>.</li><li>Starte das Spiel anschließend über das neue <strong>ACZO56-Symbol</strong>.</li></ol>':'<ol><li>Öffne das <strong>Browsermenü</strong>.</li><li>Wähle, falls angeboten, <strong>App installieren</strong> oder <strong>Zum Startbildschirm hinzufügen</strong>.</li><li>Starte das Spiel anschließend über das neue Symbol.</li></ol><p class="aczo-fullscreen-note">Die verfügbaren Optionen hängen von deinem Browser ab.</p>')+'<p class="aczo-fullscreen-note">Hoch- und Querformat werden unterstützt. Es wird keine App aus dem App Store benötigt.</p>';
+   help.innerHTML='<button type="button" id="aczoFullscreenHelpClose" aria-label="Vollbild-Hilfe schließen">×</button><h2 id="aczoFullscreenHelpTitle">Ohne Browserleiste spielen</h2><div class="aczo-fullscreen-intro"></div>'+(iphone?'<ol><li>Öffne das Spiel in <strong>Safari</strong>.</li><li>Tippe auf <strong>Teilen</strong> und dann auf <strong>Zum Home-Bildschirm hinzufügen</strong>.</li><li>Aktiviere <strong>Als Web-App öffnen</strong>, falls diese Option erscheint, und tippe auf <strong>Hinzufügen</strong>.</li><li>Starte das Spiel anschließend über das neue <strong>ACZO56-Symbol</strong>.</li></ol>':'<ol><li>Öffne das <strong>Browsermenü</strong>.</li><li>Wähle, falls angeboten, <strong>App installieren</strong> oder <strong>Zum Startbildschirm hinzufügen</strong>.</li><li>Starte das Spiel anschließend über das neue Symbol.</li></ol><p class="aczo-fullscreen-note">Die verfügbaren Optionen hängen von deinem Browser ab.</p>')+'<p class="aczo-fullscreen-note">Spiele im Hoch- oder Querformat – ohne zusätzliche App.</p>';
    document.body.appendChild(help);help.querySelector('#aczoFullscreenHelpClose').addEventListener('click',event=>{event.preventDefault();event.stopPropagation();closeHelp();});
    help.addEventListener('cancel',event=>{event.preventDefault();closeHelp();});
    for(const type of ['pointerdown','pointerup','touchstart','touchmove','touchend','click','wheel'])help.addEventListener(type,event=>event.stopPropagation(),{passive:true});
@@ -52737,7 +52768,7 @@ document.addEventListener('visibilitychange',tournamentOnResume);
    help.addEventListener('close',()=>{returnFocus?.focus?.({preventScroll:true});returnFocus=null;});
   }
   const inApp=standalone();
-  help.querySelector('.aczo-fullscreen-intro').textContent=inApp?'Das Spiel wird bereits ohne Browserleiste angezeigt.':reason||'Dieser Browser bietet für das Spiel keinen direkten Vollbildmodus. Du kannst es stattdessen über den Home-Bildschirm starten.';
+  help.querySelector('.aczo-fullscreen-intro').textContent=inApp?'Das Spiel wird bereits ohne Browserleiste angezeigt.':reason||'Starte das Spiel über den Home-Bildschirm, um ohne Browserleiste zu spielen.';
   help.querySelector('ol').hidden=inApp;const availability=help.querySelector('.aczo-fullscreen-note');if(availability?.textContent.startsWith('Die verfügbaren'))availability.hidden=inApp;
   if(help.open)return;
   returnFocus=document.activeElement;
@@ -52753,12 +52784,12 @@ document.addEventListener('visibilitychange',tournamentOnResume);
    // Keep the native request directly inside the tap/click call stack.
    result=current()?(document.exitFullscreen||document.webkitExitFullscreen).call(document):request().call(root);
    pending=true;update();
-  }catch(error){pending=false;update();showHelp('Der Browser konnte den Vollbildmodus nicht öffnen. Du kannst das Spiel stattdessen über den Home-Bildschirm starten.');return;}
-  Promise.resolve(result).then(()=>{pending=false;update();},()=>{pending=false;update();showHelp('Der Browser hat den Vollbildmodus abgelehnt. Du kannst das Spiel stattdessen über den Home-Bildschirm starten.');});
+  }catch(error){pending=false;update();showHelp('Vollbild nicht möglich. Starte das Spiel über den Home-Bildschirm.');return;}
+  Promise.resolve(result).then(()=>{pending=false;update();},()=>{pending=false;update();showHelp('Vollbild nicht möglich. Starte das Spiel über den Home-Bildschirm.');});
  }
  for(const button of buttons)button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();if(button.id==='aczoMapFullscreen'&&supported()&&!standalone()){try{if(typeof setMapToolsOpen==='function')setMapToolsOpen(false);}catch(error){}}toggle();});
  for(const name of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(name,update);
- for(const name of ['fullscreenerror','webkitfullscreenerror'])document.addEventListener(name,()=>{pending=false;update();if(!current()&&!standalone())showHelp('Der Browser konnte den Vollbildmodus nicht öffnen. Du kannst das Spiel stattdessen über den Home-Bildschirm starten.');});
+ for(const name of ['fullscreenerror','webkitfullscreenerror'])document.addEventListener(name,()=>{pending=false;update();if(!current()&&!standalone())showHelp('Vollbild nicht möglich. Starte das Spiel über den Home-Bildschirm.');});
  for(const q of [standaloneQuery,fullscreenQuery])q?.addEventListener?.('change',update);
  window.addEventListener('resize',schedule,{passive:true});window.addEventListener('orientationchange',()=>{schedule();window.clearTimeout(settle);settle=window.setTimeout(schedule,220);},{passive:true});
  window.visualViewport?.addEventListener('resize',schedule,{passive:true});
