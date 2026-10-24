@@ -5578,7 +5578,7 @@ function aczoSetIconText(element,value){
  let firstFrameReady=false,satelliteSettled=false,weatherPrepared=false,finished=false;
  let preparing=false,startupReady=false,startupError='',startupSnapshot=null,tipIndex=0,lastTipAt=startedAt;
  let mapReady=false,mapGeneration=null,splitPreparation=false,opening=false,preparationAttempt=0;
- let backgroundStarted=false,backgroundPreparing=false,backgroundError='';
+ let initialSnapshot=null;
  let resolutionRestore=null,resolutionDeferred=false,resolutionRestored=false;
  viewer?.classList.add('map-startup-loading');
  document.documentElement.classList.add('aczo-k29-startup-preparing');
@@ -5601,7 +5601,7 @@ function aczoSetIconText(element,value){
   if(finished){setProgress('Bereit',1,1);return;}
   if(startupError){setProgress('Vorbereitung unterbrochen');return;}
   if(preparing||mapReady){
-   if(splitPreparation){setProgress(mapReady?'Karte bereit':'Kartenansicht wird vorbereitet',mapReady?1:NaN,1);return;}
+   if(splitPreparation){const s=initialSnapshot||{};setProgress(mapReady?'Karte und Unterwasser bereit':s.phase||'Karte und Unterwasser werden vorbereitet',mapReady?1:Number(s.completedSteps),mapReady?1:Number(s.totalSteps));return;}
    const s=startupSnapshot||{},done=Number(s.completedSteps),total=Number(s.totalSteps);
    if(startupReady)setProgress('Spielwelt bereit',1,1);
    else setProgress(total>0?'Spielvorbereitung · '+Math.min(total,Math.max(0,done||0))+' von '+total+' Schritten':'Spielwelt wird vorbereitet',done,total);
@@ -5635,47 +5635,40 @@ function aczoSetIconText(element,value){
  }
  function criticalStateValid(){
   const api=window.__aczoTransitionPrep;
-  return !api?.contextLost&&(splitPreparation?api?.map?.state==='ready'&&api.map.generation===mapGeneration:api?.startup?.state==='ready');
+  return !api?.contextLost&&(splitPreparation?api?.initial?.state==='ready'&&api.initial.generation===mapGeneration:api?.startup?.state==='ready');
  }
  function ensurePreparation(){
   if(finished||opening||preparing||mapReady||startupError||!firstFrameReady)return;
   const boot=window.__aczoSafeStart;if(!boot?.readyForFrames||!boot.gpuPrepared||boot.failed)return;
   const api=window.__aczoTransitionPrep;if(typeof api?.prepareStartup!=='function'){showError(new Error('Die Spielvorbereitung ist nicht verfügbar.'));return;}
   holdResolution(boot);
-  splitPreparation=typeof api.prepareMapReady==='function';
+  splitPreparation=typeof api.prepareInitialReady==='function';
   const attempt=++preparationAttempt;
   preparing=true;if(retry){retry.textContent='Erneut versuchen';retry.hidden=true;}
-  if(textNode)textNode.textContent=splitPreparation?'Kartenansicht wird vorbereitet …':'Unterwasserwelten werden vorbereitet …';refresh();
-  let promise;try{promise=splitPreparation?api.prepareMapReady():api.prepareStartup();}catch(error){showError(error);return;}
+  if(textNode)textNode.textContent=splitPreparation?'Karte und Unterwasser werden vorbereitet …':'Unterwasserwelten werden vorbereitet …';refresh();
+  let promise;try{promise=splitPreparation?api.prepareInitialReady():api.prepareStartup();}catch(error){showError(error);return;}
   Promise.resolve(promise).then(snapshot=>{
    if(attempt!==preparationAttempt||finished)return;
    if(window.__aczoSafeStart.failed)throw new Error('Der Start wurde unterbrochen.');
-   const state=snapshot?.state||(splitPreparation?api.map?.state:api.startup?.state);
+   const state=snapshot?.state||(splitPreparation?api.initial?.state:api.startup?.state);
    if(state!=='ready')throw new Error('Die Spielvorbereitung ist noch nicht vollständig.');
-   if(splitPreparation)mapGeneration=snapshot?.generation;
+   if(splitPreparation){mapGeneration=snapshot?.generation;initialSnapshot=snapshot;}
    else{startupSnapshot=snapshot||api.startup;startupReady=true;}
    if(!criticalStateValid())throw new Error('Die Grafikvorbereitung wurde unterbrochen. Bitte erneut versuchen.');
    preparing=false;mapReady=true;startupError='';if(retry)retry.hidden=true;refresh();tryFinish();
   }).catch(error=>{if(attempt===preparationAttempt&&!finished)showError(error);});
  }
- function startBackgroundPreparation(){
-  if(!splitPreparation||!finished||backgroundStarted)return;
-  backgroundStarted=true;backgroundPreparing=true;backgroundError='';
-  const api=window.__aczoTransitionPrep;
-  window.__aczoBootAudit?.mark('background-preparation-start');
-  let promise;try{promise=api.prepareStartup({background:true});}catch(error){backgroundPreparing=false;backgroundError=String(error?.message||error);return;}
-  Promise.resolve(promise).then(snapshot=>{
-   backgroundPreparing=false;startupSnapshot=snapshot||api.startup;
-   startupReady=api.startup?.state==='ready'&&startupSnapshot?.state==='ready'&&!api.contextLost;
-   if(startupReady){backgroundError='';window.__aczoBootAudit?.mark('background-preparation-ready');}
-   else backgroundError=String(startupSnapshot?.error||'Die Hintergrundvorbereitung ist noch nicht vollständig.');
-  }).catch(error=>{backgroundPreparing=false;startupReady=api.startup?.state==='ready'&&!api.contextLost;backgroundError=startupReady?'':String(error?.message||error);});
- }
+ window.__aczoInitialPrepStatus=snapshot=>{
+  initialSnapshot=snapshot;
+  if(finished||!splitPreparation)return;
+  if(snapshot?.state==='running'&&textNode)textNode.textContent=snapshot.phase||'Karte und Unterwasser werden vorbereitet …';
+  if(detailNode){detailNode.textContent=snapshot?.state==='running'?snapshot.detail||'':'';detailNode.hidden=!detailNode.textContent;}
+  refresh();
+ };
  window.__aczoStartupPrepStatus=snapshot=>{
   startupSnapshot=snapshot;
   if(splitPreparation){
    startupReady=snapshot?.state==='ready'&&!window.__aczoTransitionPrep?.contextLost;
-   if(backgroundStarted){backgroundPreparing=snapshot?.state==='running';backgroundError=snapshot?.state==='error'?String(snapshot.error||'Die Hintergrundvorbereitung wurde unterbrochen.'):'';}
    return;
   }
   if(finished){startupReady=snapshot?.state==='ready'&&!window.__aczoTransitionPrep?.contextLost;return;}
@@ -5705,13 +5698,12 @@ function aczoSetIconText(element,value){
    if(boot.failed||!criticalStateValid()){showError('Die Grafikvorbereitung wurde unterbrochen. Bitte erneut versuchen.');return;}
    finished=true;opening=false;
    if(window.__aczoStartup)window.__aczoStartup.mapOpenedAt=performance.now();window.__aczoBootAudit?.mark('map-visible');
-   if(textNode)textNode.textContent=splitPreparation?'Karte ist bereit':'Weiher und Mosel sind bereit';if(detailNode){detailNode.hidden=true;detailNode.textContent='';}refresh();
+   if(textNode)textNode.textContent=splitPreparation?'Karte und Unterwasser sind bereit':'Weiher und Mosel sind bereit';if(detailNode){detailNode.hidden=true;detailNode.textContent='';}refresh();
    viewer?.classList.remove('map-startup-loading');document.documentElement.classList.remove('aczo-k29-startup-preparing');
    window.removeEventListener('error',revealAfterStartupError);window.removeEventListener('unhandledrejection',revealAfterStartupError);
    window.removeEventListener('keydown',holdInput,true);window.removeEventListener('wheel',holdInput,true);
    window.clearInterval(tipTimer);
    loader?.classList.add('is-done');window.setTimeout(()=>loader?.remove(),430);
-   startBackgroundPreparation();
   }));
  }
  function revealAfterStartupError(){window.setTimeout(()=>finish(true),0);}
@@ -5730,7 +5722,7 @@ function aczoSetIconText(element,value){
  const tipTimer=window.setInterval(refresh,5000);refresh();
  window.setTimeout(()=>{satelliteSettled=true;tryFinish();},12000);
  window.setTimeout(()=>{if(!finished&&!window.__aczoSafeStart.failed&&!preparing&&!mapReady&&!startupError)window.__aczoSafeStart.show('Karte wird noch vorbereitet …');},15000);
- window.__aczoStartupLoader={snapshot:()=>({firstFrameReady,satelliteSettled,weatherPrepared,preparing,startupReady,finished,error:startupError,tipIndex,tipsCount:tips.length,resolutionDeferred,resolutionRestored,mapReady,mapGeneration,splitPreparation,opening,backgroundStarted,backgroundPreparing,backgroundError}),setTips:list=>{tips=Array.isArray(list)?list.filter(tip=>typeof tip==='string'&&tip.trim()):[];tipIndex=0;lastTipAt=performance.now();updateTip();}};
+ window.__aczoStartupLoader={snapshot:()=>({firstFrameReady,satelliteSettled,weatherPrepared,preparing,startupReady,finished,error:startupError,tipIndex,tipsCount:tips.length,resolutionDeferred,resolutionRestored,mapReady,mapGeneration,initialReady:splitPreparation&&mapReady,initialGeneration:mapGeneration,splitPreparation,opening}),setTips:list=>{tips=Array.isArray(list)?list.filter(tip=>typeof tip==='string'&&tip.trim()):[];tipIndex=0;lastTipAt=performance.now();updateTip();}};
 })();
 
 </script>
@@ -6775,18 +6767,36 @@ function aczoApplyAudioSessionPolicy(reason='policy'){
     aczoRecordAudioState(reason);return state.observedType==='ambient';
   }catch(error){state.observedType=null;state.sessionState=null;aczoRecordAudioState(reason,error);return false;}
 }
+function aczoPauseAudioForBackground(reason='page-hidden'){
+  aczoAudioBackgroundPaused=true;aczoAudioVisibilityGeneration++;
+  aczoMenuSoundGeneration++;aczoSoundRequestSerial++;
+  aczoSoundStopAll();aczoRecordAudioState(reason);
+  const ctx=aczoAudioCtx;
+  if(!ctx||ctx.state==='closed'||ctx.state==='suspended')return;
+  try{
+    const pending=ctx.suspend();
+    if(pending&&typeof pending.then==='function')pending.then(()=>aczoRecordAudioState('background-suspended'),error=>aczoRecordAudioState('background-suspend-error',error));
+  }catch(error){aczoRecordAudioState('background-suspend-error',error);}
+}
 function aczoResumeAudioContext(ctx){
-  if(!ctx||!aczoSoundEnabled||document.hidden)return Promise.resolve(false);
+  if(!ctx||!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused)return Promise.resolve(false);
+  const visibilityGeneration=aczoAudioVisibilityGeneration;
   aczoObserveAudioContext(ctx);aczoApplyAudioSessionPolicy('resume-before');
   let result;
   // Keep resume synchronous in the original gesture; no timer/permission step precedes it.
   try{result=ctx.resume();}catch(error){aczoRecordAudioState('resume-error',error);return Promise.reject(error);}
   return Promise.resolve(result).then(()=>{
+    if(!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused||visibilityGeneration!==aczoAudioVisibilityGeneration){
+      if(document.hidden||aczoAudioBackgroundPaused)aczoPauseAudioForBackground('resume-after-hide');
+      return false;
+    }
     aczoApplyAudioSessionPolicy('resume-after');aczoRecordAudioState('resume-complete');return ctx.state==='running';
   },error=>{aczoRecordAudioState('resume-error',error);throw error;});
 }
 function aczoReconcileAudioOnReturn(){
   if(document.hidden)return;
+  if(aczoAudioBackgroundPaused)aczoSoundStopAll();
+  aczoAudioBackgroundPaused=false;
   aczoApplyAudioSessionPolicy('page-return');aczoObserveAudioContext(aczoAudioCtx);aczoSyncAudioOutput();
 }
 function aczoSyncAudioOutput(){
@@ -6881,6 +6891,7 @@ function aczoMobileSoundGain(key){
   return ACZO_PERF10_IS_MOBILE_OS&&aczoAudioOutputLimiter?(ACZO_MOBILE_SOUND_GAINS[key]||1):1;
 }
 function aczoStartWebSound(key,opts={}){
+  if(!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused)return false;
   const ctx=aczoAudioCtx,buf=aczoAudioBuffers[key];
   if(!ctx||!buf||ctx.state!=='running'){
     // Nie verspätet nachtriggern: falls ein Buffer wider Erwarten noch fehlt,
@@ -6954,7 +6965,7 @@ function aczoStopPredatorAlarmVoices(){
 }
 function aczoPredatorAlarmListenerGain(){
   if(!aczoPredatorPegelAllowed())return 0;
-  if(!aczoSoundEnabled||document.hidden||typeof personalFishingSpot==='undefined')return 0;
+  if(!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused||typeof personalFishingSpot==='undefined')return 0;
   let listener=null;
   const inCreator=typeof anglingCreatorEasterEggActive!=='undefined'&&anglingCreatorEasterEggActive
     &&typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive;
@@ -7011,7 +7022,7 @@ function aczoPlayPredatorAlarmBeep(){
 }
 function aczoStartDrillMusic(hallOfFameMode=false){
   const hofAllowed=!!(hallOfFameMode&&typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive);
-  if(!aczoSoundEnabled||!anglingMode||(!hofAllowed&&anglingState!=='drilling')||document.hidden)return false;
+  if(!aczoSoundEnabled||!anglingMode||(!hofAllowed&&anglingState!=='drilling')||document.hidden||aczoAudioBackgroundPaused)return false;
   const ctx=aczoAudioCtx,buf=aczoAudioBuffers.drillMusic;
   if(!ctx||ctx.state!=='running')return false;
   if(!buf){aczoDecodeSoundKey('drillMusic').then(decoded=>{
@@ -7047,7 +7058,7 @@ function aczoStopDrillMusic(immediate=false){
 function aczoHofMusicAllowed(){
   return aczoSoundEnabled&&typeof anglingMode!=='undefined'&&anglingMode
     &&typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive
-    &&anglingHallOfFamePhase!=='returning'&&!document.hidden;
+    &&anglingHallOfFamePhase!=='returning'&&!document.hidden&&!aczoAudioBackgroundPaused;
 }
 function aczoDecodeHofMusic(){
   if(aczoHofMusicBuffer)return Promise.resolve(aczoHofMusicBuffer);
@@ -7069,8 +7080,8 @@ function aczoStartHallOfFameMusic(){
   if(ctx.state!=='running'){
     try{
       const resumed=aczoResumeAudioContext(ctx);
-      if(resumed&&typeof resumed.then==='function')resumed.then(()=>{
-        if(ctx.state==='running'&&generation===aczoHofMusicGeneration&&aczoHofMusicAllowed())aczoStartHallOfFameMusic();
+      if(resumed&&typeof resumed.then==='function')resumed.then(active=>{
+        if(active&&ctx.state==='running'&&generation===aczoHofMusicGeneration&&aczoHofMusicAllowed())aczoStartHallOfFameMusic();
       }).catch(()=>{});
     }catch(_e){}
     return false;
@@ -7129,7 +7140,7 @@ function aczoDuckDrillMusic(key){
 }
 function aczoStartTimeShiftMusic(){
   const shift=typeof anglingTimeShiftActive==='undefined'?null:anglingTimeShiftActive;
-  if(!aczoSoundEnabled||!anglingMode||!shift||anglingState!=='time-shift'||document.hidden)return false;
+  if(!aczoSoundEnabled||!anglingMode||!shift||anglingState!=='time-shift'||document.hidden||aczoAudioBackgroundPaused)return false;
   if(aczoTimeShiftMusicSource)return true;
   const ctx=aczoAudioCtx,buf=aczoAudioBuffers.landingTension;
   if(!ctx||ctx.state!=='running')return false;
@@ -7349,7 +7360,7 @@ function aczoSoundPlay(key,opts={}){
   return ok;
 }
 function aczoMenuSoundAllowed(){
-  return aczoSoundEnabled&&!document.hidden&&(anglingMode||document.getElementById('anglingUi')?.classList.contains('main-menu-open'));
+  return aczoSoundEnabled&&!document.hidden&&!aczoAudioBackgroundPaused&&(anglingMode||document.getElementById('anglingUi')?.classList.contains('main-menu-open'));
 }
 function aczoPlayMenuClick(){
   if(!aczoMenuSoundAllowed())return false;
@@ -7383,7 +7394,7 @@ function aczoSoundSetLineRun(active){
   }else aczoSoundStop('lineRun');
 }
 function aczoUnlockSounds(){
-  if(!aczoSoundEnabled||typeof anglingMode==='undefined'||!anglingMode)return;
+  if(!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused||typeof anglingMode==='undefined'||!anglingMode)return;
   const ctx=aczoEnsureAudioContext();aczoPrepareSounds();
   if(!ctx)return;aczoApplyAudioSessionPolicy('game-gesture');
   if(ctx.state==='running'){
@@ -7394,7 +7405,8 @@ function aczoUnlockSounds(){
     return;
   }
   const p=aczoResumeAudioContext(ctx);
-  if(p&&typeof p.then==='function')p.then(()=>{
+  if(p&&typeof p.then==='function')p.then(active=>{
+    if(!active||document.hidden||aczoAudioBackgroundPaused||ctx.state!=='running')return;
     aczoSoundUnlocked=true;
     if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();
     if(anglingState==='drilling'&&!aczoDrillMusicSource)aczoStartDrillMusic();
@@ -24866,7 +24878,7 @@ function aczoBoatStopMotor(){
  try{motor.filter.disconnect();motor.gain.disconnect();}catch(err){}
 }
 function aczoBoatUpdateMotor(){
- const rt=aczoBoatRuntime,ctx=aczoAudioCtx,allowed=rt.active&&['driving','returning'].includes(rt.phase)&&!aczoBoatNoteOpen()&&!rt.claimPending&&!anglingGamePanelOpen()&&!anglingHallOfFameActive&&!anglingTimeShiftActive&&!document.hidden&&aczoSoundEnabled&&anglingMode;
+ const rt=aczoBoatRuntime,ctx=aczoAudioCtx,allowed=rt.active&&['driving','returning'].includes(rt.phase)&&!aczoBoatNoteOpen()&&!rt.claimPending&&!anglingGamePanelOpen()&&!anglingHallOfFameActive&&!anglingTimeShiftActive&&!document.hidden&&!aczoAudioBackgroundPaused&&aczoSoundEnabled&&anglingMode;
  const powered=allowed&&(Math.abs(rt.speed)>.08||rt.input.forward||rt.input.reverse);
  if(!powered||!ctx||ctx.state!=='running'){aczoBoatStopMotor();return;}
  if(!rt.motor){try{
@@ -26698,7 +26710,7 @@ function aczoStopLevelUpSound(){
   aczoLevelUpRuntime.audio.clear();
 }
 function aczoPlayLevelUpSound(isMax=false){
-  if(!aczoSoundEnabled||document.hidden||!anglingMode)return;
+  if(!aczoSoundEnabled||document.hidden||aczoAudioBackgroundPaused||!anglingMode)return;
   const ctx=aczoAudioCtx;if(!ctx||ctx.state!=='running')return;
   aczoStopLevelUpSound();
   // Kurzer, eigener Glocken-Akkord aus dem bestehenden Audiokontext. Keine Audiodatei.
@@ -41483,7 +41495,7 @@ function aczoPerf6PrepareRigidBatches(observeBatch){
 <script type="application/x-aczo-stage" data-label="Grundlage und Karte werden vorbereitet">
 window.__aczoStartup={mainReady:false,rendererState:'pending',rendererAttempts:[],firstError:null,errors:[],skippedModules:[]};
 const VIEWER_VERSION='ACZO56-Interaktiv-V.4.0 · Testversion';
-const ACZO_INTERNAL_BUILD='4.0-Mosel-K39-TEST-STREAMING-V1';
+const ACZO_INTERNAL_BUILD='4.0-Mosel-K39-TEST-STREAMING-V2';
 window.__aczoBootAudit?.mark('engine-script');
 const helpVersion=document.getElementById('helpVersion');
 if(helpVersion) helpVersion.textContent=VIEWER_VERSION;
@@ -41717,6 +41729,7 @@ const aczoAmbientHeronTimers=new Set();
 window.setInterval(aczoAmbientUpdate,700);
 let aczoSoundRequestSerial=0;
 let aczoMenuSoundGeneration=0;
+let aczoAudioBackgroundPaused=false,aczoAudioVisibilityGeneration=0;
 ['pointerdown','touchstart','keydown'].forEach(type=>{
   window.addEventListener(type,aczoUnlockSounds,{capture:true,passive:type==='touchstart'});
 });
@@ -41727,8 +41740,8 @@ document.querySelectorAll('[data-aczo-sound]').forEach(btn=>{
   });
 });
 aczoSyncSoundButtons();
-window.addEventListener('pagehide',()=>aczoSoundStopAll());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){aczoSoundStopAll();aczoRecordAudioState('page-hidden');}else{aczoReconcileAudioOnReturn();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();}});
+window.addEventListener('pagehide',()=>aczoPauseAudioForBackground('page-hide'));
+document.addEventListener('visibilitychange',()=>{if(document.hidden){aczoPauseAudioForBackground('page-hidden');}else{aczoReconcileAudioOnReturn();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();}});
 window.addEventListener('pageshow',()=>{aczoReconcileAudioOnReturn();if(aczoHofMusicAllowed())aczoStartHallOfFameMusic();});
 window.addEventListener('focus',aczoReconcileAudioOnReturn);
 renderer.domElement.style.touchAction='none';
@@ -50254,7 +50267,7 @@ aczoEl('anglingActivePlayers').addEventListener('click',e=>{const id=e.target.cl
 for(const id of ['anglingRecentPlayers','anglingActivePlayers'])aczoEl(id).addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const key=e.target.closest('[data-public-id]')?.dataset.publicId;if(key){e.preventDefault();aczoOpenCard(key);}}});
 aczoResumeSession();
 (function aczoInstallK26Transitions(){
- const prep={busy:false,generation:0,queue:[],active:null,error:null,stats:[],completed:[],gpu:new WeakMap(),bufferIds:new WeakMap(),nextBufferId:1,materialKeys:new WeakMap(),shaderIds:new Map(),nextShaderId:1,cpu:new Set(),target:null,contextLost:false,dialog:null,deferUntilAction:false,working:false,inputAt:-Infinity,pointers:new Set(),slice:null,backgroundError:null,textureReady:new WeakMap(),shoreCoverage:new WeakMap(),map:{state:"idle",generation:0,error:null}};
+ const prep={busy:false,generation:0,queue:[],active:null,error:null,stats:[],completed:[],gpu:new WeakMap(),bufferIds:new WeakMap(),nextBufferId:1,materialKeys:new WeakMap(),shaderIds:new Map(),nextShaderId:1,cpu:new Set(),target:null,contextLost:false,dialog:null,deferUntilAction:false,working:false,inputAt:-Infinity,pointers:new Set(),slice:null,backgroundError:null,textureReady:new WeakMap(),shoreCoverage:new WeakMap(),map:{state:"idle",generation:0,error:null},initial:{state:"idle",generation:0,error:null},fishing:{state:"idle",generation:0,error:null,loaderCount:0},castIntent:null,castStats:{queued:0,originalCalls:0}};
  window.__aczoTransitionPrep=prep;
  const cancelled=()=>Object.assign(new Error('Preparation superseded'),{aczoCancelled:true});
  function valid(job){return job.generation===prep.generation&&(!job.valid||job.valid())&&!prep.contextLost;}
@@ -50270,11 +50283,11 @@ aczoResumeSession();
   Object.assign(retry.style,{marginTop:'14px',border:'1px solid #b2cbb9',borderRadius:'9px',padding:'8px 16px',background:'#287951',color:'#fff',font:'inherit'});
   abort.type='button';abort.textContent='Abbrechen';Object.assign(abort.style,{marginTop:'14px',marginLeft:'8px',border:'1px solid #90a698',borderRadius:'9px',padding:'8px 16px',background:'transparent',color:'#fff',font:'inherit'});
   abort.onclick=()=>{const dive=prep.active?.key.startsWith('dive|')||prep.error?.job.key.startsWith('dive|');cancel();if(dive&&fishMode)finishLeavingFishView();};
-  retry.onclick=()=>{const failed=prep.error;if(!failed)return;prep.error=null;retry.hidden=true;prep.queue.unshift(failed.job);pump();};
+  retry.onclick=()=>{const failed=prep.error;if(!failed)return;prep.error=null;retry.hidden=true;if(failed.job.retry){failed.job.retry();return;}prep.queue.unshift(failed.job);pump();};
   card.append(title,detail,retry,abort);host.append(card);document.body.append(host);prep.dialog={host,title,detail,retry,abort};return prep.dialog;
  }
  function reveal(job,label){const ui=dialog();ui.host.hidden=false;ui.host.style.display='flex';ui.title.textContent=job.label;ui.detail.textContent=label;ui.retry.hidden=true;}
- function status(job,label){job.phase=label;if(job.startup){startup.detail=label;startupStatus();}}
+ function status(job,label){job.phase=label;if(job.startup){startup.detail=label;startupStatus();if(job.fishingLoader)reveal(job,label);}}
   function hide(){if(prep.dialog){prep.dialog.host.hidden=true;prep.dialog.host.style.display='none';}}
  const input=()=>{prep.inputAt=performance.now();prep.slice=null;};
  for(const name of ['pointerdown','pointermove','wheel','touchstart','touchmove','keydown'])window.addEventListener(name,input,{passive:true,capture:true});
@@ -50284,24 +50297,25 @@ aczoResumeSession();
  document.addEventListener('visibilitychange',()=>{if(document.hidden)prep.pointers.clear();input();});
  prep.sliceStats={slices:0,operations:0,overBudget:0,preemptions:0};
  function quiet(){return !document.hidden&&!prep.pointers.size&&performance.now()-prep.inputAt>100;}
- function startupMayRun(job){return !job.startup||!job.background||(!anglingMode&&!fishMode&&quiet());}
+ function startupMayRun(job){return !job.startup||!job.background||(!fishMode&&(!anglingMode||anglingGamePanelOpen())&&quiet());}
+ function quietFor(job){return !document.hidden&&(job.fishingLoader||job.initial)||quiet();}
  async function slot(job,cost=0,bytes=0){
   const start=performance.now();
   for(;;){
    check(job);
    const now=performance.now(),slice=prep.slice;
-   if(quiet()&&startupMayRun(job)&&slice?.job===job&&now+Math.min(1,job.estimate||.25)<slice.end&&slice.count<slice.cap&&slice.bytes+bytes<=1048576){slice.count++;slice.bytes+=bytes;return;}
+   if(quietFor(job)&&startupMayRun(job)&&slice?.job===job&&now+Math.min(1,job.estimate||.25)<slice.end&&slice.count<slice.cap&&slice.bytes+bytes<=1048576){slice.count++;slice.bytes+=bytes;return;}
    const stamp=await new Promise(resolve=>requestAnimationFrame(t=>setTimeout(()=>resolve(t),0)));check(job);
-   if(!quiet()||!startupMayRun(job))continue;
+   if(!quietFor(job)||!startupMayRun(job))continue;
    const delta=stamp-(prep.lastFrameStamp||stamp);prep.lastFrameStamp=stamp;if(delta>=7&&delta<=40)prep.frameInterval=(prep.frameInterval||delta)*.75+delta*.25;
    const elapsed=Math.max(0,performance.now()-stamp),available=Math.max(0,(prep.frameInterval||16.67)-elapsed-3);let debt=false;
    if(available<Math.min(1,job.estimate||.25)){if(job.foreground)debt=true;else if(performance.now()-(prep.lastProgressAt||start)>300)debt=true;else continue;}
    if(job.background&&window.requestIdleCallback){
     const idle=await new Promise(resolve=>window.requestIdleCallback(d=>resolve({remaining:d.timeRemaining(),timeout:d.didTimeout}),{timeout:40}));check(job);
-    if(!quiet()||!startupMayRun(job))continue;if(idle.remaining<Math.min(.8,job.estimate||.25)){if(idle.timeout&&performance.now()-(prep.lastProgressAt||start)>300)debt=true;else continue;}
+    if(!quietFor(job)||!startupMayRun(job))continue;if(idle.remaining<Math.min(.8,job.estimate||.25)){if(idle.timeout&&performance.now()-(prep.lastProgressAt||start)>300)debt=true;else continue;}
    }
-   const budget=debt?(job.foreground?1:.5):Math.min(job.foreground?3:2,available||1);
-   prep.lastProgressAt=performance.now();prep.slice={job,end:performance.now()+budget,count:1,bytes,cap:debt&&!job.foreground?1:12};prep.sliceStats.slices++;return;
+   const budget=job.fishingLoader&&prep.fishingBarrier?8:debt?(job.foreground?1:.5):Math.min(job.foreground?3:2,available||1);
+   prep.lastProgressAt=performance.now();prep.slice={job,end:performance.now()+budget,count:1,bytes,cap:job.fishingLoader&&prep.fishingBarrier?48:debt&&!job.foreground?1:12};prep.sliceStats.slices++;return;
   }
  }
  async function step(job,label,work,paintBefore=true,bytes=0){
@@ -50317,18 +50331,18 @@ aczoResumeSession();
   if(job){if(options.resolve){const old=job.resolve;job.resolve=()=>{old?.();options.resolve();};}if(options.reject){const old=job.reject;job.reject=e=>{old?.(e);options.reject(e);};}if(options.foreground){job.foreground=true;job.background=false;job.priority=100;if(prep.active?.background&&prep.active!==job)prep.active.pauseRequested=true;}return job;}
   job={key,label,work,valid:isValid,generation:prep.generation,phase:'Ansicht wird vorbereitet …',background:!options.foreground,foreground:!!options.foreground,priority:options.foreground?100:options.priority||20,...options};
   prep.queue.push(job);if(prep.active?.background&&(job.priority||0)>(prep.active.priority||0)){prep.active.pauseRequested=true;prep.sliceStats.preemptions++;}
-  prep.busy=false;status(job,job.phase);pump();return job;
+  prep.busy=!!prep.fishingBarrier;status(job,job.phase);pump();return job;
  }
  async function pump(){
   if(prep.active)return;
   while(prep.queue.length&&!prep.contextLost){
    prep.queue.sort((a,b)=>(b.priority||0)-(a.priority||0));const job=prep.queue.shift();if(!valid(job)){job.reject?.(cancelled());continue;}
-   prep.active=job;prep.working=true;prep.busy=false;job.pauseRequested=false;
+   prep.active=job;prep.working=true;prep.busy=!!prep.fishingBarrier;job.pauseRequested=false;
    try{await job.work(job);check(job);prep.completed.push(job.key);if(prep.completed.length>30)prep.completed.shift();job.resolve?.();}
    catch(error){
     const resume=(error.aczoPreempted||job.pauseRequested||job.resumeAfterCancel)&&!prep.contextLost&&(!job.valid||job.valid());
     if(resume){job.generation=prep.generation;job.pauseRequested=false;job.resumeAfterCancel=false;prep.queue.push(job);}
-    else if(job.startup){job.reject?.(error);if(!error.aczoCancelled)prep.backgroundError=String(error.message||error);}
+    else if(job.startup||job.initial){job.reject?.(error);if(!error.aczoCancelled)prep.backgroundError=String(error.message||error);}
     else if(error.aczoCancelled){job.reject?.(error);}
     else if(!error.aczoCancelled){job.reject?.(error);
      if(job.background){prep.backgroundError=String(error.message||error);console.warn('K39 background preparation:',job.key,error);}
@@ -50336,14 +50350,16 @@ aczoResumeSession();
     }
    }finally{clearTimeout(job.progressTimer);job.progressTimer=null;job.release?.();prep.active=null;prep.slice=null;}
   }
-  prep.busy=false;prep.working=false;if(!prep.error)hide();
+  prep.busy=!!prep.fishingBarrier;prep.working=false;if(!prep.error)hide();
  }
  function cancel(){
-  prep.generation++;const context=prep.contextLost;
-  const keep=[];for(const job of prep.queue){clearTimeout(job.progressTimer);if(job.startup&&!context){job.generation=prep.generation;keep.push(job);}else job.reject?.(cancelled());}prep.queue=keep;
-  if(prep.active){clearTimeout(prep.active.progressTimer);if(prep.active.startup&&!context)prep.active.resumeAfterCancel=true;}
-  if(context){startupReject?.(cancelled());startup.state='idle';prep.map.state='idle';prep.map.generation++;prep.map.error=null;}
-  prep.error=null;prep.deferUntilAction=true;prep.slice=null;prep.busy=false;hide();if(!prep.active)pump();
+  if(prep.fishingBarrier&&!prep.contextLost)return;
+  if(prep.contextLost)prep.fishingBarrier=false;
+  prep.castIntent=null;prep.startIntent=null;prep.generation++;const context=prep.contextLost;
+  const keep=[];for(const job of prep.queue){clearTimeout(job.progressTimer);if(job.startup&&!context){job.generation=prep.generation;job.fishingLoader=false;job.background=true;job.foreground=false;job.priority=0;keep.push(job);}else job.reject?.(cancelled());}prep.queue=keep;
+  if(prep.active){clearTimeout(prep.active.progressTimer);if(prep.active.startup&&!context){prep.active.resumeAfterCancel=true;prep.active.fishingLoader=false;prep.active.background=true;prep.active.foreground=false;prep.active.priority=0;}}
+  if(context){startupReject?.(cancelled());startup.state='idle';prep.map.state='idle';prep.map.generation++;prep.map.error=null;prep.initial.state='idle';prep.initial.generation++;prep.initial.error=null;prep.fishing.state='idle';prep.fishing.generation++;prep.fishing.error=null;prep.fishing.promise=null;}
+  prep.error=null;prep.deferUntilAction=true;prep.slice=null;prep.busy=!!prep.fishingBarrier;hide();if(!prep.active)pump();
  }
  prep.cancel=cancel;
   // Atomic swaps: a frame/await is never allowed while the saved pond population
@@ -50473,7 +50489,7 @@ aczoResumeSession();
  async function gpu(job,roots,underwater,options){
   const layout=layoutFor(options),key=profile(underwater,layout),resources=job.coverageResources||(job.coverageResources=new Map()),pending=nodes(roots,key,layout,o=>resources.set(o,allocationToken(o)));let index=0;
   while(index<pending.length){
-   const object=pending[index];let geometry,renderedSignature,renderedTextures;
+   const object=pending[index];if(!nodes([object],key,layout).length){resources.set(object,allocationToken(object));index++;continue;}let geometry,renderedSignature,renderedTextures;
    await step(job,'Grafik wird vorbereitet … ('+(index+1)+'/'+pending.length+')',()=>{drawBatch([object],underwater,layout);geometry=object.geometry||object.material;renderedSignature=signature(object,key,layout);renderedTextures=[];eachTexture(object,layout,t=>renderedTextures.push([t,textureIdentity(t)]));resources.set(object,allocationToken(object));},true,warmBytes(object));
    let ready=prep.gpu.get(geometry);if(!ready)prep.gpu.set(geometry,ready=new Set());ready.add(renderedSignature);
    for(const [texture,identity]of renderedTextures)prep.textureReady.set(texture,identity);index++;
@@ -50504,7 +50520,7 @@ aczoResumeSession();
   });
   return roots;
  }
- async function worldViews(job,wet){let roots;await step(job,'Sichtbereiche vorbereiten',()=>{roots=viewWorldRoots();});await gpu(job,roots,false);if(wet)await gpu(job,roots,true);job.worldRoots=roots;}
+ async function worldViews(job,wet,freeOnly=false){let roots;await step(job,'Sichtbereiche vorbereiten',()=>{roots=freeOnly?viewWorldRoots(null).filter(object=>!isFishingResource(object)):viewWorldRoots();});await gpu(job,roots,false);if(wet)await gpu(job,roots,true);job.worldRoots=roots;}
  async function underwater(job){
   await baseWorld(job);const rt=aczoMoselFishing;await riverBed(job,rt);
   await gpu(job,underwaterRoots(),true);await gpu(job,selectedRoots(),true);await worldViews(job,true);
@@ -50515,12 +50531,12 @@ aczoResumeSession();
  function allocationToken(object){let textures='';eachTexture(object,null,t=>{textures+='|'+t.id+':'+textureIdentity(t);});return (object.geometry?.id||'sprite')+'|'+signature(object,'resource')+textures;}
  function rememberCoverage(selection,key,job){prep.shoreCoverage.set(selection,{key,resources:[...(job.coverageResources||[])]});}
  function coverageValid(selection,key){const record=prep.shoreCoverage.get(selection);return !!record&&record.key===key&&record.resources.length>0&&record.resources.every(([object,token])=>allocationToken(object)===token);}
- function shoreCoverageKey(){const p=anglingSelection;return [prep.generation,equipmentKey(),profile(false),profile(true),p?.cameraPos?.toArray().join(','),p?.aim?.toArray().join(','),camera.aspect,renderer.getPixelRatio?.(),aczoMoselFishing?.bottom?.id,fishPlantMesh?.geometry?.id,aczoSurveyedNatureGroup.children.length].join('|');}
+ function shoreCoverageKey(){const p=anglingSelection;return [prep.generation,equipmentKey(),profile(false),profile(true),p?.cameraPos?.toArray().join(','),p?.aim?[p.aim.x,p.aim.y].join(','):'',camera.aspect,renderer.getPixelRatio?.(),aczoMoselFishing?.bottom?.id,fishPlantMesh?.geometry?.id,aczoSurveyedNatureGroup.children.length].join('|');}
  function prepareShore(){
   if(prep.deferUntilAction||!anglingMode||!anglingSelection||!['ready','shore-flight'].includes(anglingState)||anglingUi.classList.contains('line-active'))return;
   const selection=anglingSelection,key=equipmentKey(),wet=needsUnderwater(),coverage=shoreCoverageKey();
   if(coverageValid(selection,coverage))return;
-  request('shore|'+key,'Angelplatz wird vorbereitet',async job=>{await equipment(job);await worldViews(job,false);if(wet)await underwater(job);check(job);if(coverage===shoreCoverageKey())rememberCoverage(selection,coverage,job);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','shore-flight'].includes(anglingState),{priority:50});
+  request('shore|'+key,'Angelplatz wird vorbereitet',async job=>{await baseWorld(job);const stableCoverage=shoreCoverageKey();await equipment(job);if(wet)await underwater(job);else await worldViews(job,false);check(job);if(stableCoverage===shoreCoverageKey())rememberCoverage(selection,stableCoverage,job);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','shore-flight'].includes(anglingState),{priority:50});
  }
   // Replace optional all-scene warmups. They used to run large renders after an
  // idle timeout and race the first shore flight/cast. Actual requested resources
@@ -50537,36 +50553,64 @@ aczoResumeSession();
  // Detailed beds and river meshes remain intact and are warmed on real entry.
  aczoK6aQueue=()=>{};
  aczoK6aRunJob=()=>{aczoK6aPreparation.scheduled=false;};
+ const originalReset=resetAnglingCast,originalAim=setAnglingAimFromPointer,originalEquip=equipAnglingEquipment,originalNatural=equipAnglingNaturalBait,originalLure=equipAnglingLure,originalBank=anglingBankEquipMethod;
  const originalStart=startAnglingMode,originalConfirm=confirmAnglingShore,originalChange=changeAnglingSpot,originalCast=startAnglingCast,originalDive=enterFishView,originalLeave=beginLeaveAngling;
  function action(key,label,work,isValid,button){
   prep.error=null;hide();const text=button?.textContent;
-  if(button)button.textContent='Moment …';
+  // Normal actions retain their existing label throughout preparation.
   let requested;const job=request(key,label,async j=>{await work(j);j.intentFinished=true;},()=>requested?.intentFinished||isValid(),{foreground:true});requested=job;
-  if(job&&button&&!job.release)job.release=()=>{if(button.textContent==='Moment …')button.textContent=text;};return job;
+  return job;
+ }
+ function finishFishingEntry(intent){
+  if(!intent||prep.startIntent!==intent||intent.generation!==prep.fishing.generation||prep.contextLost)return;
+  prep.startIntent=null;prep.fishingBarrier=false;prep.busy=!!prep.fishingBarrier;prep.deferUntilAction=false;
+  if(prep.dialog){prep.dialog.abort.hidden=false;if(prep.dialog.originalRetry)prep.dialog.retry.onclick=prep.dialog.originalRetry;}hide();
  }
  startAnglingMode=function(){
-  const was=anglingMode,result=originalStart.apply(this,arguments);
-  if(!was&&anglingMode){prep.deferUntilAction=false;request('selection','Angelspiel wird vorbereitet',job=>gpu(job,[anglingMarkerGroup],false),()=>anglingMode&&['overview-flight','selecting'].includes(anglingState),{foreground:true});}
-  return result;
+  if(prep.startIntent)return prep.startIntent.promise;
+  if(anglingMode||fishMode||aczoAccountBusy)return originalStart.apply(this,arguments);
+  if(prep.fishing.state==='ready'){prep.deferUntilAction=false;return originalStart.apply(this,arguments);}
+  const self=this,args=arguments,intent={generation:prep.fishing.generation};prep.startIntent=intent;prep.fishingBarrier=true;prep.busy=true;
+  reveal({label:'Angelspiel wird vorbereitet'},'Einen Augenblick bitte …');prep.dialog.originalRetry=prep.dialog.retry.onclick;prep.dialog.abort.hidden=true;
+  try{originalStart.apply(self,args);intent.entered=anglingMode;}catch(error){prep.startIntent=null;prep.fishingBarrier=false;prep.busy=!!prep.fishingBarrier;prep.dialog.abort.hidden=false;hide();throw error;}
+  if(!intent.entered){prep.startIntent=null;prep.fishingBarrier=false;prep.busy=!!prep.fishingBarrier;prep.dialog.abort.hidden=false;hide();return;}
+  intent.promise=prepareFishing().then(()=>finishFishingEntry(intent)).catch(()=>{});return intent.promise;
  };
- confirmAnglingShore=function(){
+  confirmAnglingShore=function(){
   if(!anglingMode||anglingState!=='selecting'||!anglingSelection)return originalConfirm.apply(this,arguments);
   prep.deferUntilAction=false;const selection=anglingSelection,self=this,args=arguments,key=equipmentKey();
   return action('confirm|'+key,'Angelplatz wird vorbereitet',async job=>{await equipment(job);await worldViews(job,false);check(job);originalConfirm.apply(self,args);prepareShore();},()=>anglingMode&&anglingState==='selecting'&&anglingSelection===selection&&equipmentKey()===key,anglingConfirmBtn);
  };
  changeAnglingSpot=function(){const result=originalChange.apply(this,arguments);if(anglingMode&&anglingState==='overview-flight')request('selection','Stellenauswahl wird vorbereitet',job=>gpu(job,[anglingMarkerGroup],false),()=>anglingMode&&['overview-flight','selecting'].includes(anglingState),{foreground:true});return result;};
  startAnglingCast=function(){
-  if(!anglingMode||anglingState!=='ready'||!anglingSelection||!anglingAimLocked)return originalCast.apply(this,arguments);
+  if(!anglingMode||anglingState!=='ready'||!anglingSelection||!anglingAimLocked){prep.castStats.originalCalls++;return originalCast.apply(this,arguments);}
   prep.deferUntilAction=false;const wet=needsUnderwater(),selection=anglingSelection,key=equipmentKey(),self=this,args=arguments;
-  const coverage=shoreCoverageKey();if(coverageValid(selection,coverage))return originalCast.apply(self,args);
-  return action('cast|'+key,'Auswurf wird vorbereitet',async job=>{await equipment(job);await worldViews(job,false);if(wet)await underwater(job);check(job);if(coverage===shoreCoverageKey())rememberCoverage(selection,coverage,job);originalCast.apply(self,args);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&anglingState==='ready',anglingActionBtn);
+  const existing=prep.castIntent;if(existing&&existing.selection===selection&&existing.key===key&&!existing.executed)return existing.job;
+  const coverage=shoreCoverageKey();if(anglingLureUnderwaterWorldReady&&coverageValid(selection,coverage)){prep.castStats.originalCalls++;return originalCast.apply(self,args);}
+  const intent={selection,key,executed:false,generation:prep.generation,target:[selection.aim.x,selection.aim.y]};prep.castIntent=intent;prep.castStats.queued++;
+  const isValid=()=>prep.castIntent===intent&&anglingMode&&anglingSelection===selection&&equipmentKey()===key&&anglingState==='ready'&&anglingAimLocked&&selection.aim.x===intent.target[0]&&selection.aim.y===intent.target[1];
+  intent.job=action('cast|'+key,'Auswurf wird vorbereitet',async job=>{
+   await baseWorld(job);const stableCoverage=shoreCoverageKey();await equipment(job);if(wet)await underwater(job);else await worldViews(job,false);check(job);
+   if(stableCoverage===shoreCoverageKey())rememberCoverage(selection,stableCoverage,job);
+   intent.executed=true;prep.castIntent=null;prep.castStats.originalCalls++;originalCast.apply(self,args);
+  },()=>intent.executed||isValid());
+  if(intent.job)intent.job.release=()=>{if(prep.castIntent===intent)prep.castIntent=null;};else if(prep.castIntent===intent)prep.castIntent=null;
+  if(intent.job)intent.job.retry=()=>startAnglingCast.apply(self,args);
+  return intent.job;
  };
- enterFishView=function(){
+  enterFishView=function(){
   if(fishMode||anglingMode)return originalDive.apply(this,arguments);const entry=aczoK8fResolveEntry();if(!entry)return originalDive.apply(this,arguments);
   prep.deferUntilAction=false;const self=this,args=arguments;let entered=false;
-  return action('dive|'+entry.waterBody,'Unterwasserwelt wird vorbereitet',async job=>{await baseWorld(job);if(entry.waterBody==='mosel')await step(job,'Moselgrund an der Tauchstelle …',()=>aczoMoselGetLocalBed(entry.point));await gpu(job,underwaterRoots(),true);await worldViews(job,true);check(job);originalDive.apply(self,args);entered=fishMode;if(!entered)throw cancelled();await gpu(job,underwaterRoots(),true);aczoPerf26UwFullWarmReady=true;},()=>!anglingMode&&(entered?fishMode:!fishMode));
+  return action('dive|'+entry.waterBody,'Unterwasserwelt wird vorbereitet',async job=>{await baseWorld(job);if(entry.waterBody==='mosel')await step(job,'Moselgrund an der Tauchstelle …',()=>aczoMoselGetLocalBed(entry.point));await gpu(job,underwaterRoots(),true);await worldViews(job,true,true);check(job);originalDive.apply(self,args);entered=fishMode;if(!entered)throw cancelled();await gpu(job,underwaterRoots(),true);aczoPerf26UwFullWarmReady=true;},()=>!anglingMode&&(entered?fishMode:!fishMode));
  };
- beginLeaveAngling=function(){const result=originalLeave.apply(this,arguments);if(!anglingMode||anglingState==='exit-flight')cancel();return result;};
+ function prepareSelected(){if(prep.fishing.state==='ready')prepareShore();}
+ resetAnglingCast=function(){const result=originalReset.apply(this,arguments);prepareSelected();return result;};
+ setAnglingAimFromPointer=function(){const result=originalAim.apply(this,arguments);prepareSelected();return result;};
+ for(const [name,original] of [['equipAnglingEquipment',originalEquip],['equipAnglingNaturalBait',originalNatural],['equipAnglingLure',originalLure],['anglingBankEquipMethod',originalBank]]){
+  const wrapped=function(){const before=equipmentKey(),result=original.apply(this,arguments);if(before!==equipmentKey()){prep.castIntent=null;prepareSelected();}return result;};
+  if(name==='equipAnglingEquipment')equipAnglingEquipment=wrapped;else if(name==='equipAnglingNaturalBait')equipAnglingNaturalBait=wrapped;else if(name==='equipAnglingLure')equipAnglingLure=wrapped;else anglingBankEquipMethod=wrapped;
+ }
+ beginLeaveAngling=function(){if(prep.fishingBarrier)return;const result=originalLeave.apply(this,arguments);if(!anglingMode||anglingState==='exit-flight')cancel();return result;};
  renderer.domElement.addEventListener('webglcontextlost',()=>{prep.contextLost=true;prep.textureReady=new WeakMap();cancel();startupStatus();});
  renderer.domElement.addEventListener('webglcontextrestored',()=>{prep.contextLost=false;prep.gpu=new WeakMap();prep.textureReady=new WeakMap();prep.deferUntilAction=false;aczoPerf26UwFullWarmReady=false;if(anglingMode&&['ready','shore-flight'].includes(anglingState))prepareShore();});
 
@@ -50643,7 +50687,7 @@ aczoResumeSession();
   scene.traverseVisible(light=>{if(!light.isLight||light===sun||light===aczoStructureShadowLight)return;const copy=light.clone(false);copy.castShadow=false;copy.position.copy(light.getWorldPosition(new THREE.Vector3()));if(light.target){copy.target=light.target.clone(false);copy.target.position.copy(light.target.getWorldPosition(new THREE.Vector3()));night.add(copy.target);}night.add(copy);});
   try{await gpu(job,roots,false,{lightSource:night,lightKey:'k37-ship-night-no-shadow',fogOverride:null});check(job);prep.coverage.shipExitRepresentatives=roots.length;prep.coverage.shipExitNightLayouts=1;}finally{night.clear();}
  }
-  function startupFogRepresentatives(){
+  function startupFogRepresentatives(freeOnly=false){
   const candidates=[],seen=new Set(),roots=[];
   // Crossing the surface changes scene.fog for the landscape too. Prepare one
   // existing-buffer representative per material/vertex layout, not the whole
@@ -50651,6 +50695,7 @@ aczoResumeSession();
   scene.traverse(object=>{if(object.isMesh||object.isLine||object.isPoints||object.isSprite)candidates.push(object);});
   for(const root of [typeof northWood==='undefined'?null:northWood,typeof deadwoodContactShadow==='undefined'?null:deadwoodContactShadow,typeof aczoPondStructureShadowReceiver==='undefined'?null:aczoPondStructureShadowReceiver,typeof aczoStructureBottomShade==='undefined'?null:aczoStructureBottomShade])if(root)root.traverse(object=>{if(object.isMesh||object.isLine||object.isPoints||object.isSprite)candidates.push(object);});
   for(const object of candidates){
+   if(freeOnly&&isFishingResource(object))continue;
    const geometry=object.geometry,layout=Object.entries(geometry?.attributes||{}).sort(([a],[b])=>a.localeCompare(b)).map(([name,a])=>name+':'+a.itemSize+':'+!!a.normalized).join(',');
    const morph=Object.entries(geometry?.morphAttributes||{}).map(([name,a])=>name+':'+a.length).join(',');
    const key=object.type+'|'+materials(object).map(materialKey).join(',')+'|'+!!object.receiveShadow+'|'+!!object.isInstancedMesh+'|'+!!object.instanceColor+'|'+layout+'|'+morph+'|'+(object.skeleton?.bones.length||0);
@@ -50759,6 +50804,76 @@ aczoResumeSession();
  }
  function fix31StartupBed(point){return aczoK34EnsureMoselResident();}
 
+ function fishingWorldRoots(){
+  const roots=[...viewWorldRoots(),aczoSurveyedNatureGroup,realBirchGroup,northWood,...aczoSurveyFineLodMeshes,...aczoSurveySprayLodMeshes,...realBirchFineLeafMeshes];
+  scene.traverse(object=>{if(object.userData.aczoPerf11Sector||object.userData.aczoForestChunk)roots.push(object);});
+  const unique=new Set(roots.filter(Boolean));return [...unique].filter(object=>{for(let p=object.parent;p;p=p.parent)if(unique.has(p))return false;return true;});
+ }
+ function fishingWorldLayouts(){
+  const bank=anglingBankRuntime.group,personal=typeof personalRodPod==='undefined'?null:personalRodPod,elder=typeof aczoK7cNpc==='undefined'?null:aczoK7cNpc?.root,base=[];
+  const belongs=light=>{for(let p=light;p;p=p.parent)if(p===bank||p===personal||p===elder)return true;return false;};
+  scene.updateMatrixWorld(true);scene.traverseVisible(light=>{if(light.isLight&&light.layers.test(camera.layers)&&!belongs(light))base.push(light);});
+  const nativeLights=root=>{const sources=[];if(root)root.traverse(light=>{if(!light.isLight||!light.layers.test(camera.layers))return;for(let p=light;p&&p!==root;p=p.parent)if(!p.visible)return;sources.push(light);});return sources;};
+  const carp=nativeLights(anglingBankRuntime.pods.carp_set),personalLights=nativeLights(personal),elderLights=nativeLights(elder);
+  // Both native rod pods use the same createRodPodScene light constructors.
+  // The elder is lazy-built; only his exact native light is represented here.
+  if(!personal)personalLights.push(...carp);
+  if(!elder){const glow=new THREE.PointLight(0xffc985,0,4.6,2);glow.position.set(-2.3,-.25,1.0);glow.castShadow=false;if(glow.layers.test(camera.layers))elderLights.push(glow);}
+  const layouts=[],seen=new Set();
+  for(let mask=0;mask<8;mask++){
+   const sources=[...base,...(mask&1?personalLights:[]),...(mask&2?carp:[]),...(mask&4?elderLights:[])];
+   const scope=new THREE.Scene();for(const light of sources){const copy=light.clone(false);copy.visible=true;copy.position.copy(light.getWorldPosition(new THREE.Vector3()));if(light.target){copy.target=light.target.clone(false);copy.target.position.copy(light.target.getWorldPosition(new THREE.Vector3()));scope.add(copy.target);}if(copy.shadow&&light.shadow){copy.shadow.map=light.shadow.map;copy.shadow.mapPass=light.shadow.mapPass;}scope.add(copy);}
+   const layout=layoutFor({lightSource:scope});scope.clear();const key=profile(false,layout)+'|'+profile(true,layout);if(!seen.has(key)){seen.add(key);layouts.push(layout);}
+  }
+  return layouts;
+ }
+ async function fishingWorldWarm(job){
+  let roots,layouts;await step(job,'Angelansichten vorbereiten',()=>{
+   const water=[];for(const surface of [waterSurface,moselWaterSurface])for(const side of [THREE.FrontSide,THREE.BackSide]){const material=aczoInsetWaterMaterial(surface.material,side);if(material!==surface.material){const proxy=fix31Proxy(surface);proxy.material=material;water.push(proxy);}}
+   roots=[...fishingWorldRoots(),...underwaterRoots(),...(job.equipmentRoots||[]),...job.templates,...water];layouts=fishingWorldLayouts();
+  });
+  const registry=[];for(const layout of layouts){
+   await fix31ShoreVariants(job,roots,layout);await gpu(job,roots,true,layout);
+   const catchLayout={...layout,materialMaps:new Map([[anglingFishVisualMat,fishTexture('roach')]])};await fix31ShoreVariants(job,job.equipmentRoots||[],catchLayout);await gpu(job,job.equipmentRoots||[],true,catchLayout);
+   const noFog={...layout,fogOverride:null},missingShore=nodes(roots,profile(false,layout),layout).length,missingUnderwater=nodes(roots,profile(true,layout),layout).length,missingNoFog=scene.fog?nodes(roots,profile(false,noFog),noFog).length:0;
+   registry.push({shore:profile(false,layout),underwater:profile(true,layout),noFog:profile(false,noFog),roots:roots.length,missingShore,missingUnderwater,missingNoFog});
+   if(missingShore||missingUnderwater||missingNoFog)throw Error('Angelansichten konnten noch nicht vollständig vorbereitet werden.');
+  }
+  prep.coverage.fishingWorldProfiles=registry;
+ }
+ const initialTemplates=new Map();let initialPromise=null;
+ function isFishingResource(object){for(let p=object;p;p=p.parent)if(p===anglingScene||p===anglingRodAnchor||p===anglingMarkerGroup||p===anglingPhotoHorizon||p===anglingPhotoShadowGroup||p===anglingMarkerHalo)return true;return false;}
+ function initialStatus(){try{window.__aczoInitialPrepStatus?.({...prep.initial});}catch(error){console.warn('Initial preparation status:',error);}}
+ function prepareInitialReady(){
+  if(prep.initial.state==='ready'&&!prep.contextLost)return Promise.resolve({...prep.initial});if(prep.initial.state==='running')return initialPromise;
+  const generation=prep.initial.generation;prep.initial.state='running';prep.initial.error=null;initialStatus();
+  initialPromise=(async()=>{await prepareMapReady();return await new Promise((resolve,reject)=>{
+   const job=request('initial|'+generation,'Spielwelt wird vorbereitet',async job=>{
+    await baseWorld(job);
+    for(const name of Object.keys(ACZO_MOSEL_SPECIES))if(ACZO_K8G_NEW[name]&&!initialTemplates.has(name))await step(job,'Fische vorbereiten',()=>initialTemplates.set(name,createFishMesh(name)));
+    await startupTextures(job);await gpu(job,underwaterRoots(),true);await gpu(job,[...initialTemplates.values()],true);
+    let roots;await step(job,'Umgebung vorbereiten',()=>{roots=viewWorldRoots(null).filter(object=>!isFishingResource(object));});await gpu(job,roots,false);await gpu(job,roots,true);await gpu(job,startupFogRepresentatives(true),true);
+    for(const point of startupBedCentres()){
+     let entry;await step(job,'Flussgrund vorbereiten',()=>{entry=fix31StartupBed(point);});
+     const spec={...aczoMoselBedSpec(point),size:117.5};spec.key=spec.x+'|'+spec.y+'|'+spec.size;
+     let detail=aczoMoselBedCache.get(spec.key);const work=aczoK34DetailJob(()=>valid(job)&&!job.pauseRequested);let retained=!!detail;
+     try{if(!detail)await step(job,'Flussdetails vorbereiten',async()=>{detail=await aczoK34BuildDetailEntry(spec,work);});await gpu(job,[...fix31BedProxies(entry),detail.group],true);check(job);entry.gpuReady=true;detail.gpuReady=true;aczoMoselBedCache.set(spec.key,detail);retained=true;}finally{if(!retained)aczoK34DisposeDetailWork(work);}
+    }
+    check(job);prep.initial.state='ready';prep.initial.error=null;initialStatus();
+   },()=>generation===prep.initial.generation&&!prep.contextLost,{foreground:true,initial:true,resolve:()=>resolve({...prep.initial}),reject});if(!job)reject(cancelled());
+  });})().catch(error=>{if(generation===prep.initial.generation){prep.initial.state=prep.contextLost?'idle':'error';prep.initial.error=String(error.message||error);initialStatus();}throw error;});return initialPromise;
+ }
+ function prepareFishing(){
+  if(prep.fishing.state==='ready'&&!prep.contextLost)return Promise.resolve(startupSnapshot());if(prep.fishing.state==='running')return prep.fishing.promise;
+  const generation=prep.fishing.generation;prep.fishing.state='running';prep.fishing.error=null;prep.fishing.loaderCount++;prep.error=null;
+  const promise=prep.prepareStartup({background:false,fishingLoader:true});
+  prep.fishing.promise=promise.then(snapshot=>{if(generation!==prep.fishing.generation||prep.contextLost)throw cancelled();prep.fishing.state='ready';prep.fishing.error=null;hide();return snapshot;}).catch(error=>{
+   if(generation!==prep.fishing.generation)throw error;prep.fishing.state=prep.contextLost?'idle':'error';prep.fishing.error=String(error.message||error);
+   if(!error.aczoCancelled){const ui=dialog();prep.error={job:prep.startupJob,message:prep.fishing.error};ui.host.hidden=false;ui.host.style.display='flex';ui.title.textContent='Angelspiel wird vorbereitet';ui.detail.textContent='Die Vorbereitung wurde unterbrochen. Bitte erneut versuchen.';ui.retry.hidden=false;ui.retry.onclick=()=>{const intent=prep.startIntent;prep.error=null;prepareFishing().then(()=>finishFishingEntry(intent)).catch(()=>{});};}
+   throw error;
+  });return prep.fishing.promise;
+ }
+
  let mapPromise=null;
  function prepareMapReady(){
   if(prep.map.state==='ready'&&!prep.contextLost)return Promise.resolve({...prep.map});if(prep.map.state==='running')return mapPromise;
@@ -50766,12 +50881,12 @@ aczoResumeSession();
   mapPromise=(async()=>{try{await aczoK35Panorama.photoCollar.promise;if(prep.contextLost||generation!==prep.map.generation)throw cancelled();prep.map.warmingDraw=true;try{aczoRenderMainView();}finally{prep.map.warmingDraw=false;}if(!aczoK35Panorama.photoCollar.settled||!aczoK35Panorama.warmed)throw Error('Die Umgebung ist noch nicht bereit.');if(prep.contextLost||generation!==prep.map.generation)throw cancelled();prep.map.state='ready';return {...prep.map};}catch(error){if(generation===prep.map.generation){prep.map.state=prep.contextLost?'idle':'error';prep.map.error=String(error.message||error);}throw error;}})();return mapPromise;
  }
  prep.prepareStartup=function(options={}){
-  if(startup.state==='ready'&&!prep.contextLost&&anglingLureUnderwaterWorldReady&&aczoPerf26UwFullWarmReady)return Promise.resolve(startupSnapshot());if(startup.state==='running')return startupPromise;
+  if(startup.state==='ready'&&!prep.contextLost&&anglingLureUnderwaterWorldReady&&aczoPerf26UwFullWarmReady)return Promise.resolve(startupSnapshot());if(startup.state==='running'){if(!options.background&&prep.startupJob){prep.startupJob.foreground=true;prep.startupJob.background=false;prep.startupJob.priority=100;prep.startupJob.fishingLoader=!!options.fishingLoader;if(prep.active?.background&&prep.active!==prep.startupJob)prep.active.pauseRequested=true;}return startupPromise;}
   const boot=window.__aczoSafeStart;if(!boot?.readyForFrames||!boot.gpuPrepared||boot.failed||prep.contextLost){const error=Error('Die Karte ist noch nicht bereit. Bitte kurz warten.');startupFailure(error,startupAttempt);return Promise.reject(error);}
   const attempt=++startupAttempt;startup.state='running';startup.phase='Unterwasserwelten werden vorbereitet';startup.detail='';startup.completedSteps=0;startup.error=null;startup.resources=null;startupStatus();
   let resolve,reject,settled=false;startupPromise=new Promise((ok,fail)=>{resolve=ok;reject=fail;});
   const fail=error=>{if(settled)return;settled=true;startupFailure(error,attempt);reject(error);};startupReject=fail;
-  const job={key:'startup|underwater|'+attempt,label:'Unterwasserwelten werden vorbereitet',generation:prep.generation,startup:true,background:!!options.background,foreground:!options.background,priority:options.background?0:100,phaseDone:new Set(),templates:[],templateNames:new Set(),beds:[],valid:()=>!prep.contextLost,
+  const job={key:'startup|underwater|'+attempt,label:'Unterwasserwelten werden vorbereitet',generation:prep.generation,startup:true,background:!!options.background,foreground:!options.background,priority:options.background?0:100,phaseDone:new Set(),templates:[...initialTemplates.values()],templateNames:new Set(initialTemplates.keys()),beds:[],fishingLoader:!!options.fishingLoader,valid:()=>!prep.contextLost,
    resolve:()=>{if(settled)return;settled=true;if(attempt===startupAttempt){startup.state='ready';startup.phase='Spielwelten sind bereit';startup.detail='';startup.completedSteps=startup.totalSteps;startup.error=null;startupReject=null;startupStatus();}resolve(startupSnapshot());},reject:fail,
    work:async job=>{
     const templates=job.templates,beds=job.beds;
@@ -50786,9 +50901,9 @@ aczoResumeSession();
      let detail=aczoMoselBedCache.get(spec.key);const work=aczoK34DetailJob(()=>valid(job)&&!job.pauseRequested);let retained=!!detail;
      try{if(!detail)await step(job,'Uferdetails vorbereiten',async()=>{detail=await aczoK34BuildDetailEntry(spec,work);});await gpu(job,[...fix31BedProxies(entry),detail.group],true);check(job);entry.gpuReady=true;detail.gpuReady=true;aczoMoselBedCache.set(spec.key,detail);aczoK34PublishDetail(detail,{center:point});retained=true;beds.push(entry.group);}finally{if(!retained)aczoK34DisposeDetailWork(work);}
     });
-    await startupPhase(job,7,'Vorbereitung abschließen',async()=>{await startupTextures(job);await step(job,'Umgebung vorbereiten',()=>prepareMapReady());await k37WarmCachedShips(job);aczoPerf26UwFullWarmReady=true;startup.resources=startupResourceStats([...underwaterRoots(),...selectedRoots(),...beds,...templates],templates);});
+    await startupPhase(job,7,'Vorbereitung abschließen',async()=>{await startupTextures(job);await step(job,'Umgebung vorbereiten',()=>prepareMapReady());await k37WarmCachedShips(job);await fishingWorldWarm(job);aczoPerf26UwFullWarmReady=true;startup.resources=startupResourceStats([...underwaterRoots(),...selectedRoots(),...beds,...templates],templates);});
    }};
-  prep.queue.push(job);prep.busy=false;pump();return startupPromise;
+  prep.startupJob=job;prep.queue.push(job);prep.busy=!!prep.fishingBarrier;pump();return startupPromise;
  };
 
   prep.startupSnapshot=startupSnapshot;
@@ -50800,10 +50915,12 @@ aczoResumeSession();
 
  prep.prepareShore=prepareShore;
  prep.prepareMapReady=prepareMapReady;
+ prep.prepareInitialReady=prepareInitialReady;
+ prep.prepareFishing=prepareFishing;
  prep.profile=profile;
  prep.residency=(roots,underwater=false)=>nodes(roots,profile(underwater)).map(o=>({name:o.name,geometry:o.geometry?.id}));
  prep.pending=()=>{const describe=(roots,key)=>nodes(roots,key).map(object=>({name:object.name||'',type:object.type,geometry:object.geometry?.id,materials:materials(object).filter(Boolean).map(material=>({id:material.id,version:material.version,key:materialKey(material)}))}));return {shore:describe(selectedRoots(),profile(false)),underwater:describe(underwaterRoots(),profile(true))};};
- prep.snapshot=()=>({working:prep.working,backgroundError:prep.backgroundError,map:{...prep.map},sliceStats:{...prep.sliceStats},busy:prep.busy,active:prep.active?{key:prep.active.key,phase:prep.active.phase}:null,queued:prep.queue.map(job=>job.key),error:prep.error?.message||null,worldReady:anglingLureUnderwaterWorldReady,underwaterGpuReady:aczoPerf26UwFullWarmReady,completed:prep.completed.slice(),coverage:{...prep.coverage},stats:prep.stats.slice(-30)});
+ prep.snapshot=()=>({working:prep.working,backgroundError:prep.backgroundError,map:{...prep.map},initial:{...prep.initial},fishing:{state:prep.fishing.state,generation:prep.fishing.generation,error:prep.fishing.error,loaderCount:prep.fishing.loaderCount},castIntent:prep.castIntent?{key:prep.castIntent.key,executed:prep.castIntent.executed}:null,castStats:{...prep.castStats},sliceStats:{...prep.sliceStats},busy:prep.busy,active:prep.active?{key:prep.active.key,phase:prep.active.phase}:null,queued:prep.queue.map(job=>job.key),error:prep.error?.message||null,worldReady:anglingLureUnderwaterWorldReady,underwaterGpuReady:aczoPerf26UwFullWarmReady,completed:prep.completed.slice(),coverage:{...prep.coverage},stats:prep.stats.slice(-30)});
 })();
 
 </script>
