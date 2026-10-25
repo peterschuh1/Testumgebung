@@ -6579,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K66-STERNREFLEXE'};
+ const state={contextLost:false,build:'4.0-K67-MOSEL-EINSTIEG'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -6850,8 +6850,9 @@ function aczoApplyAudioSessionPolicy(reason='policy'){
     const session=navigator.audioSession;
     state.supported=!!session;
     if(!session){state.observedType=null;state.sessionState=null;aczoRecordAudioState(reason);return false;}
-    // Assign before and after activation. Equal assignments may still be deduplicated
-    // by WebKit; the readback below proves only the page's requested category.
+    // K67: release a cached category override after a page/context return, then
+    // request ambient again. Readback still cannot prove the physical switch.
+    if((reason==='page-return'||reason==='resume-before')&&session.type==='ambient')session.type='auto';
     session.type='ambient';state.observedType=String(session.type);
     state.sessionState='state' in session?String(session.state):null;
     if(session!==aczoAudioObservedSession&&typeof session.addEventListener==='function'){
@@ -20219,17 +20220,20 @@ function aczoK43PlaceStreamActor(rt,item,schools){
  // A cast prepares its destination while the fish layer is hidden. Once the
  // underwater view is visible, recycle only beyond the existing fade range.
  const hiddenPreflight=rt.k43Population?.preflight&&(!fishGroup.visible||anglingCinematicView!=='underwater');
- const minimumDistance2=hiddenPreflight?0:32*32;
+ // K67: ordinary fish can enter the fully fog-hidden outer band. Keep every
+ // existing nearby fish in place; rare stock retains its original boundary.
+ const recycleRadius=aczoK42Rare(name)?32:20;
+ const minimumDistance2=hiddenPreflight?0:recycleRadius*recycleRadius;
  // K54: reject the visible circle inside the habitat sampler itself. The old
  // path could run eight complete 28-candidate searches for a single actor.
  const point=hiddenPreflight?aczoMoselRandomFish(candidate,name):aczoK8hRiverPoint(candidate,name,{avoid:camera.position,radius2:minimumDistance2});
  if(point){best=point;bestDistance=point.distanceToSquared(camera.position);}
  if(bestDistance<minimumDistance2){
   const minimum=Math.max(.9,(actor.obj.userData.baseFishHeight||.2)+.55);
-  for(const radius of [35,45,55,65]){
+  for(const radius of [recycleRadius+3,recycleRadius+13,recycleRadius+23,recycleRadius+33]){
    for(let i=0;i<24;i++){
     const angle=i*Math.PI/12,x=camera.position.x+Math.cos(angle)*radius,y=camera.position.y+Math.sin(angle)*radius,d=aczoMoselDepth(x,y);
-    if(d==null||d<minimum||!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
+    if(d==null||d<minimum||aczoK42Rare(name)&&!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
     const bottom=aczoDepthToWorldZ(d,true),low=['goby','eel','zander','catfish','bream'].includes(name);
     best=new THREE.Vector3(x,y,ACZO_K8G_NEW[name]?aczoK8gFishZ(name,x,y,d,actor.obj.userData.baseFishHeight):Math.min(ACZO_MOSEL_SURFACE_Z-.22,low?bottom+.25:bottom+d*.5));break;
    }
@@ -20282,7 +20286,7 @@ function aczoK43StreamPopulation(rt){
 function aczoK51PrimeLurePopulation(point){
  const rt=aczoMoselFishing;
  if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
- if(aczoK42Section(point.x,point.y)===rt.k42Section&&Math.hypot(point.x-rt.center.x,point.y-rt.center.y)<=20)return;
+ // Short casts need the same destination preparation as long casts.
  aczoK43QueueRiverPopulation(rt,point,{preflight:true});
  const job=rt.k43Population;
  clearTimeout(rt.k51PreflightTimer);
@@ -20383,13 +20387,19 @@ function aczoK8hCatchPopulation(){
  return aczoK8hCatchCache;
 }
 function aczoK8hRiverPoint(out,name,options={}){
- const rt={...aczoMoselFishing,center:aczoMoselFishing.k42StockCenter||aczoMoselFishing.center},p=ACZO_MOSEL_SPECIES[name];if(!rt||!p)return null;let best=null,score=-1;
+ const runtime=aczoMoselFishing,p=ACZO_MOSEL_SPECIES[name];if(!runtime||!p)return null;
+ const rare=aczoK42Rare(name),center=rare?(runtime.k42StockCenter||runtime.center):runtime.center,span=rare?116:96;let best=null,score=-1;
  for(let i=0;i<28;i++){
-  const x=Math.round(rt.center.x/25)*25+(aczoK8hRandom()-.5)*116,y=Math.round(rt.center.y/25)*25+(aczoK8hRandom()-.5)*116;
+  const local=!rare&&!options.avoid&&aczoK8hRandom()<.20;
+  const angle=local?aczoK8hRandom()*Math.PI*2:0,radius=local?Math.sqrt(aczoK8hRandom())*18:0;
+  const x=(rare?Math.round(center.x/25)*25:center.x)+(local?Math.cos(angle)*radius:(aczoK8hRandom()-.5)*span),y=(rare?Math.round(center.y/25)*25:center.y)+(local?Math.sin(angle)*radius:(aczoK8hRandom()-.5)*span);
   if(options.avoid&&(x-options.avoid.x)**2+(y-options.avoid.y)**2<options.radius2)continue;
   const d=aczoMoselDepth(x,y);
-  if(d==null||d<.9||!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
-  const q=aczoK8hHabitat(name,x,y)*(.25+aczoK8hRandom());if(q<=score)continue;score=q;best={x,y,d};
+  if(d==null||d<.9||rare&&!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
+  const habitat=aczoK8hHabitat(name,x,y),q=habitat*(.25+aczoK8hRandom());if(q>score){score=q;best={x,y,d};}
+  // K67: keep habitat preferences without concentrating 28 trials onto the
+  // same few strongest cells. Common fish cover a continuous local window.
+  if(!rare&&aczoK8hRandom()<.35+.65*habitat/(1+habitat)){best={x,y,d};break;}
  }
  if(!best)return null;
  const {x,y,d}=best;
@@ -34312,7 +34322,8 @@ function confirmAnglingShore(){
   anglingMarkerGroup.visible=false;
   anglingBankGroup.position.copy(anglingSelection.shore);
   anglingBankGroup.rotation.z=Math.atan2(-anglingSelection.inward.x,anglingSelection.inward.y);
-  if(onPier){anglingBankGroup.visible=false;}else{updateAnglingBankDecor();anglingBankGroup.visible=true;}
+  if(!onPier)updateAnglingBankDecor();
+  anglingBankGroup.visible=false;
   setAnglingPhotoHorizonForSelection();
   anglingUi.classList.add('is-fishing');
   anglingUi.classList.remove('line-active','is-drilling','is-landing');
@@ -34341,6 +34352,7 @@ function confirmAnglingShore(){
       anglingUi.classList.remove('aim-locked');
       updateAnglingAimFromSettings(true);
       anglingRodGroup.visible=true;
+      anglingBankGroup.visible=!onPier&&!aczoBoatActive();
       setAnglingStatus('Ziel wählen','Ziel antippen.');
       anglingActionBtn.disabled=true;anglingActionBtn.textContent='Ziel wählen';
       // P48: Unterwasserwelt in einer ruhigen Leerlaufphase vorbereiten,
@@ -39663,6 +39675,9 @@ function aczoK12Stream(){
  const rt=aczoMoselFishing;
  const lureView=anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&(anglingState==='casting'||anglingCinematicView==='underwater');
  if(!rt||(!fishMode&&!lureView)||fishTransition)return;
+ // K67: enterFishView hides the surface before it creates fishTransition.
+ // Do not recenter/hide the entry stock around the still elevated map camera.
+ if(fishMode&&!anglingMode&&camera.position.z>ACZO_MOSEL_SURFACE_Z+.08)return;
  aczoK43StreamPopulation(rt);if(!rt.bottom)return;
  const now=performance.now();if(now-aczoK12LastStream<700)return;aczoK12LastStream=now;
  const pos=camera.position,spec=rt.k34DetailSpec||aczoMoselBedSpec(rt.center);if(Math.max(Math.abs(pos.x-spec.x),Math.abs(pos.y-spec.y))<spec.size-42)return;
@@ -40117,7 +40132,7 @@ function updateAnglingMode(dt){
   // Unterwasseransicht (Kunstköder) niemals sichtbar bleiben. Oberhalb der
   // Wasseroberfläche und in normalen Uferphasen bleibt sie unverändert aktiv.
   const hideShoreSetUnderwater=(typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
-  if(hideShoreSetUnderwater){
+  if(hideShoreSetUnderwater||anglingSelection?.pierSpot||['selecting','overview-flight','shore-flight','exit-flight'].includes(anglingState)){
     anglingBankGroup.visible=false;
     anglingMarkerGroup.visible=false;
   }else if(!aczoBoatActive()&&anglingSelection&&anglingState!=='selecting'&&anglingState!=='overview-flight'&&anglingState!=='shore-flight'&&anglingState!=='exit-flight'){
