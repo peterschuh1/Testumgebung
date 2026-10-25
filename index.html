@@ -6577,7 +6577,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K47-MOSEL-KESCHER'};
+ const state={contextLost:false,build:'4.0-K48-FUTTERMARKIERUNG'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -26191,8 +26191,14 @@ function anglingBankUpdateDrillObstacle(previous,next){
  return false;
 }
 function anglingFeedVisualsHidden(){
- return !anglingMode||anglingCinematicView==='underwater'
-  ||['bite','bite-focus','strike','drilling','landing','catch-reveal','caught','bank-bite','bank-pickup','bank-lifting','missed'].includes(anglingState)
+ if(!anglingMode||anglingCinematicView==='underwater')return true;
+ // K48: the float's active feed marker must not announce a bite. Keep the
+ // same surface ring/timer through the bite and strike QTE (also on a miss).
+ // A successful strike enters drilling and hides both through the normal path.
+ const floatBite=!anglingUsesBankSet()&&!anglingUsesArtificialLure()&&!anglingUsesDeeper()
+  &&['bite','bite-focus','strike','missed'].includes(anglingState);
+ if(floatBite&&!['is-drilling','is-landing','is-caught','is-catch-sequence'].some(name=>anglingUi.classList.contains(name)))return false;
+ return ['bite','bite-focus','strike','drilling','landing','catch-reveal','caught','bank-bite','bank-pickup','bank-lifting','missed'].includes(anglingState)
   ||['is-drilling','is-landing','is-caught','is-catch-sequence','bite-alert','bite-focus'].some(name=>anglingUi.classList.contains(name));
 }
 function anglingHideFeedVisuals(){
