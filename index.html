@@ -6579,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K50-FUTTERBUTTONS'};
+ const state={contextLost:false,build:'4.0-K51-MOSEL-FISCHSTREAM'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -20146,15 +20146,15 @@ function aczoK42SpreadScare(actor){
 }
 // K43: the free-swim population follows the camera independently of bed-detail jobs.
 // Reuse the existing 461 actors; nearby actors keep their position and school.
-function aczoK43QueueRiverPopulation(rt,center){
+function aczoK43QueueRiverPopulation(rt,center,options={}){
  const next=aczoK42StockCenter(center),sectionChanged=next.section!==rt.k42Section;
  rt.center.copy(center);rt.k42Section=next.section;rt.k42StockCenter=next.center;
  aczoK8hReset(center);rt.habitats=aczoK34HabitatsFor(center);
  const pool=new Map(),active=[],queue=[],schools=new Map();
  for(const f of fishActors){const name=f.obj.userData.species;if(!pool.has(name))pool.set(name,[]);pool.get(name).push(f);}
- const position=camera.position,protectedRadius2=34*34;
+ const preflight=!!options.preflight,position=camera.position,protectedRadius2=preflight?0:34*34;
  let planList=aczoK8hVisualPlan(center);
- const held=actor=>!actor.k43PendingPlacement&&(actor.obj.position.distanceToSquared(position)<protectedRadius2||activeHunt?.predator===actor||activeHunt?.prey===actor);
+ const held=actor=>!actor.k43PendingPlacement&&(actor.obj.position.distanceToSquared(position)<protectedRadius2||activeHunt?.predator===actor||activeHunt?.prey===actor||aczoFishIsActiveLureAttacker(actor)||anglingVisibleStrikeActor===actor);
  // Bridge weighting may change by a few common fish. Defer that redistribution
  // if it would remove a currently visible school member.
  if(planList.some(p=>{const list=pool.get(p.species)||[];return list.length>p.count&&list.filter(a=>!held(a)).length<list.length-p.count;}))planList=planList.map(p=>({...p,count:pool.get(p.species)?.length||0}));
@@ -20167,7 +20167,7 @@ function aczoK43QueueRiverPopulation(rt,center){
   for(let i=0;i<plan.count;i++){
    let actor=list.shift(),created=false;
    if(!actor){const at=fishActors.length;addFishPopulation(plan.species,1);actor=fishActors[at];created=true;}
-   const protectedActor=!created&&!actor.k43PendingPlacement&&(actor.obj.position.distanceToSquared(position)<protectedRadius2||activeHunt?.predator===actor||activeHunt?.prey===actor);
+    const protectedActor=!created&&held(actor);
    actor.index=active.length;active.push(actor);
    const school=actor.obj.userData.k42School??(plan.schools?i%plan.schools:-1),schoolKey=plan.species+':'+school;
    if(protectedActor){
@@ -20184,20 +20184,23 @@ function aczoK43QueueRiverPopulation(rt,center){
  }
  for(const list of pool.values())for(const f of list)fishGroup.remove(f.obj);
  fishActors.splice(0,fishActors.length,...active);
- rt.k43Population={queue,index:0,schools,focus:center.clone(),section:next.section};
+ rt.k43Population={queue,index:0,schools,focus:center.clone(),section:next.section,preflight,retry:[],retryAt:0};
  const stats=rt.k43PopulationStats||(rt.k43PopulationStats={streams:0,relocated:0,maxSliceMs:0});
  stats.streams++;stats.protected=active.length-queue.length;
 }
 function aczoK43PlaceStreamActor(rt,item,schools){
  const {actor,name,slot}=item,candidate=new THREE.Vector3();let best=null,bestDistance=-1;
- // Only recycle beyond the fade range. Existing visible fish are never teleported.
+ // A cast prepares its destination while the fish layer is hidden. Once the
+ // underwater view is visible, recycle only beyond the existing fade range.
+ const hiddenPreflight=rt.k43Population?.preflight&&(!fishGroup.visible||anglingCinematicView!=='underwater');
+ const minimumDistance2=hiddenPreflight?0:32*32;
  for(let attempt=0;attempt<8;attempt++){
   aczoMoselRandomFish(candidate,name);
   const distance=candidate.distanceToSquared(camera.position);
   if(distance>bestDistance){best=candidate.clone();bestDistance=distance;}
-  if(distance>=32*32)break;
+   if(distance>=minimumDistance2)break;
  }
- if(bestDistance<32*32){
+ if(bestDistance<minimumDistance2){
   const minimum=Math.max(.9,(actor.obj.userData.baseFishHeight||.2)+.55);
   for(const radius of [35,45,55,65]){
    for(let i=0;i<24;i++){
@@ -20206,10 +20209,10 @@ function aczoK43PlaceStreamActor(rt,item,schools){
     const bottom=aczoDepthToWorldZ(d,true),low=['goby','eel','zander','catfish','bream'].includes(name);
     best=new THREE.Vector3(x,y,ACZO_K8G_NEW[name]?aczoK8gFishZ(name,x,y,d,actor.obj.userData.baseFishHeight):Math.min(ACZO_MOSEL_SURFACE_Z-.22,low?bottom+.25:bottom+d*.5));break;
    }
-   if(best&&best.distanceToSquared(camera.position)>=32*32)break;
+    if(best&&best.distanceToSquared(camera.position)>=minimumDistance2)break;
   }
  }
- if(!best||best.distanceToSquared(camera.position)<32*32)return false;
+ if(!best||best.distanceToSquared(camera.position)<minimumDistance2)return false;
  aczoK42RegisterActor(actor,name,slot);actor.obj.position.copy(best);
  aczoMoselRandomFish(actor.target,name);
  actor.schoolTarget=null;actor.schoolOffset=null;
@@ -20228,18 +20231,46 @@ function aczoK43PlaceStreamActor(rt,item,schools){
 }
 function aczoK43StreamPopulation(rt){
  const position=camera.position;
+ // During the above-water cast the camera is still travelling. Finish the
+ // destination job instead of recentering it back onto the shore camera.
+ const casting=(anglingMode&&anglingUsesArtificialLure()&&anglingState==='casting')||(rt.k43Population?.preflight&&anglingLureEntryTime>.055);
  const changed=aczoK42Section(position.x,position.y)!==rt.k42Section;
  const moved=Math.hypot(position.x-rt.center.x,position.y-rt.center.y)>20;
- if(changed||moved)aczoK43QueueRiverPopulation(rt,position);
+ if(!casting&&(changed||moved))aczoK43QueueRiverPopulation(rt,position);
  const pending=rt.k43Population;if(!pending)return;
+ if(performance.now()<pending.retryAt)return;
  const started=performance.now();let count=0;
- while(pending.index<pending.queue.length&&count<8&&(count===0||performance.now()-started<3)){
+ const limit=pending.preflight?24:8;
+ while(pending.index<pending.queue.length&&count<limit&&(count===0||performance.now()-started<3)){
   const item=pending.queue[pending.index++];
-  if(!aczoK43PlaceStreamActor(rt,item,pending.schools))item.actor.k43PendingPlacement=true;
+   if(!aczoK43PlaceStreamActor(rt,item,pending.schools)){item.actor.k43PendingPlacement=true;pending.retry.push(item);}
   count++;
  }
  const stats=rt.k43PopulationStats;stats.relocated+=count;stats.maxSliceMs=Math.max(stats.maxSliceMs,performance.now()-started);
- if(pending.index>=pending.queue.length)rt.k43Population=null;
+ if(pending.index>=pending.queue.length){
+  if(pending.retry.length){pending.queue=pending.retry;pending.retry=[];pending.index=0;pending.retryAt=performance.now()+250;}
+  else rt.k43Population=null;
+ }
+}
+
+// K51: a long cast needs the river population at its destination before the
+// underwater image opens. Reuse the same stock, species and individual slots.
+function aczoK51PrimeLurePopulation(point){
+ const rt=aczoMoselFishing;
+ if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
+ if(aczoK42Section(point.x,point.y)===rt.k42Section&&Math.hypot(point.x-rt.center.x,point.y-rt.center.y)<=20)return;
+ aczoK43QueueRiverPopulation(rt,point,{preflight:true});
+ const job=rt.k43Population;
+ clearTimeout(rt.k51PreflightTimer);
+ // Short yielded slices also finish on low-frame-rate phones before impact;
+ // no new loader or single long population rebuild is needed.
+ const step=()=>{
+  rt.k51PreflightTimer=0;
+  if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;
+  aczoK43StreamPopulation(rt);
+  if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,0);
+ };
+ rt.k51PreflightTimer=setTimeout(step,0);
 }
 
 function aczoK42SwitchSection(rt,center){
@@ -35321,6 +35352,7 @@ function startAnglingCast(){
   anglingUi.classList.add('line-active');
   updateAnglingLiveHud();updateAnglingFeedUi();
   anglingState='casting';anglingStateTime=0;
+  aczoK51PrimeLurePopulation(anglingCastEnd);
   aczoSoundStop('cast');
   aczoSoundPlay('cast');
   updateAnglingSelectionMarkerScale();
@@ -39591,7 +39623,11 @@ function aczoK12EnsureBankSkirt(){
  const mesh=new THREE.Mesh(geo,mat);mesh.name='MOSEL_K20_DURCHGEHENDER_UFER_UND_KARTENRANDABSCHLUSS';mesh.visible=!!waterVisible;mesh.castShadow=false;mesh.receiveShadow=false;waterSurface.add(mesh);aczoK12BankSkirt=mesh;
 }
 function aczoK12Stream(){
- const rt=aczoMoselFishing;if(!rt||!fishMode||fishTransition||!rt.bottom)return;aczoK43StreamPopulation(rt);const now=performance.now();if(now-aczoK12LastStream<700)return;aczoK12LastStream=now;
+ const rt=aczoMoselFishing;
+ const lureView=anglingMode&&anglingUsesArtificialLure()&&anglingLure.visible&&(anglingState==='casting'||anglingCinematicView==='underwater');
+ if(!rt||(!fishMode&&!lureView)||fishTransition)return;
+ aczoK43StreamPopulation(rt);if(!rt.bottom)return;
+ const now=performance.now();if(now-aczoK12LastStream<700)return;aczoK12LastStream=now;
  const pos=camera.position,spec=rt.k34DetailSpec||aczoMoselBedSpec(rt.center);if(Math.max(Math.abs(pos.x-spec.x),Math.abs(pos.y-spec.y))<spec.size-42)return;
  const direction=new THREE.Vector3();camera.getWorldDirection(direction);direction.z=0;direction.normalize();const center=pos.clone().addScaledVector(direction,20);aczoK34RequestMoselDetails(center,{rt,movePopulation:true,immediate:true});
 }
@@ -39607,6 +39643,7 @@ function aczoK12FloodElevation(x,y){
 }
 function aczoMoselFishingEnd(){
  const rt=aczoMoselFishing;if(!rt)return;aczoK34CancelMoselDetailRequest();
+ clearTimeout(rt.k51PreflightTimer);
  cancelHuntEvent();
  for(const f of fishActors)fishGroup.remove(f.obj);
  fishActors.splice(0,fishActors.length,...rt.savedActors);
