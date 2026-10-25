@@ -4966,7 +4966,9 @@ body.aczo-share-preview-open{overflow:hidden!important}
 .angling-bank-feed[hidden]{display:none!important}
 .angling-bank-controls.catfish button[data-feed],.angling-bank-controls.catfish [data-feed]{display:none!important}
 .aczo-phone-layout .angling-bank-feed{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:auto!important}
-.aczo-phone-layout .angling-bank-feed .angling-bank-feed-btn{flex:0 0 auto!important;height:24px!important;min-height:24px!important;padding:2px 9px!important;font-size:8px!important;overflow:visible!important}
+.aczo-phone-layout .angling-bank-feed .angling-bank-feed-btn{flex:0 0 auto!important;height:auto!important;min-height:30px!important;padding:2px 9px!important;font-size:8px!important;overflow:visible!important}
+#anglingUi .angling-bank-feed{bottom:var(--aczo-bank-feed-bottom,128px)!important}
+.angling-bank-feed .angling-bank-feed-btn span{color:inherit}
 .angling-bank-compact button::before{content:'';position:absolute;inset:-6px 0}
 .angling-bank-feed-btn::before{content:'';position:absolute;inset:-10px 0}
 .angling-bank-feed-btn{position:relative}
@@ -6577,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K49-MOSEL-KESCHERBLICK'};
+ const state={contextLost:false,build:'4.0-K50-FUTTERBUTTONS'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -26354,6 +26356,21 @@ function anglingBankSetMarker(marker,index,distanceMeters=null){
  if(!marker)return;const html=anglingBankMarkerHtml(index,distanceMeters);if(marker._bankHtml===html)return;marker._bankHtml=html;marker.innerHTML=html;
  marker.setAttribute('aria-hidden','true');
 }
+// K50: the bank HUD has an extra status row. Keep the feed action above its
+// measured top, including its expanded touch area, at every viewport size.
+function anglingBankLayoutFeedBar(){
+ const rt=anglingBankRuntime;if(rt.feedLayoutFrame)return;
+ rt.feedLayoutFrame=requestAnimationFrame(()=>{
+  rt.feedLayoutFrame=0;
+  const bar=rt.feedBar,hud=anglingUi.querySelector('.angling-hud-panel');
+  if(!bar||bar.hidden||!hud||!hud.getClientRects().length)return;
+  const host=bar.offsetParent||anglingUi,box=host.getBoundingClientRect(),panel=hud.getBoundingClientRect();
+  if(!box.height||!host.offsetHeight)return;
+  const scale=box.height/host.offsetHeight,origin=box.top+host.clientTop*scale;
+  const bottom=Math.max(14,host.clientHeight-(panel.top-origin)/scale+14);
+  bar.style.setProperty('--aczo-bank-feed-bottom',bottom+'px');
+ });
+}
 function anglingBankInstallUi(){
  const rt=anglingBankRuntime;if(rt.ui)return;
  const ui=document.createElement('div');ui.className='angling-bank-controls';ui.hidden=true;
@@ -26362,6 +26379,12 @@ function anglingBankInstallUi(){
  const feed=document.createElement('button');feed.type='button';feed.dataset.feed='';feed.textContent='Füttern · 10';feed.addEventListener('click',()=>{if(!feed.disabled&&!anglingTimeShiftActive&&!anglingCameraTransition)anglingBankFeed();});ui.append(feed);
  anglingSetupHint.parentElement.append(ui);rt.ui=ui;rt.feedButton=feed;
  const feedBar=document.createElement('div');feedBar.className='angling-feed-controls angling-bank-feed';feedBar.hidden=true;feedBar.setAttribute('aria-label','Boilies anfüttern');feedBar.addEventListener('pointerdown',e=>e.stopPropagation());anglingUi.append(feedBar);rt.feedBar=feedBar;rt.waitingHudKey=null;
+ if(window.ResizeObserver){
+  rt.feedLayoutObserver=new ResizeObserver(anglingBankLayoutFeedBar);
+  rt.feedLayoutObserver.observe(anglingUi);rt.feedLayoutObserver.observe(anglingUi.querySelector('.angling-hud-panel'));
+ }
+ window.addEventListener('resize',anglingBankLayoutFeedBar,{passive:true});
+ window.visualViewport?.addEventListener('resize',anglingBankLayoutFeedBar,{passive:true});
  const compact=document.createElement('div');compact.className='angling-bank-compact';compact.hidden=true;compact.setAttribute('role','group');compact.setAttribute('aria-label','Rute zum Einholen auswählen');
  for(let i=0;i<2;i++){const b=document.createElement('button');b.type='button';b.dataset.rod=i;b.textContent=i?'Rechte Rute':'Linke Rute';b.setAttribute('aria-label',(i?'Rechte':'Linke')+' Rute zum Einholen auswählen');b.addEventListener('click',()=>anglingBankSelectRod(i));compact.append(b);}
  compact.addEventListener('pointerdown',e=>e.stopPropagation());anglingUi.append(compact);rt.compactUi=compact;
@@ -26420,7 +26443,8 @@ function anglingBankSyncWaitingHud(){
   const title=!feedInfo.allowed?'Anfüttern nur mit Boilie oder Pop-Up':stock<10?'Mindestens 10 freie Boilies nötig · frei '+stock:flying?'Anfüttern läuft':('10 Boilies · '+(rt.selected?'rechte':'linke')+' Rute · '+(feedInfo.flavour?.name||'')+' · frei '+stock);
   if(feed.title!==title){feed.title=title;feed.setAttribute('aria-label',title);}
  }
- if(rt.compactUi){rt.compactUi.hidden=!controlsVisible;rt.compactUi.querySelectorAll('[data-rod]').forEach(b=>{const i=Number(b.dataset.rod);b.setAttribute('aria-pressed',String(i===rt.selected));b.disabled=anglingMenusLocked();});}
+  if(rt.compactUi){rt.compactUi.hidden=!controlsVisible;rt.compactUi.querySelectorAll('[data-rod]').forEach(b=>{const i=Number(b.dataset.rod);b.setAttribute('aria-pressed',String(i===rt.selected));b.disabled=anglingMenusLocked();});}
+  if(feedVisible)anglingBankLayoutFeedBar();
 }
 function anglingBankRefreshUi(){
  const rt=anglingBankRuntime;if(!rt.ui)return;const enabled=anglingMode&&anglingUsesBankSet();rt.ui.hidden=!enabled;
