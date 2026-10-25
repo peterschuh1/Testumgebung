@@ -6577,7 +6577,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K46-LADEFIX'};
+ const state={contextLost:false,build:'4.0-K47-MOSEL-KESCHER'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -34133,6 +34133,7 @@ function aczoK23RiverStatus(mode,preferTip){
  if(anglingSelection?.waterBody!=='mosel'||aczoBoatActive())return false;window.__aczoInfoText.show(mode,preferTip);return true;
 }
 function changeAnglingSpot(exploreOrigin=null){
+  aczoMoselLandingRestore();
  if(aczoBoatActive()){aczoBoatReturn();return;}
   if(anglingUsesBankSet()&&anglingBankHasLines()){showAnglingToast('Vor einem Platzwechsel beide Ruten einholen.',1600);return;}
   if(!anglingMode||anglingCameraTransition||!['ready','selecting','exploring','bank-waiting'].includes(anglingState)||aczoBoatLineBusy()){
@@ -35649,8 +35650,132 @@ function beginAnglingDrill(){
   if(anglingUsesBankSet()&&anglingProgress.selectedEquipment==='carp_set'&&anglingBankRuntime.drillEntryPoint){anglingHookPoint.copy(anglingBankRuntime.drillEntryPoint);anglingBankRuntime.drillPreviousPoint=anglingHookPoint.clone();}
   aczoStartDrillMusic();
 }
+// K47: Mosel landing uses the real wet footprint and keeps the pond rules.
+let aczoMoselLandingView=null;
+function aczoMoselLandingBegin(){
+ aczoMoselLandingView=aczoMoselFishing&&!aczoBoatActive()&&anglingSelection?{
+  selection:anglingSelection,
+  camera:{position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone(),fov:camera.fov,zoom:camera.zoom},
+  waterSafe:false,shift:0
+ }:null;
+}
+function aczoMoselLandingRestore(restoreCamera=false){
+ const saved=aczoMoselLandingView;aczoMoselLandingView=null;
+ if(restoreCamera&&saved&&saved.selection===anglingSelection){
+  const v=saved.camera;beginAnglingCamera(v.position,v.target,v.fov,.55,null,v.up,v.zoom);
+ }
+}
+function aczoMoselLandingFindBase(origin,dir,inward,footprint,wet){
+ const side=dir.clone().applyAxisAngle(anglingUp,Math.PI/2);
+ // Validate every intermediate net position as well as both ends. The shaft
+ // may reach back to the angler; only the opening/bag must remain over water.
+ for(let step=0;step<=64;step++){
+  const point=origin.clone().addScaledVector(inward,step*.25);let safe=true;
+  for(let offset=-ANGLING_LANDING_NET_MAX_OFFSET;safe&&offset<=ANGLING_LANDING_NET_MAX_OFFSET+.001;offset+=.25){
+   for(const p of footprint)if(!wet(point.x+p.x+side.x*offset,point.y+p.y+side.y*offset)){safe=false;break;}
+  }
+  if(safe)return point;
+ }
+ return null;
+}
+function aczoMoselLandingPrepare(){
+ const state=aczoMoselLandingView;if(!state||state.selection!==anglingSelection)return;
+ const dir=anglingCurrentDirection(new THREE.Vector3()),side=dir.clone().applyAxisAngle(anglingUp,Math.PI/2),inward=anglingSelection.inward.clone().setZ(0).normalize();
+ anglingNetGroup.updateWorldMatrix(true,true);
+ const footprint=[],origin=anglingLandingNetBase.clone();
+ // Sample the actual scaled/tilted hoop and bag, including their curved rim.
+ for(let i=0;i<24;i++){
+  const a=i/24*Math.PI*2,p=new THREE.Vector3(Math.cos(a)*.755,Math.sin(a)*.755,0).applyMatrix4(anglingNetHoop.matrixWorld).sub(origin);footprint.push(p);
+ }
+ if(!anglingNetBag.geometry.boundingBox)anglingNetBag.geometry.computeBoundingBox();
+ const box=anglingNetBag.geometry.boundingBox;
+ for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])footprint.push(new THREE.Vector3(x,y,z).applyMatrix4(anglingNetBag.matrixWorld).sub(origin));
+ const fishHalf=Math.max(.06,Number(anglingPendingCatch.cm)/200),span=ANGLING_LANDING_FISH_SPAN*.44+fishHalf;
+ // Also keep the whole lateral fish route clear, independently of net input.
+ for(let i=0;i<=12;i++)for(const forward of [.005,.52])footprint.push(side.clone().multiplyScalar(-span+2*span*i/12).addScaledVector(dir,forward));
+ const minimumDepth=Math.max(.45,fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48)+.22);
+ const wet=(x,y)=>aczoExploreWater(x,y,0)&&(aczoMoselDepth(x,y)||0)>=minimumDepth;
+ const base=aczoMoselLandingFindBase(origin,dir,inward,footprint,wet);
+ if(base){
+  const delta=base.clone().sub(origin);state.shift=delta.length();state.waterSafe=true;
+  anglingLandingNetBase.copy(base);anglingLandingNetBase.z=anglingSurfaceZ(base.x,base.y)+.045;
+  anglingNetGroup.position.copy(anglingLandingNetBase);
+  // The two-rod clear lane remains translated with its own camera; its rod
+  // collision limits and the shared landing timing/zone are unchanged.
+  if(anglingUsesBankSet()&&anglingBankRuntime.landingCamera){
+   const rt=anglingBankRuntime,v=rt.landingCamera;v.position.add(delta);v.target.add(delta);
+   for(const point of rt.landingNetPoints||[])point.add(delta);
+   rt.landingScreenKey=null;rt.landingScreenLimits=null;
+  }
+ }else console.warn('Mosel landing: no full wet footprint at this shore.');
+ const view=anglingUsesBankSet()?anglingBankRuntime.landingCamera:null,fit=camera.clone(),v=view||state.camera;
+ fit.position.copy(v.position);fit.up.copy(state.camera.up);fit.fov=v.fov;fit.zoom=v.zoom;fit.near=camera.near;
+ // Remove the former fixed 36 cm lowering. Keep at least the pre-landing eye
+ // height so the existing shore depth mask cannot bury the fish.
+ fit.position.z=Math.max(fit.position.z,state.camera.position.z);
+ const target=v.target.clone();fit.lookAt(target);fit.updateProjectionMatrix();fit.updateMatrixWorld(true);
+ const points=()=>{
+  const result=[];anglingNetGroup.updateWorldMatrix(true,true);
+  for(const object of [anglingNetHoop,anglingNetBag,anglingNetHandle]){
+   if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();const b=object.geometry.boundingBox;
+   for(const offset of [-1,0,1])for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])result.push(new THREE.Vector3(x,y,z).applyMatrix4(object.matrixWorld).addScaledVector(side,offset));
+  }
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(fit.quaternion),up=new THREE.Vector3(0,1,0).applyQuaternion(fit.quaternion),height=fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48);
+  for(const lateral of [-ANGLING_LANDING_FISH_SPAN*.44,0,ANGLING_LANDING_FISH_SPAN*.44])for(const forward of [.005,.52]){
+   const p=anglingLandingNetBase.clone().addScaledVector(side,lateral).addScaledVector(dir,forward);p.z=anglingSurfaceZ(p.x,p.y)-.16;
+   for(const x of [-fishHalf,fishHalf])for(const y of [-height,height])result.push(p.clone().addScaledVector(right,x).addScaledVector(up,y));
+  }
+  return result;
+ };
+ // Keep the actual bank geometry. Raise the view only if its depth-writing
+ // shore pieces intersect the line of sight to the near-surface fish.
+ anglingBankGroup.updateWorldMatrix(true,true);
+ const ray=new THREE.Raycaster(),blockers=[anglingBankMesh,anglingShoreMesh,anglingShoreLipMesh,anglingShoreOccluderMesh];
+ const occluded=()=>{
+  if(!anglingBankGroup.visible)return false;
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(fit.quaternion),up=new THREE.Vector3(0,1,0).applyQuaternion(fit.quaternion),height=fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48);
+  for(const lateral of [-ANGLING_LANDING_FISH_SPAN*.44,0,ANGLING_LANDING_FISH_SPAN*.44]){
+   const center=anglingLandingNetBase.clone().addScaledVector(side,lateral).addScaledVector(dir,.05);center.z=anglingSurfaceZ(center.x,center.y)-.16;
+   for(const x of [-fishHalf,0,fishHalf])for(const y of [-height,0,height]){
+    const p=center.clone().addScaledVector(right,x).addScaledVector(up,y),length=p.distanceTo(fit.position);ray.set(fit.position,p.sub(fit.position).normalize());ray.near=.001;ray.far=length-.001;
+    if(ray.intersectObjects(blockers,false).length)return true;
+   }
+  }return false;
+ };
+ for(let i=0;i<20&&occluded();i++){fit.position.z+=.125;fit.lookAt(target);fit.updateMatrixWorld(true);}
+ let projected=points().map(p=>p.project(fit));
+ if(projected.some(p=>p.z< -1||p.z>1||p.x<-.88||p.x>.88||p.y<-.70||p.y>.62)){
+  target.copy(anglingLandingNetBase);target.z=anglingSurfaceZ(target.x,target.y)-.15;
+  fit.lookAt(target);fit.updateMatrixWorld(true);fit.updateProjectionMatrix();
+  for(let i=0;i<20&&occluded();i++){fit.position.z+=.125;fit.lookAt(target);fit.updateMatrixWorld(true);}
+  for(let i=0;i<32;i++){
+   projected=points().map(p=>p.project(fit));
+   if(projected.every(p=>p.z>=-1&&p.z<=1&&p.x>=-.88&&p.x<=.88&&p.y>=-.70&&p.y<=.62))break;
+   fit.zoom*=.93;fit.updateProjectionMatrix();
+  }
+ }
+ state.cameraClear=!occluded();state.framed=projected.every(p=>p.z>=-1&&p.z<=1&&p.x>=-.88&&p.x<=.88&&p.y>=-.70&&p.y<=.62);
+ state.landingCamera={position:fit.position.clone(),target:target.clone(),fov:fit.fov,zoom:fit.zoom};
+ if(view)Object.assign(view,state.landingCamera);
+ // Initialize the fish in the same world lane before the first landing frame.
+ const p=anglingLandingNetBase.clone().addScaledVector(side,(anglingLandingFishPosition-.5)*ANGLING_LANDING_FISH_SPAN).addScaledVector(dir,.3);p.z=anglingSurfaceZ(p.x,p.y)-.12;
+ anglingHookPoint.copy(p);anglingFishVisual.position.copy(p);updateAnglingFishBillboard(.94);
+ beginAnglingCamera(fit.position,target,fit.fov,.45,null,fit.up,fit.zoom);
+}
+
+let aczoMoselLandingResizeFrame=0;
+window.addEventListener('resize',()=>{
+ if(!aczoMoselLandingView||anglingState!=='landing')return;
+ if(aczoMoselLandingResizeFrame)cancelAnimationFrame(aczoMoselLandingResizeFrame);
+ aczoMoselLandingResizeFrame=requestAnimationFrame(()=>{
+  aczoMoselLandingResizeFrame=0;
+  if(aczoMoselLandingView&&anglingState==='landing')aczoMoselLandingPrepare();
+ });
+},{passive:true});
+
 function beginAnglingLanding(){
   if(!anglingPendingCatch)return;
+  aczoMoselLandingBegin();
   anglingTrueLineRunActive=false;
   aczoSoundSetLineRun(false);
   aczoSoundStop('qtePulse');
@@ -35704,12 +35829,7 @@ function beginAnglingLanding(){
   anglingBankPrepareLanding();
   setAnglingStatus('Fisch am Ufer','Kescher mit Maus/Finger links/rechts bewegen · Klick oder Tipp: keschern.');
   aczoBoatPrepareLanding();
-  if(aczoMoselFishing&&!anglingUsesBankSet()&&!aczoBoatActive()){
-   const dir=anglingCurrentDirection(new THREE.Vector3()),position=anglingSelection.cameraPos.clone();
-   position.z+=ACZO_MOSEL_SURFACE_Z-.125;
-   const target=anglingStraightLookTarget(position,anglingSelection.inward,new THREE.Vector3());target.z+=ACZO_MOSEL_SURFACE_Z-.125;
-   beginAnglingCamera(position,target,anglingShoreFieldOfView(),.45,null,null,anglingGameCameraZoom());
-  }
+  aczoMoselLandingPrepare();
 }
 function failAnglingLanding(){
   aczoSoundStop('landingTension');
@@ -35722,6 +35842,7 @@ function failAnglingLanding(){
   anglingNetGroup.visible=false;anglingFishVisual.visible=false;anglingLandingBtn.disabled=false;
   anglingBankRestoreLandingCamera();
   aczoBoatRestoreLanding();
+  aczoMoselLandingRestore(true);
   showAnglingToast('Der Fisch flüchtet noch einmal!',1500);
 }
 function attemptAnglingLanding(){
@@ -35911,6 +36032,7 @@ function finishAnglingCatch(){
   anglingActionBtn.disabled=true;anglingActionBtn.textContent='Gefangen';
 }
 function showAnglingCatchCard(){
+  aczoMoselLandingRestore();
   if(!anglingCatchRevealData)return;
   const {caught,newlyFound,isPersonalBest,isLegendaryKoi,baitBonus,xpGain}=anglingCatchRevealData;
   anglingState='caught';anglingStateTime=0;
@@ -36132,6 +36254,7 @@ function loseCurrentArtificialLure(){
  return ' · '+anglingActiveLure().name+' verloren';
 }
 function loseAnglingFish(reason){
+  aczoMoselLandingRestore(true);
   if(anglingUsesBankSet()&&anglingBankRuntime.active>=0){anglingBankResetRodSignals(anglingBankRuntime.active);anglingBankRuntime.pickupHazard=null;aczoSoundStop('predatorAlarm');}
   if(anglingUsesBankSet()&&anglingBankRuntime.active>=0&&reason==='Schnur gerissen')anglingBankConsume(anglingBankRuntime.rigs[anglingBankRuntime.active],'break');
   aczoStopDrillMusic();
@@ -36879,6 +37002,7 @@ function resetAllAnglingUiOverlays(){
  anglingPointerStarts?.clear?.();
 }
 function resetAnglingCast(){
+  aczoMoselLandingRestore();
   anglingBankBeforeReset();
   aczoStopDrillMusic();
   const aczoDeparture=aczoCaptureRewardDeparture();
@@ -37986,6 +38110,7 @@ function beginLeaveAngling(){
   beginAnglingCamera(anglingSaved.position,anglingSaved.target,anglingSaved.fov,2.15,finishLeaveAngling,anglingSaved.up,anglingSaved.zoom);
 }
 function finishLeaveAngling(){
+  aczoMoselLandingRestore();
   aczoExploreStop();aczoMoselFishingEnd();aczoExploreRuntime.visited=false;aczoAnglingEntry=null;
   anglingBankClearRuntime();
   aczoStopTimeShiftMusic(true);
