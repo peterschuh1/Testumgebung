@@ -6577,7 +6577,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K48-FUTTERMARKIERUNG'};
+ const state={contextLost:false,build:'4.0-K49-MOSEL-KESCHERBLICK'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -35687,6 +35687,7 @@ function aczoMoselLandingFindBase(origin,dir,inward,footprint,wet){
 function aczoMoselLandingPrepare(){
  const state=aczoMoselLandingView;if(!state||state.selection!==anglingSelection)return;
  const dir=anglingCurrentDirection(new THREE.Vector3()),side=dir.clone().applyAxisAngle(anglingUp,Math.PI/2),inward=anglingSelection.inward.clone().setZ(0).normalize();
+ anglingNetGroup.position.copy(anglingLandingNetBase);
  anglingNetGroup.updateWorldMatrix(true,true);
  const footprint=[],origin=anglingLandingNetBase.clone();
  // Sample the actual scaled/tilted hoop and bag, including their curved rim.
@@ -35705,7 +35706,7 @@ function aczoMoselLandingPrepare(){
  if(base){
   const delta=base.clone().sub(origin);state.shift=delta.length();state.waterSafe=true;
   anglingLandingNetBase.copy(base);anglingLandingNetBase.z=anglingSurfaceZ(base.x,base.y)+.045;
-  anglingNetGroup.position.copy(anglingLandingNetBase);
+  anglingNetGroup.position.copy(anglingLandingNetBase).addScaledVector(side,anglingLandingNetOffset);
   // The two-rod clear lane remains translated with its own camera; its rod
   // collision limits and the shared landing timing/zone are unchanged.
   if(anglingUsesBankSet()&&anglingBankRuntime.landingCamera){
@@ -35714,59 +35715,105 @@ function aczoMoselLandingPrepare(){
    rt.landingScreenKey=null;rt.landingScreenLimits=null;
   }
  }else console.warn('Mosel landing: no full wet footprint at this shore.');
- const view=anglingUsesBankSet()?anglingBankRuntime.landingCamera:null,fit=camera.clone(),v=view||state.camera;
- fit.position.copy(v.position);fit.up.copy(state.camera.up);fit.fov=v.fov;fit.zoom=v.zoom;fit.near=camera.near;
- // Remove the former fixed 36 cm lowering. Keep at least the pre-landing eye
- // height so the existing shore depth mask cannot bury the fish.
- fit.position.z=Math.max(fit.position.z,state.camera.position.z);
- const target=v.target.clone();fit.lookAt(target);fit.updateProjectionMatrix();fit.updateMatrixWorld(true);
- const points=()=>{
-  const result=[];anglingNetGroup.updateWorldMatrix(true,true);
-  for(const object of [anglingNetHoop,anglingNetBag,anglingNetHandle]){
-   if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();const b=object.geometry.boundingBox;
-   for(const offset of [-1,0,1])for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])result.push(new THREE.Vector3(x,y,z).applyMatrix4(object.matrixWorld).addScaledVector(side,offset));
-  }
-  const right=new THREE.Vector3(1,0,0).applyQuaternion(fit.quaternion),up=new THREE.Vector3(0,1,0).applyQuaternion(fit.quaternion),height=fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48);
-  for(const lateral of [-ANGLING_LANDING_FISH_SPAN*.44,0,ANGLING_LANDING_FISH_SPAN*.44])for(const forward of [.005,.52]){
-   const p=anglingLandingNetBase.clone().addScaledVector(side,lateral).addScaledVector(dir,forward);p.z=anglingSurfaceZ(p.x,p.y)-.16;
-   for(const x of [-fishHalf,fishHalf])for(const y of [-height,height])result.push(p.clone().addScaledVector(right,x).addScaledVector(up,y));
-  }
-  return result;
- };
- // Keep the actual bank geometry. Raise the view only if its depth-writing
- // shore pieces intersect the line of sight to the near-surface fish.
- anglingBankGroup.updateWorldMatrix(true,true);
- const ray=new THREE.Raycaster(),blockers=[anglingBankMesh,anglingShoreMesh,anglingShoreLipMesh,anglingShoreOccluderMesh];
- const occluded=()=>{
-  if(!anglingBankGroup.visible)return false;
-  const right=new THREE.Vector3(1,0,0).applyQuaternion(fit.quaternion),up=new THREE.Vector3(0,1,0).applyQuaternion(fit.quaternion),height=fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48);
-  for(const lateral of [-ANGLING_LANDING_FISH_SPAN*.44,0,ANGLING_LANDING_FISH_SPAN*.44]){
-   const center=anglingLandingNetBase.clone().addScaledVector(side,lateral).addScaledVector(dir,.05);center.z=anglingSurfaceZ(center.x,center.y)-.16;
-   for(const x of [-fishHalf,0,fishHalf])for(const y of [-height,0,height]){
-    const p=center.clone().addScaledVector(right,x).addScaledVector(up,y),length=p.distanceTo(fit.position);ray.set(fit.position,p.sub(fit.position).normalize());ray.near=.001;ray.far=length-.001;
-    if(ray.intersectObjects(blockers,false).length)return true;
-   }
-  }return false;
- };
- for(let i=0;i<20&&occluded();i++){fit.position.z+=.125;fit.lookAt(target);fit.updateMatrixWorld(true);}
- let projected=points().map(p=>p.project(fit));
- if(projected.some(p=>p.z< -1||p.z>1||p.x<-.88||p.x>.88||p.y<-.70||p.y>.62)){
-  target.copy(anglingLandingNetBase);target.z=anglingSurfaceZ(target.x,target.y)-.15;
-  fit.lookAt(target);fit.updateMatrixWorld(true);fit.updateProjectionMatrix();
-  for(let i=0;i<20&&occluded();i++){fit.position.z+=.125;fit.lookAt(target);fit.updateMatrixWorld(true);}
-  for(let i=0;i<32;i++){
-   projected=points().map(p=>p.project(fit));
-   if(projected.every(p=>p.z>=-1&&p.z<=1&&p.x>=-.88&&p.x<=.88&&p.y>=-.70&&p.y<=.62))break;
-   fit.zoom*=.93;fit.updateProjectionMatrix();
-  }
+ let view=aczoMoselLandingFrame(false);
+ // The old set lane was fitted for its waiting camera. With a net-centered
+ // view, move camera and net together to the right until the full sweep is
+ // outside the actual equipment silhouette; revalidate water at every move.
+ for(let i=0;anglingUsesBankSet()&&!state.equipmentClear&&i<40;i++){
+  const right=view.target.clone().sub(view.position).setZ(0).normalize().applyAxisAngle(anglingUp,-Math.PI/2);
+  const next=aczoMoselLandingFindBase(anglingLandingNetBase.clone().addScaledVector(right,.3),dir,inward,footprint,wet);
+  if(!next)break;
+  const delta=next.clone().sub(anglingLandingNetBase),rt=anglingBankRuntime;
+  anglingLandingNetBase.copy(next);anglingLandingNetBase.z=anglingSurfaceZ(next.x,next.y)+.045;
+  anglingNetGroup.position.copy(anglingLandingNetBase).addScaledVector(side,anglingLandingNetOffset);
+  rt.landingCamera.position.add(delta);rt.landingCamera.target.add(delta);
+  for(const point of rt.landingNetPoints||[])point.add(delta);
+  rt.landingScreenKey=null;rt.landingScreenLimits=null;state.shift+=delta.length();
+  view=aczoMoselLandingFrame(false);
  }
- state.cameraClear=!occluded();state.framed=projected.every(p=>p.z>=-1&&p.z<=1&&p.x>=-.88&&p.x<=.88&&p.y>=-.70&&p.y<=.62);
- state.landingCamera={position:fit.position.clone(),target:target.clone(),fov:fit.fov,zoom:fit.zoom};
- if(view)Object.assign(view,state.landingCamera);
+ if(anglingUsesBankSet())Object.assign(anglingBankRuntime.landingCamera,view);
+ state.landingCamera=view;
  // Initialize the fish in the same world lane before the first landing frame.
  const p=anglingLandingNetBase.clone().addScaledVector(side,(anglingLandingFishPosition-.5)*ANGLING_LANDING_FISH_SPAN).addScaledVector(dir,.3);p.z=anglingSurfaceZ(p.x,p.y)-.12;
  anglingHookPoint.copy(p);anglingFishVisual.position.copy(p);updateAnglingFishBillboard(.94);
- beginAnglingCamera(fit.position,target,fit.fov,.45,null,fit.up,fit.zoom);
+ beginAnglingCamera(view.position,view.target,view.fov,.45,null,anglingUp,view.zoom);
+}
+
+// K49: compose from the real net, never from the float/drill/waiting view.
+// A fixed elevation exposes the opening at every river level and yaw. The
+// rod sets retain their clear approach lane, with their own equipment tested.
+function aczoMoselLandingFrame(reveal=false){
+ const state=aczoMoselLandingView,bank=anglingUsesBankSet(),dir=anglingCurrentDirection(new THREE.Vector3()),side=dir.clone().applyAxisAngle(anglingUp,Math.PI/2);
+ const base=(reveal?anglingNetGroup.position:anglingLandingNetBase).clone(),fit=camera.clone();
+ const bankView=bank?anglingBankRuntime.landingCamera:null;
+ let approach=bankView?bankView.position.clone().sub(base).setZ(0).normalize():dir.clone().negate();
+ if(approach.dot(dir)>-.9){
+  const sign=Math.sign(approach.dot(side))||1;
+  approach.copy(dir).multiplyScalar(-.9).addScaledVector(side,sign*Math.sqrt(1-.9*.9));
+ }
+ const range=reveal?(bank?2.65:3.85):5.0;
+ fit.position.copy(base).addScaledVector(approach,range);
+ fit.position.z=base.z+(reveal?(bank?2.10:1.75):2.55);
+ fit.up.copy(anglingUp);fit.fov=reveal?38:(anglingPhoneLayoutActive()?ANGLING_PHONE_SHORE_FOV:ANGLING_SHORE_FOV);
+ // Start with the reference shore zoom, not the rod-pod wide shot or a
+ // preceding fitted landing zoom. This also prevents a tiny catch close-up.
+ fit.zoom=anglingGameCameraZoom();
+ const target=base.clone();target.z+=reveal?.02:.65;
+ const update=()=>{fit.lookAt(target);fit.updateProjectionMatrix();fit.updateMatrixWorld(true);};update();
+ const fishHalf=Math.max(.06,Number(anglingPendingCatch.cm)/200),height=fishHalf*(fishImageAspect[anglingPendingCatch.species]||.48);
+ const limits=bank?(anglingBankRuntime.landingLimits||[-1,1]):[-ANGLING_LANDING_NET_MAX_OFFSET,ANGLING_LANDING_NET_MAX_OFFSET];
+ const offsets=reveal?[0]:[limits[0],0,limits[1]],fishOffsets=reveal?[0]:[-ANGLING_LANDING_FISH_SPAN*.44,0,ANGLING_LANDING_FISH_SPAN*.44];
+ const fishPoints=()=>{
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(fit.quaternion),up=new THREE.Vector3(0,1,0).applyQuaternion(fit.quaternion),result=[];
+  for(const lateral of fishOffsets)for(const forward of reveal?[0]:[.005,.52]){
+   const p=base.clone().addScaledVector(side,lateral).addScaledVector(dir,forward);p.z=anglingSurfaceZ(p.x,p.y)-(reveal?.14:.16);
+   for(const x of [-fishHalf-.06,0,fishHalf+.06])for(const y of [-height-.04,0,height+.04])result.push(p.clone().addScaledVector(right,x).addScaledVector(up,y));
+  }return result;
+ };
+ const points=()=>{
+  const result=fishPoints();anglingNetGroup.updateWorldMatrix(true,true);
+  for(const object of [anglingNetHoop,anglingNetBag,anglingNetHandle]){
+   if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();const b=object.geometry.boundingBox;
+   for(const offset of offsets)for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])result.push(new THREE.Vector3(x,y,z).applyMatrix4(object.matrixWorld).addScaledVector(side,offset-(reveal?0:anglingLandingNetOffset)));
+  }return result;
+ };
+ anglingBankGroup.updateWorldMatrix(true,true);
+ const blockers=anglingBankGroup.visible?[anglingBankMesh,anglingShoreMesh,anglingShoreLipMesh,anglingShoreOccluderMesh]:[];
+ if(bank){const rt=anglingBankRuntime;rt.group.updateWorldMatrix(true,true);rt.group.traverse(o=>{if(o.isMesh&&anglingBankLandingMeshVisible(o,rt.group)&&anglingBankLandingMeshSolid(o))blockers.push(o);});}
+ const ray=new THREE.Raycaster(),occluded=()=>{
+  for(const point of fishPoints()){
+   const length=point.distanceTo(fit.position);ray.set(fit.position,point.clone().sub(fit.position).normalize());ray.near=.001;ray.far=length-.001;
+   if(ray.intersectObjects(blockers,false).length)return true;
+  }return false;
+ };
+ for(let i=0;i<24&&occluded();i++){fit.position.z+=.125;update();}
+ // Center the visible opening rather than the distant rod tips. Fit the full
+ // sweep and fish body into the space above the landing action button.
+ const safe=p=>p.z>=-1&&p.z<=1&&p.x>=-.88&&p.x<=.88&&p.y>=-.70&&p.y<=.62;
+ let projected=points().map(p=>p.project(fit));
+ for(let i=0;i<40&&!projected.every(safe);i++){fit.zoom*=.95;fit.updateProjectionMatrix();projected=points().map(p=>p.project(fit));}
+ let equipmentClear=true;
+ if(bank){
+  const savedPosition=anglingNetGroup.position.clone();let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const offset of offsets){
+   anglingNetGroup.position.copy(base).addScaledVector(side,offset);
+   const e=anglingBankProjectedExtent(anglingNetGroup,fit,true);minX=Math.min(minX,e.minX);maxX=Math.max(maxX,e.maxX);minY=Math.min(minY,e.minY);maxY=Math.max(maxY,e.maxY);
+  }
+  anglingNetGroup.position.copy(savedPosition);anglingNetGroup.updateWorldMatrix(true,true);
+  const kit=anglingBankSurfaceExtent(anglingBankRuntime.landingKitParts,fit,[minY-.035,maxY+.035]);
+  equipmentClear=minX>=kit.maxX+.065||maxX<=kit.minX-.065;
+ }
+ const normal=new THREE.Vector3(0,0,1).transformDirection(anglingNetHoop.matrixWorld),eye=fit.position.clone().sub(base).normalize();
+ const view={position:fit.position.clone(),target:target.clone(),fov:fit.fov,zoom:fit.zoom};
+ const diagnostics={cameraClear:!occluded(),equipmentClear,framed:projected.every(safe),openingFacing:normal.dot(eye),elevation:THREE.MathUtils.radToDeg(Math.asin(eye.z)),view};
+ if(reveal)state.reveal=diagnostics;else Object.assign(state,diagnostics);
+ return view;
+}
+function aczoMoselLandingReveal(){
+ if(!aczoMoselLandingView||aczoMoselLandingView.selection!==anglingSelection)return false;
+ const view=aczoMoselLandingFrame(true);
+ beginAnglingCamera(view.position,view.target,view.fov,.82,null,anglingUp,view.zoom);
+ return true;
 }
 
 let aczoMoselLandingResizeFrame=0;
@@ -36024,6 +36071,7 @@ function finishAnglingCatch(){
   const side=anglingTmpB.copy(dir).applyAxisAngle(anglingUp,Math.PI/2);
   const target=anglingNetGroup.position.clone();target.z+=.02;
   const camPos=target.clone().addScaledVector(dir,-3.7).addScaledVector(side,1.05);camPos.z+=1.35;
+  if(!aczoMoselLandingReveal()){
   if(anglingUsesBankSet()&&anglingBankRuntime.landingCamera){
     // Follow the actual net into the catch close-up, preserving the clear lane
     // to the right of the fixed set instead of reusing the landing wide shot.
@@ -36034,6 +36082,7 @@ function finishAnglingCatch(){
     beginAnglingCamera(revealPosition,target,38,.82,null,null,revealZoom);
   }
   else beginAnglingCamera(camPos,target,38,.82);
+  }
   setAnglingStatus('Sicher gelandet','');
   anglingActionBtn.disabled=true;anglingActionBtn.textContent='Gefangen';
 }
