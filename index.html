@@ -6579,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K65-STARTGRAFIK'};
+ const state={contextLost:false,build:'4.0-K66-STERNREFLEXE'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -45146,6 +45146,12 @@ const moselPosCount=moselWaterGeo.getAttribute('position').count;
 moselWaterGeo.computeVertexNormals();
 const moselWaterMat=waterMat.clone();
 moselWaterMat.side=ACZO_MOBILE_PERF?THREE.FrontSide:THREE.DoubleSide;
+// K66: use the same small waterStarCores/waterStarHalos as the pond.
+// The additional angular star lobes formed metre-wide circles on river water.
+moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(
+ /float reflectedStars\(vec3 d\)\{[\s\S]*?\n   \}/,
+ 'float reflectedStars(vec3 d){return 0.0;}'
+);
 {const first=moselWaterMat.vertexShader.indexOf('     float ws='),end=moselWaterMat.vertexShader.indexOf('     vec4 world=',first);if(first<0||end<0)throw Error('River wave anchor');moselWaterMat.vertexShader=moselWaterMat.vertexShader.slice(0,first)+"\n     float wind=clamp(windStrength,0.,1.),amp=.014+.044*wind;\n     vec2 dir=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),side=vec2(-dir.y,dir.x);\n     vec2 q=p.xy-(dir*(.48+.38*wind)+vec2(.12,.075))*time;\n     vec2 k1=dir*.38+side*.14,k2=dir*.65-side*.23,k3=dir*.98+side*.31;\n     vec2 e1=dir*.071+side*.117,e2=dir*.103-side*.083,e3=dir*.137+side*.157;\n     float a=dot(q,k1),b=dot(q,k2)+1.8,c=dot(q,k3)+3.1;\n     float u=dot(q,e1)+.7,v=dot(q,e2)+2.4,w=dot(q,e3)+4.8;\n     vec3 envelope=vec3(.58)+.42*sin(vec3(u,v,w));\n     float wave=sin(a)*envelope.x*.45+sin(b)*envelope.y*.32+sin(c)*envelope.z*.23;\n     float shoreFade=smoothstep(1.,3.4,max(shoreDist,0.));\n     float localAmp=amp*shoreFade;\n     p.z+=wave*localAmp;\n     // Näherungs-Normale aus denselben Wellen.\n     vec2 gradient=((cos(a)*k1*envelope.x+sin(a)*cos(u)*e1*.42)*.45\n       +(cos(b)*k2*envelope.y+sin(b)*cos(v)*e2*.42)*.32\n       +(cos(c)*k3*envelope.z+sin(c)*cos(w)*e3*.42)*.23)*localAmp;\n     vec3 n=normalize(vec3(-gradient,1.));\n"+moselWaterMat.vertexShader.slice(end);}
 moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(/float waveBands\(vec2 p\)\{[\s\S]*?float surfaceRipples\(vec2 p\)\{[\s\S]*?\n   \}/,`
 
