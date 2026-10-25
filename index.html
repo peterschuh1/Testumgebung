@@ -6579,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K51-MOSEL-FISCHSTREAM'};
+ const state={contextLost:false,build:'4.0-K52-MOSEL-MEHR-FISCHE'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -20345,10 +20345,14 @@ function aczoK8hHabitat(species,x,y){
 function aczoK8hVisualPlan(center){
  const hot=aczoK8hBridgeHotspot(center.x,center.y)>.32;
  const counts={roach:hot?72:77,bream:30,perch:33,goby:150,zander:hot?13:11,pike:4,catfish:hot?12:7,eel:9,carp:7,...Object.fromEntries(Object.entries(ACZO_K42_FISH).map(([n,p])=>[n,p.count]))};
- // Scale each already-defined local species count, including its bridge adjustment.
- // Whole fish are rounded to nearest integer.
+ // K52: 50% more common river fish, including bridge adjustments. Use more
+ // independent schools as well, so added fish cover more of the water.
+ // Mandarin catfish and burbot keep their exact counts and individual slots.
  if(hot)counts.bleak=44;
- return Object.entries(ACZO_MOSEL_SPECIES).map(([species,p])=>({species,count:counts[species],schools:ACZO_K42_FISH[species]?.schools||p.schools||0}));
+ return Object.entries(ACZO_MOSEL_SPECIES).map(([species,p])=>{
+  const rare=aczoK42Rare(species),factor=rare?1:1.5,schools=ACZO_K42_FISH[species]?.schools||p.schools||0;
+  return {species,count:Math.round(counts[species]*factor),schools:schools?Math.round(schools*factor):0};
+ });
 }
 function aczoK8hCatchPopulation(){
  if(!aczoK8hCatchCache){aczoK8hCatchCache=Object.fromEntries(aczoK8hVisualPlan(aczoMoselFishing.center).map(p=>[p.species,p.count]));}
