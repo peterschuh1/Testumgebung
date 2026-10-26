@@ -6432,6 +6432,7 @@ Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
+          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.6 · K76 · 26.10.2026</strong><ul style="padding-left:20px"><li>Weniger temporäre Hilfsdaten bei Sicht- und Bodenabstandsprüfungen; wiederholte Teilsummen der Wellenrechnung werden wiederverwendet. Landschaft, Sichtregeln, Wellenwerte und Spielabläufe bleiben erhalten.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.5 · K75 · 26.10.2026</strong><ul style="padding-left:20px"><li>Die vorhandene Wellentextur wird wiederverwendet; nur geänderte Zeilen werden übertragen. Identische Wasserwerte ohne laufende vollständige Textur-Neuanlage.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.4 · K74 · 26.10.2026</strong><ul style="padding-left:20px"><li>Die schnellere Ladevorbereitung aus V4.3 bleibt erhalten. Die Bereitschaft des Moselgrunds wird nach tatsächlicher Grafikvorbereitung wieder korrekt veröffentlicht, damit Gewässerdetails nachgeladen werden.</li><li>Schiffsschaum überspringt seine Rauschberechnung bei exakt null Schaum. Wellenhöhe, Zeitschritt, echter Schaum und Spielregeln bleiben unverändert.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.3 · Wellenberechnung · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht.</li><li>V4.2: Unveränderte Wellenphysik mit schnellerer Berechnung weit vom Schiff entfernt; A/B-Tests für Schiffsmodell und Wellen.</li><li>V4.3: Unabhängige Wellen- und Schaum-Berechnungen in einem Rasterdurchgang statt in zweien. Keine Änderung der Wellenrate, der Wassertextur, der Shader, der Optik oder der Spielmechanik. Leistungsmessung weiterhin mit ?aczoPerf=1.</li></ul></div>
@@ -6593,7 +6594,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K75-V4.5-WELLENTEXTUR'};
+ const state={contextLost:false,build:'4.0-K76-V4.6-RECHENARBEIT'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -10033,7 +10034,11 @@ function aczoStepWaveField(state,dt){
   const b=g.bands[band];b.pressure.fill(0);
   aczoK20SourcePressure(b,state,p,g.sourceBlend,band);aczoK20SourcePressure(b,aczoK20PatrolWake,ACZO_K20_PATROL_WAVE_PROFILE,g.patrolSourceBlend,band);
   const ids=g.indices,nb=g.neighbours,hh=b.height,vv=b.velocity,pp=b.pressure,ww=b.weights,damping=g.damping,limits=g.limits,foam=g.foam;
-  for(let ii=0,N=ids.length;ii<N;ii++){const i=ids[ii],k=i*4,q=hh[i]+pp[i],l=nb[k],r=nb[k+1],u=nb[k+2],d=nb[k+3];const flux=(hh[l]+pp[l]-q)*ww[k]+(hh[r]+pp[r]-q)*ww[k+1]+(hh[u]+pp[u]-q)*ww[k+2]+(hh[d]+pp[d]-q)*ww[k+3];vv[i]=(vv[i]+flux)*damping[i];}
+  // K76: retain the exact Float64 h + pressure sum once per cell. Every
+  // neighbour read below sees the same value; reuse one scratch field for both bands.
+  const sum=g.k76PressureHeight||(g.k76PressureHeight=new Float64Array(g.n));
+  for(let ii=0,N=ids.length;ii<N;ii++){const i=ids[ii];sum[i]=hh[i]+pp[i];}
+  for(let ii=0,N=ids.length;ii<N;ii++){const i=ids[ii],k=i*4,q=sum[i],l=nb[k],r=nb[k+1],u=nb[k+2],d=nb[k+3];const flux=(sum[l]-q)*ww[k]+(sum[r]-q)*ww[k+1]+(sum[u]-q)*ww[k+2]+(sum[d]-q)*ww[k+3];vv[i]=(vv[i]+flux)*damping[i];}
   for(let ii=0,N=ids.length;ii<N;ii++){const i=ids[ii],limit=limits[i];let z=hh[i]+vv[i]*dt;if(z>limit){foam[i]+=(z-limit)*.75;z=limit;vv[i]*=.70;}else if(z< -limit){foam[i]+=(-z-limit)*.75;z=-limit;vv[i]*=.70;}hh[i]=z;}
   const swap=b.lastPressure;b.lastPressure=b.pressure;b.pressure=swap;
  }
@@ -20839,6 +20844,15 @@ function randomSpeciesPoint(name,out,options={}){
   }
   return randomUnderwaterPoint(out,.5);
 }
+// K76: same four depth probes in the original order, without per-fish offset
+// arrays/callbacks. Keep +0 on the unchanged coordinate, including signed zero.
+function aczoK76SupportDepth(x,y,radius,depth){
+ let sample=pondDepthAt(x+radius,y+0);if(sample!=null)depth=Math.min(depth,sample);
+ sample=pondDepthAt(x-radius,y+0);if(sample!=null)depth=Math.min(depth,sample);
+ sample=pondDepthAt(x+0,y+radius);if(sample!=null)depth=Math.min(depth,sample);
+ sample=pondDepthAt(x+0,y-radius);if(sample!=null)depth=Math.min(depth,sample);
+ return depth;
+}
 function keepFishAboveFloor(f){
   const obj=f.obj;
   const width=Math.abs(obj.userData.baseFishWidth||obj.scale.x||.1);
@@ -20857,11 +20871,8 @@ function keepFishAboveFloor(f){
   // nicht nur die Tiefe exakt unter dem Mittelpunkt.
   let supportDepth=same?cached.supportDepth:d;
   if(!same){
-    [[radius,0],[-radius,0],[0,radius],[0,-radius]].forEach(([dx,dy])=>{
-      const sample=pondDepthAt(obj.position.x+dx,obj.position.y+dy);
-      if(sample!=null)supportDepth=Math.min(supportDepth,sample);
-    });
-    if(river){const sample=f.k55FloorSample||(f.k55FloorSample={});Object.assign(sample,{river,x:obj.position.x,y:obj.position.y,radius,centerDepth:d,supportDepth});}
+    supportDepth=aczoK76SupportDepth(obj.position.x,obj.position.y,radius,supportDepth);
+    if(river){const sample=f.k55FloorSample||(f.k55FloorSample={});sample.river=river;sample.x=obj.position.x;sample.y=obj.position.y;sample.radius=radius;sample.centerDepth=d;sample.supportDepth=supportDepth;}
   }
   const floorZ=aczoDepthToWorldZ(supportDepth);
   if(obj.userData.species==='goby') obj.position.z=floorZ+clearance;
@@ -22466,6 +22477,7 @@ function aczoFishTurnToward(f,desiredHeading,maxTurn){
   f.swimHeading=Math.atan2(Math.sin(f.swimHeading),Math.cos(f.swimHeading));
   return delta;
 }
+const aczoK76BottomGrazerSpecies=Object.freeze(['carp','mirrorcarp','tench','bream','sturgeon','barbel','nase','prussian_carp']);
 function updateFishActors(dt){
   const fishNow=performance.now();
   aczoK43FreeDiveFade.value=fishMode&&!anglingMode&&!!aczoMoselFishing?1:0;
@@ -22737,7 +22749,7 @@ function updateFishActors(dt){
     // sondern auch unabhängig davon gelegentlich am Grund fressen. Karpfen,
     // Brassen, Schleien und Störe wirbeln dabei Sediment auf und setzen kleine
     // Luftblasen aus dem Boden frei.
-    const feedBottomSpecies=['carp','mirrorcarp','tench','bream','sturgeon','barbel','nase','prussian_carp'];
+    const feedBottomSpecies=aczoK76BottomGrazerSpecies;
     // BETA 1.33: Staubwolken und Grundblasen nur noch bei den Arten, die hier
     // tatsächlich als Grundfresser gedacht sind. Rotaugen/Rotfedern am
     // Futterplatz bleiben horizontal und erzeugen keine künstlichen Sedimentwolken.
@@ -22786,10 +22798,7 @@ function updateFishActors(dt){
         // unter ihrer Körperlänge bleiben. Der frühere feste Wert fishW*.34 war
         // für 45° geometrisch zu klein und ließ Kopf/Schnauze in den Boden laufen.
         const supportRadius=Math.max(.05,fishW*.46);
-        [[supportRadius,0],[-supportRadius,0],[0,supportRadius],[0,-supportRadius]].forEach(([dx,dy])=>{
-          const sd=pondDepthAt(f.obj.position.x+dx,f.obj.position.y+dy);
-          if(sd!=null)supportDepth=Math.min(supportDepth,sd);
-        });
+        supportDepth=aczoK76SupportDepth(f.obj.position.x,f.obj.position.y,supportRadius,supportDepth);
         const floor=aczoDepthToWorldZ(supportDepth);
         const pitchAbs=Math.abs(f.visualPitch);
         const centerClearance=Math.max(.07,
@@ -42412,6 +42421,19 @@ function aczoK58ViewScope(cam){
  if(anglingMode&&anglingSelection&&anglingCinematicView==='shore'&&['ready','waiting','bite','missed','strike','bank-waiting','bank-bite','bank-strike'].includes(anglingState)&&waterUniforms.underwaterView.value<.08&&cam.position.z>(aczoMoselFishing?ACZO_MOSEL_SURFACE_Z:0))return 'shore';
  return '';
 }
+// K76: the same eligibility test without boxing a single material and creating
+// a callback for each mesh in every main/inset frame. No changed culling rules.
+function aczoK76FogMaterialsEligible(material){
+ if(Array.isArray(material)){
+  if(!material.length)return false;
+  for(let i=0;i<material.length;i++){
+   if(!(i in material))continue;
+   const m=material[i];if(!m||m.fog!==true||!m.depthTest||m.isShaderMaterial||m.isRawShaderMaterial)return false;
+  }
+  return true;
+ }
+ return !!material&&material.fog===true&&!!material.depthTest&&!material.isShaderMaterial&&!material.isRawShaderMaterial;
+}
 function aczoK56RenderRiverScene(cam){
  const scope=aczoK58ViewScope(cam),fog=scene.fog;
  if(!scope)return renderer.render(scene,cam);
@@ -42430,8 +42452,7 @@ function aczoK56RenderRiverScene(cam){
    if(object.frustumCulled&&(object.userData.aczoForestChunk||object.userData.aczoPerf11Sector))return;
    // Dirty shadow maps still need distant casters whose shadows reach visible water.
    if(object.castShadow&&(renderer.shadowMap.autoUpdate||renderer.shadowMap.needsUpdate))return;
-   const materials=Array.isArray(object.material)?object.material:[object.material];
-   if(!materials.length||materials.some(m=>!m||m.fog!==true||!m.depthTest||m.isShaderMaterial||m.isRawShaderMaterial))return;
+   if(!aczoK76FogMaterialsEligible(object.material))return;
    const bounds=aczoK56ObjectSphere(object);if(!bounds)return;
    const worldBounds=aczoK73WorldBounds(object);box.copy(worldBounds.worldBox);
    if(!frustum.intersectsBox(box)){hidden.push(object);object.visible=false;return;}
@@ -42444,7 +42465,7 @@ function aczoK56RenderRiverScene(cam){
   });
   aczoK56FogStats.passes++;aczoK56FogStats.lastCulled=hidden.length;aczoK56FogStats.culled+=hidden.length;
   return renderer.render(scene,cam);
- }finally{for(const object of hidden)object.visible=true;scene.autoUpdate=auto;}
+ }finally{for(let i=0;i<hidden.length;i++)hidden[i].visible=true;scene.autoUpdate=auto;}
 }
 
 function aczoRenderMainView(){
@@ -53272,7 +53293,7 @@ const aczoPerfTest=(()=>{
  if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
  const r=report(),round=k=>r.sections[k]?.meanMs??0;
  let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
- panel.textContent='ACZO PERFORMANCE TEST V4.5\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
+ panel.textContent='ACZO PERFORMANCE TEST V4.6\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
  };
  return {enabled,add,timed,frame,report,samples};
 })();
