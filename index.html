@@ -5631,7 +5631,7 @@ function aczoSetIconText(element,value){
   if(finished){setProgress('Bereit',1,1);return;}
   if(startupError){setProgress('Vorbereitung unterbrochen');return;}
   if(preparing||mapReady){
-   if(splitPreparation){const s=initialSnapshot||{};setProgress(mapReady?'Karte und Unterwasser bereit':Number(s.totalSteps)>0?'Abschnitt '+Math.min(Number(s.totalSteps),Number(s.completedSteps)+1)+' von '+s.totalSteps:'Karte und Unterwasser werden vorbereitet',mapReady?1:Number(s.completedSteps),mapReady?1:Number(s.totalSteps));return;}
+   if(splitPreparation){const s=initialSnapshot||{};setProgress(mapReady?'Kartenansicht bereit':Number(s.totalSteps)>0?'Abschnitt '+Math.min(Number(s.totalSteps),Number(s.completedSteps)+1)+' von '+s.totalSteps:'Kartenansicht wird vorbereitet',mapReady?1:Number(s.completedSteps),mapReady?1:Number(s.totalSteps));return;}
    const s=startupSnapshot||{},done=Number(s.completedSteps),total=Number(s.totalSteps);
    if(startupReady)setProgress('Spielwelt bereit',1,1);
    else setProgress(total>0?'Spielvorbereitung · '+Math.min(total,Math.max(0,done||0))+' von '+total+' Schritten':'Spielwelt wird vorbereitet',done,total);
@@ -5675,7 +5675,7 @@ function aczoSetIconText(element,value){
   splitPreparation=typeof api.prepareInitialReady==='function';
   const attempt=++preparationAttempt;
   preparing=true;if(retry){retry.textContent='Erneut versuchen';retry.hidden=true;}
-  if(textNode)textNode.textContent=splitPreparation?'Karte und Unterwasser werden vorbereitet …':'Unterwasserwelten werden vorbereitet …';refresh();
+  if(textNode)textNode.textContent=splitPreparation?'Kartenansicht wird vorbereitet …':'Unterwasserwelten werden vorbereitet …';refresh();
   let promise;try{promise=splitPreparation?api.prepareInitialReady():api.prepareStartup();}catch(error){showError(error);return;}
   Promise.resolve(promise).then(snapshot=>{
    if(attempt!==preparationAttempt||finished)return;
@@ -5691,7 +5691,7 @@ function aczoSetIconText(element,value){
  window.__aczoInitialPrepStatus=snapshot=>{
   initialSnapshot=snapshot;
   if(finished||!splitPreparation)return;
-  if(snapshot?.state==='running'&&textNode)textNode.textContent=snapshot.phase||'Karte und Unterwasser werden vorbereitet …';
+  if(snapshot?.state==='running'&&textNode)textNode.textContent=snapshot.phase||'Kartenansicht wird vorbereitet …';
   if(detailNode){detailNode.textContent=snapshot?.state==='running'?snapshot.detail||'':'';detailNode.hidden=!detailNode.textContent;}
   refresh();
  };
@@ -5727,8 +5727,8 @@ function aczoSetIconText(element,value){
    if(attempt!==preparationAttempt||!opening||finished)return;
    if(boot.failed||!criticalStateValid()){showError('Die Grafikvorbereitung wurde unterbrochen. Bitte erneut versuchen.');return;}
    finished=true;opening=false;
-   if(window.__aczoStartup)window.__aczoStartup.mapOpenedAt=performance.now();window.__aczoBootAudit?.mark('map-visible');
-   if(textNode)textNode.textContent=splitPreparation?'Karte und Unterwasser sind bereit':'Weiher und Mosel sind bereit';if(detailNode){detailNode.hidden=true;detailNode.textContent='';}refresh();
+   if(window.__aczoStartup)window.__aczoStartup.mapOpenedAt=performance.now();window.__aczoBootAudit?.mark('map-visible');window.__aczoTransitionPrep?.scheduleIdleWarm?.();
+   if(textNode)textNode.textContent=splitPreparation?'Kartenansicht ist bereit':'Weiher und Mosel sind bereit';if(detailNode){detailNode.hidden=true;detailNode.textContent='';}refresh();
    viewer?.classList.remove('map-startup-loading');document.documentElement.classList.remove('aczo-k29-startup-preparing');
    window.removeEventListener('error',revealAfterStartupError);window.removeEventListener('unhandledrejection',revealAfterStartupError);
    window.removeEventListener('keydown',holdInput,true);window.removeEventListener('wheel',holdInput,true);
@@ -6432,7 +6432,7 @@ Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
-          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Version V.4.0 · K73 · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li></ul></div>
+          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.1 · Performance · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht. Messanzeige mit ?aczoPerf=1.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Version V.4.0 · K72 · 26.10.2026</strong><ul style="padding-left:20px"><li>ZPC BANK mit 20 Minuten, sieben Teilnehmern, Punkte-Fangkarte und fünf Tagen Teilnahmepause.</li><li>Fangkarte mit vorhandenen Fischkonturen, klarer Schrift und „Full Card!“. Wertungsrückmeldungen direkt beim Fang und im Infokasten.</li><li>Pausierbare Karte, anonyme Fangmeldungen und vorhandene Wettangeln-Musik. Wettbewerbsbuttons stehen unten rechts übereinander.</li></ul></div>
          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
              <strong>Version V.4.0 · K41 Test · 24.10.2026</strong>
@@ -10070,8 +10070,10 @@ function aczoUpdateWaveTexture(){
  }g.texture.needsUpdate=true;
 }
 function updateAczoMoselWaves(now,state){
+ const t=window.__aczoPerfTest?.enabled?performance.now():0;
  const g=aczoWaveGrid;if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
  g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;while(g.accumulator>=.05&&count<4){aczoStepWaveField(state,.05);g.accumulator-=.05;count++;}if(count)aczoUpdateWaveTexture();
+ if(t)window.__aczoPerfTest.add('waves',performance.now()-t);
 }
 function aczoInstallShipWakeOnRiver(){
   Object.assign(moselWaterMat.uniforms,aczoShipWakeUniforms);
@@ -10271,7 +10273,9 @@ function updateAczoMoselTraffic(){
  aczoShipMaterials.glass.emissive.setRGB(.20*night,.16*night,.065*night);
  aczoShipMaterials.navRed.emissive.setRGB(.34*night,.008*night,.002*night);aczoShipMaterials.navGreen.emissive.setRGB(.002*night,.25*night,.015*night);
  aczoMoselShips.visible=waterSurface.visible&&moselWaterSurface.visible;
- ship.traverse(o=>{if(o.userData.aczoLowerableMast){const gap=Math.hypot(state.position.x+315.8,state.position.y+497);o.scale.z=THREE.MathUtils.lerp(.04,1,THREE.MathUtils.smoothstep(gap,85,160));}});
+ let masts=ship.userData.aczoPerfMasts;
+ if(!masts){masts=[];ship.traverse(o=>{if(o.userData.aczoLowerableMast)masts.push(o);});ship.userData.aczoPerfMasts=masts;}
+ if(masts.length){const gap=Math.hypot(state.position.x+315.8,state.position.y+497),height=THREE.MathUtils.lerp(.04,1,THREE.MathUtils.smoothstep(gap,85,160));for(const mast of masts)mast.scale.z=height;}
  ship.visible=state.visible;ship.position.set(state.position.x,state.position.y,ACZO_MOSEL_SURFACE_Z+.02+Math.sin(state.phase*.75)*.018);ship.rotation.set(0,Math.sin(state.phase*.52)*.0018,Math.atan2(-state.direction.x,state.direction.y));
  aczoK37ApplyShipExit(ship,state);updateAczoMoselWaves(aczoK34RegionalVisualTime(),state);
  aczoShipWakeUniforms.aczoWakeOrigin.value.copy(state.position);aczoShipWakeUniforms.aczoWakeDirection.value.copy(state.direction);
@@ -20285,7 +20289,7 @@ function aczoK43StreamPopulation(rt){
  const pending=rt.k43Population;if(!pending)return;
  if(performance.now()<pending.retryAt)return;
  const started=performance.now();let count=0;
- const limit=pending.preflight?24:8,budget=pending.preflight?3:.8;
+ const limit=pending.preflight?16:8,budget=pending.preflight?1.6:.8;
  while(pending.index<pending.queue.length&&count<limit&&(count===0||performance.now()-started<budget)){
   const item=pending.queue[pending.index++];
    if(!aczoK43PlaceStreamActor(rt,item,pending.schools)){item.actor.k43PendingPlacement=true;pending.retry.push(item);}
@@ -20313,9 +20317,9 @@ function aczoK51PrimeLurePopulation(point){
   rt.k51PreflightTimer=0;
   if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;
   aczoK43StreamPopulation(rt);
-  if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,0);
+  if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
  };
- rt.k51PreflightTimer=setTimeout(step,0);
+ rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
 }
 
 function aczoK42SwitchSection(rt,center){
@@ -52202,28 +52206,42 @@ aczoResumeSession();
  function aczoK40InitialPhase(index,phase,detail){
   Object.assign(prep.initial,{phase,detail,completedSteps:index-1,totalSteps:5});initialStatus();
  }
+ // PERFTEST V4.1: the first loader proves the *map* only. Fishing keeps its
+ // existing seven-phase GPU preparation, fish templates and resident river bed.
+ // No mesh, material, shader, model or game data is discarded.
  function prepareInitialReady(){
-  if(prep.initial.state==='ready'&&!prep.contextLost)return Promise.resolve({...prep.initial});if(prep.initial.state==='running')return initialPromise;
-  const generation=prep.initial.generation;prep.initial.state='running';prep.initial.error=null;aczoK40InitialPhase(1,'Karte und Panorama','Kartenbild und Landschaft werden für die Ansicht vorbereitet.');
-  initialPromise=(async()=>{await prepareMapReady();prep.initialBarrier=initialLoaderCovered();prep.busy=!!(prep.fishingBarrier||prep.initialBarrier);return await new Promise((resolve,reject)=>{
-   const job=request('initial|'+generation,'Spielwelt wird vorbereitet',async job=>{
-    aczoK40InitialPhase(2,'Gewässer und Ufer','Gewässerboden, Pflanzen und Hindernisse werden aufgebaut.');
-    await baseWorld(job);
-    aczoK40InitialPhase(3,'Fische und Unterwasserwelt','Fische und Gewässerdetails werden für das Abtauchen vorbereitet.');
-    for(const name of Object.keys(ACZO_MOSEL_SPECIES))if(ACZO_K8G_NEW[name]&&!initialTemplates.has(name))await step(job,'Fische vorbereiten',()=>initialTemplates.set(name,createFishMesh(name)));
-    await startupTextures(job);await gpu(job,underwaterRoots(),true);await gpu(job,[...initialTemplates.values()],true);
-    aczoK40InitialPhase(4,'Landschaft und Wasser','Die erste Kartenansicht ist vorbereitet.');
-    // The map has already been drawn by prepareMapReady. Remote river details
-    // are built by the existing local-bed entry path when actually requested.
-    aczoK40InitialPhase(5,'Moselgrund','Der durchgehende Flussgrund wird vorbereitet.');
-    // Detail streaming requires an actually warmed resident bed. Prepare that
-    // once; build distant plant/detail tiles only at their real entry point.
-    let resident;await step(job,'Durchgehenden Moselgrund vorbereiten',()=>{resident=aczoK34EnsureMoselResident();});
-    await gpu(job,fix31BedProxies(resident),true);check(job);resident.gpuReady=true;
-    check(job);prep.initial.state='ready';prep.initial.error=null;prep.initial.phase='Bereit';prep.initial.detail='';prep.initial.completedSteps=5;initialStatus();
-   },()=>generation===prep.initial.generation&&!prep.contextLost,{foreground:true,initial:true,resolve:()=>resolve({...prep.initial}),reject,release:()=>{prep.initialBarrier=false;prep.busy=!!prep.fishingBarrier;}});if(!job){prep.initialBarrier=false;prep.busy=!!prep.fishingBarrier;reject(cancelled());}
-  });})().catch(error=>{if(generation===prep.initial.generation){prep.initial.state=prep.contextLost?'idle':'error';prep.initial.error=String(error.message||error);initialStatus();}throw error;});return initialPromise;
+  if(prep.initial.state==='ready'&&!prep.contextLost)return Promise.resolve({...prep.initial});
+  if(prep.initial.state==='running')return initialPromise;
+  const generation=prep.initial.generation;
+  prep.initial.state='running';prep.initial.error=null;
+  Object.assign(prep.initial,{phase:'Kartenansicht',detail:'Karte und Panorama werden vorbereitet.',completedSteps:0,totalSteps:1});initialStatus();
+  initialPromise=(async()=>{
+   await prepareMapReady();
+   if(prep.contextLost||generation!==prep.initial.generation)throw cancelled();
+   Object.assign(prep.initial,{state:'ready',error:null,phase:'Bereit',detail:'',completedSteps:1,totalSteps:1});initialStatus();
+   return {...prep.initial};
+  })().catch(error=>{if(generation===prep.initial.generation){prep.initial.state=prep.contextLost?'idle':'error';prep.initial.error=String(error.message||error);initialStatus();}throw error;});
+  return initialPromise;
  }
+ // Start the existing underwater preparation only in idle map time.
+ // The foreground fishing button promotes this same job; it never forks a
+ // second preparation queue. User input has priority over background warming.
+ prep.scheduleIdleWarm=function(){
+  if(prep.idleWarmScheduled||prep.contextLost||prep.startup.state==='ready'||prep.fishing.state==='running')return;
+  prep.idleWarmScheduled=true;
+  const attempt=()=>{
+   prep.idleWarmTimer=0;
+   if(prep.contextLost||prep.startup.state==='ready'||prep.startup.state==='running'||prep.fishing.state==='running'){prep.idleWarmScheduled=false;return;}
+   const opened=window.__aczoStartupLoader?.snapshot?.().finished;
+   if(!opened||document.hidden||fishMode||anglingMode||prep.pointers.size||!quiet()||performance.now()-prep.inputAt<3000){
+    prep.idleWarmTimer=setTimeout(attempt,3500);return;
+   }
+   prep.idleWarmScheduled=false;
+   prep.prepareStartup({background:true}).catch(error=>{if(!error?.aczoCancelled)console.warn('ACZO idle prewarm:',error);});
+  };
+  prep.idleWarmTimer=setTimeout(attempt,3500);
+ };
+
  function prepareFishing(){
   if(prep.fishing.state==='ready'&&!prep.contextLost)return Promise.resolve(startupSnapshot());if(prep.fishing.state==='running')return prep.fishing.promise;
   const generation=prep.fishing.generation;prep.fishing.state='running';prep.fishing.error=null;prep.fishing.loaderCount++;prep.error=null;
@@ -53159,6 +53177,25 @@ const aczoK35Panorama=(()=>{
 
 </script>
 <script type="application/x-aczo-stage" data-label="Start wird abgeschlossen">
+// PERFTEST V4.1: diagnostic only when URL contains ?aczoPerf=1.
+// No changed quality/resolution, meshes, shadows or rendering settings.
+const aczoPerfTest=(()=>{
+ const enabled=new URLSearchParams(location.search).get('aczoPerf')==='1';
+ const samples=Object.create(null),stats=Object.create(null);
+ let panel=null,lastPaint=0,lastFrame=0,frames=0,frameElapsed=0;
+ const add=(name,ms)=>{if(!enabled)return;let a=samples[name];if(!a)a=samples[name]=[];a.push(ms);if(a.length>180)a.shift();};
+ const timed=(name,fn)=>{if(!enabled)return fn();const t=performance.now();try{return fn();}finally{add(name,performance.now()-t);}};
+ const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
+  for(const [key,a]of Object.entries(samples)){const sorted=[...a].sort((x,y)=>x-y),sum=a.reduce((x,y)=>x+y,0);result.sections[key]={samples:a.length,meanMs:+(sum/a.length).toFixed(2),p95Ms:+sorted[Math.floor((sorted.length-1)*.95)].toFixed(2),maxMs:+sorted[sorted.length-1].toFixed(2)};}return result;};
+ const frame=t=>{if(!enabled)return;frames++;if(lastFrame){const elapsed=Math.max(0,t-lastFrame);frameElapsed+=elapsed;add('frameGap',elapsed);}lastFrame=t;
+ if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
+ const r=report(),round=k=>r.sections[k]?.meanMs??0;
+ let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
+ panel.textContent='ACZO PERFORMANCE TEST V4.1\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nBericht: __aczoPerfTest.report()';
+ };
+ return {enabled,add,timed,frame,report,samples};
+})();
+window.__aczoPerfTest=aczoPerfTest;
 const aczoPerf6RigidStats=aczoPerf6PrepareRigidBatches();
 // Install after rigid batching, before the unchanged initial GPU preparation.
 for(const root of [aczoSurveyedNatureGroup,realBirchGroup,aczoFacilityGroup,aczoConstructionFenceGroup,aczoSandstoneGroup,aczoKonzerGroup,aczoK12BankSkirt])aczoK41InstallBeaconReceivers(root);
@@ -53286,7 +53323,7 @@ aczoK5dInit();
   updateAczoSurveyForestLod();
   updateAczoWildBoars(visualDt);
   updateAczoRealBirchFineLod();
-  updateAczoMoselTraffic();
+  aczoPerfTest.timed('traffic',()=>updateAczoMoselTraffic());
   updateAczoKonzerBridge();
   updateAczoRegionalWeather();
   updateAczoRegionalSky();
@@ -53537,7 +53574,7 @@ aczoK5dInit();
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
  if(!window.__aczoSafeStart.gpuPrepared){window.__aczoSafeStart.prepareGpu(scene,camera);return;}
- aczoRenderMainView();
+ aczoPerfTest.timed('main',()=>aczoRenderMainView());
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
@@ -53546,7 +53583,8 @@ aczoK5dInit();
  }
  updateAnglingAmbientStatus(dt);
  renderAnglingFloatCamera();if(anglingUsesDeeper()&&anglingUi.classList.contains('line-active'))drawAnglingDeeperSonar();
-  renderAnglingReelCamera();
+  aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());
+  aczoPerfTest.frame(frameNow);
  
  // Der Zehn-Sekunden-Timer beginnt erst nach dem ersten wirklich gezeichneten
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
