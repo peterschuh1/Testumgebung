@@ -6579,7 +6579,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K67-MOSEL-EINSTIEG'};
+ const state={contextLost:false,build:'4.0-K68-STELLENAUSWAHL'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -40134,10 +40134,12 @@ function updateAnglingMode(dt){
   const hideShoreSetUnderwater=(typeof anglingCinematicView!=='undefined'&&anglingCinematicView==='underwater');
   if(hideShoreSetUnderwater||anglingSelection?.pierSpot||['selecting','overview-flight','shore-flight','exit-flight'].includes(anglingState)){
     anglingBankGroup.visible=false;
-    anglingMarkerGroup.visible=false;
   }else if(!aczoBoatActive()&&anglingSelection&&anglingState!=='selecting'&&anglingState!=='overview-flight'&&anglingState!=='shore-flight'&&anglingState!=='exit-flight'){
     anglingBankGroup.visible=true;
   }
+  // K68: the selection arrow is independent of the artificial shore plateau.
+  // Keep a chosen shore/pier visible while dragging and after releasing it.
+  if(hideShoreSetUnderwater)anglingMarkerGroup.visible=false;
   if(anglingTimeShiftActive){
     // V2.3.34: Die Bereitschaftsmontage wird auch im Zeitraffer aus der
     // aktuellen Rutenmatrix neu aufgebaut. Dadurch bleibt die Schnur unter
