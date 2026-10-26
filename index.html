@@ -6432,7 +6432,7 @@ Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
-          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.1 · Performance · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht. Messanzeige mit ?aczoPerf=1.</li></ul></div>
+          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.2 · Schiffe &amp; Wellen · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht.</li><li>V4.2: Unveränderte Wellenphysik mit schnellerer Berechnung weit vom Schiff entfernt, keine zusätzlichen Modell-/Shader-Veränderungen. Diagnose: ?aczoPerf=1; A/B nur zum Testen: &amp;aczoShipAB=freezeWaves oder &amp;aczoShipAB=hideShip.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Version V.4.0 · K72 · 26.10.2026</strong><ul style="padding-left:20px"><li>ZPC BANK mit 20 Minuten, sieben Teilnehmern, Punkte-Fangkarte und fünf Tagen Teilnahmepause.</li><li>Fangkarte mit vorhandenen Fischkonturen, klarer Schrift und „Full Card!“. Wertungsrückmeldungen direkt beim Fang und im Infokasten.</li><li>Pausierbare Karte, anonyme Fangmeldungen und vorhandene Wettangeln-Musik. Wettbewerbsbuttons stehen unten rechts übereinander.</li></ul></div>
          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
              <strong>Version V.4.0 · K41 Test · 24.10.2026</strong>
@@ -10004,9 +10004,23 @@ function aczoWaveSplat(array,x,y,radiusX,radiusY,strength,dirX=0,dirY=1){
  const x0=Math.max(1,Math.floor(cx-R)),x1=Math.min(w-2,Math.ceil(cx+R)),y0=Math.max(1,Math.floor(cy-R)),y1=Math.min(h-2,Math.ceil(cy+R));
  for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){const q=j*w+i;if(!g.wet[q])continue;const xx=(i-cx)*dx,yy=-(j-cy)*dy,along=(xx*dirX+yy*dirY)/radiusY,across=(xx*dirY-yy*dirX)/radiusX,r2=along*along+across*across;if(r2<5.76)array[q]+=strength*Math.exp(-r2);}
 }
+// K75 PERFORMANCE: immutable ship wave profiles, originally rebuilt at 20 Hz.
+const aczoWaveShipProfiles=Object.freeze([
+ Object.freeze({mass:.74,period:3.3,beam:11.2,length:110}),
+ Object.freeze({mass:1.0,period:4.8,beam:11.4,length:96}),
+ Object.freeze({mass:1.20,period:5.4,beam:11.6,length:146}),
+ Object.freeze({mass:.56,period:2.6,beam:11.4,length:110})
+]);
+// Only active alongside the existing opt-in diagnostics. Normal play NEVER
+// hides ships, freezes the wake or changes a single material or pixel.
+const aczoShipABMode=(()=>{
+ const p=new URLSearchParams(location.search);
+ if(p.get('aczoPerf')!=='1')return '';
+ const mode=p.get('aczoShipAB');return mode==='hideShip'||mode==='freezeWaves'?mode:'';
+})();
 function aczoStepWaveField(state,dt){
  const g=aczoWaveGrid,nb=g.neighbours,dx=800/g.w,invDx2=1/(dx*dx),type=state.type||0;
- const profiles=[{mass:.74,period:3.3,beam:11.2,length:110},{mass:1.0,period:4.8,beam:11.4,length:96},{mass:1.20,period:5.4,beam:11.6,length:146},{mass:.56,period:2.6,beam:11.4,length:110}],p=profiles[type],speed=state.speed||0;
+ const p=aczoWaveShipProfiles[type],speed=state.speed||0;
  g.wakeX=state.position.x;g.wakeY=state.position.y;g.wakeDirX=state.direction.x;g.wakeDirY=state.direction.y;g.wakeLength=state.length||p.length;
  // Pressure head enters the existing conservative wave operator as h+P.
  // Negative P produces a positive bow/stern crest; positive hull pressure a
@@ -10055,11 +10069,23 @@ function aczoUpdateWaveTexture(){
  // K62: smoothstep is exactly 1 beyond 85m. Keep the near-ship calculation
  // and the original fallback for non-finite wake data.
  const finiteWake=Number.isFinite(ox)&&Number.isFinite(oy)&&Number.isFinite(dxShip)&&Number.isFinite(dyShip)&&Number.isFinite(halfLength);
+ // K75: The original gain is EXACTLY 1.5 when hullX>=85 OR hullY>=85.
+ // The disk below fully contains the rotated (halfLength+85, beam+85)
+ // rectangle. Outside that disk, wave gain cannot depend on ship rotation.
+ // Avoid expensive dot products + Math.hypot for these distant grid cells,
+ // with no changed height, foam, resolution or wake propagation.
+ const outerRadius=finiteWake?Math.hypot(halfLength+85,91):Infinity;
+ const coords=g.sampleXY;
  for(let ii=0;ii<ids.length;ii++){
-  const i=ids[ii],x=g.sampleXY[ii*2],y=g.sampleXY[ii*2+1],rx=x-ox,ry=y-oy;
-  const along=rx*dxShip+ry*dyShip,across=rx*dyShip-ry*dxShip;
-  const hullX=Math.max(0,Math.abs(along)-halfLength),hullY=Math.max(0,Math.abs(across)-6);
-  const gain=finiteWake&&(hullX>=85||hullY>=85)?1.5:.85+.65*THREE.MathUtils.smoothstep(Math.hypot(hullX,hullY),20,85),limit=Math.min(1.45,g.depth[i]*.42);
+  const i=ids[ii],rx=coords[ii*2]-ox,ry=coords[ii*2+1]-oy;
+  let gain;
+  if(finiteWake&&(Math.abs(rx)>=outerRadius||Math.abs(ry)>=outerRadius))gain=1.5;
+  else{
+   const along=rx*dxShip+ry*dyShip,across=rx*dyShip-ry*dxShip;
+   const hullX=Math.max(0,Math.abs(along)-halfLength),hullY=Math.max(0,Math.abs(across)-6);
+   gain=finiteWake&&(hullX>=85||hullY>=85)?1.5:.85+.65*THREE.MathUtils.smoothstep(Math.hypot(hullX,hullY),20,85);
+  }
+  const limit=Math.min(1.45,g.depth[i]*.42);
   render[i]=THREE.MathUtils.clamp((h0[i]+h1[i])*gain,-limit,limit);
  }
  const depth=g.depth,shore=g.shore,foam=g.foam,sqrt=Math.sqrt;
@@ -10070,10 +10096,19 @@ function aczoUpdateWaveTexture(){
  }g.texture.needsUpdate=true;
 }
 function updateAczoMoselWaves(now,state){
- const t=window.__aczoPerfTest?.enabled?performance.now():0;
+ const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0;
  const g=aczoWaveGrid;if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
- g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;while(g.accumulator>=.05&&count<4){aczoStepWaveField(state,.05);g.accumulator-=.05;count++;}if(count)aczoUpdateWaveTexture();
- if(t)window.__aczoPerfTest.add('waves',performance.now()-t);
+ // Pure A/B diagnosis, never active in the production path.
+ if(aczoShipABMode==='freezeWaves'){g.accumulator=0;return;}
+ g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;
+ while(g.accumulator>=.05&&count<4){
+  const solveStart=t?performance.now():0;
+  aczoStepWaveField(state,.05);
+  if(t)perf.add('waveSolve',performance.now()-solveStart);
+  g.accumulator-=.05;count++;
+ }
+ if(count){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
+ if(t)perf.add('waves',performance.now()-t);
 }
 function aczoInstallShipWakeOnRiver(){
   Object.assign(moselWaterMat.uniforms,aczoShipWakeUniforms);
@@ -10280,6 +10315,9 @@ function updateAczoMoselTraffic(){
  aczoK37ApplyShipExit(ship,state);updateAczoMoselWaves(aczoK34RegionalVisualTime(),state);
  aczoShipWakeUniforms.aczoWakeOrigin.value.copy(state.position);aczoShipWakeUniforms.aczoWakeDirection.value.copy(state.direction);
  aczoShipWakeUniforms.aczoWakeLength.value=ship.userData.length;aczoShipWakeUniforms.aczoWakeAmplitude.value=[.85,1.05,1.20,.72][state.type]*state.aczoK37Fade;aczoShipWakeUniforms.aczoWakeTime.value=aczoK34RegionalVisualTime();aczoShipWakeUniforms.aczoWakeTravel.value=state.travel;aczoUpdateRegionalNight(state,ship);
+ // A/B-only model hiding; wake physics, passage timings, light/boat logic
+ // continue to run, allowing comparison with the same active ship wake.
+ if(aczoShipABMode==='hideShip')ship.visible=false;
 }
 function aczoBridgeSurfaceTexture(masonry){
  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;const c=canvas.getContext('2d');
@@ -53185,13 +53223,13 @@ const aczoPerfTest=(()=>{
  let panel=null,lastPaint=0,lastFrame=0,frames=0,frameElapsed=0;
  const add=(name,ms)=>{if(!enabled)return;let a=samples[name];if(!a)a=samples[name]=[];a.push(ms);if(a.length>180)a.shift();};
  const timed=(name,fn)=>{if(!enabled)return fn();const t=performance.now();try{return fn();}finally{add(name,performance.now()-t);}};
- const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
+ const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,shipAB:aczoShipABMode,waveCells:aczoWaveGrid.indices.length,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
   for(const [key,a]of Object.entries(samples)){const sorted=[...a].sort((x,y)=>x-y),sum=a.reduce((x,y)=>x+y,0);result.sections[key]={samples:a.length,meanMs:+(sum/a.length).toFixed(2),p95Ms:+sorted[Math.floor((sorted.length-1)*.95)].toFixed(2),maxMs:+sorted[sorted.length-1].toFixed(2)};}return result;};
  const frame=t=>{if(!enabled)return;frames++;if(lastFrame){const elapsed=Math.max(0,t-lastFrame);frameElapsed+=elapsed;add('frameGap',elapsed);}lastFrame=t;
  if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
  const r=report(),round=k=>r.sections[k]?.meanMs??0;
  let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
- panel.textContent='ACZO PERFORMANCE TEST V4.1\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nBericht: __aczoPerfTest.report()';
+ panel.textContent='ACZO PERFORMANCE TEST V4.2\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
  };
  return {enabled,add,timed,frame,report,samples};
 })();
