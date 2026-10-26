@@ -6432,6 +6432,7 @@ Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
+          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.4 · K74 · 26.10.2026</strong><ul style="padding-left:20px"><li>Die schnellere Ladevorbereitung aus V4.3 bleibt erhalten. Die Bereitschaft des Moselgrunds wird nach tatsächlicher Grafikvorbereitung wieder korrekt veröffentlicht, damit Gewässerdetails nachgeladen werden.</li><li>Schiffsschaum überspringt seine Rauschberechnung bei exakt null Schaum. Wellenhöhe, Zeitschritt, echter Schaum und Spielregeln bleiben unverändert.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.3 · Wellenberechnung · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht.</li><li>V4.2: Unveränderte Wellenphysik mit schnellerer Berechnung weit vom Schiff entfernt; A/B-Tests für Schiffsmodell und Wellen.</li><li>V4.3: Unabhängige Wellen- und Schaum-Berechnungen in einem Rasterdurchgang statt in zweien. Keine Änderung der Wellenrate, der Wassertextur, der Shader, der Optik oder der Spielmechanik. Leistungsmessung weiterhin mit ?aczoPerf=1.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Version V.4.0 · K72 · 26.10.2026</strong><ul style="padding-left:20px"><li>ZPC BANK mit 20 Minuten, sieben Teilnehmern, Punkte-Fangkarte und fünf Tagen Teilnahmepause.</li><li>Fangkarte mit vorhandenen Fischkonturen, klarer Schrift und „Full Card!“. Wertungsrückmeldungen direkt beim Fang und im Infokasten.</li><li>Pausierbare Karte, anonyme Fangmeldungen und vorhandene Wettangeln-Musik. Wettbewerbsbuttons stehen unten rechts übereinander.</li></ul></div>
          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere">
@@ -6591,7 +6592,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K73-ZPC-MENUE-WASSER-PERFORMANCE'};
+ const state={contextLost:false,build:'4.0-K74-V4.4-WELLEN-AUDIT'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -45277,8 +45278,14 @@ const aczoShipWakeGLSL=`
   vec2 uv=vec2((xy.x+500.)/800.,(200.-xy.y)/830.);if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec4(0.);
   vec4 f=texture2D(aczoWakeField,uv);float height=(f.r*255.-128.)/79.375;
   vec2 gradient=(f.gb*255.-vec2(128.))/127.;
-  float mottled=.48+.34*aczoWakeNoise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035))+.18*aczoWakeNoise(xy*1.7-vec2(aczoWakeTime*.09));
-  float coastFade=smoothstep(1.,3.4,bankDistance);return vec4(height*coastFade,gradient*coastFade,f.a*mottled);
+  // K74: zero encoded foam stays exactly zero. Avoid both animated noise
+  // evaluations for these pixels; height, normals and real foam stay unchanged.
+  float foam=0.;
+  if(f.a!=0.){
+   float mottled=.48+.34*aczoWakeNoise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035))+.18*aczoWakeNoise(xy*1.7-vec2(aczoWakeTime*.09));
+   foam=f.a*mottled;
+  }
+  float coastFade=smoothstep(1.,3.4,bankDistance);return vec4(height*coastFade,gradient*coastFade,foam);
  }
 `;
 const moselWorldPolygon=[[300.0, 32.0], [281.333, 24.0], [254.0, 13.333], [231.333, 2.667], [216.667, -6.0], [192.0, -18.667], [172.0, -30.0], [148.0, -44.0], [130.667, -55.333], [119.333, -61.333], [102.667, -73.333], [83.333, -84.0], [66.667, -94.667], [46.0, -106.0], [28.0, -116.667], [8.0, -129.333], [-11.333, -141.333], [-28.0, -152.667], [-48.0, -165.333], [-66.667, -179.333], [-84.0, -190.0], [-100.0, -200.0], [-114.0, -210.0], [-130.0, -221.333], [-145.333, -232.0], [-157.333, -242.667], [-171.333, -254.667], [-185.333, -264.0], [-197.333, -275.333], [-208.0, -284.667], [-220.667, -294.667], [-233.333, -305.333], [-245.333, -313.333], [-256.667, -324.667], [-270.0, -334.0], [-282.0, -344.667], [-294.667, -354.667], [-306.667, -364.0], [-318.667, -374.667], [-328.0, -384.667], [-338.0, -394.0], [-348.0, -402.0], [-356.667, -410.0], [-364.667, -418.667], [-372.667, -426.667], [-380.0, -436.0], [-386.667, -445.333], [-388.0, -459.333], [-394.0, -475.333], [-404.0, -492.667], [-414.667, -512.0], [-426.0, -526.667], [-434.0, -540.0], [-446.667, -560.0], [-463.333, -583.333], [-480.0, -606.667], [-500.0, -630.0], [-287.333, -630.0], [-280.0, -612.667], [-270.667, -598.667], [-262.667, -586.667], [-255.333, -579.333], [-246.0, -569.333], [-233.333, -557.333], [-229.333, -542.0], [-224.0, -529.333], [-209.333, -514.667], [-196.667, -502.667], [-181.333, -490.0], [-161.333, -473.333], [-148.0, -459.333], [-136.667, -453.333], [-126.667, -446.0], [-114.667, -438.667], [-106.667, -451.333], [-90.667, -464.667], [-83.333, -474.667], [-73.333, -468.667], [-60.0, -455.333], [-46.667, -444.0], [-33.333, -433.333], [-20.0, -422.667], [-6.667, -410.0], [6.667, -400.0], [20.0, -388.0], [33.333, -377.333], [46.667, -366.0], [58.667, -354.667], [45.333, -339.333], [35.333, -332.667], [28.0, -319.333], [30.667, -311.333], [42.0, -298.667], [56.0, -286.0], [70.667, -276.667], [81.333, -270.667], [94.0, -264.667], [106.667, -258.0], [124.0, -249.333], [142.667, -236.667], [160.667, -224.0], [180.0, -211.333], [202.667, -200.0], [223.333, -188.0], [240.0, -178.0], [260.0, -168.0], [280.0, -157.333], [300.0, -148.0]].map(p=>new THREE.Vector2(p[0],p[1]));
@@ -51852,6 +51859,14 @@ aczoResumeSession();
   prep.cacheStats.compileOnlyObjects=(prep.cacheStats.compileOnlyObjects||0)+batch.length-needDraw.length;
   return proofs;
  }
+ function aczoK74PublishResidentReady(roots,underwater,key,layout){
+  const entry=aczoK34Mosel.resident;
+  if(!underwater||prep.contextLost||!entry||entry.gpuReady||!roots.includes(entry.group))return;
+  if(withIdentityRead(()=>nodes([entry.group],key,layout).length))return;
+  entry.gpuReady=true;
+  const rt=aczoMoselFishing;
+  if(rt?.bottom===entry.group)aczoK34RequestMoselDetails(rt.center,{rt,immediate:true});
+ }
  async function gpu(job,roots,underwater,options){
   const layout=layoutFor(options),key=profile(underwater,layout),resources=job.coverageResources||(job.coverageResources=new Map()),pending=withIdentityRead(()=>nodes(roots,key,layout,object=>resources.set(object,allocationToken(object))));let index=0,retries=0;
   // K65: both covered loaders dispatch missing underwater programs before
@@ -51891,6 +51906,7 @@ aczoResumeSession();
    },true,bytes);}catch(error){if(error.aczoResourceChanged&&++retries<3){index=startIndex;continue;}throw error;}
    retries=0;
   }
+  aczoK74PublishResidentReady(roots,underwater,key,layout);
  }
 
    function equipmentKey(){return [anglingProgress.selectedEquipment,anglingProgress.selectedRod,anglingProgress.selectedNet,anglingSelectedBait,anglingSelectedLureId].join('|');}
@@ -53238,7 +53254,7 @@ const aczoPerfTest=(()=>{
  if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
  const r=report(),round=k=>r.sections[k]?.meanMs??0;
  let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
- panel.textContent='ACZO PERFORMANCE TEST V4.3\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
+ panel.textContent='ACZO PERFORMANCE TEST V4.4\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
  };
  return {enabled,add,timed,frame,report,samples};
 })();
