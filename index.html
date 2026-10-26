@@ -6432,6 +6432,7 @@ Melde Fehler bitte mit Gerät, Browser und betroffenem Spielmodus.
 </div>
        <details class="help-note" style="cursor:pointer">
          <summary style="font-weight:800">Update-Historie</summary>
+          <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.5 · K75 · 26.10.2026</strong><ul style="padding-left:20px"><li>Die vorhandene Wellentextur wird wiederverwendet; nur geänderte Zeilen werden übertragen. Identische Wasserwerte ohne laufende vollständige Textur-Neuanlage.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.4 · K74 · 26.10.2026</strong><ul style="padding-left:20px"><li>Die schnellere Ladevorbereitung aus V4.3 bleibt erhalten. Die Bereitschaft des Moselgrunds wird nach tatsächlicher Grafikvorbereitung wieder korrekt veröffentlicht, damit Gewässerdetails nachgeladen werden.</li><li>Schiffsschaum überspringt seine Rauschberechnung bei exakt null Schaum. Wellenhöhe, Zeitschritt, echter Schaum und Spielregeln bleiben unverändert.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Testversion V.4.3 · Wellenberechnung · 26.10.2026</strong><ul style="padding-left:20px"><li>Zewen Predator Cup jetzt auch mit Status und Teilnahme im Hauptmenü.</li><li>Unnötige Oberflächenreflex-Berechnungen unter Wasser entfallen. Schiffswellen und Schaum verwenden dieselbe Simulation mit weniger wiederholter Arbeit.</li><li>Sichtgrenzen werden bei unveränderter Geometrie wiederverwendet; Uferbäume, Wasseroptik und Spielsysteme bleiben erhalten.</li><li>Test: Kartenstart vor Unterwasser-Vorbereitung; Fischaufbau bei Kunstköderwürfen in kleineren Portionen; Schiffsmast-Objekte gecacht.</li><li>V4.2: Unveränderte Wellenphysik mit schnellerer Berechnung weit vom Schiff entfernt; A/B-Tests für Schiffsmodell und Wellen.</li><li>V4.3: Unabhängige Wellen- und Schaum-Berechnungen in einem Rasterdurchgang statt in zweien. Keine Änderung der Wellenrate, der Wassertextur, der Shader, der Optik oder der Spielmechanik. Leistungsmessung weiterhin mit ?aczoPerf=1.</li></ul></div>
           <div style="margin-top:8px;cursor:default;overflow-wrap:anywhere"><strong>Version V.4.0 · K72 · 26.10.2026</strong><ul style="padding-left:20px"><li>ZPC BANK mit 20 Minuten, sieben Teilnehmern, Punkte-Fangkarte und fünf Tagen Teilnahmepause.</li><li>Fangkarte mit vorhandenen Fischkonturen, klarer Schrift und „Full Card!“. Wertungsrückmeldungen direkt beim Fang und im Infokasten.</li><li>Pausierbare Karte, anonyme Fangmeldungen und vorhandene Wettangeln-Musik. Wettbewerbsbuttons stehen unten rechts übereinander.</li></ul></div>
@@ -6592,7 +6593,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.0-K74-V4.4-WELLEN-AUDIT'};
+ const state={contextLost:false,build:'4.0-K75-V4.5-WELLENTEXTUR'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -10073,8 +10074,23 @@ function aczoStepWaveField(state,dt){
  }
  g.steps++;
 }
+// K75: keep the same texture allocation and upload only changed full-width
+// rows through r128's public copyTextureToTexture API. The source is CPU-only.
+function aczoK75UploadWaveRows(g,firstRow,lastRow){
+ const stats=g.uploadStats||(g.uploadStats={updates:0,bytes:0,skipped:0,fallbacks:0});
+ if(lastRow<firstRow){stats.skipped++;return;}
+ if(typeof renderer==='undefined'||typeof renderer.copyTextureToTexture!=='function'||renderer.getContext().isContextLost()){
+  g.texture.needsUpdate=true;stats.fallbacks++;return;
+ }
+ const source=g.rowUploadSource||(g.rowUploadSource=new THREE.DataTexture(null,g.w,1,THREE.RGBAFormat,THREE.UnsignedByteType));
+ const origin=g.rowUploadOrigin||(g.rowUploadOrigin=new THREE.Vector2());
+ source.image={data:g.pixels.subarray(firstRow*g.w*4,(lastRow+1)*g.w*4),width:g.w,height:lastRow-firstRow+1};origin.set(0,firstRow);
+ try{renderer.copyTextureToTexture(origin,source,g.texture);stats.updates++;stats.bytes+=source.image.data.byteLength;}
+ catch(error){g.texture.needsUpdate=true;stats.fallbacks++;}
+}
 function aczoUpdateWaveTexture(){
  const g=aczoWaveGrid,h0=g.bands[0].height,h1=g.bands[1].height,p=g.pixels,nb=g.neighbours,dx=800/g.w,render=g.renderHeight,ids=g.indices;
+ const words=g.pixelWords||(g.pixelWords=new Uint32Array(p.buffer,p.byteOffset,p.length/4));let firstRow=g.h,lastRow=-1;
  const ox=g.wakeX,oy=g.wakeY,dxShip=g.wakeDirX,dyShip=g.wakeDirY,halfLength=g.wakeLength*.5;
  // K62: smoothstep is exactly 1 beyond 85m. Keep the near-ship calculation
  // and the original fallback for non-finite wake data.
@@ -10100,10 +10116,12 @@ function aczoUpdateWaveTexture(){
  }
  const depth=g.depth,shore=g.shore,foam=g.foam,sqrt=Math.sqrt;
  for(let ii=0,N=ids.length;ii<N;ii++){
-  const i=ids[ii],height=render[i],k=i*4,l=nb[k],r=nb[k+1],u=nb[k+2],d=nb[k+3],gx=(render[r]-render[l])/(2*dx),gy=(render[u]-render[d])/(2*dx),slope=sqrt(gx*gx+gy*gy),ah=Math.abs(height);
+  const i=ids[ii],before=words[i],height=render[i],k=i*4,l=nb[k],r=nb[k+1],u=nb[k+2],d=nb[k+3],gx=(render[r]-render[l])/(2*dx),gy=(render[u]-render[d])/(2*dx),slope=sqrt(gx*gx+gy*gy),ah=Math.abs(height);
   const breaking=(slope>.075?slope-.075:0)*(shore[i]<8?3.5:1.5)+(ah>depth[i]*.32?ah-depth[i]*.32:0)*.75;
   let pr=128+height*79.375,pg=128+gx*127,pb=128+gy*127,pa=255*(foam[i]+breaking+g.bankFoam[i]);p[k]=pr<0?0:pr>255?255:pr+.5;p[k+1]=pg<0?0:pg>255?255:pg+.5;p[k+2]=pb<0?0:pb>255?255:pb+.5;p[k+3]=pa>220?220:pa+.5;
- }g.texture.needsUpdate=true;
+  if(before!==words[i]){const row=(i/g.w)|0;if(row<firstRow)firstRow=row;if(row>lastRow)lastRow=row;}
+ }
+ aczoK75UploadWaveRows(g,firstRow,lastRow);
 }
 function updateAczoMoselWaves(now,state){
  const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0;
@@ -53248,13 +53266,13 @@ const aczoPerfTest=(()=>{
  let panel=null,lastPaint=0,lastFrame=0,frames=0,frameElapsed=0;
  const add=(name,ms)=>{if(!enabled)return;let a=samples[name];if(!a)a=samples[name]=[];a.push(ms);if(a.length>180)a.shift();};
  const timed=(name,fn)=>{if(!enabled)return fn();const t=performance.now();try{return fn();}finally{add(name,performance.now()-t);}};
- const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,shipAB:aczoShipABMode,waveCells:aczoWaveGrid.indices.length,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
+ const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,shipAB:aczoShipABMode,waveUploads:aczoWaveGrid.uploadStats?{...aczoWaveGrid.uploadStats}:null,waveCells:aczoWaveGrid.indices.length,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
   for(const [key,a]of Object.entries(samples)){const sorted=[...a].sort((x,y)=>x-y),sum=a.reduce((x,y)=>x+y,0);result.sections[key]={samples:a.length,meanMs:+(sum/a.length).toFixed(2),p95Ms:+sorted[Math.floor((sorted.length-1)*.95)].toFixed(2),maxMs:+sorted[sorted.length-1].toFixed(2)};}return result;};
  const frame=t=>{if(!enabled)return;frames++;if(lastFrame){const elapsed=Math.max(0,t-lastFrame);frameElapsed+=elapsed;add('frameGap',elapsed);}lastFrame=t;
  if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
  const r=report(),round=k=>r.sections[k]?.meanMs??0;
  let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
- panel.textContent='ACZO PERFORMANCE TEST V4.4\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
+ panel.textContent='ACZO PERFORMANCE TEST V4.5\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
  };
  return {enabled,add,timed,frame,report,samples};
 })();
