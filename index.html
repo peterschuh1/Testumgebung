@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K81-WASSERSICHT'};
+ const state={contextLost:false,build:'4.1-K82-WURFVORBEREITUNG'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -24211,7 +24211,12 @@ function updateAnglingDeeperReadyPose(){
  anglingTerminalPoint(anglingDeeperReadyEnd);
  // Die alte Line bleibt als Fallback vorhanden, die sichtbare Darstellung
  // übernimmt jedoch die robuste 3D-Schnur.
- anglingDeeperReadyLine.geometry.setFromPoints([anglingDeeperReadyTip,anglingDeeperReadyEnd]);
+ // K82: update the same two points; a new attribute each ready frame
+ // invalidated the prepared cast even while this fallback line was hidden.
+ const readyLinePosition=anglingDeeperReadyLine.geometry.attributes.position;
+ readyLinePosition.setXYZ(0,anglingDeeperReadyTip.x,anglingDeeperReadyTip.y,anglingDeeperReadyTip.z||0);
+ readyLinePosition.setXYZ(1,anglingDeeperReadyEnd.x,anglingDeeperReadyEnd.y,anglingDeeperReadyEnd.z||0);
+ readyLinePosition.needsUpdate=true;
  anglingDeeperReadyLine.material.opacity=.16;
  updateAnglingReadyLine3D(true,anglingDeeperReadyTip,anglingDeeperReadyEnd);
 }
@@ -52116,7 +52121,7 @@ aczoResumeSession();
   if(prep.deferUntilAction||!anglingMode||!anglingSelection||!['ready','shore-flight'].includes(anglingState)||anglingUi.classList.contains('line-active'))return;
   const selection=anglingSelection,key=equipmentKey(),wet=needsUnderwater(),coverage=shoreCoverageKey();
   if(coverageValid(selection,coverage))return;
-  request('shore|'+key,'Angelplatz wird vorbereitet',async job=>{await baseWorld(job);const stableCoverage=shoreCoverageKey();await equipment(job);if(wet)await underwater(job);else await worldViews(job,false);check(job);if(stableCoverage===shoreCoverageKey())rememberCoverage(selection,stableCoverage,job);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','shore-flight'].includes(anglingState),{priority:50});
+  request('shore|'+key,'Angelplatz wird vorbereitet',async job=>{await baseWorld(job);const stableCoverage=shoreCoverageKey();await equipment(job);if(wet)await underwater(job);else await worldViews(job,false);check(job);if(stableCoverage===shoreCoverageKey())rememberCoverage(selection,stableCoverage,job);},()=>anglingMode&&anglingSelection===selection&&equipmentKey()===key&&['ready','shore-flight'].includes(anglingState),{priority:50,shoreSelection:selection,shoreCoverage:coverage});
  }
   // Replace optional all-scene warmups. They used to run large renders after an
  // idle timeout and race the first shore flight/cast. Actual requested resources
@@ -52184,14 +52189,33 @@ aczoResumeSession();
   const coverage=shoreCoverageKey();if(anglingLureUnderwaterWorldReady&&coverageValid(selection,coverage)){prep.castStats.originalCalls++;return originalCast.apply(self,args);}
   const intent={selection,key,executed:false,generation:prep.generation,target:[selection.aim.x,selection.aim.y]};prep.castIntent=intent;prep.castStats.queued++;
   const isValid=()=>prep.castIntent===intent&&anglingMode&&anglingSelection===selection&&equipmentKey()===key&&anglingState==='ready'&&anglingAimLocked&&selection.aim.x===intent.target[0]&&selection.aim.y===intent.target[1];
-  intent.job=action('cast|'+key,'Auswurf wird vorbereitet',async job=>{
+  const execute=()=>{if(!isValid())return;intent.executed=true;prep.castIntent=null;prep.castStats.originalCalls++;originalCast.apply(self,args);};
+  const retain=job=>{
+   intent.job=job;
+   if(job){const release=job.release;job.release=()=>{release?.();if(prep.castIntent===intent&&intent.job===job)prep.castIntent=null;};job.retry=()=>startAnglingCast.apply(self,args);}
+   else if(prep.castIntent===intent)prep.castIntent=null;
+   return job;
+  };
+  const prepare=()=>retain(action('cast|'+key,'Auswurf wird vorbereitet',async job=>{
    await baseWorld(job);const stableCoverage=shoreCoverageKey();await equipment(job);if(wet)await underwater(job);else await worldViews(job,false);check(job);
    if(stableCoverage===shoreCoverageKey())rememberCoverage(selection,stableCoverage,job);
-   intent.executed=true;prep.castIntent=null;prep.castStats.originalCalls++;originalCast.apply(self,args);
-  },()=>intent.executed||isValid());
-  if(intent.job)intent.job.release=()=>{if(prep.castIntent===intent)prep.castIntent=null;};else if(prep.castIntent===intent)prep.castIntent=null;
-  if(intent.job)intent.job.retry=()=>startAnglingCast.apply(self,args);
-  return intent.job;
+   execute();
+  },()=>intent.executed||isValid()));
+  // The same selected destination may already be preparing during the shore
+  // flight. Promote that exact request instead of queueing its work twice.
+  const shore=[prep.active,...prep.queue].find(job=>job?.key==='shore|'+key&&job.shoreSelection===selection&&job.shoreCoverage===coverage&&valid(job));
+  if(shore){
+   prep.error=null;hide();
+   prep.castStats.reusedPreparation=(prep.castStats.reusedPreparation||0)+1;
+   return retain(request(shore.key,'Auswurf wird vorbereitet',shore.work,shore.valid,{foreground:true,resolve:()=>{
+    if(!isValid())return;
+    // Retain every resource proof and stale-target/equipment guard. If the
+    // finished request lost coverage, the native preparation path still runs.
+    if(anglingLureUnderwaterWorldReady&&coverageValid(selection,shoreCoverageKey()))execute();
+    else prepare();
+   }}));
+  }
+  return prepare();
  };
   enterFishView=function(){
   if(fishMode||anglingMode)return originalDive.apply(this,arguments);
