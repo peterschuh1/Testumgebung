@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K78-SCHAUMABDECKUNG'};
+ const state={contextLost:false,build:'4.1-K79-WASSERRECHENWEGE'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -9942,8 +9942,9 @@ function aczoStepWaveField(state,dt){
  const fadeBank=Math.exp(-dt/1.35),bankIds=g.bankIndices;let emitted=0,nearEmitted=0;
  for(let ii=0,N=bankIds.length;ii<N;ii++){
   const i=bankIds[ii],k=i*4,nx=g.bankNormals[i*2],ny=g.bankNormals[i*2+1];bank[i]*=fadeBank;g.impactCooldown[i]=Math.max(0,g.impactCooldown[i]-dt);
+  const eta=h0[i]+h1[i];if(eta<=.025)continue;
   const gx=(h0[nb[k+1]]+h1[nb[k+1]]-h0[nb[k]]-h1[nb[k]])/(2*dx),gy=(h0[nb[k+2]]+h1[nb[k+2]]-h0[nb[k+3]]-h1[nb[k+3]])/(2*dx);
-  const eta=h0[i]+h1[i],velocity=v0[i]+v1[i],incoming=Math.max(0,-velocity*(gx*nx+gy*ny));
+  const velocity=v0[i]+v1[i],incoming=Math.max(0,-velocity*(gx*nx+gy*ny));
   const impact=Math.max(0,Math.sqrt(incoming)-.012)*Math.min(1,Math.max(0,eta-.025)/.12);
   if(impact<=0)continue;bank[i]=Math.min(.55,bank[i]+impact*dt*8);
    if(impact>.003&&nearEmitted<3&&g.impactCooldown[i]<=0){const x=-500+(i%g.w+.5)*800/g.w,y=200-(((i/g.w)|0)+.5)*830/g.h;if(aczoK23FishingSprayGain(x,y)>0){aczoEmitBankSpray(i,nx,ny,Math.min(1,Math.max(impact*4,bank[i]*2)),true);g.impactCooldown[i]=.4;nearEmitted++;}}
@@ -53296,7 +53297,47 @@ const aczoPerf6RigidStats=aczoPerf6PrepareRigidBatches();
 // Install after rigid batching, before the unchanged initial GPU preparation.
 for(const root of [aczoSurveyedNatureGroup,realBirchGroup,aczoFacilityGroup,aczoConstructionFenceGroup,aczoSandstoneGroup,aczoKonzerGroup,aczoK12BankSkirt])aczoK41InstallBeaconReceivers(root);
 for(const mat of Object.values(aczoShipMaterials))aczoK41InstallBeaconReceiver(mat);
+// K79: exact zero-contribution branches, independent of optional GPU timers.
+// No quality thresholds, resolution changes, new textures or per-frame work.
+function aczoK79OptimizeRiverShaders(mat){
+ let f=mat.fragmentShader,v=mat.vertexShader;
+ const replace=(s,a,b)=>{if(s.split(a).length!==2)throw Error('K79 river shader anchor: '+a.slice(0,56));return s.replace(a,b);};
+ // Flood displacement is exactly zero at normal water levels.
+ v=replace(v,'vec2 q=aczoK20FlowCoordinates(xy);float shear=', 'if(aczoMoselBrown==0.)return 0.;vec2 q=aczoK20FlowCoordinates(xy);float shear=');
+ // Surface sediment streaks contribute zero from beneath the water. Retain
+ // the original sediment colour, underwater haze, bridge and train shadows.
+ f=replace(f,'vec2 q=aczoK20FlowCoordinates(world.xy);float shear=', 'float above=step(-.205,cameraPosition.z);float streak=0.,movingRipple=0.;if(aczoMoselBrown!=0.&&above!=0.){vec2 q=aczoK20FlowCoordinates(world.xy);float shear=');
+ f=replace(f,'float streak=sin(q.y*.31', 'streak=sin(q.y*.31');
+ f=replace(f,'float movingRipple=sin(q.x*.40', 'movingRipple=sin(q.x*.40');
+ f=replace(f,'float above=step(-.205,cameraPosition.z);vec3 clearRiver=rgb;', '}vec3 clearRiver=rgb;');
+ // Sky colour has exactly zero mirror weight at fully submerged view.
+ f=replace(f,'float reflectedHeight=clamp(reflectedView.z,0.0,1.0);', 'vec3 reflectedSky=vec3(0.);if(underwaterView<1.0){float reflectedHeight=clamp(reflectedView.z,0.0,1.0);');
+ f=replace(f,'vec3 reflectedSky=mix(daySky,nightSky,clamp(nightFactor,0.0,1.0));', 'reflectedSky=mix(daySky,nightSky,clamp(nightFactor,0.0,1.0));}');
+ // Preserve the order of all colour applications, including twilight where
+ // both sources contribute. Only an exactly zero source skips its math.
+ f=replace(f,'float sunWidth=mix(.080,.024,clamp(screenUV.y,0.0,1.0));', 'float sd=0.;vec3 sourceN=dot(N,V)<0.0 ? -N : N;float solarScatterBreak=.30+.70*smoothstep(.50,.90,.44*fine+.38*ripples+.18*shimmer);if(sunStrength!=0.0){float sunWidth=mix(.080,.024,clamp(screenUV.y,0.0,1.0));');
+ f=replace(f,'vec3 sourceN=dot(N,V)<0.0 ? -N : N;\n     vec3 Rs=', 'vec3 Rs=');
+ f=replace(f,'float sd=max(dot(Rs,V),0.0);','sd=max(dot(Rs,V),0.0);');
+ f=replace(f,'float solarScatterBreak=.30+.70*smoothstep(.50,.90,\n       .44*fine+.38*ripples+.18*shimmer);','');
+ f=replace(f,'color=mix(color,vec3(1.0,.78,.30),clamp(sunOuter*.08,0.0,.12));','color=mix(color,vec3(1.0,.78,.30),clamp(sunOuter*.08,0.0,.12));}');
+ f=replace(f,'float moonWidth=mix(.078,.024,clamp(screenUV.y,0.0,1.0));','float md=0.,moonAxisMask=0.,moonWideMask=0.,moonBreak=0.;if(moonStrength!=0.0){float moonWidth=mix(.078,.024,clamp(screenUV.y,0.0,1.0));');
+ for(const name of ['moonAxisMask','moonWideMask','moonBreak'])f=replace(f,'float '+name+'=',name+'=');
+ f=replace(f,'float md=max(dot(Rm,V),0.0);','md=max(dot(Rm,V),0.0);');
+ f=replace(f,'*moonStrength*surfaceOnly*nightFactor*.48;', '*moonStrength*surfaceOnly*nightFactor*.48;}');
+ f=replace(f,'float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*diagnosticLane;', 'if(moonStrength!=0.0){float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*diagnosticLane;');
+ f=replace(f,'color=mix(color,vec3(.48,.72,1.0),clamp(moonOuter*.06,0.0,.10));','color=mix(color,vec3(.48,.72,1.0),clamp(moonOuter*.06,0.0,.10));}');
+ f=replace(f,'float sunViewSpec=(pow(sd,5.2)*.78+pow(sd,20.0)*1.18)\n       *sunStrength*surfaceOnly*1.42;', 'float sunViewSpec=0.;if(sunStrength!=0.0)sunViewSpec=(pow(sd,5.2)*.78+pow(sd,20.0)*1.18)\n       *sunStrength*surfaceOnly*1.42;');
+ f=replace(f,'float moonViewSpec=(pow(md,5.2)*.78+pow(md,20.0)*1.18)\n       *moonStrength*surfaceOnly;', 'float moonViewSpec=0.;if(moonStrength!=0.0)moonViewSpec=(pow(md,5.2)*.78+pow(md,20.0)*1.18)\n       *moonStrength*surfaceOnly;');
+ // Underwater refraction is not evaluated in the surface/overview/flight
+ // views where its weight is exactly zero. Partial immersion keeps all math.
+ f=replace(f,'float underA=.5+.5*sin(', 'float underNet=0.;if(underwaterView!=0.){float underA=.5+.5*sin(');
+ f=replace(f,'float underNet=pow(clamp(underA*underB,0.0,1.0),1.55);', 'underNet=pow(clamp(underA*underB,0.0,1.0),1.55);');
+ f=replace(f,'color+=vec3(.06,.25,.30)*underNet*underwaterView*.31;', 'color+=vec3(.06,.25,.30)*underNet*underwaterView*.31;}');
+ mat.vertexShader=v;mat.fragmentShader=f;mat.needsUpdate=true;
+}
+
 aczoK5dInit();
+aczoK79OptimizeRiverShaders(moselWaterMat);
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
