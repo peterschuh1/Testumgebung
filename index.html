@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K85-ORTSFESTE-MOSELFISCHE-TEST'};
+ const state={contextLost:false,build:'4.1-K86-UFERBESTAND-KOEDERGRAFIK-TEST'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -10255,15 +10255,60 @@ function aczoK81WaterGeometry(mesh,cam,shadow=null){
  aczoK81WaterClipStats.passes++;aczoK81WaterClipStats.sourceTriangles+=data.index.count/3;aczoK81WaterClipStats.selectedTriangles+=count/3;
  return state.local;
 }
+// K86: a separate, bounded underside shader for the two lure cameras.
+// The original surface shader stays in use for diving, shore and transitions.
+let aczoK86LureWater=null,aczoK86LureWaterWarmRoot=null;
+const aczoK86GraphicsStats={passes:0,main:0,follower:0};
+function aczoK86InstallGraphics(){
+ const source=moselWaterMat,fragment=source.fragmentShader;
+ const at=fragment.indexOf('void main()');if(at<0)throw Error('K86 water fragment entry');
+ const material=source.clone();material.name='K86_LURE_WATER_UNDERSIDE';material.uniforms=source.uniforms;
+ // Height and gradients use the identical field. Foam noise is never needed
+ // in this vertex shader: its density is sampled once in the fragment shader.
+ const first=material.vertexShader.indexOf('  float foam=0.;'),end=material.vertexShader.indexOf('  float coastFade=',first);
+ if(first<0||end<0)throw Error('K86 water vertex foam anchor');
+ material.vertexShader=material.vertexShader.slice(0,first)+'  float foam=0.;\n'+material.vertexShader.slice(end);
+ material.fragmentShader=fragment.slice(0,at)+`void main(){
+  if(aczoRiverMask(vWorldPos.xy)<.98)discard;
+  if(aczoK25InsidePatrol(vWorldPos.xy))discard;
+  vec2 uv=vec2((vWorldPos.x+500.)/800.,(200.-vWorldPos.y)/830.);
+  float wash=texture2D(aczoWakeField,clamp(uv,vec2(0.),vec2(1.))).a;
+  float detail=texture2D(aczoK84Detail,vWorldPos.xy*.047+vec2(time*.004,-time*.002)).r;
+  vec3 N=normalize(mix(vec3(0.,0.,1.),normalize(vNormalW),.22));
+  vec3 V=normalize(cameraPosition-vWorldPos);
+  float rim=1.-abs(dot(N,V));
+  vec3 colour=mix(vec3(.095,.17,.12),vec3(.27,.34,.25),.35+detail*.20+rim*.12);
+  colour*=mix(1.,.55,clamp(nightFactor,0.,1.));
+  // The same wash footprint, with restrained contrast from below.
+  colour=mix(colour,aczoK53WashColour(),wash*(.19+.13*detail));
+  colour=aczoK12Silt(colour,vWorldPos);
+  gl_FragColor=vec4(colour,.985);
+ }
+ float aczoK84LightFoam(vec2 xy){return .48+.52*texture2D(aczoK84Detail,xy*.047+vec2(time*.004,-time*.002)).r;}
+ `;
+ material.needsUpdate=true;aczoK86LureWater=material;
+ // Join the existing loader's real GPU proof draws, including the mobile
+ // underside variant, so its first use is not a new compiler job in play.
+ aczoK86LureWaterWarmRoot=new THREE.Group();aczoK86LureWaterWarmRoot.name='K86_LURE_WATER_PREPARATION';
+ for(const side of [THREE.FrontSide,THREE.BackSide]){const mesh=new THREE.Mesh(moselWaterGeo,aczoInsetWaterMaterial(material,side));mesh.position.z=ACZO_MOSEL_SURFACE_Z;mesh.frustumCulled=false;aczoK86LureWaterWarmRoot.add(mesh);}
+ window.__aczoK86Report=()=>({build:'K86',population:aczoK85Report(),bankGroups:aczoK86BankStocks.size,graphics:{...aczoK86GraphicsStats,vertexFoamNoise:false,detailAndFoamSamples:2,lurePixelScale:.62}});
+}
+function aczoK86UseLureWater(cam){
+ return !!(aczoK84Options.graphics&&aczoK86LureWater&&aczoMoselFishing&&anglingMode&&anglingUsesArtificialLure()&&anglingCinematicView==='underwater'
+  &&waterUniforms.underwaterView.value>=.999&&scene.fog===fishUnderwaterFog&&!scene.overrideMaterial
+  &&(cam===camera||cam===anglingLureFollowerCamera)&&cam.position.z<ACZO_MOSEL_SURFACE_Z-.12);
+}
+
 let aczoK81ShadowGeometry=null;
 function aczoK81RenderWaterView(cam){
- const water=moselWaterSurface.geometry,receiver=aczoMoselStructureShadowReceiver.geometry;
+ const water=moselWaterSurface.geometry,receiver=aczoMoselStructureShadowReceiver.geometry,savedMaterial=moselWaterSurface.material;
+ if(aczoK86UseLureWater(cam)){moselWaterSurface.material=aczoInsetWaterMaterial(aczoK86LureWater,savedMaterial.side);aczoK86GraphicsStats.passes++;aczoK86GraphicsStats[cam===camera?'main':'follower']++;}
  if(!aczoK81ShadowGeometry)aczoK81ShadowGeometry=receiver;
  try{
   if(waterSurface.visible&&moselWaterSurface.visible)moselWaterSurface.geometry=aczoK81WaterGeometry(moselWaterSurface,cam);
   if(waterSurface.visible&&aczoMoselStructureShadowReceiver.visible)aczoMoselStructureShadowReceiver.geometry=aczoK81WaterGeometry(aczoMoselStructureShadowReceiver,cam,aczoStructureShadowLight.shadow);
   return renderer.render(scene,cam);
- }finally{moselWaterSurface.geometry=water;aczoMoselStructureShadowReceiver.geometry=receiver;}
+ }finally{moselWaterSurface.geometry=water;aczoMoselStructureShadowReceiver.geometry=receiver;moselWaterSurface.material=savedMaterial;}
 }
 
 let aczoK80ReuseMainWorld=false;
@@ -20485,6 +20530,75 @@ function aczoK42SpreadScare(actor){
   f.huntFleeUntil=fishWorldTime+1.2+f.feedSeed;f.pause=0;if(++count>=5)break;
  }
 }
+// K86: shared geographic schools in the reachable band of the actual own bank.
+// Their identities do not depend on the chosen fishing place or on the camera.
+const aczoK86BankStocks=new Map();
+let aczoK86BankSites=null;
+function aczoK86Reachable(x,y,frame=null,limit=96){
+ const f=frame||aczoSelectionOwnBank({x,y});if(!f)return false;
+ const dx=x-f.x,dy=y-f.y,d=Math.hypot(dx,dy);if(d>limit||dx*f.nx+dy*f.ny<1)return false;
+ for(let i=1;i<=12;i++){const t=Math.max(2/d,i/12);if(t>1)continue;if(aczoMoselDepth(f.x+dx*t,f.y+dy*t)===null)return false;}
+ return true;
+}
+function aczoK86Sites(){
+ if(aczoK86BankSites)return aczoK86BankSites;
+ const line=ACZO_EXPLORE_BANKS[0],sites=[];let along=0,next=18;
+ for(let i=1;i<line.length;i++){
+  const a=line[i-1],b=line[i],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
+  while(next<along+length){
+   const t=(next-along)/length,spot=aczoSelectionMoselCandidate({x:a[0]+dx*t,y:a[1]+dy*t});
+   if(spot)sites.push({id:Math.round(next),x:spot.shore.x,y:spot.shore.y,nx:spot.inward.x,ny:spot.inward.y});next+=36;
+  }
+  along+=length;
+ }
+ return aczoK86BankSites=sites;
+}
+function aczoK86BankGroup(site){
+ if(aczoK86BankStocks.has(site.id))return aczoK86BankStocks.get(site.id);
+ const records=[],names=Object.keys(ACZO_MOSEL_SPECIES).filter(n=>!aczoK42Rare(n));
+ const bands=[[10,28],[34,58],[65,85]];
+ for(let band=0;band<bands.length;band++){
+  const rng=aczoK85Random(aczoK85Seed('own-bank:'+site.id+':'+band)),[near,far]=bands[band];
+  const species=['roach','bleak','perch'][Math.floor(rng()*3)];
+  const other=names[(Math.floor(site.id/36)*3+band)%names.length];
+  for(const [name,count,school]of [[species,7+Math.floor(rng()*8),true],[other,1+Math.floor(rng()*3),false]]){
+   let home=null,score=-1;
+   for(let n=0;n<32;n++){
+    const d=near+rng()*(far-near),side=(rng()-.5)*20,x=site.x+site.nx*d-site.ny*side,y=site.y+site.ny*d+site.nx*side,depth=aczoK85Depth(x,y);
+    if(depth===null||!aczoK86Reachable(x,y,site))continue;
+    const weight=aczoK8hHabitat(name,x,y)*(.65+rng()*.35);if(weight>score){score=weight;home={x,y,d:depth};}
+   }
+   if(!home)continue;
+   const bounds={x0:home.x-10,x1:home.x+10,y0:home.y-10,y1:home.y+10},id='bank:'+site.id+':'+band+':'+name+(school?':school':':single');
+   for(let i=0;i<count;i++){
+    const x=home.x+(rng()-.5)*(school?3:9),y=home.y+(rng()-.5)*(school?3:9),depth=aczoK85Depth(x,y);
+    const at=depth!==null&&aczoK86Reachable(x,y,site)?{x,y,d:depth}:home;
+    const r=aczoK85AddRecord(id+':'+i,name,at,bounds,rng,i,school?id:null);if(r){r.bankHome=site;records.push(r);}
+   }
+  }
+ }
+ aczoK86BankStocks.set(site.id,records);return records;
+}
+function aczoK86LocalBankRecords(center){
+ const records=[],size=aczoK85River.cell,x=(Math.floor(center.x/size)+.5)*size,y=(Math.floor(center.y/size)+.5)*size;
+ for(const site of aczoK86Sites())if(Math.hypot(site.x-x,site.y-y)<168){
+  for(const r of aczoK86BankGroup(site)){const p=r.actor?.obj.position||r.position;if(Math.max(Math.abs(p.x-x),Math.abs(p.y-y))<65)records.push(r);}
+ }
+ return records;
+}
+function aczoK86TileSchool(tx,ty,bounds,records){
+ // Small fixed encounter schools also remain outside the casting band.
+ // Some cells are still empty; swimming never creates fish at the camera.
+ const rng=aczoK85Random(aczoK85Seed('river-school:'+tx+','+ty));if(rng()<.18)return;
+ const name=['roach','bleak','perch'][Math.floor(rng()*3)],home=aczoK85FindPoint(name,bounds,rng,{trials:24});if(!home)return;
+ const id='river-school:'+tx+','+ty+':'+name,count=8+Math.floor(rng()*9);
+ for(let i=0;i<count;i++){
+  const x=home.x+(rng()-.5)*3,y=home.y+(rng()-.5)*3,d=aczoK85Depth(x,y);
+  const at=d!==null&&x>=bounds.x0&&x<=bounds.x1&&y>=bounds.y0&&y<=bounds.y1?{x,y,d}:home;
+  const r=aczoK85AddRecord(id+':'+i,name,at,bounds,rng,i,id);if(r)records.push(r);
+ }
+}
+
 // K85: geographic stocks. Rendering slots are reusable; fish identities,
 // schools, homes and unloaded movement state belong to the river, not a cast.
 const aczoK85River={cell:40,maxActors:720,tiles:new Map(),sections:new Map(),records:new Map(),schools:new Map(),pool:new Map(),vectors:new WeakMap(),stats:{tiles:0,records:0,queued:0,activated:0,reused:0,parked:0,unchangedCasts:0,maxActive:0}};
@@ -20555,6 +20669,7 @@ function aczoK85Tile(tx,ty){
    if(record)records.push(record);
   }
  }
+ if(wet)aczoK86TileSchool(tx,ty,bounds,records);
  const tile={key,tx,ty,density,wet,records};world.tiles.set(key,tile);world.stats.tiles++;return tile;
 }
 function aczoK85RareSection(section){
@@ -20564,11 +20679,11 @@ function aczoK85RareSection(section){
   const id='rare:'+section+':'+name+':'+slot,rng=aczoK85Random(aczoK85Seed(id));let best=null,score=-1;
   for(let n=0;n<192;n++){
    const along=(section+rng())*100,across=(rng()-.5)*260,x=-315.8+along*.807-across*.591,y=-497+along*.591+across*.807,d=aczoK85Depth(x,y,.9,section);
-   if(d===null)continue;const q=aczoK8hHabitat(name,x,y)*(.6+rng()*.4);if(q>score){score=q;best={x,y,d};}
+   if(d===null||!aczoK86Reachable(x,y))continue;const q=aczoK8hHabitat(name,x,y)*(.6+rng()*.4);if(q>score){score=q;best={x,y,d};}
   }
   if(!best)continue;
   const bounds={x0:Math.max(-500,best.x-22),x1:Math.min(300,best.x+22),y0:Math.max(-630,best.y-22),y1:Math.min(200,best.y+22)};
-  const record=aczoK85AddRecord(id,name,best,bounds,rng,slot,null,section);if(record)records.push(record);
+  const record=aczoK85AddRecord(id,name,best,bounds,rng,slot,null,section);if(record){record.bankHome=aczoSelectionOwnBank(best);records.push(record);}
  }
  world.sections.set(section,records);return records;
 }
@@ -20580,6 +20695,7 @@ function aczoK85RecordsAt(center){
   const p=r.actor?.obj.position||r.position;
   if(Math.max(Math.abs(p.x-center.x),Math.abs(p.y-center.y))<size*2&&!seen.has(r.id)){records.push(r);seen.add(r.id);}
  }
+ for(const r of aczoK86LocalBankRecords(center))if(!seen.has(r.id)){records.push(r);seen.add(r.id);}
  // Preserve migrants whose saved position has crossed their original cell.
  for(const r of aczoK85River.records.values())if(!seen.has(r.id)&&Math.hypot(r.position.x-center.x,r.position.y-center.y)<42){records.push(r);seen.add(r.id);}
  return records;
@@ -20591,7 +20707,7 @@ function aczoK85PointForVector(out,name){
  let best=null;
  for(let n=0;n<28;n++){
   const angle=random()*Math.PI*2,r=Math.sqrt(random())*radius,x=home.x+Math.cos(angle)*r,y=home.y+Math.sin(angle)*r;
-  if(x<bounds.x0||x>bounds.x1||y<bounds.y0||y>bounds.y1)continue;
+  if(x<bounds.x0||x>bounds.x1||y<bounds.y0||y>bounds.y1||record.bankHome&&!aczoK86Reachable(x,y,record.bankHome,99))continue;
   const d=aczoK85Depth(x,y,minimum,record.rare?record.section:null);if(d===null)continue;
   best={x,y,d};if(random()<.35+.65*aczoK8hHabitat(name,x,y)/(1+aczoK8hHabitat(name,x,y)))break;
  }
@@ -38115,7 +38231,7 @@ function aczoK25RenderAnglingInsetSource(cam,keepShoreNature=false){
 }
 function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
   const viewport=renderer.getViewport(new THREE.Vector4()),device=renderer.getCurrentViewport(new THREE.Vector4()),scissor=renderer.getScissor(new THREE.Vector4()),scissorTest=renderer.getScissorTest(),target=renderer.getRenderTarget(),auto=renderer.autoClear,ratio=renderer.getPixelRatio(),shadowDirty=renderer.shadowMap.needsUpdate;
-  const pixelScale=aczoK84Options.graphics&&cam===anglingLureFollowerCamera&&anglingCinematicView==='underwater'?.72:1;
+  const pixelScale=aczoK84Options.graphics&&cam===anglingLureFollowerCamera&&anglingCinematicView==='underwater'?.62:1;
   const width=Math.max(1,Math.round(device.z*pixelScale)),height=Math.max(1,Math.round(device.w*pixelScale));
   let cache=aczoK25InsetCache.get(cam);if(!cache){
    const target=new THREE.WebGLRenderTarget(width,height,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;target.texture.minFilter=target.texture.magFilter=THREE.LinearFilter;target.texture.generateMipmaps=false;
@@ -52045,7 +52161,7 @@ aczoResumeSession();
   if(anglingUsesBankSet()&&anglingBankRuntime.group){const rt=anglingBankRuntime;roots.push(rt.pods[anglingProgress.selectedEquipment],rt.castBall,...rt.lines,...rt.feedBalls.map(ball=>ball.mesh));if(rt.netPass)roots.push(rt.netPass.netScene,rt.netPass.depthScene);}
   return roots;
  }
- function underwaterRoots(){return [fishGroup,fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightShafts,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,bloodPool.points,underwaterStones,fishBottomClutterGroup,aczoMoselFishing?.bottom,waterSurface,moselWaterSurface];}
+ function underwaterRoots(){return [aczoK86LureWaterWarmRoot,fishGroup,fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightShafts,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,bloodPool.points,underwaterStones,fishBottomClutterGroup,aczoMoselFishing?.bottom,waterSurface,moselWaterSurface];}
  function lights(warmScene,layout){
   for(const light of layout.lightList){const copy=light.clone(false);copy.position.copy(light.getWorldPosition(new THREE.Vector3()));copy.layers.set(0);
    if(light.target){copy.target=light.target.clone(false);copy.target.position.copy(light.target.getWorldPosition(new THREE.Vector3()));warmScene.add(copy.target);}
@@ -53636,6 +53752,7 @@ aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
 aczoK84InstallUnderwaterGraphics();
 window.__aczoK85Report=aczoK85Report;
+aczoK86InstallGraphics();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
