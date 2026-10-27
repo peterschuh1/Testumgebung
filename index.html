@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K86-UFERBESTAND-KOEDERGRAFIK-TEST'};
+ const state={contextLost:false,build:'4.1-K82-WURFVORBEREITUNG'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -9959,7 +9959,7 @@ function aczoStepWaveField(state,dt){
 }
 // K75: keep the same texture allocation and upload only changed full-width
 // rows through r128's public copyTextureToTexture API. The source is CPU-only.
-function aczoK84UploadOriginal(g,firstRow,lastRow){
+function aczoK75UploadWaveRows(g,firstRow,lastRow){
  const stats=g.uploadStats||(g.uploadStats={updates:0,bytes:0,skipped:0,fallbacks:0});
  if(lastRow<firstRow){stats.skipped++;return;}
  if(typeof renderer==='undefined'||typeof renderer.copyTextureToTexture!=='function'||renderer.getContext().isContextLost()){
@@ -10006,138 +10006,19 @@ function aczoUpdateWaveTexture(){
  }
  aczoK75UploadWaveRows(g,firstRow,lastRow);
 }
-// K84: isolated ship-water experiment. No account, save or fishing rules change.
-const aczoK84Options=(()=>{const q=new URLSearchParams(location.search);return {graphics:q.get('aczo84Graphics')!=='full',worker:q.get('aczo84Worker')!=='off',buffers:q.get('aczo84Buffers')!=='off',cache:q.get('aczo84Cache')!=='off',stagger:q.get('aczo84Stagger')!=='off'};})();
-let aczoK84FrameSerial=0;
-const aczoK84Stats={build:'K84',uploadSerial:-1,bufferRotations:0,worker:'waiting',workerJobs:0,workerFallbacks:0,workerError:'',lastWorkerMs:0,staggeredInsets:0,lurePixelScale:.72};
-let aczoK84WaveEngine=null;
-function aczoK84GridState(g,full=false){
- const data={};
- const keys=full?['w','h','n','wet','depth','shore','damping','limits','indices','neighbours','bankIndices','bankNormals','sampleXY']:[];
- for(const k of keys)data[k]=g[k];
- for(const k of ['foam','nextFoam','renderHeight','bankFoam','impactCooldown','pixels','wakeX','wakeY','wakeDirX','wakeDirY','wakeLength','sourceBlend','patrolSourceBlend','sprayCursor','steps'])data[k]=g[k];
- data.bands=g.bands.map(b=>{const d={};for(const k of (full?['height','velocity','pressure','lastPressure','c2','weights']:['height','velocity','pressure','lastPressure']))d[k]=b[k];return d;});return data;
-}
-function aczoK84RestoreGrid(g,data){
- if(!data)return;
- for(const [k,v]of Object.entries(data)){if(k==='bands'){for(let i=0;i<2;i++)for(const [name,a]of Object.entries(v[i]))g.bands[i][name].set(a);}else if(ArrayBuffer.isView(v)&&ArrayBuffer.isView(g[k]))g[k].set(v);else g[k]=v;}
-}
-function aczoK84PublishPixels(g,firstRow=0,lastRow=g.h-1){
- const stats=g.uploadStats||(g.uploadStats={updates:0,bytes:0,skipped:0,fallbacks:0});
- if(lastRow<firstRow){stats.skipped++;return;}
- if(!aczoK84Options.buffers){aczoK84UploadOriginal(g,firstRow,lastRow);aczoK84Stats.uploadSerial=aczoK84FrameSerial;return;}
- // Each slot owns a complete CPU image. Partial updates cannot leave stale rows
- // from the previous rotation. All cameras bind the same published slot.
- if(!g.k84Ring){
-  const slots=[g.texture];
-  for(let i=1;i<3;i++){const tex=new THREE.DataTexture(new Uint8Array(g.pixels.length),g.w,g.h,THREE.RGBAFormat,THREE.UnsignedByteType);tex.flipY=false;tex.minFilter=tex.magFilter=THREE.LinearFilter;tex.generateMipmaps=false;slots.push(tex);}
-  g.k84Ring={slots,cursor:0};
- }
- const ring=g.k84Ring;ring.cursor=(ring.cursor+1)%ring.slots.length;
- const tex=ring.slots[ring.cursor];
- // Never detach/reuse the physics image as an asynchronous GPU upload source.
- if(tex.image.data===g.pixels)tex.image.data=new Uint8Array(g.pixels.length);
- tex.image.data.set(g.pixels);tex.needsUpdate=true;g.texture=tex;
- aczoShipWakeUniforms.aczoWakeField.value=tex;
- stats.updates++;stats.bytes+=g.pixels.length;aczoK84Stats.bufferRotations++;aczoK84Stats.uploadSerial=aczoK84FrameSerial;
-}
-function aczoK84WorkerProgram(){
- const kernel=[aczoK20SourcePressure,aczoK20SourceFoam,aczoWaveSplat,aczoStepWaveField,aczoUpdateWaveTexture].map(f=>f.toString()).join('\n');
- return `let aczoWaveGrid=null,aczoK20PatrolWake=null,events=[],spray={active:false,x:0,y:0},pool=[],jobs=0;
- const aczoWaveShipProfiles=${JSON.stringify(aczoWaveShipProfiles)};
- const ACZO_K20_PATROL_WAVE_PROFILE=${JSON.stringify(ACZO_K20_PATROL_WAVE_PROFILE)};
- const THREE={MathUtils:{clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),smoothstep:(x,a,b)=>{if(x<=a)return 0;if(x>=b)return 1;x=(x-a)/(b-a);return x*x*(3-2*x);}}};
- function aczoK23FishingSprayGain(x,y){return spray.active?1-THREE.MathUtils.smoothstep(Math.hypot(x-spray.x,y-spray.y),12,28):0;}
- function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){events.push([cell,nx,ny,strength,emphasis,aczoWaveGrid.bands[0].height[cell]+aczoWaveGrid.bands[1].height[cell]]);}
- function aczoK75UploadWaveRows(){}
- ${kernel}
- ${aczoK84GridState.toString()}
- onmessage=e=>{const m=e.data;if(m.type==='init'){aczoWaveGrid=m.grid;postMessage({type:'ready'});return;}if(m.type==='recycle'){pool.push(m.pixels);return;}if(m.type!=='step')return;
- const start=performance.now();aczoK20PatrolWake=m.patrol;spray=m.spray;events=[];
- for(let i=0;i<m.count;i++)aczoStepWaveField(m.state,.05);aczoUpdateWaveTexture();
- const pixels=pool.pop()||new Uint8Array(aczoWaveGrid.pixels.length);pixels.set(aczoWaveGrid.pixels);
- // A periodic complete checkpoint preserves a synchronous recovery path.
- const checkpoint=(++jobs%10===0)?aczoK84GridState(aczoWaveGrid):null;
- postMessage({type:'done',id:m.id,now:m.now,pixels,events,steps:aczoWaveGrid.steps,checkpoint,ms:performance.now()-start},[pixels.buffer]);};
- postMessage({type:'hello'});`;
-}
-function aczoK84FailWorker(reason){
- const e=aczoK84WaveEngine;if(!e||e.failed)return;e.failed=true;e.worker?.terminate();
- if(e.url)URL.revokeObjectURL(e.url);
- aczoK84RestoreGrid(aczoWaveGrid,e.checkpoint);aczoWaveGrid.accumulator=0;e.checkpoint=null;e.queue.length=0;e.pending=null;
- aczoK84Stats.worker='synchronous';aczoK84Stats.workerFallbacks++;aczoK84Stats.workerError=String(reason).slice(0,180);
- aczoK84PublishPixels(aczoWaveGrid);
-}
-function aczoK84EnsureWorker(){
- if(aczoK84WaveEngine||!aczoK84Options.worker||typeof Worker==='undefined')return;
- if(document.hidden||window.__aczoTransitionPrep?.working||!window.__aczoStartupLoader?.snapshot().finished)return;
- const e=aczoK84WaveEngine={worker:null,url:null,mode:'starting',queue:[],pending:null,inFlight:false,failed:false,id:0,checkpoint:null,lastReply:performance.now()};
- try{
-  e.url=URL.createObjectURL(new Blob([aczoK84WorkerProgram()],{type:'text/javascript'}));e.worker=new Worker(e.url);aczoK84Stats.worker='starting';
-  e.worker.onerror=event=>{event.preventDefault();aczoK84FailWorker(event.message||'Worker unavailable');};
-  e.worker.onmessage=event=>{
-   if(e.failed)return;const m=event.data;e.lastReply=performance.now();
-   if(m.type==='hello'){
-    // Clone the CURRENT field, after the worker has loaded. No startup freeze
-    // and no old initialization snapshot can overwrite newer wave steps.
-    const state=aczoK84GridState(aczoWaveGrid,true);e.checkpoint=structuredClone(aczoK84GridState(aczoWaveGrid));
-    e.worker.postMessage({type:'init',grid:state});e.mode='initializing';return;
-   }
-   if(m.type==='ready'){e.mode='ready';aczoK84Stats.worker='active';return;}
-   if(m.type==='done'){e.inFlight=false;e.pending=m;if(m.checkpoint)e.checkpoint=m.checkpoint;aczoK84Stats.lastWorkerMs=m.ms;aczoK84Stats.workerJobs++;}
-  };
- }catch(error){aczoK84FailWorker(error.message);}
-}
-function aczoK84WorkerFrame(now,state,count){
- aczoK84EnsureWorker();const e=aczoK84WaveEngine;
- if(!e||e.failed||e.mode==='starting')return false;
- if(e.pending){
-  const m=e.pending;e.pending=null;aczoWaveGrid.pixels.set(m.pixels);aczoWaveGrid.steps=m.steps;
-  aczoK84PublishPixels(aczoWaveGrid);
-  for(const event of m.events)aczoEmitBankSpray(...event);
-  e.worker.postMessage({type:'recycle',pixels:m.pixels},[m.pixels.buffer]);
- }
- if(count)e.queue.push({type:'step',id:++e.id,now,count,state:{...state,position:{x:state.position.x,y:state.position.y},direction:{x:state.direction.x,y:state.direction.y}},patrol:{...aczoK20PatrolWake,position:{x:aczoK20PatrolWake.position.x,y:aczoK20PatrolWake.position.y},direction:{x:aczoK20PatrolWake.direction.x,y:aczoK20PatrolWake.direction.y}},spray:{active:aczoK23FishingSprayGain(camera.position.x,camera.position.y)>0,x:camera.position.x,y:camera.position.y}});
- if(e.queue.length>12||performance.now()-e.lastReply>3500){aczoK84FailWorker('Wave worker backlog');return false;}
- if(e.mode==='ready'&&!e.inFlight&&!e.pending&&e.queue.length){e.inFlight=true;e.worker.postMessage(e.queue.shift());}
- return true;
-}
-function aczoK84InstallUnderwaterGraphics(){
- const bytes=new Uint8Array(128*128*4);
- for(let y=0;y<128;y++)for(let x=0;x<128;x++){
-  const u=x/128*Math.PI*2,v=y/128*Math.PI*2;
-  const n=.5+.21*Math.sin(u*3+Math.sin(v*2)*.75)+.16*Math.sin(v*5-u*2)+.09*Math.sin(u*11+v*7);
-  const k=(y*128+x)*4;bytes[k]=bytes[k+1]=bytes[k+2]=Math.max(0,Math.min(255,Math.round(n*255)));bytes[k+3]=255;
- }
- const texture=new THREE.DataTexture(bytes,128,128,THREE.RGBAFormat);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;
- moselWaterMat.uniforms.aczoK84Detail={value:texture};moselWaterMat.uniforms.aczoK84LightGraphics={value:aczoK84Options.graphics?1:0};
- let f=moselWaterMat.fragmentShader;
- // Helpers use the existing time/underwater uniforms declared earlier below.
- const crest='float aczoK26RiverCrests(vec2 p,float scale){';
- if(!f.includes(crest))throw Error('K84 river detail anchor');
- f=f.replace(crest,crest+'\n if(aczoK84LightGraphics>.5&&underwaterView>=.999)return (texture2D(aczoK84Detail,p*(scale*.019)+vec2(time*.004,-time*.002)).r-.5)*1.08;');
- // Both original and cached foam retain identical density and footprint.
- if(f.includes('float aczoK77ShipFoam'))f=f.replace('float mottled=.48+.34*aczoK77Noise','if(aczoK84LightGraphics>.5&&underwaterView>=.999)return a*aczoK84LightFoam(xy);\n  float mottled=.48+.34*aczoK77Noise');
- else f=f.replace('float mottled=.48+.34*aczoWakeNoise','float mottled=aczoK84LightGraphics>.5&&underwaterView>=.999?aczoK84LightFoam(xy):.48+.34*aczoWakeNoise');
- // Place helper prototypes first; definitions follow the complete declarations.
- f='uniform sampler2D aczoK84Detail;uniform float aczoK84LightGraphics;\nfloat aczoK84LightFoam(vec2 xy);\n'+f;
- f+='\nfloat aczoK84LightFoam(vec2 xy){return .48+.52*texture2D(aczoK84Detail,xy*.047+vec2(time*.004,-time*.002)).r;}\n';
- moselWaterMat.fragmentShader=f;moselWaterMat.needsUpdate=true;
- window.__aczoK84Report=()=>({options:{...aczoK84Options},...aczoK84Stats,cache:aczoK77WakeCache?.stats?{...aczoK77WakeCache.stats}:null,waveSteps:aczoWaveGrid.steps,inset:typeof aczoK25InsetStats!=='undefined'?{...aczoK25InsetStats}:null});
-}
-
-function aczoK75UploadWaveRows(g,firstRow,lastRow){aczoK84PublishPixels(g,firstRow,lastRow);}
 function updateAczoMoselWaves(now,state){
- const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0,g=aczoWaveGrid;
- if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;
- aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
+ const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0;
+ const g=aczoWaveGrid;if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
+ // Pure A/B diagnosis, never active in the production path.
  if(aczoShipABMode==='freezeWaves'){g.accumulator=0;return;}
  g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;
- while(g.accumulator>=.05&&count<4){g.accumulator-=.05;count++;}
- if(!aczoK84WorkerFrame(now,state,count)){
-  for(let i=0;i<count;i++){const at=t?performance.now():0;aczoStepWaveField(state,.05);if(t)perf.add('waveSolve',performance.now()-at);}
-  if(count){const at=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-at);}
+ while(g.accumulator>=.05&&count<4){
+  const solveStart=t?performance.now():0;
+  aczoStepWaveField(state,.05);
+  if(t)perf.add('waveSolve',performance.now()-solveStart);
+  g.accumulator-=.05;count++;
  }
+ if(count){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
  if(t)perf.add('waves',performance.now()-t);
 }
 // Retain the original vertices, triangles, interpolation and world transform.
@@ -10255,60 +10136,15 @@ function aczoK81WaterGeometry(mesh,cam,shadow=null){
  aczoK81WaterClipStats.passes++;aczoK81WaterClipStats.sourceTriangles+=data.index.count/3;aczoK81WaterClipStats.selectedTriangles+=count/3;
  return state.local;
 }
-// K86: a separate, bounded underside shader for the two lure cameras.
-// The original surface shader stays in use for diving, shore and transitions.
-let aczoK86LureWater=null,aczoK86LureWaterWarmRoot=null;
-const aczoK86GraphicsStats={passes:0,main:0,follower:0};
-function aczoK86InstallGraphics(){
- const source=moselWaterMat,fragment=source.fragmentShader;
- const at=fragment.indexOf('void main()');if(at<0)throw Error('K86 water fragment entry');
- const material=source.clone();material.name='K86_LURE_WATER_UNDERSIDE';material.uniforms=source.uniforms;
- // Height and gradients use the identical field. Foam noise is never needed
- // in this vertex shader: its density is sampled once in the fragment shader.
- const first=material.vertexShader.indexOf('  float foam=0.;'),end=material.vertexShader.indexOf('  float coastFade=',first);
- if(first<0||end<0)throw Error('K86 water vertex foam anchor');
- material.vertexShader=material.vertexShader.slice(0,first)+'  float foam=0.;\n'+material.vertexShader.slice(end);
- material.fragmentShader=fragment.slice(0,at)+`void main(){
-  if(aczoRiverMask(vWorldPos.xy)<.98)discard;
-  if(aczoK25InsidePatrol(vWorldPos.xy))discard;
-  vec2 uv=vec2((vWorldPos.x+500.)/800.,(200.-vWorldPos.y)/830.);
-  float wash=texture2D(aczoWakeField,clamp(uv,vec2(0.),vec2(1.))).a;
-  float detail=texture2D(aczoK84Detail,vWorldPos.xy*.047+vec2(time*.004,-time*.002)).r;
-  vec3 N=normalize(mix(vec3(0.,0.,1.),normalize(vNormalW),.22));
-  vec3 V=normalize(cameraPosition-vWorldPos);
-  float rim=1.-abs(dot(N,V));
-  vec3 colour=mix(vec3(.095,.17,.12),vec3(.27,.34,.25),.35+detail*.20+rim*.12);
-  colour*=mix(1.,.55,clamp(nightFactor,0.,1.));
-  // The same wash footprint, with restrained contrast from below.
-  colour=mix(colour,aczoK53WashColour(),wash*(.19+.13*detail));
-  colour=aczoK12Silt(colour,vWorldPos);
-  gl_FragColor=vec4(colour,.985);
- }
- float aczoK84LightFoam(vec2 xy){return .48+.52*texture2D(aczoK84Detail,xy*.047+vec2(time*.004,-time*.002)).r;}
- `;
- material.needsUpdate=true;aczoK86LureWater=material;
- // Join the existing loader's real GPU proof draws, including the mobile
- // underside variant, so its first use is not a new compiler job in play.
- aczoK86LureWaterWarmRoot=new THREE.Group();aczoK86LureWaterWarmRoot.name='K86_LURE_WATER_PREPARATION';
- for(const side of [THREE.FrontSide,THREE.BackSide]){const mesh=new THREE.Mesh(moselWaterGeo,aczoInsetWaterMaterial(material,side));mesh.position.z=ACZO_MOSEL_SURFACE_Z;mesh.frustumCulled=false;aczoK86LureWaterWarmRoot.add(mesh);}
- window.__aczoK86Report=()=>({build:'K86',population:aczoK85Report(),bankGroups:aczoK86BankStocks.size,graphics:{...aczoK86GraphicsStats,vertexFoamNoise:false,detailAndFoamSamples:2,lurePixelScale:.62}});
-}
-function aczoK86UseLureWater(cam){
- return !!(aczoK84Options.graphics&&aczoK86LureWater&&aczoMoselFishing&&anglingMode&&anglingUsesArtificialLure()&&anglingCinematicView==='underwater'
-  &&waterUniforms.underwaterView.value>=.999&&scene.fog===fishUnderwaterFog&&!scene.overrideMaterial
-  &&(cam===camera||cam===anglingLureFollowerCamera)&&cam.position.z<ACZO_MOSEL_SURFACE_Z-.12);
-}
-
 let aczoK81ShadowGeometry=null;
 function aczoK81RenderWaterView(cam){
- const water=moselWaterSurface.geometry,receiver=aczoMoselStructureShadowReceiver.geometry,savedMaterial=moselWaterSurface.material;
- if(aczoK86UseLureWater(cam)){moselWaterSurface.material=aczoInsetWaterMaterial(aczoK86LureWater,savedMaterial.side);aczoK86GraphicsStats.passes++;aczoK86GraphicsStats[cam===camera?'main':'follower']++;}
+ const water=moselWaterSurface.geometry,receiver=aczoMoselStructureShadowReceiver.geometry;
  if(!aczoK81ShadowGeometry)aczoK81ShadowGeometry=receiver;
  try{
   if(waterSurface.visible&&moselWaterSurface.visible)moselWaterSurface.geometry=aczoK81WaterGeometry(moselWaterSurface,cam);
   if(waterSurface.visible&&aczoMoselStructureShadowReceiver.visible)aczoMoselStructureShadowReceiver.geometry=aczoK81WaterGeometry(aczoMoselStructureShadowReceiver,cam,aczoStructureShadowLight.shadow);
   return renderer.render(scene,cam);
- }finally{moselWaterSurface.geometry=water;aczoMoselStructureShadowReceiver.geometry=receiver;moselWaterSurface.material=savedMaterial;}
+ }finally{moselWaterSurface.geometry=water;aczoMoselStructureShadowReceiver.geometry=receiver;}
 }
 
 let aczoK80ReuseMainWorld=false;
@@ -10319,46 +10155,88 @@ function aczoK80CanReuseInsetWorld(){
 let aczoK77WakeCache=null;
 // K78: retain K77's local cache and GPU gate. Once selected, prepare a second
 // fine cache for the entire river in bounded slices, then publish it atomically.
-// K84: one 512-square broad cache plus nine reusable 128-square fine tiles.
-// At RGBA32F this is 6.25 MiB, instead of K78's 40 MiB full-river caches.
 function aczoK77CreateWakeCache(THREE,renderer,originalGLSL,cachedGLSL){
- const uniforms={aczoK77Hash0:{value:null},aczoK77Hash1:{value:null},aczoK77HashOrigin0:{value:new THREE.Vector2()},aczoK77HashOrigin1:{value:new THREE.Vector2()},aczoK77HashReady:{value:new THREE.Vector2()},aczoK78Hash1Size:{value:384},aczoK84FineOrigin:{value:Array.from({length:9},()=>new THREE.Vector2())},aczoK84FineSlot:{value:Array.from({length:9},(_,i)=>new THREE.Vector3(i%3*128,Math.floor(i/3)*128,0))}};
- const stats={mode:'pending',passes:0,gpuOriginalMs:null,gpuCachedMs:null,failed:false,fineSize:384,widePasses:0,cacheMiB:6.25,timerAvailable:false,tilesReused:0};
- const gl=renderer.getContext();stats.timerAvailable=!!(renderer.capabilities.isWebGL2&&gl.getExtension('EXT_disjoint_timer_query_webgl2'));
- if(!aczoK84Options.cache||!renderer.capabilities.isWebGL2||!renderer.extensions.has('EXT_color_buffer_float')){stats.mode='unsupported';return {uniforms,stats,supported:false,update(){}};}
- const scene=new THREE.Scene(),cam=new THREE.Camera(),origin={value:new THREE.Vector2()};
+ const uniforms={aczoK77Hash0:{value:null},aczoK77Hash1:{value:null},aczoK77HashOrigin0:{value:new THREE.Vector2()},aczoK77HashOrigin1:{value:new THREE.Vector2()},aczoK77HashReady:{value:new THREE.Vector2()},aczoK78Hash1Size:{value:512}};
+ const stats={mode:'pending',passes:0,gpuOriginalMs:null,gpuCachedMs:null,failed:false,fineSize:512,widePasses:0};
+ const gl=renderer.getContext();let timer=renderer.capabilities.isWebGL2&&renderer.extensions.has('EXT_color_buffer_float')&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ if(!timer){stats.mode='unsupported';return {uniforms,stats,supported:false,update(){}};}
+ const entries=[{size:512,scale:.48,row:0},{size:512,scale:1.7,row:0}],scene=new THREE.Scene(),camera=new THREE.Camera(),origin={value:new THREE.Vector2()};
  const material=new THREE.ShaderMaterial({uniforms:{uOrigin:origin},depthTest:false,depthWrite:false,toneMapped:false,blending:THREE.NoBlending,vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'uniform vec2 uOrigin;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}void main(){vec2 p=floor(gl_FragCoord.xy)+uOrigin;gl_FragColor=vec4(hash(p),hash(p+vec2(1,0)),hash(p+vec2(0,1)),hash(p+vec2(1)));}'});
- const geometry=new THREE.PlaneGeometry(2,2),quad=new THREE.Mesh(geometry,material);quad.frustumCulled=false;scene.add(quad);
- const coarse={size:512,row:0,origin:null,target:null},tiles=Array.from({length:9},(_,i)=>({slot:i,row:0,origin:null,wanted:false}));let fineTarget=null,failed=false;
- const viewport=new THREE.Vector4(),scissor=new THREE.Vector4();
- function target(size){const t=new THREE.WebGLRenderTarget(size,size,{format:THREE.RGBAFormat,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false});t.texture.generateMipmaps=false;return t;}
- function reset(){uniforms.aczoK77HashReady.value.set(0,0);for(const v of uniforms.aczoK84FineSlot.value)v.z=0;coarse.row=0;coarse.origin=null;coarse.target?.dispose();coarse.target=null;fineTarget?.dispose();fineTarget=null;for(const t of tiles){t.row=0;t.origin=null;}failed=false;stats.mode='pending';}
- renderer.domElement.addEventListener('webglcontextlost',reset);renderer.domElement.addEventListener('webglcontextrestored',reset);
- function update(time,rows=32,focus=null){
-  if(failed||gl.isContextLost()||!Number.isFinite(time))return;
-  const ox=time*.07,oy=-time*.035,minX=Math.floor(-500*.48+ox),maxX=Math.floor(300*.48+ox)+1,minY=Math.floor(-630*.48+oy),maxY=Math.floor(200*.48+oy)+1;
-  if(!coarse.origin||minX<coarse.origin.x+4||minY<coarse.origin.y+4||maxX>=coarse.origin.x+508||maxY>=coarse.origin.y+508){coarse.origin=new THREE.Vector2(minX-Math.floor((512-(maxX-minX+1))/2),minY-Math.floor((512-(maxY-minY+1))/2));coarse.row=0;uniforms.aczoK77HashReady.value.x=0;}
-  const cx=Math.max(-500,Math.min(300,Number.isFinite(focus?.x)?focus.x:-100)),cy=Math.max(-630,Math.min(200,Number.isFinite(focus?.y)?focus.y:-215)),fx=Math.floor((cx*1.7-time*.09)/128),fy=Math.floor((cy*1.7-time*.09)/128),wanted=[];
-  for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)wanted.push({x:(fx+x)*128,y:(fy+y)*128});
-  for(const t of tiles)t.wanted=wanted.some(p=>t.origin&&t.origin.x===p.x&&t.origin.y===p.y);
-  for(const p of wanted){if(tiles.some(t=>t.wanted&&t.origin?.x===p.x&&t.origin?.y===p.y)){stats.tilesReused++;continue;}const t=tiles.find(t=>!t.wanted);t.wanted=true;t.origin=new THREE.Vector2(p.x,p.y);t.row=0;uniforms.aczoK84FineSlot.value[t.slot].z=0;}
-  const entry=coarse.row<512?coarse:tiles.find(t=>t.row<128);if(!entry){stats.mode='cached';return;}
-  const oldTarget=renderer.getRenderTarget(),clear=renderer.autoClear,test=renderer.getScissorTest();renderer.getViewport(viewport);renderer.getScissor(scissor);
-  try{
-   renderer.autoClear=false;let size,startX=0,startY=0;const ratio=renderer.getPixelRatio();
-   if(entry===coarse){if(!coarse.target)coarse.target=target(512);uniforms.aczoK77Hash0.value=coarse.target.texture;renderer.setRenderTarget(coarse.target);size=512;origin.value.copy(coarse.origin);renderer.setViewport(0,0,512/ratio,512/ratio);}
-   else{if(!fineTarget)fineTarget=target(384);uniforms.aczoK77Hash1.value=fineTarget.texture;renderer.setRenderTarget(fineTarget);size=128;startX=entry.slot%3*128;startY=Math.floor(entry.slot/3)*128;origin.value.set(entry.origin.x-startX,entry.origin.y-startY);renderer.setViewport(startX/ratio,startY/ratio,128/ratio,128/ratio);}
-   const count=Math.min(size-entry.row,Math.max(1,Math.floor(rows*512/size)));renderer.setScissor(startX/ratio,(startY+entry.row)/ratio,size/ratio,count/ratio);renderer.setScissorTest(true);renderer.render(scene,cam);
-   if(entry.row===0&&gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Float cache unavailable');
-   entry.row+=count;stats.passes++;
-   if(entry.row>=size){if(entry===coarse){uniforms.aczoK77HashOrigin0.value.copy(coarse.origin);uniforms.aczoK77HashReady.value.x=1;}else{uniforms.aczoK84FineOrigin.value[entry.slot].copy(entry.origin);uniforms.aczoK84FineSlot.value[entry.slot].z=1;uniforms.aczoK77HashReady.value.y=1;}}
-   stats.mode='cached';
-  }catch(error){failed=true;stats.failed=true;stats.mode='original';uniforms.aczoK77HashReady.value.set(0,0);for(const t of uniforms.aczoK84FineSlot.value)t.z=0;}
-  finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(test);renderer.autoClear=clear;}
+ const geometry=new THREE.PlaneGeometry(2,2),mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;scene.add(mesh);
+ const viewport=new THREE.Vector4(),scissor=new THREE.Vector4(),queries=[],samples=[[],[]];let cursor=0,bench=null,benchDraws=0,benchPolls=0,wide=null,wideFailed=false;
+ const median=a=>a.slice().sort((a,b)=>a-b)[Math.floor(a.length/2)];
+ function clearQueries(){for(const q of queries)gl.deleteQuery(q.query);queries.length=0;}
+ function deactivate(){uniforms.aczoK77HashReady.value.set(0,0);}
+ function reset(){clearQueries();deactivate();uniforms.aczoK77Hash0.value=uniforms.aczoK77Hash1.value=null;wide?.target?.dispose();wide=null;wideFailed=false;for(const e of entries){e.row=0;e.origin=null;}if(stats.mode!=='unsupported'&&stats.mode!=='original'){stats.mode='pending';benchDraws=0;benchPolls=0;samples[0].length=samples[1].length=0;}}
+ function fail(){clearQueries();deactivate();stats.mode='original';stats.failed=true;}
+ renderer.domElement.addEventListener('webglcontextlost',reset);renderer.domElement.addEventListener('webglcontextrestored',()=>{timer=renderer.extensions.has('EXT_color_buffer_float')&&gl.getExtension('EXT_disjoint_timer_query_webgl2');reset();if(!timer)fail();});
+ function ensureBench(time,focus){
+  if(bench)return;
+  const data=new THREE.DataTexture(new Uint8Array([128,128,128,180]),1,1,THREE.RGBAFormat);data.needsUpdate=true;
+  const rect={value:new THREE.Vector4()},timeUniform={value:time},ready={value:new THREE.Vector2(1,1)},common={...uniforms,aczoK77HashReady:ready,aczoWakeField:{value:data},aczoWakeTime:timeUniform,rect};
+  const vertexShader='varying vec2 xy;uniform vec4 rect;void main(){xy=rect.xy+uv*rect.zw;gl_Position=vec4(position.xy,0.,1.);}';
+  const materials=[originalGLSL,cachedGLSL].map((code,i)=>new THREE.ShaderMaterial({uniforms:common,depthTest:false,depthWrite:false,toneMapped:false,blending:THREE.NoBlending,vertexShader,fragmentShader:'varying vec2 xy;'+code+'void main(){float a='+(i?'aczoK77ShipFoam(xy)':'aczoShipWaves(xy,20.).w')+';gl_FragColor=vec4(vec3(a),1.);}'}));
+  const target=new THREE.WebGLRenderTarget(256,128,{depthBuffer:false,stencilBuffer:false}),group=new THREE.Scene(),quad=new THREE.Mesh(geometry,materials[0]);quad.frustumCulled=false;group.add(quad);bench={data,rect,timeUniform,materials,target,group,quad};
  }
- return {uniforms,stats,supported:true,update};
+ function disposeBench(){if(!bench)return;bench.data.dispose();bench.target.dispose();for(const m of bench.materials)m.dispose();bench=null;}
+ function poll(){
+  if(gl.getParameter(timer.GPU_DISJOINT_EXT)){fail();disposeBench();return;}
+  for(let i=queries.length-1;i>=0;i--){const q=queries[i];if(!gl.getQueryParameter(q.query,gl.QUERY_RESULT_AVAILABLE))continue;const ns=gl.getQueryParameter(q.query,gl.QUERY_RESULT);gl.deleteQuery(q.query);queries.splice(i,1);if(Number.isFinite(ns)&&ns>0)samples[q.mode].push(ns);}
+  if(samples[0].length>=8&&samples[1].length>=8){
+   const before=median(samples[0]),after=median(samples[1]);stats.gpuOriginalMs=before/1e6;stats.gpuCachedMs=after/1e6;stats.mode=after<before*.85?'cached':'original';clearQueries();disposeBench();
+  }else if(++benchPolls>240){fail();disposeBench();}
+ }
+ function update(time,rows=32,focus=null){
+  if(stats.mode==='original'||gl.isContextLost()||!Number.isFinite(time))return;
+  const cx=Math.max(-452,Math.min(252,Number.isFinite(focus?.x)?focus.x:-100)),cy=Math.max(-582,Math.min(152,Number.isFinite(focus?.y)?focus.y:-215));let entry,index,buildingWide=false;
+  for(let n=0;n<2;n++){
+   const i=(cursor+n)%2,e=entries[i],ox=i===0?time*.07:-time*.09,oy=i===0?-time*.035:-time*.09;
+   const world=i===0||e.world;
+   const minX=Math.floor((world?-500:cx-96)*e.scale+ox),maxX=Math.floor((world?300:cx+96)*e.scale+ox)+1,minY=Math.floor((world?-630:cy-96)*e.scale+oy),maxY=Math.floor((world?200:cy+96)*e.scale+oy)+1;
+   if(i===1&&stats.mode==='cached'&&!wideFailed){
+    const a=Math.floor(-500*e.scale+ox),b=Math.floor(300*e.scale+ox)+1,c=Math.floor(-630*e.scale+oy),d=Math.floor(200*e.scale+oy)+1;
+    const covers=o=>o?.origin&&a>=o.origin.x+4&&c>=o.origin.y+4&&b<o.origin.x+o.size-4&&d<o.origin.y+o.size-4;
+    if(e.world&&covers(e))continue;
+    if(!covers(wide)){wide?.target?.dispose();wide={size:1536,scale:e.scale,row:0,world:true,origin:new THREE.Vector2(a-Math.floor((1536-(b-a+1))/2),c-Math.floor((1536-(d-c+1))/2))};}
+    // The current local/global values stay bound until the replacement is full.
+    continue;
+   }
+   if(!e.origin||minX<e.origin.x+4||minY<e.origin.y+4||maxX>=e.origin.x+e.size-4||maxY>=e.origin.y+e.size-4){
+    e.origin=new THREE.Vector2(minX-Math.floor((e.size-(maxX-minX+1))/2),minY-Math.floor((e.size-(maxY-minY+1))/2));e.row=0;uniforms.aczoK77HashReady.value.setComponent(i,0);
+   }
+   if(e.row<e.size){entry=e;index=i;break;}
+  }
+  if(!entry&&wide){entry=wide;index=1;buildingWide=true;}
+  if(!entry&&stats.mode==='cached'){uniforms.aczoK77HashReady.value.set(1,1);return;}
+  const target=renderer.getRenderTarget(),autoClear=renderer.autoClear,test=renderer.getScissorTest();renderer.getViewport(viewport);renderer.getScissor(scissor);
+  try{
+   renderer.autoClear=false;
+   if(entry){
+    const batchRows=Math.max(1,Math.floor(rows*512/entry.size));
+    if(!entry.target){entry.target=new THREE.WebGLRenderTarget(entry.size,entry.size,{format:THREE.RGBAFormat,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false});entry.target.texture.generateMipmaps=false;if(!buildingWide)uniforms['aczoK77Hash'+index].value=entry.target.texture;}
+    origin.value.copy(entry.origin);renderer.setRenderTarget(entry.target);renderer.setViewport(0,0,entry.size,entry.size);renderer.setScissor(0,entry.row,entry.size,Math.min(batchRows,entry.size-entry.row));renderer.setScissorTest(true);renderer.render(scene,camera);
+    if(entry.row===0&&gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Float cache unavailable');
+    if(!buildingWide)uniforms['aczoK77Hash'+index].value=entry.target.texture;
+    entry.row+=batchRows;stats.passes++;if(buildingWide)stats.widePasses++;cursor=(index+1)%2;
+    if(entry.row>=entry.size){
+     uniforms['aczoK77HashOrigin'+index].value.copy(entry.origin);
+     if(buildingWide){const old=entries[1];entries[1]=entry;wide=null;uniforms.aczoK77Hash1.value=entry.target.texture;uniforms.aczoK78Hash1Size.value=entry.size;stats.fineSize=entry.size;old.target?.dispose();}
+    }
+   }else if(stats.mode==='pending'){
+    ensureBench(time,focus);poll();if(stats.mode!=='pending')return;
+    if(benchDraws<18){
+     const mode=benchDraws%2;bench.rect.value.set(cx-48,cy-48,96,96);bench.timeUniform.value=time;bench.quad.material=bench.materials[mode];renderer.setRenderTarget(bench.target);renderer.setViewport(0,0,256,128);renderer.setScissorTest(false);
+     const query=benchDraws>=2?gl.createQuery():null;let open=false;
+     try{if(query){gl.beginQuery(timer.TIME_ELAPSED_EXT,query);open=true;}renderer.render(bench.group,camera);}finally{if(open)gl.endQuery(timer.TIME_ELAPSED_EXT);}
+     if(query){queries.push({query,mode});gl.flush();}benchDraws++;
+    }
+   }
+   if(stats.mode==='cached')for(let i=0;i<2;i++)uniforms.aczoK77HashReady.value.setComponent(i,entries[i].row>=entries[i].size?1:0);
+  }catch(error){if(buildingWide){wide?.target?.dispose();wide=null;wideFailed=true;}else{fail();disposeBench();}}
+  finally{renderer.setRenderTarget(target);renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(test);renderer.autoClear=autoClear;}
+ }
+ return {uniforms,stats,supported:true,update,entries};
 }
-
 const aczoK77WakeFoamGLSL=`
  uniform sampler2D aczoWakeField;uniform float aczoWakeTime;
  uniform sampler2D aczoK77Hash0;uniform sampler2D aczoK77Hash1;
@@ -10371,18 +10249,10 @@ const aczoK77WakeFoamGLSL=`
   else h=vec4(aczoWakeHash(i),aczoWakeHash(i+vec2(1,0)),aczoWakeHash(i+vec2(0,1)),aczoWakeHash(i+vec2(1)));
   return mix(mix(h.x,h.y,f.x),mix(h.z,h.w,f.x),f.y);
  }
-
- uniform vec2 aczoK84FineOrigin[9];uniform vec3 aczoK84FineSlot[9];
- float aczoK84FineNoise(vec2 p){
-  vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec4 h=vec4(0.);bool found=false;
-  for(int n=0;n<9;n++){vec2 c=i-aczoK84FineOrigin[n];if(aczoK84FineSlot[n].z>.5&&all(greaterThanEqual(c,vec2(0.)))&&all(lessThan(c,vec2(128.)))){h=texture2D(aczoK77Hash1,(c+aczoK84FineSlot[n].xy+vec2(.5))/384.);found=true;break;}}
-  if(!found)h=vec4(aczoWakeHash(i),aczoWakeHash(i+vec2(1,0)),aczoWakeHash(i+vec2(0,1)),aczoWakeHash(i+vec2(1)));
-  return mix(mix(h.x,h.y,f.x),mix(h.z,h.w,f.x),f.y);
- }
  float aczoK77ShipFoam(vec2 xy){
   vec2 uv=vec2((xy.x+500.)/800.,(200.-xy.y)/830.);if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return 0.;
   float a=texture2D(aczoWakeField,uv).a;if(a==0.)return 0.;
-  float mottled=.48+.34*aczoK77Noise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035),aczoK77Hash0,aczoK77HashOrigin0,aczoK77HashReady.x,512.)+.18*aczoK84FineNoise(xy*1.7-vec2(aczoWakeTime*.09));
+  float mottled=.48+.34*aczoK77Noise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035),aczoK77Hash0,aczoK77HashOrigin0,aczoK77HashReady.x,512.)+.18*aczoK77Noise(xy*1.7-vec2(aczoWakeTime*.09),aczoK77Hash1,aczoK77HashOrigin1,aczoK77HashReady.y,aczoK78Hash1Size);
   return a*mottled;
  }
 `;
@@ -10761,33 +10631,21 @@ aczoLitPoint=instanceMatrix*aczoLitPoint;
 #endif
 aczoLitWorld=(modelMatrix*aczoLitPoint).xyz;`);
   shader.fragmentShader=aczoK25SearchlightGLSL+aczoBridgeDownlightGLSL+`varying vec3 aczoLitWorld;
-float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){
- vec3 d=aczoLitWorld-origin;float distance=length(d);
- // K83: the original range/cone factors are exactly zero here.
- if(distance>=420.)return 0.;
- float cone=smoothstep(.975,.993,dot(normalize(d),direction));
- if(cone==0.)return 0.;
- return cone*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);
-}
+float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);return smoothstep(.975,.993,dot(normalize(d),direction))*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);}
 `+shader.fragmentShader;
-  shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`// K83: retain the native light and shadow math for every active source.
-if(aczoSearchStrength!=0.||aczoBridgeNight!=0.){
- vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
- if(aczoSearchStrength!=0.){
-  float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
-  outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*5.4;
- }
- outgoingLight+=vec3(1.,.70,.34)*aczoBridgeDownlight(aczoLitWorld,aczoNormal)*1.65;
-}
+  shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
+float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
+outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*5.4;
+outgoingLight+=vec3(1.,.70,.34)*aczoBridgeDownlight(aczoLitWorld,aczoNormal)*1.65;
 gl_FragColor = vec4( outgoingLight, diffuseColor.a );`);
- };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlight-k83';mat.needsUpdate=true;
+ };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlight-k26';mat.needsUpdate=true;
 }
 function aczoK23FishingSprayGain(x,y){
  if(!anglingMode||is2D||fishMode||anglingCinematicView!=='shore'||anglingCameraTransition
   ||anglingSelection?.waterBody!=='mosel'||!waterSurface.visible||!moselWaterSurface.visible)return 0;
  return 1-THREE.MathUtils.smoothstep(Math.hypot(x-camera.position.x,y-camera.position.y),12,28);
 }
-function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false,surfaceHeight=null){
+function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){
  const g=aczoWaveGrid,x=-500+(cell%g.w+.5)*800/g.w,y=200-(((cell/g.w)|0)+.5)*830/g.h;
  let px=x,py=y;
  // Only real river water can emit; stop at the last dry/wet half-metre boundary.
@@ -10796,7 +10654,7 @@ function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false,surfaceHeight=null
  const boost=emphasis&&aczoK23FishingSprayGain(px,py)>0;
  for(let drop=0;drop<(boost?8:1);drop++){
  const p=aczoBankSprayData,i=p.cursor;p.cursor=(i+1)%aczoBankSprayCapacity;const k=i*3,seed=++p.serial,random=n=>{const q=Math.sin(seed*127.1+n*311.7)*43758.5453;return q-Math.floor(q);};
- p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,surfaceHeight===null?g.bands[0].height[cell]+g.bands[1].height[cell]:surfaceHeight)*.35;
+ p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,g.bands[0].height[cell]+g.bands[1].height[cell])*.35;
  const side=(random(1)-.5)*.65;p.velocity[k]=nx*(.18+strength*.36)-ny*side;p.velocity[k+1]=ny*(.18+strength*.36)+nx*side;p.velocity[k+2]=boost?2.35+strength*2.0+random(2)*.65:1.15+strength*1.05+random(2)*.25;
  p.age[i]=0;p.life[i]=boost?.65+random(3)*.30:.34+random(3)*.22;p.alpha[i]=.35+strength*.25;p.size[i]=(.045+random(4)*.065)*(boost?1.35:1);p.emphasis[i]=boost?1:0;
  }
@@ -20530,266 +20388,160 @@ function aczoK42SpreadScare(actor){
   f.huntFleeUntil=fishWorldTime+1.2+f.feedSeed;f.pause=0;if(++count>=5)break;
  }
 }
-// K86: shared geographic schools in the reachable band of the actual own bank.
-// Their identities do not depend on the chosen fishing place or on the camera.
-const aczoK86BankStocks=new Map();
-let aczoK86BankSites=null;
-function aczoK86Reachable(x,y,frame=null,limit=96){
- const f=frame||aczoSelectionOwnBank({x,y});if(!f)return false;
- const dx=x-f.x,dy=y-f.y,d=Math.hypot(dx,dy);if(d>limit||dx*f.nx+dy*f.ny<1)return false;
- for(let i=1;i<=12;i++){const t=Math.max(2/d,i/12);if(t>1)continue;if(aczoMoselDepth(f.x+dx*t,f.y+dy*t)===null)return false;}
- return true;
-}
-function aczoK86Sites(){
- if(aczoK86BankSites)return aczoK86BankSites;
- const line=ACZO_EXPLORE_BANKS[0],sites=[];let along=0,next=18;
- for(let i=1;i<line.length;i++){
-  const a=line[i-1],b=line[i],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
-  while(next<along+length){
-   const t=(next-along)/length,spot=aczoSelectionMoselCandidate({x:a[0]+dx*t,y:a[1]+dy*t});
-   if(spot)sites.push({id:Math.round(next),x:spot.shore.x,y:spot.shore.y,nx:spot.inward.x,ny:spot.inward.y});next+=36;
-  }
-  along+=length;
- }
- return aczoK86BankSites=sites;
-}
-function aczoK86BankGroup(site){
- if(aczoK86BankStocks.has(site.id))return aczoK86BankStocks.get(site.id);
- const records=[],names=Object.keys(ACZO_MOSEL_SPECIES).filter(n=>!aczoK42Rare(n));
- const bands=[[10,28],[34,58],[65,85]];
- for(let band=0;band<bands.length;band++){
-  const rng=aczoK85Random(aczoK85Seed('own-bank:'+site.id+':'+band)),[near,far]=bands[band];
-  const species=['roach','bleak','perch'][Math.floor(rng()*3)];
-  const other=names[(Math.floor(site.id/36)*3+band)%names.length];
-  for(const [name,count,school]of [[species,7+Math.floor(rng()*8),true],[other,1+Math.floor(rng()*3),false]]){
-   let home=null,score=-1;
-   for(let n=0;n<32;n++){
-    const d=near+rng()*(far-near),side=(rng()-.5)*20,x=site.x+site.nx*d-site.ny*side,y=site.y+site.ny*d+site.nx*side,depth=aczoK85Depth(x,y);
-    if(depth===null||!aczoK86Reachable(x,y,site))continue;
-    const weight=aczoK8hHabitat(name,x,y)*(.65+rng()*.35);if(weight>score){score=weight;home={x,y,d:depth};}
-   }
-   if(!home)continue;
-   const bounds={x0:home.x-10,x1:home.x+10,y0:home.y-10,y1:home.y+10},id='bank:'+site.id+':'+band+':'+name+(school?':school':':single');
-   for(let i=0;i<count;i++){
-    const x=home.x+(rng()-.5)*(school?3:9),y=home.y+(rng()-.5)*(school?3:9),depth=aczoK85Depth(x,y);
-    const at=depth!==null&&aczoK86Reachable(x,y,site)?{x,y,d:depth}:home;
-    const r=aczoK85AddRecord(id+':'+i,name,at,bounds,rng,i,school?id:null);if(r){r.bankHome=site;records.push(r);}
-   }
-  }
- }
- aczoK86BankStocks.set(site.id,records);return records;
-}
-function aczoK86LocalBankRecords(center){
- const records=[],size=aczoK85River.cell,x=(Math.floor(center.x/size)+.5)*size,y=(Math.floor(center.y/size)+.5)*size;
- for(const site of aczoK86Sites())if(Math.hypot(site.x-x,site.y-y)<168){
-  for(const r of aczoK86BankGroup(site)){const p=r.actor?.obj.position||r.position;if(Math.max(Math.abs(p.x-x),Math.abs(p.y-y))<65)records.push(r);}
- }
- return records;
-}
-function aczoK86TileSchool(tx,ty,bounds,records){
- // Small fixed encounter schools also remain outside the casting band.
- // Some cells are still empty; swimming never creates fish at the camera.
- const rng=aczoK85Random(aczoK85Seed('river-school:'+tx+','+ty));if(rng()<.18)return;
- const name=['roach','bleak','perch'][Math.floor(rng()*3)],home=aczoK85FindPoint(name,bounds,rng,{trials:24});if(!home)return;
- const id='river-school:'+tx+','+ty+':'+name,count=8+Math.floor(rng()*9);
- for(let i=0;i<count;i++){
-  const x=home.x+(rng()-.5)*3,y=home.y+(rng()-.5)*3,d=aczoK85Depth(x,y);
-  const at=d!==null&&x>=bounds.x0&&x<=bounds.x1&&y>=bounds.y0&&y<=bounds.y1?{x,y,d}:home;
-  const r=aczoK85AddRecord(id+':'+i,name,at,bounds,rng,i,id);if(r)records.push(r);
- }
-}
-
-// K85: geographic stocks. Rendering slots are reusable; fish identities,
-// schools, homes and unloaded movement state belong to the river, not a cast.
-const aczoK85River={cell:40,maxActors:720,tiles:new Map(),sections:new Map(),records:new Map(),schools:new Map(),pool:new Map(),vectors:new WeakMap(),stats:{tiles:0,records:0,queued:0,activated:0,reused:0,parked:0,unchangedCasts:0,maxActive:0}};
-function aczoK85Seed(text){let h=2166136261;for(let i=0;i<text.length;i++)h=Math.imul(h^text.charCodeAt(i),16777619);return h>>>0;}
-function aczoK85Random(seed){let h=seed>>>0;return ()=>{h=(Math.imul(h,1664525)+1013904223)>>>0;return h/4294967296;};}
-function aczoK85Depth(x,y,minimum=.9,section=null){
- if(x< -500||x>300||y< -630||y>200)return null;
- const d=aczoMoselDepth(x,y);
- if(d==null||!Number.isFinite(d)||d<minimum||section!==null&&aczoK42Section(x,y)!==section||aczoK8eInsideFooting(x,y,.8))return null;
- return d;
-}
-function aczoK85Z(name,x,y,d,bodyHeight,random){
- const bottom=aczoDepthToWorldZ(d,true),top=ACZO_MOSEL_SURFACE_Z-Math.max(.22,bodyHeight*.5+.05),clear=Math.max(.16,bodyHeight*.5+.06),p=ACZO_K8G_NEW[name];
- let z;
- if(p){if(p.layer==='bottom')z=bottom+clear+.06+random()*.15;else if(p.layer==='surface')z=top-.08-random()*.24;else if(p.layer==='upper')z=top-.28-random()*.85;else z=bottom+clear+(top-bottom-clear)*(.30+random()*.48);}
- else if(['goby','eel','zander','catfish','bream'].includes(name))z=bottom+clear+.06+random()*.18;
- else z=bottom+clear+(top-bottom-clear)*(.30+random()*.48);
- return Math.max(bottom+clear,Math.min(top,z));
-}
-function aczoK85Size(name,random){
- if(ACZO_K42_FISH[name])return aczoK42Size(name,random)/100;
- const s=fishSpecies[name];return s.maxLength*(s.minFactor+random()*(1-s.minFactor));
-}
-function aczoK85FindPoint(name,bounds,random,options={}){
- let best=null,score=-1;
- for(let n=0;n<(options.trials||18);n++){
-  const x=bounds.x0+random()*(bounds.x1-bounds.x0),y=bounds.y0+random()*(bounds.y1-bounds.y0),d=aczoK85Depth(x,y,options.minimum||.9,options.section??null);
-  if(d===null)continue;
-  const weight=aczoK8hHabitat(name,x,y)*(.55+random()*.45);
-  if(weight>score){score=weight;best={x,y,d};}
- }
- return best;
-}
-function aczoK85AddRecord(id,name,home,bounds,random,slot,schoolId=null,section=null){
- const width=aczoK85Size(name,random),height=width*(fishImageAspect[name]||fishSpecies[name].aspect||.35),minimum=Math.max(.9,(height+.4)/Math.max(.01,exaggeration));
- if(aczoK85Depth(home.x,home.y,minimum,section)===null)return null;
- const position=new THREE.Vector3(home.x,home.y,aczoK85Z(name,home.x,home.y,home.d,height,random));
- const record={id,species:name,slot,section:section??aczoK42Section(home.x,home.y),rare:aczoK42Rare(name),schoolId,home:{x:home.x,y:home.y},bounds:{...bounds},width,height,position,target:position.clone(),sequence:0,actor:null,state:null,seed:aczoK85Seed(id)};
- if(schoolId){
-  let school=aczoK85River.schools.get(schoolId);
-  if(!school){school={target:position.clone(),home:{...record.home},bounds:{...bounds},record};aczoK85River.schools.set(schoolId,school);}
-  record.home={...school.home};record.target.copy(school.target);
- }
- aczoK85River.records.set(id,record);aczoK85River.stats.records++;return record;
-}
-function aczoK85Tile(tx,ty){
- const key=tx+','+ty,world=aczoK85River;if(world.tiles.has(key))return world.tiles.get(key);
- const size=world.cell,bounds={x0:tx*size+2,x1:(tx+1)*size-2,y0:ty*size+2,y1:(ty+1)*size-2},center={x:tx*size+size*.5,y:ty*size+size*.5},records=[];
- const random=aczoK85Random(aczoK85Seed('mosel-tile:'+key)),roll=random();
- // Truly sparse patches are fixed in world coordinates, never rerolled by a cast.
- const density=roll<.14?0:roll<.34?.12+random()*.25:.55+random()*1.15;
- let wet=0;for(let y=0;y<3;y++)for(let x=0;x<3;x++)if(aczoK85Depth(bounds.x0+(bounds.x1-bounds.x0)*(x+.5)/3,bounds.y0+(bounds.y1-bounds.y0)*(y+.5)/3)!==null)wet++;
- if(density&&wet)for(const plan of aczoK8hVisualPlan(center)){
-  const name=plan.species;if(aczoK42Rare(name))continue;
-  const rng=aczoK85Random(aczoK85Seed(key+':'+name)),anchor=aczoK85FindPoint(name,bounds,rng);
-  if(!anchor)continue;
-  const habitat=aczoK8hHabitat(name,anchor.x,anchor.y),presence=rng();
-  if(presence>.40+.55*habitat/(1+habitat))continue;
-  const expected=plan.count/9*density*(wet/9)*(.35+habitat/(1+habitat));
-  const count=Math.min(64,Math.floor(expected)+(rng()<expected%1?1:0));
-  const schoolCount=plan.schools?Math.max(1,Math.min(count,Math.ceil(count/(name==='goby'?18:12)))):0;
-  const homes=Array.from({length:schoolCount},()=>aczoK85FindPoint(name,bounds,rng)||anchor);
-  for(let i=0;i<count;i++){
-   const home=schoolCount?homes[i%schoolCount]:(aczoK85FindPoint(name,bounds,rng,{trials:8})||anchor);
-   let at=home;
-   if(schoolCount){const x=Math.max(bounds.x0,Math.min(bounds.x1,home.x+(rng()-.5)*2.8)),y=Math.max(bounds.y0,Math.min(bounds.y1,home.y+(rng()-.5)*2.8)),d=aczoK85Depth(x,y);if(d!==null)at={x,y,d};}
-   const record=aczoK85AddRecord('tile:'+key+':'+name+':'+i,name,at,bounds,rng,i,schoolCount?key+':'+name+':school:'+(i%schoolCount):null);
-   if(record)records.push(record);
-  }
- }
- if(wet)aczoK86TileSchool(tx,ty,bounds,records);
- const tile={key,tx,ty,density,wet,records};world.tiles.set(key,tile);world.stats.tiles++;return tile;
-}
-function aczoK85RareSection(section){
- const world=aczoK85River;if(world.sections.has(section))return world.sections.get(section);
- const records=[];
- for(const name of ['mandarin_catfish','burbot'])for(let slot=0;slot<ACZO_K42_FISH[name].count;slot++){
-  const id='rare:'+section+':'+name+':'+slot,rng=aczoK85Random(aczoK85Seed(id));let best=null,score=-1;
-  for(let n=0;n<192;n++){
-   const along=(section+rng())*100,across=(rng()-.5)*260,x=-315.8+along*.807-across*.591,y=-497+along*.591+across*.807,d=aczoK85Depth(x,y,.9,section);
-   if(d===null||!aczoK86Reachable(x,y))continue;const q=aczoK8hHabitat(name,x,y)*(.6+rng()*.4);if(q>score){score=q;best={x,y,d};}
-  }
-  if(!best)continue;
-  const bounds={x0:Math.max(-500,best.x-22),x1:Math.min(300,best.x+22),y0:Math.max(-630,best.y-22),y1:Math.min(200,best.y+22)};
-  const record=aczoK85AddRecord(id,name,best,bounds,rng,slot,null,section);if(record){record.bankHome=aczoSelectionOwnBank(best);records.push(record);}
- }
- world.sections.set(section,records);return records;
-}
-function aczoK85RecordsAt(center){
- const size=aczoK85River.cell,tx=Math.floor(center.x/size),ty=Math.floor(center.y/size),records=[],seen=new Set();
- for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)for(const r of aczoK85Tile(tx+x,ty+y).records){records.push(r);seen.add(r.id);}
- const values=[];for(const x of [tx*size-size,(tx+2)*size])for(const y of [ty*size-size,(ty+2)*size])values.push(aczoK42Section(x,y));
- for(let section=Math.min(...values);section<=Math.max(...values);section++)for(const r of aczoK85RareSection(section)){
-  const p=r.actor?.obj.position||r.position;
-  if(Math.max(Math.abs(p.x-center.x),Math.abs(p.y-center.y))<size*2&&!seen.has(r.id)){records.push(r);seen.add(r.id);}
- }
- for(const r of aczoK86LocalBankRecords(center))if(!seen.has(r.id)){records.push(r);seen.add(r.id);}
- // Preserve migrants whose saved position has crossed their original cell.
- for(const r of aczoK85River.records.values())if(!seen.has(r.id)&&Math.hypot(r.position.x-center.x,r.position.y-center.y)<42){records.push(r);seen.add(r.id);}
- return records;
-}
-function aczoK85PointForVector(out,name){
- const record=aczoK85River.vectors.get(out);if(!record||record.species!==name)return null;
- const random=aczoK85Random(record.seed+Math.imul(++record.sequence,0x9e3779b1)),bounds=record.bounds,school=record.schoolId&&aczoK85River.schools.get(record.schoolId),home=school?.home||record.home;
- const radius=record.rare?18:record.schoolId?11:15,minimum=Math.max(.9,(record.height+.4)/Math.max(.01,exaggeration));
- let best=null;
- for(let n=0;n<28;n++){
-  const angle=random()*Math.PI*2,r=Math.sqrt(random())*radius,x=home.x+Math.cos(angle)*r,y=home.y+Math.sin(angle)*r;
-  if(x<bounds.x0||x>bounds.x1||y<bounds.y0||y>bounds.y1||record.bankHome&&!aczoK86Reachable(x,y,record.bankHome,99))continue;
-  const d=aczoK85Depth(x,y,minimum,record.rare?record.section:null);if(d===null)continue;
-  best={x,y,d};if(random()<.35+.65*aczoK8hHabitat(name,x,y)/(1+aczoK8hHabitat(name,x,y)))break;
- }
- if(!best){const d=aczoK85Depth(record.position.x,record.position.y,minimum,record.rare?record.section:null);if(d!==null)best={x:record.position.x,y:record.position.y,d};}
- if(!best)return out.copy(record.position);
- return out.set(best.x,best.y,aczoK85Z(name,best.x,best.y,best.d,record.height,random));
-}
-function aczoK85SaveActor(actor){
- const r=actor.k85Record;if(!r)return;r.position.copy(actor.obj.position);r.target.copy(actor.target);
- r.state={phase:actor.phase,pause:actor.pause,speed:actor.speed,k8gCruise:actor.k8gCruise,heading:actor.swimHeading,screenSide:actor.screenSide,hidden:!!actor.obj.userData.hiddenByHunt,respawn:actor.obj.userData.huntRespawnAt||0};
-}
-function aczoK85ParkActor(actor){
- const r=actor.k85Record;aczoK85SaveActor(actor);if(r)r.actor=null;
- actor.obj.visible=false;actor.obj.parent?.remove(actor.obj);
- const name=actor.obj.userData.species,pool=aczoK85River.pool.get(name)||[];pool.push(actor);aczoK85River.pool.set(name,pool);aczoK85River.stats.parked++;
-}
-function aczoK85Activate(rt,r){
- if(r.actor)return r.actor;
- const pool=aczoK85River.pool.get(r.species),reused=!!pool?.length;let actor;
- if(reused)actor=pool.pop();else{
-  const at=fishActors.length;addFishPopulation(r.species,1);actor=fishActors[at];fishActors.splice(at,1);
- }
- if(!actor)return null;
- const obj=actor.obj;for(const key of Object.keys(actor))if(key!=='obj')delete actor[key];
- const random=aczoK85Random(r.seed),state=r.state;
- const school=r.schoolId?aczoK85River.schools.get(r.schoolId):null,target=school?school.target:r.target.clone();
- Object.assign(actor,{obj,target,speed:state?.speed??(.24+random()*.34),phase:state?.phase??random()*Math.PI*2,pause:state?.pause??random()*2,schoolTarget:school?.target||null,schoolOffset:school?new THREE.Vector3((random()-.5)*1.3,(random()-.5)*1.3,0):null,index:fishActors.length,screenSide:state?.screenSide||1,shadowYaw:0,visualPitch:0,visualDepthYaw:0,swimHeading:state?.heading??NaN,huntFleeUntil:0,lureChaseUntil:0,predatorBrain:null,feedSeed:random(),feedOrbit:random()*Math.PI*2,feedTargetVec:new THREE.Vector3(),k43PendingPlacement:false,k85Record:r});
- const u=obj.userData;for(const key of ['hiddenByHunt','huntRespawnAt','k42RareKey','k42Section','k42Slot','k42School'])delete u[key];
- u.baseFishWidth=r.width;u.baseFishHeight=r.height;u.k42Section=r.section;u.k42Slot=r.slot;u.k85Id=r.id;
- if(r.rare)u.k42RareKey=r.section+':'+r.species+':'+r.slot;
- u.hiddenByHunt=state?.hidden||false;u.huntRespawnAt=state?.respawn||0;
- obj.position.copy(r.position);obj.rotation.set(0,0,0);obj.scale.set(r.width,r.height,1);obj.visible=false;
- aczoK85River.vectors.set(obj.position,r);aczoK85River.vectors.set(target,r);if(school)aczoK85River.vectors.set(school.target,school.record);
- if(ACZO_K8G_NEW[r.species]){
-  const p=ACZO_K8G_NEW[r.species];actor.k8gCruise=state?.k8gCruise??(p.speed[0]+random()*(p.speed[1]-p.speed[0]));actor.speed=actor.k8gCruise;actor.pause=Math.min(actor.pause,p.pause);
- }
- if(!obj.parent)fishGroup.add(obj);fishActors.push(actor);r.actor=actor;
- aczoK85River.stats.activated++;if(reused)aczoK85River.stats.reused++;aczoK85River.stats.maxActive=Math.max(aczoK85River.stats.maxActive,fishActors.length);return actor;
-}
-function aczoK85Protected(actor){
- if(activeHunt?.predator===actor||activeHunt?.prey===actor||aczoFishIsActiveLureAttacker(actor)||anglingVisibleStrikeActor===actor||anglingPendingCatch?.k42Actor===actor)return true;
- return fishGroup.visible&&waterUniforms.underwaterView.value>.32&&actor.obj.position.distanceToSquared(camera.position)<40*40;
-}
+// K43: the free-swim population follows the camera independently of bed-detail jobs.
+// Reuse the existing 461 actors; nearby actors keep their position and school.
 function aczoK43QueueRiverPopulation(rt,center,options={}){
- if(!rt||aczoMoselFishing!==rt||!Number.isFinite(center.x)||!Number.isFinite(center.y))return false;
- const size=aczoK85River.cell,tx=Math.floor(center.x/size),ty=Math.floor(center.y/size),key=tx+','+ty,next=aczoK42StockCenter(center);
- rt.k42Section=next.section;rt.k42StockCenter=next.center;
- if(rt.k85FocusKey===key&&!options.force){if(options.preflight)aczoK85River.stats.unchangedCasts++;return false;}
- rt.k85FocusKey=key;rt.center.set((tx+.5)*size,(ty+.5)*size,center.z||-1.2);aczoK8hReset(rt.center);rt.habitats=aczoK34HabitatsFor(rt.center);
- const candidates=aczoK85RecordsAt(center),held=fishActors.filter(aczoK85Protected),heldIds=new Set(held.map(a=>a.k85Record?.id));
- candidates.sort((a,b)=>Number(heldIds.has(b.id))-Number(heldIds.has(a.id))||((a.actor?.obj.position||a.position).distanceToSquared(center)-(b.actor?.obj.position||b.position).distanceToSquared(center))||a.id.localeCompare(b.id));
- const desired=new Set(heldIds);for(const r of candidates){if(desired.size>=aczoK85River.maxActors&&!desired.has(r.id))continue;desired.add(r.id);}
- const keep=[];for(const actor of fishActors){if(actor.k85Record&&desired.has(actor.k85Record.id))keep.push(actor);else aczoK85ParkActor(actor);}
- fishActors.splice(0,fishActors.length,...keep);for(let i=0;i<fishActors.length;i++)fishActors[i].index=i;
- const queue=candidates.filter(r=>desired.has(r.id)&&!r.actor);
- rt.k43Population=queue.length?{queue,index:0,focus:center.clone(),preflight:!!options.preflight}:null;
- const stats=rt.k43PopulationStats||(rt.k43PopulationStats={streams:0,relocated:0,maxSliceMs:0});stats.streams++;stats.protected=held.length;aczoK85River.stats.queued+=queue.length;
- return true;
+ const next=aczoK42StockCenter(center),sectionChanged=next.section!==rt.k42Section;
+ rt.center.copy(center);rt.k42Section=next.section;rt.k42StockCenter=next.center;
+ aczoK8hReset(center);rt.habitats=aczoK34HabitatsFor(center);
+ const pool=new Map(),active=[],queue=[],schools=new Map();
+ for(const f of fishActors){const name=f.obj.userData.species;if(!pool.has(name))pool.set(name,[]);pool.get(name).push(f);}
+ const preflight=!!options.preflight,position=camera.position,protectedRadius2=preflight?0:34*34;
+ let planList=aczoK8hVisualPlan(center);
+ const held=actor=>!actor.k43PendingPlacement&&(actor.obj.position.distanceToSquared(position)<protectedRadius2||activeHunt?.predator===actor||activeHunt?.prey===actor||aczoFishIsActiveLureAttacker(actor)||anglingVisibleStrikeActor===actor);
+ // Bridge weighting may change by a few common fish. Defer that redistribution
+ // if it would remove a currently visible school member.
+ if(planList.some(p=>{const list=pool.get(p.species)||[];return list.length>p.count&&list.filter(a=>!held(a)).length<list.length-p.count;}))planList=planList.map(p=>({...p,count:pool.get(p.species)?.length||0}));
+ for(const plan of planList){
+  const list=pool.get(plan.species)||[];
+  const rare=aczoK42Rare(plan.species),reserved=new Set();
+  if(rare)for(const actor of list)if(held(actor)&&actor.obj.userData.k42Section===next.section)reserved.add(actor.obj.userData.k42Slot);
+  // Keep the closest actors if a bridge-related species count becomes smaller.
+  // K54: sorting is needed only when a bridge adjustment removes individuals.
+  // Otherwise all actors are retained, so sorting the entire stock is wasted.
+  if(list.length>plan.count)list.sort((a,b)=>Number(held(b))-Number(held(a))||a.obj.position.distanceToSquared(position)-b.obj.position.distanceToSquared(position));
+  for(let i=0;i<plan.count;i++){
+   let actor=list.shift(),created=false;
+   if(!actor){const at=fishActors.length;addFishPopulation(plan.species,1);actor=fishActors[at];created=true;}
+    const protectedActor=!created&&held(actor);
+   actor.index=active.length;active.push(actor);
+   const school=actor.obj.userData.k42School??(plan.schools?i%plan.schools:-1),schoolKey=plan.species+':'+school;
+   if(protectedActor){
+    actor.k43PendingPlacement=false;
+    if(actor.schoolTarget)schools.set(schoolKey,actor.schoolTarget);
+    // A visible rare fish retains the section/individual it actually belongs to.
+    continue;
+   }
+   let slot=i;
+   if(rare){const previous=actor.obj.userData.k42Slot;if(actor.obj.userData.k42Section===next.section&&!reserved.has(previous))slot=previous;else{slot=0;while(reserved.has(slot))slot++;}reserved.add(slot);}
+   actor.k43PendingPlacement=true;actor.obj.visible=false;
+   queue.push({actor,name:plan.species,slot,school:plan.schools?i%plan.schools:-1,schoolKey,sectionChanged});
+  }
+ }
+ for(const list of pool.values())for(const f of list)fishGroup.remove(f.obj);
+ fishActors.splice(0,fishActors.length,...active);
+ rt.k43Population={queue,index:0,schools,focus:center.clone(),section:next.section,preflight,retry:[],retryAt:0};
+ const stats=rt.k43PopulationStats||(rt.k43PopulationStats={streams:0,relocated:0,maxSliceMs:0});
+ stats.streams++;stats.protected=active.length-queue.length;
 }
-function aczoK85ProcessPopulation(rt,all=false){
- const job=rt.k43Population;if(!job)return;const start=performance.now(),limit=all?Infinity:job.preflight?16:8,budget=all?Infinity:job.preflight?1.6:.8;let count=0;
- while(job.index<job.queue.length&&count<limit&&(count===0||performance.now()-start<budget)){aczoK85Activate(rt,job.queue[job.index++]);count++;}
- rt.k43PopulationStats.relocated+=count;rt.k43PopulationStats.maxSliceMs=Math.max(rt.k43PopulationStats.maxSliceMs,performance.now()-start);
- if(job.index>=job.queue.length)rt.k43Population=null;
+function aczoK43PlaceStreamActor(rt,item,schools){
+ const {actor,name,slot}=item,candidate=new THREE.Vector3();let best=null,bestDistance=-1;
+ // A cast prepares its destination while the fish layer is hidden. Once the
+ // underwater view is visible, recycle only beyond the existing fade range.
+ const hiddenPreflight=rt.k43Population?.preflight&&(!fishGroup.visible||anglingCinematicView!=='underwater');
+ // K67: ordinary fish can enter the fully fog-hidden outer band. Keep every
+ // existing nearby fish in place; rare stock retains its original boundary.
+ const recycleRadius=aczoK42Rare(name)?32:20;
+ const minimumDistance2=hiddenPreflight?0:recycleRadius*recycleRadius;
+ // K54: reject the visible circle inside the habitat sampler itself. The old
+ // path could run eight complete 28-candidate searches for a single actor.
+ const point=hiddenPreflight?aczoMoselRandomFish(candidate,name):aczoK8hRiverPoint(candidate,name,{avoid:camera.position,radius2:minimumDistance2});
+ if(point){best=point;bestDistance=point.distanceToSquared(camera.position);}
+ if(bestDistance<minimumDistance2){
+  const minimum=Math.max(.9,(actor.obj.userData.baseFishHeight||.2)+.55);
+  for(const radius of [recycleRadius+3,recycleRadius+13,recycleRadius+23,recycleRadius+33]){
+   for(let i=0;i<24;i++){
+    const angle=i*Math.PI/12,x=camera.position.x+Math.cos(angle)*radius,y=camera.position.y+Math.sin(angle)*radius,d=aczoMoselDepth(x,y);
+    if(d==null||d<minimum||aczoK42Rare(name)&&!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
+    const bottom=aczoDepthToWorldZ(d,true),low=['goby','eel','zander','catfish','bream'].includes(name);
+    best=new THREE.Vector3(x,y,ACZO_K8G_NEW[name]?aczoK8gFishZ(name,x,y,d,actor.obj.userData.baseFishHeight):Math.min(ACZO_MOSEL_SURFACE_Z-.22,low?bottom+.25:bottom+d*.5));break;
+   }
+    if(best&&best.distanceToSquared(camera.position)>=minimumDistance2)break;
+  }
+ }
+ if(!best||best.distanceToSquared(camera.position)<minimumDistance2)return false;
+ aczoK42RegisterActor(actor,name,slot);actor.obj.position.copy(best);
+ aczoMoselRandomFish(actor.target,name);
+ actor.schoolTarget=null;actor.schoolOffset=null;
+ if(item.school>=0){
+  let target=schools.get(item.schoolKey);if(!target){target=actor.target.clone();schools.set(item.schoolKey,target);}
+  actor.schoolTarget=target;actor.schoolOffset=new THREE.Vector3((slot%3-1)*.4,(slot%2-.5)*.4,0);actor.obj.userData.k42School=item.school;
+ }
+ if(item.sectionChanged&&ACZO_K42_FISH[name]){
+  const u=actor.obj.userData;u.baseFishWidth=aczoK42StockSize(name,slot)/100;u.baseFishHeight=u.baseFishWidth*fishImageAspect[name];actor.obj.scale.set(u.baseFishWidth,u.baseFishHeight,1);
+ }
+ actor.obj.userData.hiddenByHunt=false;actor.obj.userData.huntRespawnAt=0;
+ actor.visualPitch=0;actor.visualDepthYaw=0;actor.swimHeading=NaN;actor.huntFleeUntil=0;actor.lureChaseUntil=0;actor.predatorBrain=null;actor.k8gBottomZ=undefined;
+ if(ACZO_K8G_NEW[name])aczoK8gPrepareActor(actor);
+ actor.k43PendingPlacement=false;
+ return true;
 }
 function aczoK43StreamPopulation(rt){
- const casting=anglingMode&&anglingUsesArtificialLure()&&(anglingState==='casting'||rt.k43Population?.preflight&&anglingLureEntryTime>.055);
- if(!casting)aczoK43QueueRiverPopulation(rt,camera.position);
- aczoK85ProcessPopulation(rt);
+ const position=camera.position;
+ // During the above-water cast the camera is still travelling. Finish the
+ // destination job instead of recentering it back onto the shore camera.
+ const casting=(anglingMode&&anglingUsesArtificialLure()&&anglingState==='casting')||(rt.k43Population?.preflight&&anglingLureEntryTime>.055);
+ const changed=aczoK42Section(position.x,position.y)!==rt.k42Section;
+ const moved=Math.hypot(position.x-rt.center.x,position.y-rt.center.y)>20;
+ if(!casting&&(changed||moved))aczoK43QueueRiverPopulation(rt,position);
+ const pending=rt.k43Population;if(!pending)return;
+ if(performance.now()<pending.retryAt)return;
+ const started=performance.now();let count=0;
+ const limit=pending.preflight?16:8,budget=pending.preflight?1.6:.8;
+ while(pending.index<pending.queue.length&&count<limit&&(count===0||performance.now()-started<budget)){
+  const item=pending.queue[pending.index++];
+   if(!aczoK43PlaceStreamActor(rt,item,pending.schools)){item.actor.k43PendingPlacement=true;pending.retry.push(item);}
+  count++;
+ }
+ const stats=rt.k43PopulationStats;stats.relocated+=count;stats.maxSliceMs=Math.max(stats.maxSliceMs,performance.now()-started);
+ if(pending.index>=pending.queue.length){
+  if(pending.retry.length){pending.queue=pending.retry;pending.retry=[];pending.index=0;pending.retryAt=performance.now()+250;}
+  else rt.k43Population=null;
+ }
 }
+
+// K51: a long cast needs the river population at its destination before the
+// underwater image opens. Reuse the same stock, species and individual slots.
 function aczoK51PrimeLurePopulation(point){
- const rt=aczoMoselFishing;if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
+ const rt=aczoMoselFishing;
+ if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
+ // Short casts need the same destination preparation as long casts.
  aczoK43QueueRiverPopulation(rt,point,{preflight:true});
- const job=rt.k43Population;clearTimeout(rt.k51PreflightTimer);if(!job)return;
- const step=()=>{rt.k51PreflightTimer=0;if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;aczoK85ProcessPopulation(rt);if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);};
+ const job=rt.k43Population;
+ clearTimeout(rt.k51PreflightTimer);
+ // Short yielded slices also finish on low-frame-rate phones before impact;
+ // no new loader or single long population rebuild is needed.
+ const step=()=>{
+  rt.k51PreflightTimer=0;
+  if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;
+  aczoK43StreamPopulation(rt);
+  if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
+ };
  rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
 }
-function aczoK42SwitchSection(rt,center){return aczoK43QueueRiverPopulation(rt,center);}
-function aczoK85Begin(rt,center){aczoK43QueueRiverPopulation(rt,center,{preflight:true,force:true});aczoK85ProcessPopulation(rt,true);}
-function aczoK85Release(rt){for(const f of fishActors)if(f.k85Record)aczoK85ParkActor(f);fishActors.length=0;rt.k43Population=null;}
-function aczoK85Report(){const rt=aczoMoselFishing;return {build:'K85',cellMeters:aczoK85River.cell,maxActors:aczoK85River.maxActors,active:rt?fishActors.length:0,focus:rt?.k85FocusKey||null,pending:rt?.k43Population?rt.k43Population.queue.length-rt.k43Population.index:0,...aczoK85River.stats,pool:[...aczoK85River.pool.values()].reduce((s,p)=>s+p.length,0)};}
 
+function aczoK42SwitchSection(rt,center){
+ const next=aczoK42StockCenter(center);if(next.section===rt.k42Section)return false;
+ rt.k42Section=next.section;rt.k42StockCenter=next.center;aczoK8hReset(center);
+ const remaining=new Map(),old=fishActors.slice();
+ for(const actor of old){const name=actor.obj.userData.species;if(!remaining.has(name))remaining.set(name,[]);remaining.get(name).push(actor);}
+ const active=[];
+ for(const p of aczoK8hVisualPlan(center)){
+  const list=remaining.get(p.species)||[];
+  for(let i=0;i<p.count;i++){
+   let actor=list.shift();
+   if(!actor){const before=fishActors.length;addFishPopulation(p.species,1);actor=fishActors[before];}
+   actor.obj.userData.hiddenByHunt=false;actor.obj.userData.huntRespawnAt=0;
+   aczoK42RegisterActor(actor,p.species,i);aczoMoselRandomFish(actor.obj.position,p.species);aczoMoselRandomFish(actor.target,p.species);
+   actor.schoolTarget=null;actor.schoolOffset=null;
+   if(p.schools){const group=Math.floor(i/Math.max(1,Math.ceil(p.count/p.schools)));actor.schoolTarget=active.find(f=>f.obj.userData.species===p.species&&f.obj.userData.k42School===group)?.schoolTarget||actor.target.clone();actor.schoolOffset=new THREE.Vector3((i%3-1)*.4,(i%2-.5)*.4,0);actor.obj.userData.k42School=group;}
+   if(ACZO_K42_FISH[p.species]){actor.obj.userData.baseFishWidth=aczoK42StockSize(p.species,i)/100;actor.obj.userData.baseFishHeight=actor.obj.userData.baseFishWidth*fishImageAspect[p.species];actor.obj.scale.set(actor.obj.userData.baseFishWidth,actor.obj.userData.baseFishHeight,1);aczoK8gPrepareActor(actor);}
+   actor.visualPitch=0;actor.visualDepthYaw=0;actor.swimHeading=NaN;actor.huntFleeUntil=0;actor.lureChaseUntil=0;actor.predatorBrain=null;actor.index=active.length;active.push(actor);
+  }
+ }
+ for(const list of remaining.values())for(const f of list)fishGroup.remove(f.obj);
+ fishActors.splice(0,fishActors.length,...active);return true;
+}
 function aczoK42DrillJump(dt){
  const caught=anglingPendingCatch;if(!caught||!['rainbow_trout','smallmouth_bass'].includes(caught.species)||!anglingFishVisual.visible||anglingState!=='drilling')return;
  const p=caught.k42Jump||(caught.k42Jump={next:anglingStateTime+3+Math.random()*6,age:-1,count:0});
@@ -21184,7 +20936,7 @@ function randomDeadwoodFishPoint(name,out,options={}){
   return false;
 }
 function randomSpeciesPoint(name,out,options={}){
-  if(aczoMoselFishing)return aczoK85PointForVector(out,name)||aczoMoselRandomFish(out,name);
+  if(aczoMoselFishing)return aczoMoselRandomFish(out,name);
   if(randomDeadwoodFishPoint(name,out,options)) return out;
   const lowLight=aczoFishLowLightFactor();
   for(let i=0;i<450;i++){
@@ -38231,8 +37983,7 @@ function aczoK25RenderAnglingInsetSource(cam,keepShoreNature=false){
 }
 function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
   const viewport=renderer.getViewport(new THREE.Vector4()),device=renderer.getCurrentViewport(new THREE.Vector4()),scissor=renderer.getScissor(new THREE.Vector4()),scissorTest=renderer.getScissorTest(),target=renderer.getRenderTarget(),auto=renderer.autoClear,ratio=renderer.getPixelRatio(),shadowDirty=renderer.shadowMap.needsUpdate;
-  const pixelScale=aczoK84Options.graphics&&cam===anglingLureFollowerCamera&&anglingCinematicView==='underwater'?.62:1;
-  const width=Math.max(1,Math.round(device.z*pixelScale)),height=Math.max(1,Math.round(device.w*pixelScale));
+  const width=Math.max(1,Math.round(device.z)),height=Math.max(1,Math.round(device.w));
   let cache=aczoK25InsetCache.get(cam);if(!cache){
    const target=new THREE.WebGLRenderTarget(width,height,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;target.texture.minFilter=target.texture.magFilter=THREE.LinearFilter;target.texture.generateMipmaps=false;
    const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1,1,1,-1,0,1),material=new THREE.MeshBasicMaterial({map:target.texture,depthTest:false,depthWrite:false,toneMapped:false});scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),material));
@@ -38247,12 +37998,7 @@ function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
   texture.repeat.set(width/cache.target.width,height/cache.target.height);texture.offset.set(0,0);texture.updateMatrix();
   const now=performance.now(),interval=1000/(ACZO_MOBILE_PERF?20:30),mode=aczoGraphicsMode;
   try{
-   const mandatory=resized||regionChanged||cache.selection!==anglingSelection||cache.phase!==anglingState||cache.mode!==mode;
-   const due=now-cache.last>=interval;
-   const defer=aczoK84Options.stagger&&!mandatory&&due&&aczoK84Stats.uploadSerial===aczoK84FrameSerial&&now-cache.last<interval+34&&!cache.k84Deferred;
-   if(defer){cache.k84Deferred=true;aczoK84Stats.staggeredInsets++;}
-   if(mandatory||(due&&!defer)){
-    cache.k84Deferred=false;
+   if(resized||regionChanged||now-cache.last>=interval||cache.selection!==anglingSelection||cache.phase!==anglingState||cache.mode!==mode){
     renderer.setRenderTarget(cache.target);renderer.setViewport(0,0,width/ratio,height/ratio);renderer.setScissorTest(false);renderer.autoClear=true;renderer.shadowMap.needsUpdate=false;
     aczoK25RenderAnglingInsetSource(cam,keepShoreNature);cache.last=now;cache.selection=anglingSelection;cache.phase=anglingState;cache.mode=mode;cache.regionWidth=width;cache.regionHeight=height;cache.sourceUpdates++;aczoK25InsetStats.refreshes++;
    }
@@ -40116,7 +39862,6 @@ function aczoMoselBankFrame(x,y){
  return best;
 }
 function aczoMoselRandomFish(out,name){
- const homePoint=aczoK85PointForVector(out,name);if(homePoint)return homePoint;
  const habitatPoint=aczoK8hRiverPoint(out,name);if(habitatPoint)return habitatPoint;
  if(ACZO_K8G_NEW[name]){const point=aczoK8gRiverPoint(out,name);if(point)return point;}
  const rt=aczoMoselFishing;
@@ -40214,7 +39959,7 @@ function aczoK55ParkPondActors(rt){
 function aczoMoselFishingEnd(){
  const rt=aczoMoselFishing;if(!rt)return;aczoK34CancelMoselDetailRequest();
  clearTimeout(rt.k51PreflightTimer);
- cancelHuntEvent();aczoK85Release(rt);
+ cancelHuntEvent();
  for(const f of fishActors)fishGroup.remove(f.obj);
  fishActors.splice(0,fishActors.length,...rt.savedActors);
  for(const f of rt.savedActors){const parent=rt.k55ParkedActors?.get(f);if(parent&&!f.obj.parent)parent.add(f.obj);}
@@ -40236,7 +39981,7 @@ function aczoMoselFishingStart(shore,inward,mapCenter=null){
  const focus=fishEntryFocus,entryLength=fishEntryTargets.length;
  // Independent river population; the original pond fish retain their positions and state.
  mark=performance.now();
- aczoK85Begin(rt,center);
+ aczoK8hReset(center);for(const p of aczoK8hVisualPlan(center))addFishPopulation(p.species,p.count,{schools:p.schools||0});
  fishEntryTargets.length=entryLength;fishEntryFocus=focus;
  stages.fishPopulationMs=performance.now()-mark;mark=performance.now();
  let cacheKey='surface-only';rt.habitatPolicy=ACZO_K8E_HABITAT_POLICY;rt.habitats=[];
@@ -46172,7 +45917,6 @@ float aczoBridgeDownSpot(vec3 point,vec3 normal,vec3 origin){
  return cone*falloff*falloff*max(0.,dot(normal,-d/r));
 }
 float aczoBridgeDownlight(vec3 point,vec3 normal){
- if(aczoBridgeNight==0.)return 0.;
  return aczoBridgeNight*min(1.6,aczoBridgeDownSpot(point,normal,aczoBridgeLamp0)
   +aczoBridgeDownSpot(point,normal,aczoBridgeLamp1)+aczoBridgeDownSpot(point,normal,aczoBridgeLamp2)
   +aczoBridgeDownSpot(point,normal,aczoBridgeLamp3));
@@ -52161,7 +51905,7 @@ aczoResumeSession();
   if(anglingUsesBankSet()&&anglingBankRuntime.group){const rt=anglingBankRuntime;roots.push(rt.pods[anglingProgress.selectedEquipment],rt.castBall,...rt.lines,...rt.feedBalls.map(ball=>ball.mesh));if(rt.netPass)roots.push(rt.netPass.netScene,rt.netPass.depthScene);}
   return roots;
  }
- function underwaterRoots(){return [aczoK86LureWaterWarmRoot,fishGroup,fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightShafts,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,bloodPool.points,underwaterStones,fishBottomClutterGroup,aczoMoselFishing?.bottom,waterSurface,moselWaterSurface];}
+ function underwaterRoots(){return [fishGroup,fishPond,fishBottomDetails,fishBankWall,fishBankStones,fishShoreTalus,fishPlantMesh,fishCaustics,fishLightShafts,fishLightGlow,fishShadows,suspendedWater,bubblePool.points,sedimentPool.points,bloodPool.points,underwaterStones,fishBottomClutterGroup,aczoMoselFishing?.bottom,waterSurface,moselWaterSurface];}
  function lights(warmScene,layout){
   for(const light of layout.lightList){const copy=light.clone(false);copy.position.copy(light.getWorldPosition(new THREE.Vector3()));copy.layers.set(0);
    if(light.target){copy.target=light.target.clone(false);copy.target.position.copy(light.target.getWorldPosition(new THREE.Vector3()));warmScene.add(copy.target);}
@@ -53750,9 +53494,6 @@ function aczoK79OptimizeRiverShaders(mat){
 
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
-aczoK84InstallUnderwaterGraphics();
-window.__aczoK85Report=aczoK85Report;
-aczoK86InstallGraphics();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
@@ -53823,7 +53564,6 @@ aczoK86InstallGraphics();
    aczoLastRenderedFrameAt=frameNow;
  }
 
- aczoK84FrameSerial++;
  const rawDt=clock.getDelta();
  // Nach App-Wechseln oder einzelnen Safari-Aussetzern darf kein riesiger
  // Zeitsprung auf einmal in Wolken, Regen, Verkehr und Figuren laufen.
