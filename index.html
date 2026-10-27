@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K83-LICHTBERECHNUNG'};
+ const state={contextLost:false,build:'4.1-K84-UNTERWASSER-GRAFIK-TEST'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -9959,7 +9959,7 @@ function aczoStepWaveField(state,dt){
 }
 // K75: keep the same texture allocation and upload only changed full-width
 // rows through r128's public copyTextureToTexture API. The source is CPU-only.
-function aczoK75UploadWaveRows(g,firstRow,lastRow){
+function aczoK84UploadOriginal(g,firstRow,lastRow){
  const stats=g.uploadStats||(g.uploadStats={updates:0,bytes:0,skipped:0,fallbacks:0});
  if(lastRow<firstRow){stats.skipped++;return;}
  if(typeof renderer==='undefined'||typeof renderer.copyTextureToTexture!=='function'||renderer.getContext().isContextLost()){
@@ -10006,19 +10006,138 @@ function aczoUpdateWaveTexture(){
  }
  aczoK75UploadWaveRows(g,firstRow,lastRow);
 }
+// K84: isolated ship-water experiment. No account, save or fishing rules change.
+const aczoK84Options=(()=>{const q=new URLSearchParams(location.search);return {graphics:q.get('aczo84Graphics')!=='full',worker:q.get('aczo84Worker')!=='off',buffers:q.get('aczo84Buffers')!=='off',cache:q.get('aczo84Cache')!=='off',stagger:q.get('aczo84Stagger')!=='off'};})();
+let aczoK84FrameSerial=0;
+const aczoK84Stats={build:'K84',uploadSerial:-1,bufferRotations:0,worker:'waiting',workerJobs:0,workerFallbacks:0,workerError:'',lastWorkerMs:0,staggeredInsets:0,lurePixelScale:.72};
+let aczoK84WaveEngine=null;
+function aczoK84GridState(g,full=false){
+ const data={};
+ const keys=full?['w','h','n','wet','depth','shore','damping','limits','indices','neighbours','bankIndices','bankNormals','sampleXY']:[];
+ for(const k of keys)data[k]=g[k];
+ for(const k of ['foam','nextFoam','renderHeight','bankFoam','impactCooldown','pixels','wakeX','wakeY','wakeDirX','wakeDirY','wakeLength','sourceBlend','patrolSourceBlend','sprayCursor','steps'])data[k]=g[k];
+ data.bands=g.bands.map(b=>{const d={};for(const k of (full?['height','velocity','pressure','lastPressure','c2','weights']:['height','velocity','pressure','lastPressure']))d[k]=b[k];return d;});return data;
+}
+function aczoK84RestoreGrid(g,data){
+ if(!data)return;
+ for(const [k,v]of Object.entries(data)){if(k==='bands'){for(let i=0;i<2;i++)for(const [name,a]of Object.entries(v[i]))g.bands[i][name].set(a);}else if(ArrayBuffer.isView(v)&&ArrayBuffer.isView(g[k]))g[k].set(v);else g[k]=v;}
+}
+function aczoK84PublishPixels(g,firstRow=0,lastRow=g.h-1){
+ const stats=g.uploadStats||(g.uploadStats={updates:0,bytes:0,skipped:0,fallbacks:0});
+ if(lastRow<firstRow){stats.skipped++;return;}
+ if(!aczoK84Options.buffers){aczoK84UploadOriginal(g,firstRow,lastRow);aczoK84Stats.uploadSerial=aczoK84FrameSerial;return;}
+ // Each slot owns a complete CPU image. Partial updates cannot leave stale rows
+ // from the previous rotation. All cameras bind the same published slot.
+ if(!g.k84Ring){
+  const slots=[g.texture];
+  for(let i=1;i<3;i++){const tex=new THREE.DataTexture(new Uint8Array(g.pixels.length),g.w,g.h,THREE.RGBAFormat,THREE.UnsignedByteType);tex.flipY=false;tex.minFilter=tex.magFilter=THREE.LinearFilter;tex.generateMipmaps=false;slots.push(tex);}
+  g.k84Ring={slots,cursor:0};
+ }
+ const ring=g.k84Ring;ring.cursor=(ring.cursor+1)%ring.slots.length;
+ const tex=ring.slots[ring.cursor];
+ // Never detach/reuse the physics image as an asynchronous GPU upload source.
+ if(tex.image.data===g.pixels)tex.image.data=new Uint8Array(g.pixels.length);
+ tex.image.data.set(g.pixels);tex.needsUpdate=true;g.texture=tex;
+ aczoShipWakeUniforms.aczoWakeField.value=tex;
+ stats.updates++;stats.bytes+=g.pixels.length;aczoK84Stats.bufferRotations++;aczoK84Stats.uploadSerial=aczoK84FrameSerial;
+}
+function aczoK84WorkerProgram(){
+ const kernel=[aczoK20SourcePressure,aczoK20SourceFoam,aczoWaveSplat,aczoStepWaveField,aczoUpdateWaveTexture].map(f=>f.toString()).join('\n');
+ return `let aczoWaveGrid=null,aczoK20PatrolWake=null,events=[],spray={active:false,x:0,y:0},pool=[],jobs=0;
+ const aczoWaveShipProfiles=${JSON.stringify(aczoWaveShipProfiles)};
+ const ACZO_K20_PATROL_WAVE_PROFILE=${JSON.stringify(ACZO_K20_PATROL_WAVE_PROFILE)};
+ const THREE={MathUtils:{clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),smoothstep:(x,a,b)=>{if(x<=a)return 0;if(x>=b)return 1;x=(x-a)/(b-a);return x*x*(3-2*x);}}};
+ function aczoK23FishingSprayGain(x,y){return spray.active?1-THREE.MathUtils.smoothstep(Math.hypot(x-spray.x,y-spray.y),12,28):0;}
+ function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){events.push([cell,nx,ny,strength,emphasis,aczoWaveGrid.bands[0].height[cell]+aczoWaveGrid.bands[1].height[cell]]);}
+ function aczoK75UploadWaveRows(){}
+ ${kernel}
+ ${aczoK84GridState.toString()}
+ onmessage=e=>{const m=e.data;if(m.type==='init'){aczoWaveGrid=m.grid;postMessage({type:'ready'});return;}if(m.type==='recycle'){pool.push(m.pixels);return;}if(m.type!=='step')return;
+ const start=performance.now();aczoK20PatrolWake=m.patrol;spray=m.spray;events=[];
+ for(let i=0;i<m.count;i++)aczoStepWaveField(m.state,.05);aczoUpdateWaveTexture();
+ const pixels=pool.pop()||new Uint8Array(aczoWaveGrid.pixels.length);pixels.set(aczoWaveGrid.pixels);
+ // A periodic complete checkpoint preserves a synchronous recovery path.
+ const checkpoint=(++jobs%10===0)?aczoK84GridState(aczoWaveGrid):null;
+ postMessage({type:'done',id:m.id,now:m.now,pixels,events,steps:aczoWaveGrid.steps,checkpoint,ms:performance.now()-start},[pixels.buffer]);};
+ postMessage({type:'hello'});`;
+}
+function aczoK84FailWorker(reason){
+ const e=aczoK84WaveEngine;if(!e||e.failed)return;e.failed=true;e.worker?.terminate();
+ if(e.url)URL.revokeObjectURL(e.url);
+ aczoK84RestoreGrid(aczoWaveGrid,e.checkpoint);aczoWaveGrid.accumulator=0;e.checkpoint=null;e.queue.length=0;e.pending=null;
+ aczoK84Stats.worker='synchronous';aczoK84Stats.workerFallbacks++;aczoK84Stats.workerError=String(reason).slice(0,180);
+ aczoK84PublishPixels(aczoWaveGrid);
+}
+function aczoK84EnsureWorker(){
+ if(aczoK84WaveEngine||!aczoK84Options.worker||typeof Worker==='undefined')return;
+ if(document.hidden||window.__aczoTransitionPrep?.working||!window.__aczoStartupLoader?.snapshot().finished)return;
+ const e=aczoK84WaveEngine={worker:null,url:null,mode:'starting',queue:[],pending:null,inFlight:false,failed:false,id:0,checkpoint:null,lastReply:performance.now()};
+ try{
+  e.url=URL.createObjectURL(new Blob([aczoK84WorkerProgram()],{type:'text/javascript'}));e.worker=new Worker(e.url);aczoK84Stats.worker='starting';
+  e.worker.onerror=event=>{event.preventDefault();aczoK84FailWorker(event.message||'Worker unavailable');};
+  e.worker.onmessage=event=>{
+   if(e.failed)return;const m=event.data;e.lastReply=performance.now();
+   if(m.type==='hello'){
+    // Clone the CURRENT field, after the worker has loaded. No startup freeze
+    // and no old initialization snapshot can overwrite newer wave steps.
+    const state=aczoK84GridState(aczoWaveGrid,true);e.checkpoint=structuredClone(aczoK84GridState(aczoWaveGrid));
+    e.worker.postMessage({type:'init',grid:state});e.mode='initializing';return;
+   }
+   if(m.type==='ready'){e.mode='ready';aczoK84Stats.worker='active';return;}
+   if(m.type==='done'){e.inFlight=false;e.pending=m;if(m.checkpoint)e.checkpoint=m.checkpoint;aczoK84Stats.lastWorkerMs=m.ms;aczoK84Stats.workerJobs++;}
+  };
+ }catch(error){aczoK84FailWorker(error.message);}
+}
+function aczoK84WorkerFrame(now,state,count){
+ aczoK84EnsureWorker();const e=aczoK84WaveEngine;
+ if(!e||e.failed||e.mode==='starting')return false;
+ if(e.pending){
+  const m=e.pending;e.pending=null;aczoWaveGrid.pixels.set(m.pixels);aczoWaveGrid.steps=m.steps;
+  aczoK84PublishPixels(aczoWaveGrid);
+  for(const event of m.events)aczoEmitBankSpray(...event);
+  e.worker.postMessage({type:'recycle',pixels:m.pixels},[m.pixels.buffer]);
+ }
+ if(count)e.queue.push({type:'step',id:++e.id,now,count,state:{...state,position:{x:state.position.x,y:state.position.y},direction:{x:state.direction.x,y:state.direction.y}},patrol:{...aczoK20PatrolWake,position:{x:aczoK20PatrolWake.position.x,y:aczoK20PatrolWake.position.y},direction:{x:aczoK20PatrolWake.direction.x,y:aczoK20PatrolWake.direction.y}},spray:{active:aczoK23FishingSprayGain(camera.position.x,camera.position.y)>0,x:camera.position.x,y:camera.position.y}});
+ if(e.queue.length>12||performance.now()-e.lastReply>3500){aczoK84FailWorker('Wave worker backlog');return false;}
+ if(e.mode==='ready'&&!e.inFlight&&!e.pending&&e.queue.length){e.inFlight=true;e.worker.postMessage(e.queue.shift());}
+ return true;
+}
+function aczoK84InstallUnderwaterGraphics(){
+ const bytes=new Uint8Array(128*128*4);
+ for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+  const u=x/128*Math.PI*2,v=y/128*Math.PI*2;
+  const n=.5+.21*Math.sin(u*3+Math.sin(v*2)*.75)+.16*Math.sin(v*5-u*2)+.09*Math.sin(u*11+v*7);
+  const k=(y*128+x)*4;bytes[k]=bytes[k+1]=bytes[k+2]=Math.max(0,Math.min(255,Math.round(n*255)));bytes[k+3]=255;
+ }
+ const texture=new THREE.DataTexture(bytes,128,128,THREE.RGBAFormat);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;
+ moselWaterMat.uniforms.aczoK84Detail={value:texture};moselWaterMat.uniforms.aczoK84LightGraphics={value:aczoK84Options.graphics?1:0};
+ let f=moselWaterMat.fragmentShader;
+ // Helpers use the existing time/underwater uniforms declared earlier below.
+ const crest='float aczoK26RiverCrests(vec2 p,float scale){';
+ if(!f.includes(crest))throw Error('K84 river detail anchor');
+ f=f.replace(crest,crest+'\n if(aczoK84LightGraphics>.5&&underwaterView>=.999)return (texture2D(aczoK84Detail,p*(scale*.019)+vec2(time*.004,-time*.002)).r-.5)*1.08;');
+ // Both original and cached foam retain identical density and footprint.
+ if(f.includes('float aczoK77ShipFoam'))f=f.replace('float mottled=.48+.34*aczoK77Noise','if(aczoK84LightGraphics>.5&&underwaterView>=.999)return a*aczoK84LightFoam(xy);\n  float mottled=.48+.34*aczoK77Noise');
+ else f=f.replace('float mottled=.48+.34*aczoWakeNoise','float mottled=aczoK84LightGraphics>.5&&underwaterView>=.999?aczoK84LightFoam(xy):.48+.34*aczoWakeNoise');
+ // Place helper prototypes first; definitions follow the complete declarations.
+ f='uniform sampler2D aczoK84Detail;uniform float aczoK84LightGraphics;\nfloat aczoK84LightFoam(vec2 xy);\n'+f;
+ f+='\nfloat aczoK84LightFoam(vec2 xy){return .48+.52*texture2D(aczoK84Detail,xy*.047+vec2(time*.004,-time*.002)).r;}\n';
+ moselWaterMat.fragmentShader=f;moselWaterMat.needsUpdate=true;
+ window.__aczoK84Report=()=>({options:{...aczoK84Options},...aczoK84Stats,cache:aczoK77WakeCache?.stats?{...aczoK77WakeCache.stats}:null,waveSteps:aczoWaveGrid.steps,inset:typeof aczoK25InsetStats!=='undefined'?{...aczoK25InsetStats}:null});
+}
+
+function aczoK75UploadWaveRows(g,firstRow,lastRow){aczoK84PublishPixels(g,firstRow,lastRow);}
 function updateAczoMoselWaves(now,state){
- const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0;
- const g=aczoWaveGrid;if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
- // Pure A/B diagnosis, never active in the production path.
+ const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0,g=aczoWaveGrid;
+ if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;
+ aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
  if(aczoShipABMode==='freezeWaves'){g.accumulator=0;return;}
  g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;
- while(g.accumulator>=.05&&count<4){
-  const solveStart=t?performance.now():0;
-  aczoStepWaveField(state,.05);
-  if(t)perf.add('waveSolve',performance.now()-solveStart);
-  g.accumulator-=.05;count++;
+ while(g.accumulator>=.05&&count<4){g.accumulator-=.05;count++;}
+ if(!aczoK84WorkerFrame(now,state,count)){
+  for(let i=0;i<count;i++){const at=t?performance.now():0;aczoStepWaveField(state,.05);if(t)perf.add('waveSolve',performance.now()-at);}
+  if(count){const at=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-at);}
  }
- if(count){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
  if(t)perf.add('waves',performance.now()-t);
 }
 // Retain the original vertices, triangles, interpolation and world transform.
@@ -10155,88 +10274,46 @@ function aczoK80CanReuseInsetWorld(){
 let aczoK77WakeCache=null;
 // K78: retain K77's local cache and GPU gate. Once selected, prepare a second
 // fine cache for the entire river in bounded slices, then publish it atomically.
+// K84: one 512-square broad cache plus nine reusable 128-square fine tiles.
+// At RGBA32F this is 6.25 MiB, instead of K78's 40 MiB full-river caches.
 function aczoK77CreateWakeCache(THREE,renderer,originalGLSL,cachedGLSL){
- const uniforms={aczoK77Hash0:{value:null},aczoK77Hash1:{value:null},aczoK77HashOrigin0:{value:new THREE.Vector2()},aczoK77HashOrigin1:{value:new THREE.Vector2()},aczoK77HashReady:{value:new THREE.Vector2()},aczoK78Hash1Size:{value:512}};
- const stats={mode:'pending',passes:0,gpuOriginalMs:null,gpuCachedMs:null,failed:false,fineSize:512,widePasses:0};
- const gl=renderer.getContext();let timer=renderer.capabilities.isWebGL2&&renderer.extensions.has('EXT_color_buffer_float')&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
- if(!timer){stats.mode='unsupported';return {uniforms,stats,supported:false,update(){}};}
- const entries=[{size:512,scale:.48,row:0},{size:512,scale:1.7,row:0}],scene=new THREE.Scene(),camera=new THREE.Camera(),origin={value:new THREE.Vector2()};
+ const uniforms={aczoK77Hash0:{value:null},aczoK77Hash1:{value:null},aczoK77HashOrigin0:{value:new THREE.Vector2()},aczoK77HashOrigin1:{value:new THREE.Vector2()},aczoK77HashReady:{value:new THREE.Vector2()},aczoK78Hash1Size:{value:384},aczoK84FineOrigin:{value:Array.from({length:9},()=>new THREE.Vector2())},aczoK84FineSlot:{value:Array.from({length:9},(_,i)=>new THREE.Vector3(i%3*128,Math.floor(i/3)*128,0))}};
+ const stats={mode:'pending',passes:0,gpuOriginalMs:null,gpuCachedMs:null,failed:false,fineSize:384,widePasses:0,cacheMiB:6.25,timerAvailable:false,tilesReused:0};
+ const gl=renderer.getContext();stats.timerAvailable=!!(renderer.capabilities.isWebGL2&&gl.getExtension('EXT_disjoint_timer_query_webgl2'));
+ if(!aczoK84Options.cache||!renderer.capabilities.isWebGL2||!renderer.extensions.has('EXT_color_buffer_float')){stats.mode='unsupported';return {uniforms,stats,supported:false,update(){}};}
+ const scene=new THREE.Scene(),cam=new THREE.Camera(),origin={value:new THREE.Vector2()};
  const material=new THREE.ShaderMaterial({uniforms:{uOrigin:origin},depthTest:false,depthWrite:false,toneMapped:false,blending:THREE.NoBlending,vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'uniform vec2 uOrigin;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}void main(){vec2 p=floor(gl_FragCoord.xy)+uOrigin;gl_FragColor=vec4(hash(p),hash(p+vec2(1,0)),hash(p+vec2(0,1)),hash(p+vec2(1)));}'});
- const geometry=new THREE.PlaneGeometry(2,2),mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;scene.add(mesh);
- const viewport=new THREE.Vector4(),scissor=new THREE.Vector4(),queries=[],samples=[[],[]];let cursor=0,bench=null,benchDraws=0,benchPolls=0,wide=null,wideFailed=false;
- const median=a=>a.slice().sort((a,b)=>a-b)[Math.floor(a.length/2)];
- function clearQueries(){for(const q of queries)gl.deleteQuery(q.query);queries.length=0;}
- function deactivate(){uniforms.aczoK77HashReady.value.set(0,0);}
- function reset(){clearQueries();deactivate();uniforms.aczoK77Hash0.value=uniforms.aczoK77Hash1.value=null;wide?.target?.dispose();wide=null;wideFailed=false;for(const e of entries){e.row=0;e.origin=null;}if(stats.mode!=='unsupported'&&stats.mode!=='original'){stats.mode='pending';benchDraws=0;benchPolls=0;samples[0].length=samples[1].length=0;}}
- function fail(){clearQueries();deactivate();stats.mode='original';stats.failed=true;}
- renderer.domElement.addEventListener('webglcontextlost',reset);renderer.domElement.addEventListener('webglcontextrestored',()=>{timer=renderer.extensions.has('EXT_color_buffer_float')&&gl.getExtension('EXT_disjoint_timer_query_webgl2');reset();if(!timer)fail();});
- function ensureBench(time,focus){
-  if(bench)return;
-  const data=new THREE.DataTexture(new Uint8Array([128,128,128,180]),1,1,THREE.RGBAFormat);data.needsUpdate=true;
-  const rect={value:new THREE.Vector4()},timeUniform={value:time},ready={value:new THREE.Vector2(1,1)},common={...uniforms,aczoK77HashReady:ready,aczoWakeField:{value:data},aczoWakeTime:timeUniform,rect};
-  const vertexShader='varying vec2 xy;uniform vec4 rect;void main(){xy=rect.xy+uv*rect.zw;gl_Position=vec4(position.xy,0.,1.);}';
-  const materials=[originalGLSL,cachedGLSL].map((code,i)=>new THREE.ShaderMaterial({uniforms:common,depthTest:false,depthWrite:false,toneMapped:false,blending:THREE.NoBlending,vertexShader,fragmentShader:'varying vec2 xy;'+code+'void main(){float a='+(i?'aczoK77ShipFoam(xy)':'aczoShipWaves(xy,20.).w')+';gl_FragColor=vec4(vec3(a),1.);}'}));
-  const target=new THREE.WebGLRenderTarget(256,128,{depthBuffer:false,stencilBuffer:false}),group=new THREE.Scene(),quad=new THREE.Mesh(geometry,materials[0]);quad.frustumCulled=false;group.add(quad);bench={data,rect,timeUniform,materials,target,group,quad};
- }
- function disposeBench(){if(!bench)return;bench.data.dispose();bench.target.dispose();for(const m of bench.materials)m.dispose();bench=null;}
- function poll(){
-  if(gl.getParameter(timer.GPU_DISJOINT_EXT)){fail();disposeBench();return;}
-  for(let i=queries.length-1;i>=0;i--){const q=queries[i];if(!gl.getQueryParameter(q.query,gl.QUERY_RESULT_AVAILABLE))continue;const ns=gl.getQueryParameter(q.query,gl.QUERY_RESULT);gl.deleteQuery(q.query);queries.splice(i,1);if(Number.isFinite(ns)&&ns>0)samples[q.mode].push(ns);}
-  if(samples[0].length>=8&&samples[1].length>=8){
-   const before=median(samples[0]),after=median(samples[1]);stats.gpuOriginalMs=before/1e6;stats.gpuCachedMs=after/1e6;stats.mode=after<before*.85?'cached':'original';clearQueries();disposeBench();
-  }else if(++benchPolls>240){fail();disposeBench();}
- }
+ const geometry=new THREE.PlaneGeometry(2,2),quad=new THREE.Mesh(geometry,material);quad.frustumCulled=false;scene.add(quad);
+ const coarse={size:512,row:0,origin:null,target:null},tiles=Array.from({length:9},(_,i)=>({slot:i,row:0,origin:null,wanted:false}));let fineTarget=null,failed=false;
+ const viewport=new THREE.Vector4(),scissor=new THREE.Vector4();
+ function target(size){const t=new THREE.WebGLRenderTarget(size,size,{format:THREE.RGBAFormat,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false});t.texture.generateMipmaps=false;return t;}
+ function reset(){uniforms.aczoK77HashReady.value.set(0,0);for(const v of uniforms.aczoK84FineSlot.value)v.z=0;coarse.row=0;coarse.origin=null;coarse.target?.dispose();coarse.target=null;fineTarget?.dispose();fineTarget=null;for(const t of tiles){t.row=0;t.origin=null;}failed=false;stats.mode='pending';}
+ renderer.domElement.addEventListener('webglcontextlost',reset);renderer.domElement.addEventListener('webglcontextrestored',reset);
  function update(time,rows=32,focus=null){
-  if(stats.mode==='original'||gl.isContextLost()||!Number.isFinite(time))return;
-  const cx=Math.max(-452,Math.min(252,Number.isFinite(focus?.x)?focus.x:-100)),cy=Math.max(-582,Math.min(152,Number.isFinite(focus?.y)?focus.y:-215));let entry,index,buildingWide=false;
-  for(let n=0;n<2;n++){
-   const i=(cursor+n)%2,e=entries[i],ox=i===0?time*.07:-time*.09,oy=i===0?-time*.035:-time*.09;
-   const world=i===0||e.world;
-   const minX=Math.floor((world?-500:cx-96)*e.scale+ox),maxX=Math.floor((world?300:cx+96)*e.scale+ox)+1,minY=Math.floor((world?-630:cy-96)*e.scale+oy),maxY=Math.floor((world?200:cy+96)*e.scale+oy)+1;
-   if(i===1&&stats.mode==='cached'&&!wideFailed){
-    const a=Math.floor(-500*e.scale+ox),b=Math.floor(300*e.scale+ox)+1,c=Math.floor(-630*e.scale+oy),d=Math.floor(200*e.scale+oy)+1;
-    const covers=o=>o?.origin&&a>=o.origin.x+4&&c>=o.origin.y+4&&b<o.origin.x+o.size-4&&d<o.origin.y+o.size-4;
-    if(e.world&&covers(e))continue;
-    if(!covers(wide)){wide?.target?.dispose();wide={size:1536,scale:e.scale,row:0,world:true,origin:new THREE.Vector2(a-Math.floor((1536-(b-a+1))/2),c-Math.floor((1536-(d-c+1))/2))};}
-    // The current local/global values stay bound until the replacement is full.
-    continue;
-   }
-   if(!e.origin||minX<e.origin.x+4||minY<e.origin.y+4||maxX>=e.origin.x+e.size-4||maxY>=e.origin.y+e.size-4){
-    e.origin=new THREE.Vector2(minX-Math.floor((e.size-(maxX-minX+1))/2),minY-Math.floor((e.size-(maxY-minY+1))/2));e.row=0;uniforms.aczoK77HashReady.value.setComponent(i,0);
-   }
-   if(e.row<e.size){entry=e;index=i;break;}
-  }
-  if(!entry&&wide){entry=wide;index=1;buildingWide=true;}
-  if(!entry&&stats.mode==='cached'){uniforms.aczoK77HashReady.value.set(1,1);return;}
-  const target=renderer.getRenderTarget(),autoClear=renderer.autoClear,test=renderer.getScissorTest();renderer.getViewport(viewport);renderer.getScissor(scissor);
+  if(failed||gl.isContextLost()||!Number.isFinite(time))return;
+  const ox=time*.07,oy=-time*.035,minX=Math.floor(-500*.48+ox),maxX=Math.floor(300*.48+ox)+1,minY=Math.floor(-630*.48+oy),maxY=Math.floor(200*.48+oy)+1;
+  if(!coarse.origin||minX<coarse.origin.x+4||minY<coarse.origin.y+4||maxX>=coarse.origin.x+508||maxY>=coarse.origin.y+508){coarse.origin=new THREE.Vector2(minX-Math.floor((512-(maxX-minX+1))/2),minY-Math.floor((512-(maxY-minY+1))/2));coarse.row=0;uniforms.aczoK77HashReady.value.x=0;}
+  const cx=Math.max(-500,Math.min(300,Number.isFinite(focus?.x)?focus.x:-100)),cy=Math.max(-630,Math.min(200,Number.isFinite(focus?.y)?focus.y:-215)),fx=Math.floor((cx*1.7-time*.09)/128),fy=Math.floor((cy*1.7-time*.09)/128),wanted=[];
+  for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)wanted.push({x:(fx+x)*128,y:(fy+y)*128});
+  for(const t of tiles)t.wanted=wanted.some(p=>t.origin&&t.origin.x===p.x&&t.origin.y===p.y);
+  for(const p of wanted){if(tiles.some(t=>t.wanted&&t.origin?.x===p.x&&t.origin?.y===p.y)){stats.tilesReused++;continue;}const t=tiles.find(t=>!t.wanted);t.wanted=true;t.origin=new THREE.Vector2(p.x,p.y);t.row=0;uniforms.aczoK84FineSlot.value[t.slot].z=0;}
+  const entry=coarse.row<512?coarse:tiles.find(t=>t.row<128);if(!entry){stats.mode='cached';return;}
+  const oldTarget=renderer.getRenderTarget(),clear=renderer.autoClear,test=renderer.getScissorTest();renderer.getViewport(viewport);renderer.getScissor(scissor);
   try{
-   renderer.autoClear=false;
-   if(entry){
-    const batchRows=Math.max(1,Math.floor(rows*512/entry.size));
-    if(!entry.target){entry.target=new THREE.WebGLRenderTarget(entry.size,entry.size,{format:THREE.RGBAFormat,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false});entry.target.texture.generateMipmaps=false;if(!buildingWide)uniforms['aczoK77Hash'+index].value=entry.target.texture;}
-    origin.value.copy(entry.origin);renderer.setRenderTarget(entry.target);renderer.setViewport(0,0,entry.size,entry.size);renderer.setScissor(0,entry.row,entry.size,Math.min(batchRows,entry.size-entry.row));renderer.setScissorTest(true);renderer.render(scene,camera);
-    if(entry.row===0&&gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Float cache unavailable');
-    if(!buildingWide)uniforms['aczoK77Hash'+index].value=entry.target.texture;
-    entry.row+=batchRows;stats.passes++;if(buildingWide)stats.widePasses++;cursor=(index+1)%2;
-    if(entry.row>=entry.size){
-     uniforms['aczoK77HashOrigin'+index].value.copy(entry.origin);
-     if(buildingWide){const old=entries[1];entries[1]=entry;wide=null;uniforms.aczoK77Hash1.value=entry.target.texture;uniforms.aczoK78Hash1Size.value=entry.size;stats.fineSize=entry.size;old.target?.dispose();}
-    }
-   }else if(stats.mode==='pending'){
-    ensureBench(time,focus);poll();if(stats.mode!=='pending')return;
-    if(benchDraws<18){
-     const mode=benchDraws%2;bench.rect.value.set(cx-48,cy-48,96,96);bench.timeUniform.value=time;bench.quad.material=bench.materials[mode];renderer.setRenderTarget(bench.target);renderer.setViewport(0,0,256,128);renderer.setScissorTest(false);
-     const query=benchDraws>=2?gl.createQuery():null;let open=false;
-     try{if(query){gl.beginQuery(timer.TIME_ELAPSED_EXT,query);open=true;}renderer.render(bench.group,camera);}finally{if(open)gl.endQuery(timer.TIME_ELAPSED_EXT);}
-     if(query){queries.push({query,mode});gl.flush();}benchDraws++;
-    }
-   }
-   if(stats.mode==='cached')for(let i=0;i<2;i++)uniforms.aczoK77HashReady.value.setComponent(i,entries[i].row>=entries[i].size?1:0);
-  }catch(error){if(buildingWide){wide?.target?.dispose();wide=null;wideFailed=true;}else{fail();disposeBench();}}
-  finally{renderer.setRenderTarget(target);renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(test);renderer.autoClear=autoClear;}
+   renderer.autoClear=false;let size,startX=0,startY=0;const ratio=renderer.getPixelRatio();
+   if(entry===coarse){if(!coarse.target)coarse.target=target(512);uniforms.aczoK77Hash0.value=coarse.target.texture;renderer.setRenderTarget(coarse.target);size=512;origin.value.copy(coarse.origin);renderer.setViewport(0,0,512/ratio,512/ratio);}
+   else{if(!fineTarget)fineTarget=target(384);uniforms.aczoK77Hash1.value=fineTarget.texture;renderer.setRenderTarget(fineTarget);size=128;startX=entry.slot%3*128;startY=Math.floor(entry.slot/3)*128;origin.value.set(entry.origin.x-startX,entry.origin.y-startY);renderer.setViewport(startX/ratio,startY/ratio,128/ratio,128/ratio);}
+   const count=Math.min(size-entry.row,Math.max(1,Math.floor(rows*512/size)));renderer.setScissor(startX/ratio,(startY+entry.row)/ratio,size/ratio,count/ratio);renderer.setScissorTest(true);renderer.render(scene,cam);
+   if(entry.row===0&&gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Float cache unavailable');
+   entry.row+=count;stats.passes++;
+   if(entry.row>=size){if(entry===coarse){uniforms.aczoK77HashOrigin0.value.copy(coarse.origin);uniforms.aczoK77HashReady.value.x=1;}else{uniforms.aczoK84FineOrigin.value[entry.slot].copy(entry.origin);uniforms.aczoK84FineSlot.value[entry.slot].z=1;uniforms.aczoK77HashReady.value.y=1;}}
+   stats.mode='cached';
+  }catch(error){failed=true;stats.failed=true;stats.mode='original';uniforms.aczoK77HashReady.value.set(0,0);for(const t of uniforms.aczoK84FineSlot.value)t.z=0;}
+  finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(test);renderer.autoClear=clear;}
  }
- return {uniforms,stats,supported:true,update,entries};
+ return {uniforms,stats,supported:true,update};
 }
+
 const aczoK77WakeFoamGLSL=`
  uniform sampler2D aczoWakeField;uniform float aczoWakeTime;
  uniform sampler2D aczoK77Hash0;uniform sampler2D aczoK77Hash1;
@@ -10249,10 +10326,18 @@ const aczoK77WakeFoamGLSL=`
   else h=vec4(aczoWakeHash(i),aczoWakeHash(i+vec2(1,0)),aczoWakeHash(i+vec2(0,1)),aczoWakeHash(i+vec2(1)));
   return mix(mix(h.x,h.y,f.x),mix(h.z,h.w,f.x),f.y);
  }
+
+ uniform vec2 aczoK84FineOrigin[9];uniform vec3 aczoK84FineSlot[9];
+ float aczoK84FineNoise(vec2 p){
+  vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec4 h=vec4(0.);bool found=false;
+  for(int n=0;n<9;n++){vec2 c=i-aczoK84FineOrigin[n];if(aczoK84FineSlot[n].z>.5&&all(greaterThanEqual(c,vec2(0.)))&&all(lessThan(c,vec2(128.)))){h=texture2D(aczoK77Hash1,(c+aczoK84FineSlot[n].xy+vec2(.5))/384.);found=true;break;}}
+  if(!found)h=vec4(aczoWakeHash(i),aczoWakeHash(i+vec2(1,0)),aczoWakeHash(i+vec2(0,1)),aczoWakeHash(i+vec2(1)));
+  return mix(mix(h.x,h.y,f.x),mix(h.z,h.w,f.x),f.y);
+ }
  float aczoK77ShipFoam(vec2 xy){
   vec2 uv=vec2((xy.x+500.)/800.,(200.-xy.y)/830.);if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return 0.;
   float a=texture2D(aczoWakeField,uv).a;if(a==0.)return 0.;
-  float mottled=.48+.34*aczoK77Noise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035),aczoK77Hash0,aczoK77HashOrigin0,aczoK77HashReady.x,512.)+.18*aczoK77Noise(xy*1.7-vec2(aczoWakeTime*.09),aczoK77Hash1,aczoK77HashOrigin1,aczoK77HashReady.y,aczoK78Hash1Size);
+  float mottled=.48+.34*aczoK77Noise(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035),aczoK77Hash0,aczoK77HashOrigin0,aczoK77HashReady.x,512.)+.18*aczoK84FineNoise(xy*1.7-vec2(aczoWakeTime*.09));
   return a*mottled;
  }
 `;
@@ -10657,7 +10742,7 @@ function aczoK23FishingSprayGain(x,y){
   ||anglingSelection?.waterBody!=='mosel'||!waterSurface.visible||!moselWaterSurface.visible)return 0;
  return 1-THREE.MathUtils.smoothstep(Math.hypot(x-camera.position.x,y-camera.position.y),12,28);
 }
-function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){
+function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false,surfaceHeight=null){
  const g=aczoWaveGrid,x=-500+(cell%g.w+.5)*800/g.w,y=200-(((cell/g.w)|0)+.5)*830/g.h;
  let px=x,py=y;
  // Only real river water can emit; stop at the last dry/wet half-metre boundary.
@@ -10666,7 +10751,7 @@ function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){
  const boost=emphasis&&aczoK23FishingSprayGain(px,py)>0;
  for(let drop=0;drop<(boost?8:1);drop++){
  const p=aczoBankSprayData,i=p.cursor;p.cursor=(i+1)%aczoBankSprayCapacity;const k=i*3,seed=++p.serial,random=n=>{const q=Math.sin(seed*127.1+n*311.7)*43758.5453;return q-Math.floor(q);};
- p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,g.bands[0].height[cell]+g.bands[1].height[cell])*.35;
+ p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,surfaceHeight===null?g.bands[0].height[cell]+g.bands[1].height[cell]:surfaceHeight)*.35;
  const side=(random(1)-.5)*.65;p.velocity[k]=nx*(.18+strength*.36)-ny*side;p.velocity[k+1]=ny*(.18+strength*.36)+nx*side;p.velocity[k+2]=boost?2.35+strength*2.0+random(2)*.65:1.15+strength*1.05+random(2)*.25;
  p.age[i]=0;p.life[i]=boost?.65+random(3)*.30:.34+random(3)*.22;p.alpha[i]=.35+strength*.25;p.size[i]=(.045+random(4)*.065)*(boost?1.35:1);p.emphasis[i]=boost?1:0;
  }
@@ -37995,7 +38080,8 @@ function aczoK25RenderAnglingInsetSource(cam,keepShoreNature=false){
 }
 function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
   const viewport=renderer.getViewport(new THREE.Vector4()),device=renderer.getCurrentViewport(new THREE.Vector4()),scissor=renderer.getScissor(new THREE.Vector4()),scissorTest=renderer.getScissorTest(),target=renderer.getRenderTarget(),auto=renderer.autoClear,ratio=renderer.getPixelRatio(),shadowDirty=renderer.shadowMap.needsUpdate;
-  const width=Math.max(1,Math.round(device.z)),height=Math.max(1,Math.round(device.w));
+  const pixelScale=aczoK84Options.graphics&&cam===anglingLureFollowerCamera&&anglingCinematicView==='underwater'?.72:1;
+  const width=Math.max(1,Math.round(device.z*pixelScale)),height=Math.max(1,Math.round(device.w*pixelScale));
   let cache=aczoK25InsetCache.get(cam);if(!cache){
    const target=new THREE.WebGLRenderTarget(width,height,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;target.texture.minFilter=target.texture.magFilter=THREE.LinearFilter;target.texture.generateMipmaps=false;
    const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1,1,1,-1,0,1),material=new THREE.MeshBasicMaterial({map:target.texture,depthTest:false,depthWrite:false,toneMapped:false});scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),material));
@@ -38010,7 +38096,12 @@ function aczoRenderLightweightAnglingInset(cam,keepShoreNature=false){
   texture.repeat.set(width/cache.target.width,height/cache.target.height);texture.offset.set(0,0);texture.updateMatrix();
   const now=performance.now(),interval=1000/(ACZO_MOBILE_PERF?20:30),mode=aczoGraphicsMode;
   try{
-   if(resized||regionChanged||now-cache.last>=interval||cache.selection!==anglingSelection||cache.phase!==anglingState||cache.mode!==mode){
+   const mandatory=resized||regionChanged||cache.selection!==anglingSelection||cache.phase!==anglingState||cache.mode!==mode;
+   const due=now-cache.last>=interval;
+   const defer=aczoK84Options.stagger&&!mandatory&&due&&aczoK84Stats.uploadSerial===aczoK84FrameSerial&&now-cache.last<interval+34&&!cache.k84Deferred;
+   if(defer){cache.k84Deferred=true;aczoK84Stats.staggeredInsets++;}
+   if(mandatory||(due&&!defer)){
+    cache.k84Deferred=false;
     renderer.setRenderTarget(cache.target);renderer.setViewport(0,0,width/ratio,height/ratio);renderer.setScissorTest(false);renderer.autoClear=true;renderer.shadowMap.needsUpdate=false;
     aczoK25RenderAnglingInsetSource(cam,keepShoreNature);cache.last=now;cache.selection=anglingSelection;cache.phase=anglingState;cache.mode=mode;cache.regionWidth=width;cache.regionHeight=height;cache.sourceUpdates++;aczoK25InsetStats.refreshes++;
    }
@@ -53507,6 +53598,7 @@ function aczoK79OptimizeRiverShaders(mat){
 
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
+aczoK84InstallUnderwaterGraphics();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
@@ -53577,6 +53669,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
    aczoLastRenderedFrameAt=frameNow;
  }
 
+ aczoK84FrameSerial++;
  const rawDt=clock.getDelta();
  // Nach App-Wechseln oder einzelnen Safari-Aussetzern darf kein riesiger
  // Zeitsprung auf einmal in Wolken, Regen, Verkehr und Figuren laufen.
