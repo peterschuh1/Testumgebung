@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K80-GRAFIKARBEIT'};
+ const state={contextLost:false,build:'4.1-K81-WASSERSICHT'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -10068,6 +10068,85 @@ function aczoK80PlaceRiverReflection(mesh,material){
 // Only the stable Mosel lure follower is rendered immediately after the same
 // main-frame world. The main native update stays unchanged; no object cache,
 // quality change or update skipped across frames. Other views use the native path.
+// K81: retain original water triangles, vertex data, shaders and draw order.
+// Limit vertex work to a conservative camera volume, and the shadow receiver
+// additionally to the existing shadow-map footprint when that map is stable.
+const aczoK81WaterClipStates=new WeakMap();
+const aczoK81WaterClipStats={passes:0,sourceTriangles:0,selectedTriangles:0,uploads:0};
+function aczoK81WaterGeometry(mesh,cam,shadow=null){
+ const source=mesh===moselWaterSurface?moselWaterGeo:mesh===aczoMoselStructureShadowReceiver?aczoK81ShadowGeometry:null;
+ if(!source||mesh.geometry!==source||mesh.castShadow||scene.overrideMaterial||!cam?.projectionMatrix||cam.parent||!Number.isFinite(aczoK5dUniforms.aczoMoselBrown.value)||Math.abs(aczoK5dUniforms.aczoMoselBrown.value)>4)return mesh.geometry;
+ if(mesh===moselWaterSurface&&(!mesh.material?.isShaderMaterial||mesh.material.vertexShader!==moselWaterMat.vertexShader))return source;
+ if(mesh===aczoMoselStructureShadowReceiver&&mesh.material!==aczoMoselStructureShadowMat)return source;
+ let cameras=aczoK81WaterClipStates.get(mesh);if(!cameras){cameras=new WeakMap();aczoK81WaterClipStates.set(mesh,cameras);}
+ let state=cameras.get(cam);
+ if(!state){
+  const data=aczoK80ReflectionData(source);
+  if(!data.sorted||source.groups.length||source.drawRange.start!==0||source.drawRange.count<source.index.count)return source;
+  for(let i=0;i<data.position.count;i++)if(data.position.getZ(i)!==0)return source;
+  const local=new THREE.BufferGeometry(),array=new source.index.array.constructor(source.index.count);
+  for(const [name,attribute]of Object.entries(source.attributes))local.setAttribute(name,attribute);
+  local.setIndex(new THREE.BufferAttribute(array,1));local.index.setUsage(THREE.DynamicDrawUsage);
+  local.boundingSphere=source.boundingSphere?.clone()||null;local.boundingBox=source.boundingBox?.clone()||null;
+  state={data,local,array,count:-1,ranges:new Int32Array(data.rows.length*2).fill(-1),matrix:new THREE.Matrix4(),shadowMatrix:new THREE.Matrix4(),frustum:new THREE.Frustum(),planes:new Float64Array(40)};cameras.set(cam,state);
+ }
+ const data=state.data;
+ if(data.index!==source.index||data.position!==source.attributes.position||data.indexVersion!==data.index.version||data.positionVersion!==data.position.version||source.groups.length||source.drawRange.start!==0||source.drawRange.count<source.index.count)return source;
+ mesh.updateWorldMatrix(true,false);cam.updateMatrixWorld();
+ const matrix=state.matrix.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse).multiply(mesh.matrixWorld);
+ if(!matrix.elements.every(Number.isFinite))return source;
+ state.frustum.setFromProjectionMatrix(matrix);const planes=state.planes;let n=0;
+ for(const plane of state.frustum.planes){const normal=plane.normal;if(!Number.isFinite(plane.constant)||!Number.isFinite(normal.x)||!Number.isFinite(normal.y)||!Number.isFinite(normal.z))return source;planes[n++]=normal.x;planes[n++]=normal.y;planes[n++]=normal.z;planes[n++]=plane.constant+.25;}
+ // getShadowMask and the existing edge fade are exactly transparent outside
+ // this footprint. A dirty map may update its camera inside renderer.render,
+ // so it always keeps the complete camera subset until the following frame.
+ const e=mesh.matrixWorld.elements;
+ if(shadow?.map&&aczoStructureShadowLight.visible&&aczoStructureShadowLight.castShadow&&!renderer.shadowMap.autoUpdate&&!renderer.shadowMap.needsUpdate&&!shadow.needsUpdate&&Math.abs(shadow.normalBias||0)<=.1
+   &&Math.abs(e[0]-1)<1e-12&&Math.abs(e[5]-1)<1e-12&&Math.abs(e[10]-1)<1e-12&&[1,2,3,4,6,7,8,9,11].every(i=>Math.abs(e[i])<1e-12)){
+  const m=state.shadowMatrix.multiplyMatrices(shadow.matrix,mesh.matrixWorld).elements;
+  if(m.every(Number.isFinite))for(let axis=0;axis<2;axis++)for(let side=0;side<2;side++){
+   const a=side?m[3]-m[axis]:m[axis],b=side?m[7]-m[4+axis]:m[4+axis],c=side?m[11]-m[8+axis]:m[8+axis],d=side?m[15]-m[12+axis]:m[12+axis],length=Math.hypot(a,b,c);
+   if(length>1e-12){planes[n++]=a/length;planes[n++]=b/length;planes[n++]=c/length;planes[n++]=d/length+.25;}
+  }
+ }
+ // The unchanged RGBA8 height field is bounded by 128/79.375 metres.
+ // Wind adds <=.058 m, flood lift <=.061*brown^2 m. +/-4 m includes
+ // all supported values (|brown|<=4), including the original normal bias.
+ const position=data.position,index=data.index.array,array=state.array,ranges=state.ranges;let count=0,changed=state.count<0,rowIndex=0;
+ for(const row of data.rows){
+  let minX=-Infinity,maxX=Infinity;
+  for(let i=0;i<n;i+=4){const x=planes[i],y=planes[i+1],constant=planes[i+3]+Math.abs(planes[i+2])*4+y*(y>=0?row.maxY:row.minY);
+   if(x===0){if(constant<0){maxX=-Infinity;break;}continue;}
+   const edge=-constant/x;if(x>0)minX=Math.max(minX,edge);else maxX=Math.min(maxX,edge);if(minX>maxX)break;
+  }
+  let first=0,last=0;
+  if(minX<=maxX&&maxX!==-Infinity){
+   let lo=0,hi=row.count;
+   while(lo<hi){const mid=(lo+hi)>>1,at=row.first+mid*3,x=Math.max(position.getX(index[at]),position.getX(index[at+1]),position.getX(index[at+2]));if(x<minX)lo=mid+1;else hi=mid;}first=lo;
+   hi=row.count;while(lo<hi){const mid=(lo+hi)>>1,at=row.first+mid*3,x=Math.min(position.getX(index[at]),position.getX(index[at+1]),position.getX(index[at+2]));if(x<=maxX)lo=mid+1;else hi=mid;}last=lo;
+  }
+  if(first!==ranges[rowIndex]||last!==ranges[rowIndex+1])changed=true;
+  ranges[rowIndex++]=first;ranges[rowIndex++]=last;count+=(last-first)*3;
+ }
+ state.local.setDrawRange(0,count);
+ if(changed){
+  let offset=0;rowIndex=0;for(const row of data.rows){const start=row.first+ranges[rowIndex++]*3,end=row.first+ranges[rowIndex++]*3;if(end>start){array.set(index.subarray(start,end),offset);offset+=end-start;}}
+  if(count){state.local.index.updateRange.offset=0;state.local.index.updateRange.count=count;state.local.index.needsUpdate=true;}state.count=count;aczoK81WaterClipStats.uploads++;
+ }
+ aczoK81WaterClipStats.passes++;aczoK81WaterClipStats.sourceTriangles+=data.index.count/3;aczoK81WaterClipStats.selectedTriangles+=count/3;
+ return state.local;
+}
+let aczoK81ShadowGeometry=null;
+function aczoK81RenderWaterView(cam){
+ const water=moselWaterSurface.geometry,receiver=aczoMoselStructureShadowReceiver.geometry;
+ if(!aczoK81ShadowGeometry)aczoK81ShadowGeometry=receiver;
+ try{
+  if(waterSurface.visible&&moselWaterSurface.visible)moselWaterSurface.geometry=aczoK81WaterGeometry(moselWaterSurface,cam);
+  if(waterSurface.visible&&aczoMoselStructureShadowReceiver.visible)aczoMoselStructureShadowReceiver.geometry=aczoK81WaterGeometry(aczoMoselStructureShadowReceiver,cam,aczoStructureShadowLight.shadow);
+  return renderer.render(scene,cam);
+ }finally{moselWaterSurface.geometry=water;aczoMoselStructureShadowReceiver.geometry=receiver;}
+}
+
 let aczoK80ReuseMainWorld=false;
 function aczoK80CanReuseInsetWorld(){
  return !!(aczoMoselFishing&&anglingMode&&anglingUsesArtificialLure()&&anglingCinematicView==='underwater'&&aczoK58ViewScope(camera)==='underwater'&&!anglingRodGroup.visible&&!anglingNetGroup.visible&&!anglingBankRuntime.netLayerEnabled&&!scene.parent&&scene.autoUpdate&&!scene.overrideMaterial&&renderer.getRenderTarget()===null);
@@ -42484,7 +42563,7 @@ function aczoK76FogMaterialsEligible(material){
 }
 function aczoK56RenderRiverScene(cam,reuseWorld=false){
  const scope=aczoK58ViewScope(cam),fog=scene.fog;
- if(!scope)return renderer.render(scene,cam);
+ if(!scope)return aczoK81RenderWaterView(cam);
  const auto=scene.autoUpdate,hidden=[],sphere=new THREE.Sphere(),box=new THREE.Box3(),frustum=new THREE.Frustum(),viewProjection=new THREE.Matrix4();
  // Exp2 fog leaves less than 1/16 million of the source colour here.
  // Retain the opaque river floor/base as the fog-coloured horizon itself.
@@ -42512,7 +42591,7 @@ function aczoK56RenderRiverScene(cam,reuseWorld=false){
    if(scope==='underwater'&&box.max.z<ACZO_MOSEL_SURFACE_Z-.02&&-sphere.center.z-sphere.radius>distance){hidden.push(object);object.visible=false;}
   });
   aczoK56FogStats.passes++;aczoK56FogStats.lastCulled=hidden.length;aczoK56FogStats.culled+=hidden.length;
-  return renderer.render(scene,cam);
+  return aczoK81RenderWaterView(cam);
  }finally{for(let i=0;i<hidden.length;i++)hidden[i].visible=true;scene.autoUpdate=auto;}
 }
 
