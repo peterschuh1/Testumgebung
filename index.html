@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K82-WURFVORBEREITUNG'};
+ const state={contextLost:false,build:'4.1-K83-LICHTBERECHNUNG'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -10631,14 +10631,26 @@ aczoLitPoint=instanceMatrix*aczoLitPoint;
 #endif
 aczoLitWorld=(modelMatrix*aczoLitPoint).xyz;`);
   shader.fragmentShader=aczoK25SearchlightGLSL+aczoBridgeDownlightGLSL+`varying vec3 aczoLitWorld;
-float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);return smoothstep(.975,.993,dot(normalize(d),direction))*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);}
+float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){
+ vec3 d=aczoLitWorld-origin;float distance=length(d);
+ // K83: the original range/cone factors are exactly zero here.
+ if(distance>=420.)return 0.;
+ float cone=smoothstep(.975,.993,dot(normalize(d),direction));
+ if(cone==0.)return 0.;
+ return cone*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);
+}
 `+shader.fragmentShader;
-  shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
-float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
-outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*5.4;
-outgoingLight+=vec3(1.,.70,.34)*aczoBridgeDownlight(aczoLitWorld,aczoNormal)*1.65;
+  shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`// K83: retain the native light and shadow math for every active source.
+if(aczoSearchStrength!=0.||aczoBridgeNight!=0.){
+ vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
+ if(aczoSearchStrength!=0.){
+  float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
+  outgoingLight+=vec3(.82,.89,1.)*aczoSearchStrength*aczoSearch*5.4;
+ }
+ outgoingLight+=vec3(1.,.70,.34)*aczoBridgeDownlight(aczoLitWorld,aczoNormal)*1.65;
+}
 gl_FragColor = vec4( outgoingLight, diffuseColor.a );`);
- };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlight-k26';mat.needsUpdate=true;
+ };mat.customProgramCacheKey=()=> 'aczo-regional-bridge-searchlight-k83';mat.needsUpdate=true;
 }
 function aczoK23FishingSprayGain(x,y){
  if(!anglingMode||is2D||fishMode||anglingCinematicView!=='shore'||anglingCameraTransition
@@ -45917,6 +45929,7 @@ float aczoBridgeDownSpot(vec3 point,vec3 normal,vec3 origin){
  return cone*falloff*falloff*max(0.,dot(normal,-d/r));
 }
 float aczoBridgeDownlight(vec3 point,vec3 normal){
+ if(aczoBridgeNight==0.)return 0.;
  return aczoBridgeNight*min(1.6,aczoBridgeDownSpot(point,normal,aczoBridgeLamp0)
   +aczoBridgeDownSpot(point,normal,aczoBridgeLamp1)+aczoBridgeDownSpot(point,normal,aczoBridgeLamp2)
   +aczoBridgeDownSpot(point,normal,aczoBridgeLamp3));
