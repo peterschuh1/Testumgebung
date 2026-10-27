@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K79-WASSERRECHENWEGE'};
+ const state={contextLost:false,build:'4.1-K80-GRAFIKARBEIT'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -9772,8 +9772,9 @@ function updateDirectCelestialWaterReflections(){
   directSunReflection.visible=directSunReflection.visible&&directSunReflectionMat.uniforms.strength.value>.002;
   directMoonReflection.visible=directMoonReflection.visible&&directMoonReflectionMat.uniforms.strength.value>.002;
 
-  // Die Mosel bleibt vorerst beim bestehenden Geometrietrick. Der Haupttreffer
-  // im Profiler kam vom Weiher in der Kartenansicht.
+  // K80: same world-space formula/mask and surface height on bounded original triangles.
+  aczoK80PlaceRiverReflection(directSunMoselReflection,directSunMoselReflectionMat);
+  aczoK80PlaceRiverReflection(directMoonMoselReflection,directMoonMoselReflectionMat);
   if(directSunMoselReflection&&directSunMoselReflectionMat)directSunMoselReflection.visible=directSunMoselReflectionMat.uniforms.strength.value>.002;
   if(directMoonMoselReflection&&directMoonMoselReflectionMat)directMoonMoselReflection.visible=directMoonMoselReflectionMat.uniforms.strength.value>.002;
 }
@@ -10020,6 +10021,58 @@ function updateAczoMoselWaves(now,state){
  if(count){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
  if(t)perf.add('waves',performance.now()-t);
 }
+// Retain the original vertices, triangles, interpolation and world transform.
+// Only index triangles intersecting a conservative local reflection rectangle.
+const aczoK80ReflectionRows=new WeakMap(),aczoK80RiverReflectionState=new WeakMap();
+function aczoK80ReflectionData(source){
+ let data=aczoK80ReflectionRows.get(source);if(data)return data;
+ const index=source.index,position=source.attributes.position,rows=[];let row=null,sorted=true,lastX=-Infinity,lastMaxX=-Infinity;
+ for(let at=0;at<index.count;at+=3){
+  const ia=index.array[at],ib=index.array[at+1],ic=index.array[at+2],minY=Math.min(position.getY(ia),position.getY(ib),position.getY(ic)),maxY=Math.max(position.getY(ia),position.getY(ib),position.getY(ic)),minX=Math.min(position.getX(ia),position.getX(ib),position.getX(ic)),maxX=Math.max(position.getX(ia),position.getX(ib),position.getX(ic));
+  if(!row||row.minY!==minY||row.maxY!==maxY){row={minY,maxY,first:at,count:0};rows.push(row);lastX=-Infinity;lastMaxX=-Infinity;}if(minX<lastX||maxX<lastMaxX)sorted=false;lastX=minX;lastMaxX=maxX;row.count++;
+ }
+ data={rows,index,position,indexVersion:index.version,positionVersion:position.version,sorted};aczoK80ReflectionRows.set(source,data);return data;
+}
+function aczoK80PlaceRiverReflection(mesh,material){
+ const u=material.uniforms,strength=Number(u.strength.value),radius=Math.max(.05,Number(u.coreRadius.value)),length=Math.max(.10,Number(u.trailLength.value)),width=Math.max(.05,Number(u.trailWidth.value)),anchor=u.anchor.value,axis=u.trailDir.value;
+ if(!(strength>.002)){mesh.visible=false;return;}
+ if(!aczoK80RiverReflectionState.has(mesh)){
+  const original=mesh.geometry,data=aczoK80ReflectionData(original),local=new THREE.BufferGeometry(),array=new original.index.array.constructor(original.index.count);
+  for(const [name,attribute]of Object.entries(original.attributes))local.setAttribute(name,attribute);
+  local.setIndex(new THREE.BufferAttribute(array,1));local.index.setUsage(THREE.DynamicDrawUsage);local.boundingSphere=original.boundingSphere?.clone()||null;local.boundingBox=original.boundingBox?.clone()||null;
+  aczoK80RiverReflectionState.set(mesh,{original,local,data,array,count:-1,inverse:new THREE.Matrix4(),corner:new THREE.Vector3()});mesh.geometry=local;
+ }
+ const state=aczoK80RiverReflectionState.get(mesh);
+ if(!Number.isFinite(strength)||!Number.isFinite(radius)||!Number.isFinite(length)||!Number.isFinite(width)||!Number.isFinite(anchor.x)||!Number.isFinite(anchor.y)||!Number.isFinite(axis.x)||!Number.isFinite(axis.y)||axis.lengthSq()<1e-12){mesh.geometry=state.original;return;}
+ // Core+halo <=2.1536*exp(-.62*r*r); trail<=.4*exp(-2.35*(across/w)^2).
+ // Outside their union each is <.00075, safely below the original .003 cutoff.
+ const core=radius*Math.sqrt(Math.max(0,Math.log(Math.max(1,2.1536*strength/.00075)))/.62),side=Math.max(radius*.38,width)*Math.sqrt(Math.max(0,Math.log(Math.max(1,.4*strength/.00075)))/2.35);
+ const dirLength=Math.sqrt(axis.lengthSq()),dx=axis.x/dirLength,dy=axis.y/dirLength,minAlong=Math.min(-core,-.06),maxAlong=Math.max(core,length),halfAlong=(maxAlong-minAlong)*.5,centerAlong=(maxAlong+minAlong)*.5,halfAcross=Math.max(core,side),pad=1;
+ const halfX=Math.abs(dx)*halfAlong+Math.abs(dy)*halfAcross+pad,halfY=Math.abs(dy)*halfAlong+Math.abs(dx)*halfAcross+pad,cx=anchor.x+dx*centerAlong,cy=anchor.y+dy*centerAlong;
+ if(!Number.isFinite(halfX)||!Number.isFinite(halfY)||!Number.isFinite(cx)||!Number.isFinite(cy)){mesh.geometry=state.original;return;}
+ mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;
+ // Existing reflection planes are horizontal. Preserve the original path for
+ // a future tilted/deformed source rather than infer a different projection.
+ if(Math.abs(e[2])>1e-12||Math.abs(e[6])>1e-12||state.data.index!==state.original.index||state.data.position!==state.original.attributes.position||state.data.indexVersion!==state.data.index.version||state.data.positionVersion!==state.data.position.version||!state.data.sorted||state.original.drawRange.start!==0||state.original.drawRange.count<state.original.index.count){mesh.geometry=state.original;return;}
+ state.inverse.copy(mesh.matrixWorld).invert();let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(let i=0;i<4;i++){const p=state.corner.set(cx+(i&1?halfX:-halfX),cy+(i&2?halfY:-halfY),e[14]).applyMatrix4(state.inverse);minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}
+ const original=state.data.index.array,array=state.array;let count=0,changed=false;
+ const position=state.data.position;
+ for(const row of state.data.rows){if(row.maxY<minY||row.minY>maxY)continue;let lo=0,hi=row.count;
+  while(lo<hi){const mid=(lo+hi)>>1,at=row.first+mid*3,x=Math.max(position.getX(original[at]),position.getX(original[at+1]),position.getX(original[at+2]));if(x<minX)lo=mid+1;else hi=mid;}
+  for(let j=lo;j<row.count;j++){const at=row.first+j*3,x=Math.min(position.getX(original[at]),position.getX(original[at+1]),position.getX(original[at+2]));if(x>maxX)break;for(let k=0;k<3;k++){const value=original[at+k];if(array[count]!==value){array[count]=value;changed=true;}count++;}}
+ }
+ mesh.geometry=state.local;state.local.setDrawRange(0,count);
+ if(changed||state.count!==count){state.local.index.updateRange.offset=0;state.local.index.updateRange.count=count;state.local.index.needsUpdate=true;state.count=count;}
+}
+// Only the stable Mosel lure follower is rendered immediately after the same
+// main-frame world. The main native update stays unchanged; no object cache,
+// quality change or update skipped across frames. Other views use the native path.
+let aczoK80ReuseMainWorld=false;
+function aczoK80CanReuseInsetWorld(){
+ return !!(aczoMoselFishing&&anglingMode&&anglingUsesArtificialLure()&&anglingCinematicView==='underwater'&&aczoK58ViewScope(camera)==='underwater'&&!anglingRodGroup.visible&&!anglingNetGroup.visible&&!anglingBankRuntime.netLayerEnabled&&!scene.parent&&scene.autoUpdate&&!scene.overrideMaterial&&renderer.getRenderTarget()===null);
+}
+
 let aczoK77WakeCache=null;
 // K78: retain K77's local cache and GPU gate. Once selected, prepare a second
 // fine cache for the entire river in bounded slices, then publish it atomically.
@@ -37836,7 +37889,7 @@ function aczoK25RenderAnglingInsetSource(cam,keepShoreNature=false){
     waterUniforms.viewportOrigin.value.set(ws.viewport.x,ws.viewport.y);
     setProjectedCelestialScreen(sunDisc,waterUniforms.sunScreen,simulationEnabled&&sun.visible,cam);
     setProjectedCelestialScreen(moonDisc,waterUniforms.moonScreen,simulationEnabled&&!!moonDisc.userData.astronomicallyVisible,cam);
-    aczoK56RenderRiverScene(cam);
+    aczoK56RenderRiverScene(cam,aczoK80ReuseMainWorld&&cam===anglingLureFollowerCamera&&!keepShoreNature);
   }finally{
     waterSurface.material=savedPondMaterial;moselWaterSurface.material=savedRiverMaterial;
     waterUniforms.viewportSize.value.copy(ws.size);waterUniforms.viewportOrigin.value.copy(ws.origin);
@@ -42429,14 +42482,14 @@ function aczoK76FogMaterialsEligible(material){
  }
  return !!material&&material.fog===true&&!!material.depthTest&&!material.isShaderMaterial&&!material.isRawShaderMaterial;
 }
-function aczoK56RenderRiverScene(cam){
+function aczoK56RenderRiverScene(cam,reuseWorld=false){
  const scope=aczoK58ViewScope(cam),fog=scene.fog;
  if(!scope)return renderer.render(scene,cam);
  const auto=scene.autoUpdate,hidden=[],sphere=new THREE.Sphere(),box=new THREE.Box3(),frustum=new THREE.Frustum(),viewProjection=new THREE.Matrix4();
  // Exp2 fog leaves less than 1/16 million of the source colour here.
  // Retain the opaque river floor/base as the fog-coloured horizon itself.
  const distance=scope==='underwater'?Math.sqrt(Math.log(16777216))/fog.density:Infinity;
- if(auto)scene.updateMatrixWorld();if(!cam.parent)cam.updateMatrixWorld();
+ if(auto&&!reuseWorld)scene.updateMatrixWorld();if(!cam.parent)cam.updateMatrixWorld();
  frustum.setFromProjectionMatrix(viewProjection.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse));
  try{
   scene.autoUpdate=false;
@@ -53720,7 +53773,8 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
  }
  updateAnglingAmbientStatus(dt);
  renderAnglingFloatCamera();if(anglingUsesDeeper()&&anglingUi.classList.contains('line-active'))drawAnglingDeeperSonar();
-  aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());
+  aczoK80ReuseMainWorld=aczoK80CanReuseInsetWorld();
+  try{aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());}finally{aczoK80ReuseMainWorld=false;}
   aczoPerfTest.frame(frameNow);
  
  // Der Zehn-Sekunden-Timer beginnt erst nach dem ersten wirklich gezeichneten
