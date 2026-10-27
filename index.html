@@ -6470,7 +6470,7 @@ Wetterdaten: Open-Meteo · Astronomische Berechnungen: SunCalc<br>
 <script>
 // K22: preserve WebGL context-loss protection without a diagnostic panel or stored protocol.
 (function(){
- const state={contextLost:false,build:'4.1-K84-UNTERWASSER-GRAFIK-TEST'};
+ const state={contextLost:false,build:'4.1-K85-ORTSFESTE-MOSELFISCHE-TEST'};
  window.__aczoBootAudit={state,mark(){},sample(){},attach(renderer){
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();state.contextLost=true;});
   renderer.domElement.addEventListener('webglcontextrestored',()=>{state.contextLost=false;});
@@ -20485,160 +20485,195 @@ function aczoK42SpreadScare(actor){
   f.huntFleeUntil=fishWorldTime+1.2+f.feedSeed;f.pause=0;if(++count>=5)break;
  }
 }
-// K43: the free-swim population follows the camera independently of bed-detail jobs.
-// Reuse the existing 461 actors; nearby actors keep their position and school.
-function aczoK43QueueRiverPopulation(rt,center,options={}){
- const next=aczoK42StockCenter(center),sectionChanged=next.section!==rt.k42Section;
- rt.center.copy(center);rt.k42Section=next.section;rt.k42StockCenter=next.center;
- aczoK8hReset(center);rt.habitats=aczoK34HabitatsFor(center);
- const pool=new Map(),active=[],queue=[],schools=new Map();
- for(const f of fishActors){const name=f.obj.userData.species;if(!pool.has(name))pool.set(name,[]);pool.get(name).push(f);}
- const preflight=!!options.preflight,position=camera.position,protectedRadius2=preflight?0:34*34;
- let planList=aczoK8hVisualPlan(center);
- const held=actor=>!actor.k43PendingPlacement&&(actor.obj.position.distanceToSquared(position)<protectedRadius2||activeHunt?.predator===actor||activeHunt?.prey===actor||aczoFishIsActiveLureAttacker(actor)||anglingVisibleStrikeActor===actor);
- // Bridge weighting may change by a few common fish. Defer that redistribution
- // if it would remove a currently visible school member.
- if(planList.some(p=>{const list=pool.get(p.species)||[];return list.length>p.count&&list.filter(a=>!held(a)).length<list.length-p.count;}))planList=planList.map(p=>({...p,count:pool.get(p.species)?.length||0}));
- for(const plan of planList){
-  const list=pool.get(plan.species)||[];
-  const rare=aczoK42Rare(plan.species),reserved=new Set();
-  if(rare)for(const actor of list)if(held(actor)&&actor.obj.userData.k42Section===next.section)reserved.add(actor.obj.userData.k42Slot);
-  // Keep the closest actors if a bridge-related species count becomes smaller.
-  // K54: sorting is needed only when a bridge adjustment removes individuals.
-  // Otherwise all actors are retained, so sorting the entire stock is wasted.
-  if(list.length>plan.count)list.sort((a,b)=>Number(held(b))-Number(held(a))||a.obj.position.distanceToSquared(position)-b.obj.position.distanceToSquared(position));
-  for(let i=0;i<plan.count;i++){
-   let actor=list.shift(),created=false;
-   if(!actor){const at=fishActors.length;addFishPopulation(plan.species,1);actor=fishActors[at];created=true;}
-    const protectedActor=!created&&held(actor);
-   actor.index=active.length;active.push(actor);
-   const school=actor.obj.userData.k42School??(plan.schools?i%plan.schools:-1),schoolKey=plan.species+':'+school;
-   if(protectedActor){
-    actor.k43PendingPlacement=false;
-    if(actor.schoolTarget)schools.set(schoolKey,actor.schoolTarget);
-    // A visible rare fish retains the section/individual it actually belongs to.
-    continue;
-   }
-   let slot=i;
-   if(rare){const previous=actor.obj.userData.k42Slot;if(actor.obj.userData.k42Section===next.section&&!reserved.has(previous))slot=previous;else{slot=0;while(reserved.has(slot))slot++;}reserved.add(slot);}
-   actor.k43PendingPlacement=true;actor.obj.visible=false;
-   queue.push({actor,name:plan.species,slot,school:plan.schools?i%plan.schools:-1,schoolKey,sectionChanged});
-  }
- }
- for(const list of pool.values())for(const f of list)fishGroup.remove(f.obj);
- fishActors.splice(0,fishActors.length,...active);
- rt.k43Population={queue,index:0,schools,focus:center.clone(),section:next.section,preflight,retry:[],retryAt:0};
- const stats=rt.k43PopulationStats||(rt.k43PopulationStats={streams:0,relocated:0,maxSliceMs:0});
- stats.streams++;stats.protected=active.length-queue.length;
+// K85: geographic stocks. Rendering slots are reusable; fish identities,
+// schools, homes and unloaded movement state belong to the river, not a cast.
+const aczoK85River={cell:40,maxActors:720,tiles:new Map(),sections:new Map(),records:new Map(),schools:new Map(),pool:new Map(),vectors:new WeakMap(),stats:{tiles:0,records:0,queued:0,activated:0,reused:0,parked:0,unchangedCasts:0,maxActive:0}};
+function aczoK85Seed(text){let h=2166136261;for(let i=0;i<text.length;i++)h=Math.imul(h^text.charCodeAt(i),16777619);return h>>>0;}
+function aczoK85Random(seed){let h=seed>>>0;return ()=>{h=(Math.imul(h,1664525)+1013904223)>>>0;return h/4294967296;};}
+function aczoK85Depth(x,y,minimum=.9,section=null){
+ if(x< -500||x>300||y< -630||y>200)return null;
+ const d=aczoMoselDepth(x,y);
+ if(d==null||!Number.isFinite(d)||d<minimum||section!==null&&aczoK42Section(x,y)!==section||aczoK8eInsideFooting(x,y,.8))return null;
+ return d;
 }
-function aczoK43PlaceStreamActor(rt,item,schools){
- const {actor,name,slot}=item,candidate=new THREE.Vector3();let best=null,bestDistance=-1;
- // A cast prepares its destination while the fish layer is hidden. Once the
- // underwater view is visible, recycle only beyond the existing fade range.
- const hiddenPreflight=rt.k43Population?.preflight&&(!fishGroup.visible||anglingCinematicView!=='underwater');
- // K67: ordinary fish can enter the fully fog-hidden outer band. Keep every
- // existing nearby fish in place; rare stock retains its original boundary.
- const recycleRadius=aczoK42Rare(name)?32:20;
- const minimumDistance2=hiddenPreflight?0:recycleRadius*recycleRadius;
- // K54: reject the visible circle inside the habitat sampler itself. The old
- // path could run eight complete 28-candidate searches for a single actor.
- const point=hiddenPreflight?aczoMoselRandomFish(candidate,name):aczoK8hRiverPoint(candidate,name,{avoid:camera.position,radius2:minimumDistance2});
- if(point){best=point;bestDistance=point.distanceToSquared(camera.position);}
- if(bestDistance<minimumDistance2){
-  const minimum=Math.max(.9,(actor.obj.userData.baseFishHeight||.2)+.55);
-  for(const radius of [recycleRadius+3,recycleRadius+13,recycleRadius+23,recycleRadius+33]){
-   for(let i=0;i<24;i++){
-    const angle=i*Math.PI/12,x=camera.position.x+Math.cos(angle)*radius,y=camera.position.y+Math.sin(angle)*radius,d=aczoMoselDepth(x,y);
-    if(d==null||d<minimum||aczoK42Rare(name)&&!aczoK42InSection(x,y)||aczoK8eInsideFooting(x,y,.8))continue;
-    const bottom=aczoDepthToWorldZ(d,true),low=['goby','eel','zander','catfish','bream'].includes(name);
-    best=new THREE.Vector3(x,y,ACZO_K8G_NEW[name]?aczoK8gFishZ(name,x,y,d,actor.obj.userData.baseFishHeight):Math.min(ACZO_MOSEL_SURFACE_Z-.22,low?bottom+.25:bottom+d*.5));break;
-   }
-    if(best&&best.distanceToSquared(camera.position)>=minimumDistance2)break;
+function aczoK85Z(name,x,y,d,bodyHeight,random){
+ const bottom=aczoDepthToWorldZ(d,true),top=ACZO_MOSEL_SURFACE_Z-Math.max(.22,bodyHeight*.5+.05),clear=Math.max(.16,bodyHeight*.5+.06),p=ACZO_K8G_NEW[name];
+ let z;
+ if(p){if(p.layer==='bottom')z=bottom+clear+.06+random()*.15;else if(p.layer==='surface')z=top-.08-random()*.24;else if(p.layer==='upper')z=top-.28-random()*.85;else z=bottom+clear+(top-bottom-clear)*(.30+random()*.48);}
+ else if(['goby','eel','zander','catfish','bream'].includes(name))z=bottom+clear+.06+random()*.18;
+ else z=bottom+clear+(top-bottom-clear)*(.30+random()*.48);
+ return Math.max(bottom+clear,Math.min(top,z));
+}
+function aczoK85Size(name,random){
+ if(ACZO_K42_FISH[name])return aczoK42Size(name,random)/100;
+ const s=fishSpecies[name];return s.maxLength*(s.minFactor+random()*(1-s.minFactor));
+}
+function aczoK85FindPoint(name,bounds,random,options={}){
+ let best=null,score=-1;
+ for(let n=0;n<(options.trials||18);n++){
+  const x=bounds.x0+random()*(bounds.x1-bounds.x0),y=bounds.y0+random()*(bounds.y1-bounds.y0),d=aczoK85Depth(x,y,options.minimum||.9,options.section??null);
+  if(d===null)continue;
+  const weight=aczoK8hHabitat(name,x,y)*(.55+random()*.45);
+  if(weight>score){score=weight;best={x,y,d};}
+ }
+ return best;
+}
+function aczoK85AddRecord(id,name,home,bounds,random,slot,schoolId=null,section=null){
+ const width=aczoK85Size(name,random),height=width*(fishImageAspect[name]||fishSpecies[name].aspect||.35),minimum=Math.max(.9,(height+.4)/Math.max(.01,exaggeration));
+ if(aczoK85Depth(home.x,home.y,minimum,section)===null)return null;
+ const position=new THREE.Vector3(home.x,home.y,aczoK85Z(name,home.x,home.y,home.d,height,random));
+ const record={id,species:name,slot,section:section??aczoK42Section(home.x,home.y),rare:aczoK42Rare(name),schoolId,home:{x:home.x,y:home.y},bounds:{...bounds},width,height,position,target:position.clone(),sequence:0,actor:null,state:null,seed:aczoK85Seed(id)};
+ if(schoolId){
+  let school=aczoK85River.schools.get(schoolId);
+  if(!school){school={target:position.clone(),home:{...record.home},bounds:{...bounds},record};aczoK85River.schools.set(schoolId,school);}
+  record.home={...school.home};record.target.copy(school.target);
+ }
+ aczoK85River.records.set(id,record);aczoK85River.stats.records++;return record;
+}
+function aczoK85Tile(tx,ty){
+ const key=tx+','+ty,world=aczoK85River;if(world.tiles.has(key))return world.tiles.get(key);
+ const size=world.cell,bounds={x0:tx*size+2,x1:(tx+1)*size-2,y0:ty*size+2,y1:(ty+1)*size-2},center={x:tx*size+size*.5,y:ty*size+size*.5},records=[];
+ const random=aczoK85Random(aczoK85Seed('mosel-tile:'+key)),roll=random();
+ // Truly sparse patches are fixed in world coordinates, never rerolled by a cast.
+ const density=roll<.14?0:roll<.34?.12+random()*.25:.55+random()*1.15;
+ let wet=0;for(let y=0;y<3;y++)for(let x=0;x<3;x++)if(aczoK85Depth(bounds.x0+(bounds.x1-bounds.x0)*(x+.5)/3,bounds.y0+(bounds.y1-bounds.y0)*(y+.5)/3)!==null)wet++;
+ if(density&&wet)for(const plan of aczoK8hVisualPlan(center)){
+  const name=plan.species;if(aczoK42Rare(name))continue;
+  const rng=aczoK85Random(aczoK85Seed(key+':'+name)),anchor=aczoK85FindPoint(name,bounds,rng);
+  if(!anchor)continue;
+  const habitat=aczoK8hHabitat(name,anchor.x,anchor.y),presence=rng();
+  if(presence>.40+.55*habitat/(1+habitat))continue;
+  const expected=plan.count/9*density*(wet/9)*(.35+habitat/(1+habitat));
+  const count=Math.min(64,Math.floor(expected)+(rng()<expected%1?1:0));
+  const schoolCount=plan.schools?Math.max(1,Math.min(count,Math.ceil(count/(name==='goby'?18:12)))):0;
+  const homes=Array.from({length:schoolCount},()=>aczoK85FindPoint(name,bounds,rng)||anchor);
+  for(let i=0;i<count;i++){
+   const home=schoolCount?homes[i%schoolCount]:(aczoK85FindPoint(name,bounds,rng,{trials:8})||anchor);
+   let at=home;
+   if(schoolCount){const x=Math.max(bounds.x0,Math.min(bounds.x1,home.x+(rng()-.5)*2.8)),y=Math.max(bounds.y0,Math.min(bounds.y1,home.y+(rng()-.5)*2.8)),d=aczoK85Depth(x,y);if(d!==null)at={x,y,d};}
+   const record=aczoK85AddRecord('tile:'+key+':'+name+':'+i,name,at,bounds,rng,i,schoolCount?key+':'+name+':school:'+(i%schoolCount):null);
+   if(record)records.push(record);
   }
  }
- if(!best||best.distanceToSquared(camera.position)<minimumDistance2)return false;
- aczoK42RegisterActor(actor,name,slot);actor.obj.position.copy(best);
- aczoMoselRandomFish(actor.target,name);
- actor.schoolTarget=null;actor.schoolOffset=null;
- if(item.school>=0){
-  let target=schools.get(item.schoolKey);if(!target){target=actor.target.clone();schools.set(item.schoolKey,target);}
-  actor.schoolTarget=target;actor.schoolOffset=new THREE.Vector3((slot%3-1)*.4,(slot%2-.5)*.4,0);actor.obj.userData.k42School=item.school;
+ const tile={key,tx,ty,density,wet,records};world.tiles.set(key,tile);world.stats.tiles++;return tile;
+}
+function aczoK85RareSection(section){
+ const world=aczoK85River;if(world.sections.has(section))return world.sections.get(section);
+ const records=[];
+ for(const name of ['mandarin_catfish','burbot'])for(let slot=0;slot<ACZO_K42_FISH[name].count;slot++){
+  const id='rare:'+section+':'+name+':'+slot,rng=aczoK85Random(aczoK85Seed(id));let best=null,score=-1;
+  for(let n=0;n<192;n++){
+   const along=(section+rng())*100,across=(rng()-.5)*260,x=-315.8+along*.807-across*.591,y=-497+along*.591+across*.807,d=aczoK85Depth(x,y,.9,section);
+   if(d===null)continue;const q=aczoK8hHabitat(name,x,y)*(.6+rng()*.4);if(q>score){score=q;best={x,y,d};}
+  }
+  if(!best)continue;
+  const bounds={x0:Math.max(-500,best.x-22),x1:Math.min(300,best.x+22),y0:Math.max(-630,best.y-22),y1:Math.min(200,best.y+22)};
+  const record=aczoK85AddRecord(id,name,best,bounds,rng,slot,null,section);if(record)records.push(record);
  }
- if(item.sectionChanged&&ACZO_K42_FISH[name]){
-  const u=actor.obj.userData;u.baseFishWidth=aczoK42StockSize(name,slot)/100;u.baseFishHeight=u.baseFishWidth*fishImageAspect[name];actor.obj.scale.set(u.baseFishWidth,u.baseFishHeight,1);
+ world.sections.set(section,records);return records;
+}
+function aczoK85RecordsAt(center){
+ const size=aczoK85River.cell,tx=Math.floor(center.x/size),ty=Math.floor(center.y/size),records=[],seen=new Set();
+ for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)for(const r of aczoK85Tile(tx+x,ty+y).records){records.push(r);seen.add(r.id);}
+ const values=[];for(const x of [tx*size-size,(tx+2)*size])for(const y of [ty*size-size,(ty+2)*size])values.push(aczoK42Section(x,y));
+ for(let section=Math.min(...values);section<=Math.max(...values);section++)for(const r of aczoK85RareSection(section)){
+  const p=r.actor?.obj.position||r.position;
+  if(Math.max(Math.abs(p.x-center.x),Math.abs(p.y-center.y))<size*2&&!seen.has(r.id)){records.push(r);seen.add(r.id);}
  }
- actor.obj.userData.hiddenByHunt=false;actor.obj.userData.huntRespawnAt=0;
- actor.visualPitch=0;actor.visualDepthYaw=0;actor.swimHeading=NaN;actor.huntFleeUntil=0;actor.lureChaseUntil=0;actor.predatorBrain=null;actor.k8gBottomZ=undefined;
- if(ACZO_K8G_NEW[name])aczoK8gPrepareActor(actor);
- actor.k43PendingPlacement=false;
+ // Preserve migrants whose saved position has crossed their original cell.
+ for(const r of aczoK85River.records.values())if(!seen.has(r.id)&&Math.hypot(r.position.x-center.x,r.position.y-center.y)<42){records.push(r);seen.add(r.id);}
+ return records;
+}
+function aczoK85PointForVector(out,name){
+ const record=aczoK85River.vectors.get(out);if(!record||record.species!==name)return null;
+ const random=aczoK85Random(record.seed+Math.imul(++record.sequence,0x9e3779b1)),bounds=record.bounds,school=record.schoolId&&aczoK85River.schools.get(record.schoolId),home=school?.home||record.home;
+ const radius=record.rare?18:record.schoolId?11:15,minimum=Math.max(.9,(record.height+.4)/Math.max(.01,exaggeration));
+ let best=null;
+ for(let n=0;n<28;n++){
+  const angle=random()*Math.PI*2,r=Math.sqrt(random())*radius,x=home.x+Math.cos(angle)*r,y=home.y+Math.sin(angle)*r;
+  if(x<bounds.x0||x>bounds.x1||y<bounds.y0||y>bounds.y1)continue;
+  const d=aczoK85Depth(x,y,minimum,record.rare?record.section:null);if(d===null)continue;
+  best={x,y,d};if(random()<.35+.65*aczoK8hHabitat(name,x,y)/(1+aczoK8hHabitat(name,x,y)))break;
+ }
+ if(!best){const d=aczoK85Depth(record.position.x,record.position.y,minimum,record.rare?record.section:null);if(d!==null)best={x:record.position.x,y:record.position.y,d};}
+ if(!best)return out.copy(record.position);
+ return out.set(best.x,best.y,aczoK85Z(name,best.x,best.y,best.d,record.height,random));
+}
+function aczoK85SaveActor(actor){
+ const r=actor.k85Record;if(!r)return;r.position.copy(actor.obj.position);r.target.copy(actor.target);
+ r.state={phase:actor.phase,pause:actor.pause,speed:actor.speed,k8gCruise:actor.k8gCruise,heading:actor.swimHeading,screenSide:actor.screenSide,hidden:!!actor.obj.userData.hiddenByHunt,respawn:actor.obj.userData.huntRespawnAt||0};
+}
+function aczoK85ParkActor(actor){
+ const r=actor.k85Record;aczoK85SaveActor(actor);if(r)r.actor=null;
+ actor.obj.visible=false;actor.obj.parent?.remove(actor.obj);
+ const name=actor.obj.userData.species,pool=aczoK85River.pool.get(name)||[];pool.push(actor);aczoK85River.pool.set(name,pool);aczoK85River.stats.parked++;
+}
+function aczoK85Activate(rt,r){
+ if(r.actor)return r.actor;
+ const pool=aczoK85River.pool.get(r.species),reused=!!pool?.length;let actor;
+ if(reused)actor=pool.pop();else{
+  const at=fishActors.length;addFishPopulation(r.species,1);actor=fishActors[at];fishActors.splice(at,1);
+ }
+ if(!actor)return null;
+ const obj=actor.obj;for(const key of Object.keys(actor))if(key!=='obj')delete actor[key];
+ const random=aczoK85Random(r.seed),state=r.state;
+ const school=r.schoolId?aczoK85River.schools.get(r.schoolId):null,target=school?school.target:r.target.clone();
+ Object.assign(actor,{obj,target,speed:state?.speed??(.24+random()*.34),phase:state?.phase??random()*Math.PI*2,pause:state?.pause??random()*2,schoolTarget:school?.target||null,schoolOffset:school?new THREE.Vector3((random()-.5)*1.3,(random()-.5)*1.3,0):null,index:fishActors.length,screenSide:state?.screenSide||1,shadowYaw:0,visualPitch:0,visualDepthYaw:0,swimHeading:state?.heading??NaN,huntFleeUntil:0,lureChaseUntil:0,predatorBrain:null,feedSeed:random(),feedOrbit:random()*Math.PI*2,feedTargetVec:new THREE.Vector3(),k43PendingPlacement:false,k85Record:r});
+ const u=obj.userData;for(const key of ['hiddenByHunt','huntRespawnAt','k42RareKey','k42Section','k42Slot','k42School'])delete u[key];
+ u.baseFishWidth=r.width;u.baseFishHeight=r.height;u.k42Section=r.section;u.k42Slot=r.slot;u.k85Id=r.id;
+ if(r.rare)u.k42RareKey=r.section+':'+r.species+':'+r.slot;
+ u.hiddenByHunt=state?.hidden||false;u.huntRespawnAt=state?.respawn||0;
+ obj.position.copy(r.position);obj.rotation.set(0,0,0);obj.scale.set(r.width,r.height,1);obj.visible=false;
+ aczoK85River.vectors.set(obj.position,r);aczoK85River.vectors.set(target,r);if(school)aczoK85River.vectors.set(school.target,school.record);
+ if(ACZO_K8G_NEW[r.species]){
+  const p=ACZO_K8G_NEW[r.species];actor.k8gCruise=state?.k8gCruise??(p.speed[0]+random()*(p.speed[1]-p.speed[0]));actor.speed=actor.k8gCruise;actor.pause=Math.min(actor.pause,p.pause);
+ }
+ if(!obj.parent)fishGroup.add(obj);fishActors.push(actor);r.actor=actor;
+ aczoK85River.stats.activated++;if(reused)aczoK85River.stats.reused++;aczoK85River.stats.maxActive=Math.max(aczoK85River.stats.maxActive,fishActors.length);return actor;
+}
+function aczoK85Protected(actor){
+ if(activeHunt?.predator===actor||activeHunt?.prey===actor||aczoFishIsActiveLureAttacker(actor)||anglingVisibleStrikeActor===actor||anglingPendingCatch?.k42Actor===actor)return true;
+ return fishGroup.visible&&waterUniforms.underwaterView.value>.32&&actor.obj.position.distanceToSquared(camera.position)<40*40;
+}
+function aczoK43QueueRiverPopulation(rt,center,options={}){
+ if(!rt||aczoMoselFishing!==rt||!Number.isFinite(center.x)||!Number.isFinite(center.y))return false;
+ const size=aczoK85River.cell,tx=Math.floor(center.x/size),ty=Math.floor(center.y/size),key=tx+','+ty,next=aczoK42StockCenter(center);
+ rt.k42Section=next.section;rt.k42StockCenter=next.center;
+ if(rt.k85FocusKey===key&&!options.force){if(options.preflight)aczoK85River.stats.unchangedCasts++;return false;}
+ rt.k85FocusKey=key;rt.center.set((tx+.5)*size,(ty+.5)*size,center.z||-1.2);aczoK8hReset(rt.center);rt.habitats=aczoK34HabitatsFor(rt.center);
+ const candidates=aczoK85RecordsAt(center),held=fishActors.filter(aczoK85Protected),heldIds=new Set(held.map(a=>a.k85Record?.id));
+ candidates.sort((a,b)=>Number(heldIds.has(b.id))-Number(heldIds.has(a.id))||((a.actor?.obj.position||a.position).distanceToSquared(center)-(b.actor?.obj.position||b.position).distanceToSquared(center))||a.id.localeCompare(b.id));
+ const desired=new Set(heldIds);for(const r of candidates){if(desired.size>=aczoK85River.maxActors&&!desired.has(r.id))continue;desired.add(r.id);}
+ const keep=[];for(const actor of fishActors){if(actor.k85Record&&desired.has(actor.k85Record.id))keep.push(actor);else aczoK85ParkActor(actor);}
+ fishActors.splice(0,fishActors.length,...keep);for(let i=0;i<fishActors.length;i++)fishActors[i].index=i;
+ const queue=candidates.filter(r=>desired.has(r.id)&&!r.actor);
+ rt.k43Population=queue.length?{queue,index:0,focus:center.clone(),preflight:!!options.preflight}:null;
+ const stats=rt.k43PopulationStats||(rt.k43PopulationStats={streams:0,relocated:0,maxSliceMs:0});stats.streams++;stats.protected=held.length;aczoK85River.stats.queued+=queue.length;
  return true;
 }
-function aczoK43StreamPopulation(rt){
- const position=camera.position;
- // During the above-water cast the camera is still travelling. Finish the
- // destination job instead of recentering it back onto the shore camera.
- const casting=(anglingMode&&anglingUsesArtificialLure()&&anglingState==='casting')||(rt.k43Population?.preflight&&anglingLureEntryTime>.055);
- const changed=aczoK42Section(position.x,position.y)!==rt.k42Section;
- const moved=Math.hypot(position.x-rt.center.x,position.y-rt.center.y)>20;
- if(!casting&&(changed||moved))aczoK43QueueRiverPopulation(rt,position);
- const pending=rt.k43Population;if(!pending)return;
- if(performance.now()<pending.retryAt)return;
- const started=performance.now();let count=0;
- const limit=pending.preflight?16:8,budget=pending.preflight?1.6:.8;
- while(pending.index<pending.queue.length&&count<limit&&(count===0||performance.now()-started<budget)){
-  const item=pending.queue[pending.index++];
-   if(!aczoK43PlaceStreamActor(rt,item,pending.schools)){item.actor.k43PendingPlacement=true;pending.retry.push(item);}
-  count++;
- }
- const stats=rt.k43PopulationStats;stats.relocated+=count;stats.maxSliceMs=Math.max(stats.maxSliceMs,performance.now()-started);
- if(pending.index>=pending.queue.length){
-  if(pending.retry.length){pending.queue=pending.retry;pending.retry=[];pending.index=0;pending.retryAt=performance.now()+250;}
-  else rt.k43Population=null;
- }
+function aczoK85ProcessPopulation(rt,all=false){
+ const job=rt.k43Population;if(!job)return;const start=performance.now(),limit=all?Infinity:job.preflight?16:8,budget=all?Infinity:job.preflight?1.6:.8;let count=0;
+ while(job.index<job.queue.length&&count<limit&&(count===0||performance.now()-start<budget)){aczoK85Activate(rt,job.queue[job.index++]);count++;}
+ rt.k43PopulationStats.relocated+=count;rt.k43PopulationStats.maxSliceMs=Math.max(rt.k43PopulationStats.maxSliceMs,performance.now()-start);
+ if(job.index>=job.queue.length)rt.k43Population=null;
 }
-
-// K51: a long cast needs the river population at its destination before the
-// underwater image opens. Reuse the same stock, species and individual slots.
+function aczoK43StreamPopulation(rt){
+ const casting=anglingMode&&anglingUsesArtificialLure()&&(anglingState==='casting'||rt.k43Population?.preflight&&anglingLureEntryTime>.055);
+ if(!casting)aczoK43QueueRiverPopulation(rt,camera.position);
+ aczoK85ProcessPopulation(rt);
+}
 function aczoK51PrimeLurePopulation(point){
- const rt=aczoMoselFishing;
- if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
- // Short casts need the same destination preparation as long casts.
+ const rt=aczoMoselFishing;if(!rt||!anglingMode||!anglingUsesArtificialLure()||fishGroup.visible)return;
  aczoK43QueueRiverPopulation(rt,point,{preflight:true});
- const job=rt.k43Population;
- clearTimeout(rt.k51PreflightTimer);
- // Short yielded slices also finish on low-frame-rate phones before impact;
- // no new loader or single long population rebuild is needed.
- const step=()=>{
-  rt.k51PreflightTimer=0;
-  if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;
-  aczoK43StreamPopulation(rt);
-  if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
- };
+ const job=rt.k43Population;clearTimeout(rt.k51PreflightTimer);if(!job)return;
+ const step=()=>{rt.k51PreflightTimer=0;if(aczoMoselFishing!==rt||rt.k43Population!==job||!anglingMode||anglingState!=='casting'||document.hidden)return;aczoK85ProcessPopulation(rt);if(rt.k43Population===job)rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);};
  rt.k51PreflightTimer=setTimeout(step,ACZO_MOBILE_PERF?12:8);
 }
+function aczoK42SwitchSection(rt,center){return aczoK43QueueRiverPopulation(rt,center);}
+function aczoK85Begin(rt,center){aczoK43QueueRiverPopulation(rt,center,{preflight:true,force:true});aczoK85ProcessPopulation(rt,true);}
+function aczoK85Release(rt){for(const f of fishActors)if(f.k85Record)aczoK85ParkActor(f);fishActors.length=0;rt.k43Population=null;}
+function aczoK85Report(){const rt=aczoMoselFishing;return {build:'K85',cellMeters:aczoK85River.cell,maxActors:aczoK85River.maxActors,active:rt?fishActors.length:0,focus:rt?.k85FocusKey||null,pending:rt?.k43Population?rt.k43Population.queue.length-rt.k43Population.index:0,...aczoK85River.stats,pool:[...aczoK85River.pool.values()].reduce((s,p)=>s+p.length,0)};}
 
-function aczoK42SwitchSection(rt,center){
- const next=aczoK42StockCenter(center);if(next.section===rt.k42Section)return false;
- rt.k42Section=next.section;rt.k42StockCenter=next.center;aczoK8hReset(center);
- const remaining=new Map(),old=fishActors.slice();
- for(const actor of old){const name=actor.obj.userData.species;if(!remaining.has(name))remaining.set(name,[]);remaining.get(name).push(actor);}
- const active=[];
- for(const p of aczoK8hVisualPlan(center)){
-  const list=remaining.get(p.species)||[];
-  for(let i=0;i<p.count;i++){
-   let actor=list.shift();
-   if(!actor){const before=fishActors.length;addFishPopulation(p.species,1);actor=fishActors[before];}
-   actor.obj.userData.hiddenByHunt=false;actor.obj.userData.huntRespawnAt=0;
-   aczoK42RegisterActor(actor,p.species,i);aczoMoselRandomFish(actor.obj.position,p.species);aczoMoselRandomFish(actor.target,p.species);
-   actor.schoolTarget=null;actor.schoolOffset=null;
-   if(p.schools){const group=Math.floor(i/Math.max(1,Math.ceil(p.count/p.schools)));actor.schoolTarget=active.find(f=>f.obj.userData.species===p.species&&f.obj.userData.k42School===group)?.schoolTarget||actor.target.clone();actor.schoolOffset=new THREE.Vector3((i%3-1)*.4,(i%2-.5)*.4,0);actor.obj.userData.k42School=group;}
-   if(ACZO_K42_FISH[p.species]){actor.obj.userData.baseFishWidth=aczoK42StockSize(p.species,i)/100;actor.obj.userData.baseFishHeight=actor.obj.userData.baseFishWidth*fishImageAspect[p.species];actor.obj.scale.set(actor.obj.userData.baseFishWidth,actor.obj.userData.baseFishHeight,1);aczoK8gPrepareActor(actor);}
-   actor.visualPitch=0;actor.visualDepthYaw=0;actor.swimHeading=NaN;actor.huntFleeUntil=0;actor.lureChaseUntil=0;actor.predatorBrain=null;actor.index=active.length;active.push(actor);
-  }
- }
- for(const list of remaining.values())for(const f of list)fishGroup.remove(f.obj);
- fishActors.splice(0,fishActors.length,...active);return true;
-}
 function aczoK42DrillJump(dt){
  const caught=anglingPendingCatch;if(!caught||!['rainbow_trout','smallmouth_bass'].includes(caught.species)||!anglingFishVisual.visible||anglingState!=='drilling')return;
  const p=caught.k42Jump||(caught.k42Jump={next:anglingStateTime+3+Math.random()*6,age:-1,count:0});
@@ -21033,7 +21068,7 @@ function randomDeadwoodFishPoint(name,out,options={}){
   return false;
 }
 function randomSpeciesPoint(name,out,options={}){
-  if(aczoMoselFishing)return aczoMoselRandomFish(out,name);
+  if(aczoMoselFishing)return aczoK85PointForVector(out,name)||aczoMoselRandomFish(out,name);
   if(randomDeadwoodFishPoint(name,out,options)) return out;
   const lowLight=aczoFishLowLightFactor();
   for(let i=0;i<450;i++){
@@ -39965,6 +40000,7 @@ function aczoMoselBankFrame(x,y){
  return best;
 }
 function aczoMoselRandomFish(out,name){
+ const homePoint=aczoK85PointForVector(out,name);if(homePoint)return homePoint;
  const habitatPoint=aczoK8hRiverPoint(out,name);if(habitatPoint)return habitatPoint;
  if(ACZO_K8G_NEW[name]){const point=aczoK8gRiverPoint(out,name);if(point)return point;}
  const rt=aczoMoselFishing;
@@ -40062,7 +40098,7 @@ function aczoK55ParkPondActors(rt){
 function aczoMoselFishingEnd(){
  const rt=aczoMoselFishing;if(!rt)return;aczoK34CancelMoselDetailRequest();
  clearTimeout(rt.k51PreflightTimer);
- cancelHuntEvent();
+ cancelHuntEvent();aczoK85Release(rt);
  for(const f of fishActors)fishGroup.remove(f.obj);
  fishActors.splice(0,fishActors.length,...rt.savedActors);
  for(const f of rt.savedActors){const parent=rt.k55ParkedActors?.get(f);if(parent&&!f.obj.parent)parent.add(f.obj);}
@@ -40084,7 +40120,7 @@ function aczoMoselFishingStart(shore,inward,mapCenter=null){
  const focus=fishEntryFocus,entryLength=fishEntryTargets.length;
  // Independent river population; the original pond fish retain their positions and state.
  mark=performance.now();
- aczoK8hReset(center);for(const p of aczoK8hVisualPlan(center))addFishPopulation(p.species,p.count,{schools:p.schools||0});
+ aczoK85Begin(rt,center);
  fishEntryTargets.length=entryLength;fishEntryFocus=focus;
  stages.fishPopulationMs=performance.now()-mark;mark=performance.now();
  let cacheKey='surface-only';rt.habitatPolicy=ACZO_K8E_HABITAT_POLICY;rt.habitats=[];
@@ -53599,6 +53635,7 @@ function aczoK79OptimizeRiverShaders(mat){
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
 aczoK84InstallUnderwaterGraphics();
+window.__aczoK85Report=aczoK85Report;
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
