@@ -9882,7 +9882,14 @@ function aczoK20SourceFoam(state,p,dt){
 }
 function aczoWaveSplat(array,x,y,radiusX,radiusY,strength,dirX=0,dirY=1){
  const g=aczoWaveGrid,w=g.w,h=g.h,dx=800/w,dy=830/h,cx=(x+500)/dx-.5,cy=(200-y)/dy-.5,R=Math.ceil(Math.max(radiusX,radiusY)*2.4/Math.min(dx,dy));
- const x0=Math.max(1,Math.floor(cx-R)),x1=Math.min(w-2,Math.ceil(cx+R)),y0=Math.max(1,Math.floor(cy-R)),y1=Math.min(h-2,Math.ceil(cy+R));
+ let x0=Math.max(1,Math.floor(cx-R)),x1=Math.min(w-2,Math.ceil(cx+R)),y0=Math.max(1,Math.floor(cy-R)),y1=Math.min(h-2,Math.ceil(cy+R));
+ // K88: visit the rotated ellipse's conservative bounding box, rather than
+ // the square of its longest radius. The original r2 test and arithmetic stay.
+ const norm2=dirX*dirX+dirY*dirY;
+ if(norm2>1e-12&&Number.isFinite(norm2)){
+  const bx=2.4*Math.hypot(dirX*radiusY,dirY*radiusX)/norm2/dx+1,by=2.4*Math.hypot(dirY*radiusY,dirX*radiusX)/norm2/dy+1;
+  x0=Math.max(x0,Math.floor(cx-bx));x1=Math.min(x1,Math.ceil(cx+bx));y0=Math.max(y0,Math.floor(cy-by));y1=Math.min(y1,Math.ceil(cy+by));
+ }
  for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){const q=j*w+i;if(!g.wet[q])continue;const xx=(i-cx)*dx,yy=-(j-cy)*dy,along=(xx*dirX+yy*dirY)/radiusY,across=(xx*dirY-yy*dirX)/radiusX,r2=along*along+across*across;if(r2<5.76)array[q]+=strength*Math.exp(-r2);}
 }
 // K75 PERFORMANCE: immutable ship wave profiles, originally rebuilt at 20 Hz.
@@ -9899,18 +9906,19 @@ const aczoShipABMode=(()=>{
  if(p.get('aczoPerf')!=='1')return '';
  const mode=p.get('aczoShipAB');return mode==='hideShip'||mode==='freezeWaves'?mode:'';
 })();
-function aczoStepWaveField(state,dt){
- const g=aczoWaveGrid,nb=g.neighbours,dx=800/g.w,invDx2=1/(dx*dx),type=state.type||0,calmFast=!fishMode;
+function aczoStepWaveField(state,dt,context=null){
+ const g=aczoWaveGrid,nb=g.neighbours,dx=800/g.w,invDx2=1/(dx*dx),type=state.type||0,calmFast=!(context?context.fishMode:fishMode);
+ const patrol=context?context.patrol:aczoK20PatrolWake,sprayGain=context?context.gain:aczoK23FishingSprayGain,emit=context?context.emit:aczoEmitBankSpray;
  const p=aczoWaveShipProfiles[type],speed=state.speed||0;
  g.wakeX=state.position.x;g.wakeY=state.position.y;g.wakeDirX=state.direction.x;g.wakeDirY=state.direction.y;g.wakeLength=state.length||p.length;
  // Pressure head enters the existing conservative wave operator as h+P.
  // Negative P produces a positive bow/stern crest; positive hull pressure a
  // drawdown alongside. Two wavelengths approximate primary/secondary waves.
  g.sourceBlend+=(Number(state.visible&&speed>.1)-g.sourceBlend)*(1-Math.exp(-dt/2.5));
- g.patrolSourceBlend=(g.patrolSourceBlend||0)+(Number(aczoK20PatrolWake.visible&&aczoK20PatrolWake.speed>.1)-(g.patrolSourceBlend||0))*(1-Math.exp(-dt/2.5));
+ g.patrolSourceBlend=(g.patrolSourceBlend||0)+(Number(patrol.visible&&patrol.speed>.1)-(g.patrolSourceBlend||0))*(1-Math.exp(-dt/2.5));
  for(let band=0;band<2;band++){
   const b=g.bands[band];b.pressure.fill(0);
-  aczoK20SourcePressure(b,state,p,g.sourceBlend,band);aczoK20SourcePressure(b,aczoK20PatrolWake,ACZO_K20_PATROL_WAVE_PROFILE,g.patrolSourceBlend,band);
+  aczoK20SourcePressure(b,state,p,g.sourceBlend,band);aczoK20SourcePressure(b,patrol,ACZO_K20_PATROL_WAVE_PROFILE,g.patrolSourceBlend,band);
   const ids=g.indices,nb=g.neighbours,hh=b.height,vv=b.velocity,pp=b.pressure,ww=b.weights,damping=g.damping,limits=g.limits,foam=g.foam;
   // K76: retain the exact Float64 h + pressure sum once per cell. Every
   // neighbour read below sees the same value; reuse one scratch field for both bands.
@@ -9936,7 +9944,7 @@ function aczoStepWaveField(state,dt){
  }
  // K73: both buffers have the same untouched dry cells; swap after diffusion.
  g.foam=g.nextFoam;g.nextFoam=foam;
- aczoK20SourceFoam(state,p,dt);aczoK20SourceFoam(aczoK20PatrolWake,ACZO_K20_PATROL_WAVE_PROFILE,dt);
+ aczoK20SourceFoam(state,p,dt);aczoK20SourceFoam(patrol,ACZO_K20_PATROL_WAVE_PROFILE,dt);
  // Short-lived impact foam is separate from the established propeller wash.
  // Flux ~ -eta_t * grad(eta) dotted with the dry-side normal distinguishes an
  // arriving wave from one leaving the bank; calm/reflected water is not a source.
@@ -9949,12 +9957,12 @@ function aczoStepWaveField(state,dt){
   const velocity=v0[i]+v1[i],incoming=Math.max(0,-velocity*(gx*nx+gy*ny));
   const impact=Math.max(0,Math.sqrt(incoming)-.012)*Math.min(1,Math.max(0,eta-.025)/.12);
   if(impact<=0)continue;bank[i]=Math.min(.55,bank[i]+impact*dt*8);
-   if(impact>.003&&nearEmitted<3&&g.impactCooldown[i]<=0){const x=-500+(i%g.w+.5)*800/g.w,y=200-(((i/g.w)|0)+.5)*830/g.h;if(aczoK23FishingSprayGain(x,y)>0){aczoEmitBankSpray(i,nx,ny,Math.min(1,Math.max(impact*4,bank[i]*2)),true);g.impactCooldown[i]=.4;nearEmitted++;}}
+   if(impact>.003&&nearEmitted<3&&g.impactCooldown[i]<=0){const x=-500+(i%g.w+.5)*800/g.w,y=200-(((i/g.w)|0)+.5)*830/g.h;if(sprayGain(x,y)>0){emit(i,nx,ny,Math.min(1,Math.max(impact*4,bank[i]*2)),true);g.impactCooldown[i]=.4;nearEmitted++;}}
  }
  // Round-robin selection prevents the scan order from favouring just one bank.
  for(let scan=0;scan<bankIds.length&&emitted<2;scan++){
   const at=(g.sprayCursor+scan)%bankIds.length,i=bankIds[at];if(bank[i]<.055||g.impactCooldown[i]>0)continue;
-  aczoEmitBankSpray(i,g.bankNormals[i*2],g.bankNormals[i*2+1],Math.min(1,bank[i]*2));g.impactCooldown[i]=.65;emitted++;g.sprayCursor=(at+1)%bankIds.length;
+  emit(i,g.bankNormals[i*2],g.bankNormals[i*2+1],Math.min(1,bank[i]*2));g.impactCooldown[i]=.65;emitted++;g.sprayCursor=(at+1)%bankIds.length;
  }
  g.steps++;
 }
@@ -10014,19 +10022,147 @@ function aczoUpdateWaveTexture(){
  }
  aczoK75UploadWaveRows(g,firstRow,lastRow);
 }
+// K88: persistent wave worker. The original 20 Hz solver and texture encoding
+// stay intact; only their owner changes. No reset or mode-dependent pause.
+function aczoK88WaveState(s){
+ return {type:s.type||0,speed:s.speed||0,visible:!!s.visible,length:s.length,
+  position:{x:s.position.x,y:s.position.y},direction:{x:s.direction.x,y:s.direction.y},
+  travel:s.travel||0,phase:s.phase||0,aczoK37Fade:s.aczoK37Fade};
+}
+function aczoK88WaveContext(record,emit){
+ return {fishMode:record.fishMode,patrol:record.patrol,emit,
+  gain:(x,y)=>record.near?1-THREE.MathUtils.smoothstep(Math.hypot(x-record.cameraX,y-record.cameraY),12,28):0};
+}
+function aczoK88WaveCheckpoint(g,id){
+ const fields=[g.bands[0].height,g.bands[1].height,g.bands[0].velocity,g.bands[1].velocity,g.foam,g.bankFoam,g.impactCooldown];
+ const data=new Float32Array(g.indices.length*fields.length);let at=0;
+ for(const field of fields)for(const i of g.indices)data[at++]=field[i];
+ return {id,data,sourceBlend:g.sourceBlend,patrolSourceBlend:g.patrolSourceBlend||0,
+  sprayCursor:g.sprayCursor,steps:g.steps,wakeX:g.wakeX,wakeY:g.wakeY,
+  wakeDirX:g.wakeDirX,wakeDirY:g.wakeDirY,wakeLength:g.wakeLength};
+}
+function aczoK88WaveRestore(g,checkpoint){
+ const fields=[g.bands[0].height,g.bands[1].height,g.bands[0].velocity,g.bands[1].velocity,g.foam,g.bankFoam,g.impactCooldown];let at=0;
+ for(const field of fields)for(const i of g.indices)field[i]=checkpoint.data[at++];
+ for(const key of ['sourceBlend','patrolSourceBlend','sprayCursor','steps','wakeX','wakeY','wakeDirX','wakeDirY','wakeLength'])g[key]=checkpoint[key];
+}
+function aczoK88WaveWorkerBoot(){
+ let checkpointId=0;
+ self.onmessage=event=>{
+  const m=event.data;
+  try{
+   if(m.type==='init'){aczoWaveGrid=m.grid;self.postMessage({type:'ready'});return;}
+   if(m.type!=='step')return;
+   const events=[];let solveMs=0,id=0;
+   for(const record of m.records){
+    fishMode=record.fishMode;
+    const emit=(cell,nx,ny,strength,emphasis=false)=>events.push([cell,nx,ny,strength,emphasis,aczoWaveGrid.bands[0].height[cell]+aczoWaveGrid.bands[1].height[cell]]);
+    const start=performance.now();
+    aczoStepWaveField(record.state,.05,aczoK88WaveContext(record,emit));
+    solveMs+=performance.now()-start;id=record.id;
+   }
+   const start=performance.now();aczoUpdateWaveTexture();const encodeMs=performance.now()-start;
+   const pixels=m.pixels||new Uint8Array(aczoWaveGrid.pixels.length);pixels.set(aczoWaveGrid.pixels);
+   const result={type:'result',id,pixels,events,solveMs,encodeMs,count:m.records.length,steps:aczoWaveGrid.steps,firstRow:aczoWaveGrid.firstRow,lastRow:aczoWaveGrid.lastRow};
+   const transfers=[pixels.buffer];
+   // A compact exact recovery point, once per simulated second. No state
+   // arrays are detached from the solver and no unbounded cast history grows.
+   if(id-checkpointId>=20){result.checkpoint=aczoK88WaveCheckpoint(aczoWaveGrid,id);checkpointId=id;transfers.push(result.checkpoint.data.buffer);}
+   self.postMessage(result,transfers);
+  }catch(error){self.postMessage({type:'error',message:String(error?.message||error)});}
+ };
+}
+function aczoK88WaveWorkerSource(){
+ const functions=[aczoWaveSplat,aczoK20SourcePressure,aczoK20SourceFoam,aczoStepWaveField,aczoUpdateWaveTexture,aczoK88WaveContext,aczoK88WaveCheckpoint,aczoK88WaveWorkerBoot];
+ return "'use strict';let aczoWaveGrid,fishMode=false;const THREE={MathUtils:{clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),smoothstep:(x,a,b)=>{if(x<=a)return 0;if(x>=b)return 1;x=(x-a)/(b-a);return x*x*(3-2*x);}}};\n"
+  +'const aczoWaveShipProfiles='+JSON.stringify(aczoWaveShipProfiles)+';const ACZO_K20_PATROL_WAVE_PROFILE='+JSON.stringify(ACZO_K20_PATROL_WAVE_PROFILE)+';\n'
+  +'function aczoK75UploadWaveRows(g,firstRow,lastRow){g.firstRow=firstRow;g.lastRow=lastRow;}\n'
+  +functions.map(fn=>fn.toString()).join('\n')+'\naczoK88WaveWorkerBoot();';
+}
+function aczoK88WaveGridCopy(g){
+ const copy={};
+ for(const key of ['w','h','n','wet','depth','shore','damping','limits','indices','neighbours','bands','foam','nextFoam','renderHeight','wakeX','wakeY','wakeDirX','wakeDirY','wakeLength','sampleXY','bankFoam','impactCooldown','bankIndices','bankNormals','sourceBlend','patrolSourceBlend','sprayCursor','pixels','steps'])copy[key]=g[key];
+ return copy;
+}
+function aczoK88StartWaveWorker(g){
+ const rt={mode:'starting',worker:null,url:null,pending:[],history:[],serial:0,applied:0,inflight:false,sentAt:0,buffer:null,checkpoint:null,
+  stats:{mode:'starting',batches:0,steps:0,pending:0,recoveries:0,reason:null,solveMs:0,encodeMs:0}};
+ g.k88Worker=rt;
+ rt.checkpoint=aczoK88WaveCheckpoint(g,0);
+ function release(){if(rt.url){URL.revokeObjectURL(rt.url);rt.url=null;}}
+ function fail(reason){
+  if(rt.mode==='fallback')return;
+  rt.mode=rt.stats.mode='fallback';rt.stats.reason=reason;rt.worker?.terminate();rt.worker=null;release();
+  // Recover from the exact last checkpoint and replay only the bounded tail.
+  // The output already shown is not emitted a second time as bank spray.
+  if(rt.checkpoint)aczoK88WaveRestore(g,rt.checkpoint);
+  for(const record of rt.history){
+   const emit=record.id>rt.applied?aczoEmitBankSpray:()=>{};
+   aczoStepWaveField(record.state,.05,aczoK88WaveContext(record,emit));
+  }
+  if(rt.history.length){aczoUpdateWaveTexture();rt.stats.recoveries++;}
+  rt.pending.length=rt.history.length=0;rt.checkpoint=null;rt.buffer=null;rt.inflight=false;rt.stats.pending=0;
+ }
+ rt.fail=fail;
+ try{
+  if(typeof Worker!=='function')throw Error('Worker unavailable');
+  rt.url=URL.createObjectURL(new Blob([aczoK88WaveWorkerSource()],{type:'text/javascript'}));
+  rt.worker=new Worker(rt.url);
+  rt.worker.onerror=event=>{event.preventDefault?.();fail('Worker error');};
+  rt.worker.onmessageerror=()=>fail('Worker message error');
+  rt.worker.onmessage=event=>{
+   if(rt.mode==='fallback')return;
+   const m=event.data;
+   if(m.type==='ready'){release();rt.mode=rt.stats.mode='worker';rt.inflight=false;aczoK88DispatchWaveWorker(rt);return;}
+   if(m.type==='error'){fail('Wave computation error');return;}
+   if(m.type!=='result')return;
+   const start=performance.now();
+   g.pixels.set(m.pixels);g.steps=m.steps;
+   aczoK75UploadWaveRows(g,m.firstRow,m.lastRow);
+   for(const args of m.events)aczoEmitBankSpray(...args);
+   rt.applied=m.id;rt.buffer=m.pixels;rt.inflight=false;
+   if(m.checkpoint){rt.checkpoint=m.checkpoint;rt.history=rt.history.filter(record=>record.id>m.checkpoint.id);}
+   rt.stats.batches++;rt.stats.steps=m.steps;rt.stats.solveMs=m.solveMs;rt.stats.encodeMs=m.encodeMs;
+   const perf=window.__aczoPerfTest;
+   if(perf?.enabled){perf.add('waveWorkerSolve',m.solveMs/m.count);perf.add('waveWorkerEncode',m.encodeMs);perf.add('waveReceive',performance.now()-start);}
+   aczoK88DispatchWaveWorker(rt);
+  };
+  rt.inflight=true;rt.sentAt=performance.now();rt.worker.postMessage({type:'init',grid:aczoK88WaveGridCopy(g)});
+ }catch(error){fail('Worker unavailable');}
+ return rt;
+}
+function aczoK88DispatchWaveWorker(rt){
+ if(rt.mode!=='worker'||rt.inflight||!rt.pending.length)return;
+ const records=rt.pending.splice(0,4),pixels=rt.buffer;rt.buffer=null;
+ rt.inflight=true;rt.sentAt=performance.now();rt.stats.pending=rt.pending.length;
+ try{rt.worker.postMessage({type:'step',records,pixels},pixels?[pixels.buffer]:[]);}
+ catch(error){rt.fail('Worker transfer error');}
+}
+function aczoK88QueueWaveStep(g,state){
+ const rt=g.k88Worker||(aczoK88StartWaveWorker(g));
+ if(rt.mode==='fallback')return false;
+ const record={id:++rt.serial,state:aczoK88WaveState(state),patrol:aczoK88WaveState(aczoK20PatrolWake),fishMode:!!fishMode,
+  near:!!(anglingMode&&!is2D&&!fishMode&&anglingCinematicView==='shore'&&!anglingCameraTransition&&anglingSelection?.waterBody==='mosel'&&waterSurface.visible&&moselWaterSurface.visible),
+  cameraX:camera.position.x,cameraY:camera.position.y};
+ rt.pending.push(record);rt.history.push(record);rt.stats.pending=rt.pending.length;
+ aczoK88DispatchWaveWorker(rt);return true;
+}
+
 function updateAczoMoselWaves(now,state){
  const perf=window.__aczoPerfTest,t=perf?.enabled?performance.now():0;
  const g=aczoWaveGrid;if(!g.lastTime){g.lastTime=now;return;}const elapsed=now-g.lastTime;g.lastTime=now;aczoUpdateBankSpray(Math.min(.16,Math.max(0,elapsed)));if(!waterSurface.visible)return;
  // Pure A/B diagnosis, never active in the production path.
  if(aczoShipABMode==='freezeWaves'){g.accumulator=0;return;}
+ const worker=g.k88Worker;if(worker&&worker.mode!=='fallback'&&worker.inflight&&performance.now()-worker.sentAt>1500)worker.fail('Worker response timeout');
  g.accumulator+=Math.min(.16,Math.max(0,elapsed));let count=0;
  while(g.accumulator>=.05&&count<4){
   const solveStart=t?performance.now():0;
-  aczoStepWaveField(state,.05);
-  if(t)perf.add('waveSolve',performance.now()-solveStart);
+  const queued=aczoK88QueueWaveStep(g,state);
+  if(!queued)aczoStepWaveField(state,.05);
+  if(t)perf.add(queued?'waveSubmit':'waveSolve',performance.now()-solveStart);
   g.accumulator-=.05;count++;
  }
- if(count){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
+ if(count&&g.k88Worker?.mode==='fallback'){const encodeStart=t?performance.now():0;aczoUpdateWaveTexture();if(t)perf.add('waveEncode',performance.now()-encodeStart);}
  if(t)perf.add('waves',performance.now()-t);
 }
 // Retain the original vertices, triangles, interpolation and world transform.
@@ -10693,7 +10829,7 @@ function aczoK23FishingSprayGain(x,y){
   ||anglingSelection?.waterBody!=='mosel'||!waterSurface.visible||!moselWaterSurface.visible)return 0;
  return 1-THREE.MathUtils.smoothstep(Math.hypot(x-camera.position.x,y-camera.position.y),12,28);
 }
-function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){
+function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false,waveHeight=null){
  const g=aczoWaveGrid,x=-500+(cell%g.w+.5)*800/g.w,y=200-(((cell/g.w)|0)+.5)*830/g.h;
  let px=x,py=y;
  // Only real river water can emit; stop at the last dry/wet half-metre boundary.
@@ -10702,7 +10838,7 @@ function aczoEmitBankSpray(cell,nx,ny,strength,emphasis=false){
  const boost=emphasis&&aczoK23FishingSprayGain(px,py)>0;
  for(let drop=0;drop<(boost?8:1);drop++){
  const p=aczoBankSprayData,i=p.cursor;p.cursor=(i+1)%aczoBankSprayCapacity;const k=i*3,seed=++p.serial,random=n=>{const q=Math.sin(seed*127.1+n*311.7)*43758.5453;return q-Math.floor(q);};
- p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,g.bands[0].height[cell]+g.bands[1].height[cell])*.35;
+ p.position[k]=px;p.position[k+1]=py;p.position[k+2]=ACZO_MOSEL_SURFACE_Z+.02+Math.max(0,waveHeight===null?g.bands[0].height[cell]+g.bands[1].height[cell]:waveHeight)*.35;
  const side=(random(1)-.5)*.65;p.velocity[k]=nx*(.18+strength*.36)-ny*side;p.velocity[k+1]=ny*(.18+strength*.36)+nx*side;p.velocity[k+2]=boost?2.35+strength*2.0+random(2)*.65:1.15+strength*1.05+random(2)*.25;
  p.age[i]=0;p.life[i]=boost?.65+random(3)*.30:.34+random(3)*.22;p.alpha[i]=.35+strength*.25;p.size[i]=(.045+random(4)*.065)*(boost?1.35:1);p.emphasis[i]=boost?1:0;
  }
@@ -53772,13 +53908,13 @@ const aczoPerfTest=(()=>{
  let panel=null,lastPaint=0,lastFrame=0,frames=0,frameElapsed=0;
  const add=(name,ms)=>{if(!enabled)return;let a=samples[name];if(!a)a=samples[name]=[];a.push(ms);if(a.length>180)a.shift();};
  const timed=(name,fn)=>{if(!enabled)return fn();const t=performance.now();try{return fn();}finally{add(name,performance.now()-t);}};
- const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,shipAB:aczoShipABMode,renderScale:aczoRenderReserve.scale,renderPixelRatio:renderer.getPixelRatio(),riverFish:aczoK87Report(),waveUploads:aczoWaveGrid.uploadStats?{...aczoWaveGrid.uploadStats}:null,waveCells:aczoWaveGrid.indices.length,foamCache:aczoK77WakeCache?{...aczoK77WakeCache.stats}:null,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
+ const report=()=>{const result={time:new Date().toISOString(),mode:typeof anglingCinematicView==='string'?anglingCinematicView:'map',shipDistance:null,shipAB:aczoShipABMode,renderScale:aczoRenderReserve.scale,renderPixelRatio:renderer.getPixelRatio(),riverFish:aczoK87Report(),waveUploads:aczoWaveGrid.uploadStats?{...aczoWaveGrid.uploadStats}:null,waveCells:aczoWaveGrid.indices.length,waveWorker:aczoWaveGrid.k88Worker?{...aczoWaveGrid.k88Worker.stats}:null,foamCache:aczoK77WakeCache?{...aczoK77WakeCache.stats}:null,frames,frameFps:frames?Math.round(1000*frames/Math.max(1,frameElapsed)*10)/10:0,sections:{},startup:window.__aczoBootAudit?.snapshot?.()||null,preparation:window.__aczoTransitionPrep?.snapshot?.()||null};
   for(const [key,a]of Object.entries(samples)){const sorted=[...a].sort((x,y)=>x-y),sum=a.reduce((x,y)=>x+y,0);result.sections[key]={samples:a.length,meanMs:+(sum/a.length).toFixed(2),p95Ms:+sorted[Math.floor((sorted.length-1)*.95)].toFixed(2),maxMs:+sorted[sorted.length-1].toFixed(2)};}return result;};
  const frame=t=>{if(!enabled)return;frames++;if(lastFrame){const elapsed=Math.max(0,t-lastFrame);frameElapsed+=elapsed;add('frameGap',elapsed);}lastFrame=t;
  if(t-lastPaint<1000)return;lastPaint=t;if(!panel){panel=document.createElement('div');panel.id='aczoPerfDiagnostic';Object.assign(panel.style,{position:'fixed',left:'6px',bottom:'6px',zIndex:'2147483000',pointerEvents:'none',font:'11px monospace',padding:'7px',background:'rgba(0,0,0,.78)',color:'#fff',borderRadius:'6px',whiteSpace:'pre',maxWidth:'calc(100vw - 12px)'});document.body.appendChild(panel);}
  const r=report(),round=k=>r.sections[k]?.meanMs??0;
  let shipDistance='–';try{const ship=aczoMoselShipCache?.get(aczoMoselActiveSlot%4);if(ship?.visible)shipDistance=Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y).toFixed(0)+' m';}catch(e){}
- panel.textContent='ACZO LEISTUNGSANALYSE V.4.1\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
+ panel.textContent='ACZO LEISTUNGSANALYSE V.4.1\nFPS ~'+(r.sections.frameGap?.meanMs?Math.min(120,1000/r.sections.frameGap.meanMs).toFixed(1):'–')+' | Zustand '+r.mode+'\nHauptbild '+round('main')+' ms | Köderfenster '+round('lureInset')+' ms\nSchiff+Wellen '+round('traffic')+' ms | Wellen allein '+round('waves')+' ms\nSchiffabstand '+shipDistance+' | Frames '+frames+'\nWellenphysik '+round('waveSolve')+' ms/Step | Textur '+round('waveEncode')+' ms\nWellen: '+(r.waveWorker?.mode||'Start')+' | Worker '+round('waveWorkerSolve')+' ms/Step | Übergabe '+round('waveReceive')+' ms\nA/B: '+(aczoShipABMode||'normal')+'\nBericht: __aczoPerfTest.report()';
  };
  return {enabled,add,timed,frame,report,samples};
 })();
