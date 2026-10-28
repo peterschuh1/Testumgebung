@@ -9481,16 +9481,6 @@ function aczoBuildCleanWaterGeometry(){
   g.setIndex(ind);
   return g;
 }
-// K90: shared smooth light profile, 4 KiB, no render target or frame updates.
-let aczoK90LightProfile=null;
-function aczoK90LightProfileTexture(){
- if(aczoK90LightProfile)return aczoK90LightProfile;
- const data=new Uint8Array(1024*4);
- for(let i=0;i<1024;i++){const value=Math.round(Math.exp(-24*i/1023)*65535),k=i*4;data[k]=value>>>8;data[k+1]=value&255;data[k+3]=255;}
- const texture=new THREE.DataTexture(data,1024,1,THREE.RGBAFormat,THREE.UnsignedByteType);
- texture.minFilter=texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.flipY=false;texture.needsUpdate=true;
- return aczoK90LightProfile=texture;
-}
 function makeDirectCelestialReflectionMaterial(color){
   return new THREE.ShaderMaterial({
     transparent:true,
@@ -9500,7 +9490,6 @@ function makeDirectCelestialReflectionMaterial(color){
     blending:THREE.AdditiveBlending,
     fog:false,
     uniforms:{
-      aczoK90Profile:{value:aczoK90LightProfileTexture()},
       boatHullMask:waterUniforms.boatHullMask,
       boatHullActive:waterUniforms.boatHullActive,
       time:waterUniforms.time,
@@ -9531,12 +9520,6 @@ function makeDirectCelestialReflectionMaterial(color){
     `,
     fragmentShader:`
       ${aczoBoatWaterMaskGLSL}
-      uniform sampler2D aczoK90Profile;
-      float aczoK90Falloff(float x){
-        if(x>=24.)return 0.;
-        vec2 profileSample=texture2D(aczoK90Profile,vec2((clamp(x,0.,24.)*(1023./24.)+.5)/1024.,.5)).rg;
-        return dot(profileSample,vec2(256./257.,1./257.));
-      }
       uniform float time;
       uniform vec2 anchor;
       uniform vec2 trailDir;
@@ -9576,14 +9559,14 @@ function makeDirectCelestialReflectionMaterial(color){
         // Ein kompakter Innenkern sorgt fuer den ansatzweise runden Sonnen-/
         // Mondkreis, ein weicher Aussenkern verhindert den Aufkleber-Look.
         float r=length(rel)/max(.05,coreRadius);
-        float innerCore=aczoK90Falloff(r*r*6.0);
-        float core=aczoK90Falloff(r*r*1.72);
-        float halo=aczoK90Falloff(r*r*.62)*.12;
+        float innerCore=exp(-r*r*6.0);
+        float core=exp(-r*r*1.72);
+        float halo=exp(-r*r*.62)*.12;
 
         // Vom Lichtpunkt in Richtung Betrachter auffaechernde Spiegelbahn.
         float u=clamp(along/max(.10,trailLength),0.0,1.0);
         float width=mix(coreRadius*.38,trailWidth,u);
-        float crossMask=aczoK90Falloff((across/max(.05,width))*(across/max(.05,width))*2.35);
+        float crossMask=exp(-pow(across/max(.05,width),2.0)*2.35);
         float alongMask=smoothstep(-.06,.30,along)
           *(1.0-smoothstep(trailLength*.74,trailLength,along));
 
@@ -10550,7 +10533,7 @@ function aczoInstallMoselSurfaceShadow(mat){
   clip(shader);Object.assign(shader.uniforms,moselWaterUniforms,aczoShipWakeUniforms);
   const vertex=moselWaterMat.vertexShader,begin=vertex.indexOf('     vec3 p=position;'),end=vertex.indexOf('     // Näherungs-Normale',begin);
   let deformation=vertex.slice(begin,end).replace('vec3 p=position;','vec3 p=transformed;');
-  shader.vertexShader='uniform float aczoMoselBrown,aczoMoselFlowClock;'+aczoK20FloodGLSL+aczoK89VertexWaveGLSL()+'uniform float time;uniform float windStrength;uniform vec2 cloudWindDir;uniform float anglingView;attribute float shoreDist;\n'+shader.vertexShader;
+  shader.vertexShader='uniform float aczoMoselBrown,aczoMoselFlowClock;'+aczoK20FloodGLSL+aczoShipWakeGLSL+'uniform float time;uniform float windStrength;uniform vec2 cloudWindDir;uniform float anglingView;attribute float shoreDist;\n'+shader.vertexShader;
   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+deformation+'\nvec4 shadowWake=aczoShipWaves(p.xy,shoreDist);p.z+=shadowWake.x+aczoK12FloodLift(p.xy)*smoothstep(1.,3.4,shoreDist)*(p.x>-145.&&p.x<85.&&p.y<p.x*.80-341.&&p.y>p.x*.80-390.?.04:1.);transformed=p;');
   shader.fragmentShader=shader.fragmentShader.replace('opacity * ( 1.0 - getShadowMask() )','opacity * ( 1.0 - getShadowMask() ) * aczoShadowFrustumFade() * aczoK37ObjectShadowEdge()');
   shader.uniforms.aczoK37ShadowEdgeEnabled=aczoK37ShadowEdgeEnabled;
