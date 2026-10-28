@@ -19124,6 +19124,7 @@ await window.__aczoSafeStart.yield();
         minX=Math.min(minX,item.p.x-r);minY=Math.min(minY,item.p.y-r);minZ=Math.min(minZ,item.p.z-r);
         maxX=Math.max(maxX,item.p.x+r);maxY=Math.max(maxY,item.p.y+r);maxZ=Math.max(maxZ,item.p.z+r);
       }})());
+      mesh.userData.aczoVisualBounds=new THREE.Box3(new THREE.Vector3(minX,minY,minZ),new THREE.Vector3(maxX,maxY,maxZ));
       mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;
       mesh.name=name+'_'+key+(spatial.size>1?'_SECTOR_'+(++ci):'');
       mesh.castShadow=cast;mesh.receiveShadow=receive;
@@ -19810,8 +19811,31 @@ function updateAczoSurveyedNatureSeason(day){
   }
   aczoSurveyedNatureGroup.visible=!is2D;requestViewerShadowUpdate();
 }
+// K94: the close lure target is not a measure of distance to the forest.
+// Scope visual leaf detail to the actual camera(s), preserving shadow casters.
+let aczoK94NatureLodActive=false;
+const aczoK94NatureBounds=new WeakMap();
+function aczoK94UseLocalNatureLod(){
+ return !!(aczoMoselFishing&&anglingMode&&!fishMode&&anglingUsesArtificialLure()
+  &&anglingCinematicView==='underwater'&&!anglingCameraTransition&&!anglingHallOfFameActive
+  &&!anglingState.includes('flight')&&!window.__aczoTransitionPrep?.working);
+}
+function aczoK94NatureDistance(mesh){
+ const local=mesh.userData.aczoVisualBounds;if(!local||mesh.castShadow)return null;
+ let state=aczoK94NatureBounds.get(mesh);
+ if(!state){state={world:new THREE.Box3(),matrix:new Float64Array(16),ready:false};aczoK94NatureBounds.set(mesh,state);}
+ mesh.updateWorldMatrix(true,false);const matrix=mesh.matrixWorld.elements;let changed=!state.ready;
+ for(let i=0;!changed&&i<16;i++)if(state.matrix[i]!==matrix[i])changed=true;
+ if(changed){state.matrix.set(matrix);state.world.copy(local).applyMatrix4(mesh.matrixWorld).expandByScalar(2);state.ready=true;}
+ let distance=state.world.distanceToPoint(camera.position);
+ // Keep full detail if either underwater camera is close to this group.
+ if(anglingLureFollowerReady)distance=Math.min(distance,state.world.distanceToPoint(anglingLureFollowerCamera.position));
+ return distance;
+}
+
 function updateAczoSurveyForestLod(){
-  const now=performance.now(),seasonChanged=aczoSurveyLodSeason!==aczoSurveySeasonKey;if(now<aczoSurveyLastLodAt&&!seasonChanged)return;aczoSurveyLastLodAt=now+180;aczoSurveyLodSeason=aczoSurveySeasonKey;
+  const localLod=aczoK94UseLocalNatureLod(),modeChanged=localLod!==aczoK94NatureLodActive;
+  const now=performance.now(),seasonChanged=aczoSurveyLodSeason!==aczoSurveySeasonKey;if(now<aczoSurveyLastLodAt&&!seasonChanged&&!modeChanged)return;aczoSurveyLastLodAt=now+180;aczoSurveyLodSeason=aczoSurveySeasonKey;aczoK94NatureLodActive=localLod;
   const dist=Math.max(0,camera.position.distanceTo(controls.target));
   // P5 unveraendert: Die feinsten Einzelblaetter verschwinden in der Ferne.
   let leafFactor=1;
@@ -19829,16 +19853,21 @@ function updateAczoSurveyForestLod(){
   const sprayFactor=dist<=58
     ?1
     :THREE.MathUtils.lerp(1,sprayFarFactor,THREE.MathUtils.smoothstep(dist,58,125));
-  const key=Math.round(leafFactor*20)+'|s'+Math.round(sprayFactor*20)+'|'+(is2D?'2':'3')+'|'+aczoSurveySeasonKey;
+  const localKey=localLod?[Math.round(camera.position.x),Math.round(camera.position.y),Math.round(camera.position.z),anglingLureFollowerReady?anglingLureFollowerCamera.position.toArray().map(Math.round).join(','):'',aczoSurveyFineLodMeshes.length,aczoSurveySprayLodMeshes.length].join('|'):'normal';
+  const key=Math.round(leafFactor*20)+'|s'+Math.round(sprayFactor*20)+'|'+(is2D?'2':'3')+'|'+aczoSurveySeasonKey+'|'+localKey;
   if(key===aczoSurveyLastLodKey)return;aczoSurveyLastLodKey=key;
   for(const mesh of aczoSurveyFineLodMeshes){
     const max=mesh.userData.seasonCount??mesh.userData.maxCount??0;
-    mesh.count=is2D?0:Math.max(0,Math.round(max*leafFactor));
+    const groupDistance=localLod?aczoK94NatureDistance(mesh):null;
+    const factor=groupDistance===null?leafFactor:1-THREE.MathUtils.smoothstep(groupDistance,42,60);
+    mesh.count=is2D?0:Math.max(0,Math.round(max*factor));
     mesh.visible=!is2D&&mesh.count>0;
   }
   for(const mesh of aczoSurveySprayLodMeshes){
     const max=mesh.userData.seasonCount??mesh.userData.maxCount??0;
-    mesh.count=is2D?0:Math.max(0,Math.round(max*sprayFactor));
+    const groupDistance=localLod?aczoK94NatureDistance(mesh):null;
+    const factor=groupDistance===null?sprayFactor:THREE.MathUtils.lerp(1,sprayFarFactor,THREE.MathUtils.smoothstep(groupDistance,58,125));
+    mesh.count=is2D?0:Math.max(0,Math.round(max*factor));
     mesh.visible=!is2D&&mesh.count>0;
   }
 }
@@ -43148,6 +43177,8 @@ function aczoK56RenderRiverScene(cam,reuseWorld=false){
 }
 
 function aczoRenderMainView(){
+  // Restore original foliage counts before any flight, HoF or other view draw.
+  if(aczoK94NatureLodActive&&!aczoK94UseLocalNatureLod())updateAczoSurveyForestLod();
   aczoK89WaterUniforms.aczoK89WaterLite.value=fishMode?0:1;
   // Patrol and angling state finish after traffic; apply their final camera/state before this draw.
   aczoK34UpdateRoadBeaconLighting(simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0);
@@ -54047,13 +54078,28 @@ function aczoK79OptimizeRiverShaders(mat){
  mat.vertexShader=v;mat.fragmentShader=f;mat.needsUpdate=true;
 }
 
-// D2: bounded runtime measurements with per-pass native draw accounting.
+// D3: native draw accounting; distance-correct leaf detail in Mosel lure view.
 const aczoRuntimeDiagnostics=(()=>{
  const rows=[],starts=new Map(),limit=900,origin=performance.now();
  const sums={fish:0,traffic:0,render:0,inset:0};
  const categories=['shadow','water','fish','nature','bed','other'],draws={};
  for(const pass of ['main','inset','background'])draws[pass]=Object.fromEntries(categories.map(k=>[k,{calls:0,triangles:0}]));
  let activePass='',rafCount=0,lastRaf=0,maxRafGap=0;
+ const lightLayouts={main:null,inset:null,background:null};
+ const lightKeys=['numDirLights','numPointLights','numSpotLights','numHemiLights','numDirLightShadows','numPointLightShadows','numSpotLightShadows'];
+ if(typeof renderer.aczoNormalizeUnlitParameters==='function'){
+  const native=renderer.aczoNormalizeUnlitParameters;
+  renderer.aczoNormalizeUnlitParameters=function(material,parameters){
+   const result=native.call(this,material,parameters);
+   if(material.isMeshLambertMaterial||material.isMeshPhongMaterial||material.isMeshStandardMaterial){
+    const pass=activePass||'background',keys=lightKeys;
+    const last=lightLayouts[pass];let changed=!last;
+    for(let i=0;!changed&&i<keys.length;i++)if(last[keys[i]]!==parameters[keys[i]])changed=true;
+    if(changed){const next={at:round((performance.now()-origin)/1000)};for(const key of keys)next[key]=parameters[key];lightLayouts[pass]=next;}
+   }
+   return result;
+  };
+ }
  const objectKinds=new WeakMap();
  function kind(object,material){
   if(material?.isMeshDepthMaterial||material?.isMeshDistanceMaterial||material?.isShadowMaterial)return 'shadow';
@@ -54104,6 +54150,8 @@ const aczoRuntimeDiagnostics=(()=>{
    waveFallback:worker?.stats?.reason||null,lureTiles:fish.lureCache?.tiles??0,lureEvictions:fish.lureCache?.evictions??0};
   row.rafFps=round(rafCount*1000/elapsed);row.maxRafGapMs=round(maxRafGap);
   row.crossSpeciesReused=fish.stats.crossSpeciesReused||0;
+  row.cameraZ=round(camera.position.z);row.litLayouts={...lightLayouts};
+  row.fog={type:scene.fog?.isFogExp2?'Exp2':scene.fog?.isFog?'Linear':'none',density:round(scene.fog?.density,3),underwater:round(waterUniforms.underwaterView.value,2)};
   row.draws={};for(const [pass,groups]of Object.entries(draws)){row.draws[pass]={};for(const [group,data]of Object.entries(groups))if(data.calls)row.draws[pass][group]={calls:round(data.calls/frames),triangles:round(data.triangles/frames,0)};}
   const programTypes=Object.create(null);for(const p of renderer.info.programs||[]){if(!p)continue;const name=p.name||'unbenannt';programTypes[name]=(programTypes[name]||0)+1;}row.programTypes=programTypes;
   rows.push(row);if(rows.length>limit)rows.shift();
@@ -54125,7 +54173,7 @@ const aczoRuntimeDiagnostics=(()=>{
   +' | Geometrien/Texturen/Programme '+average(a,'geometries')+'/'+average(a,'textures')+'/'+average(a,'programs')
   +' | JS-Speicher '+average(a,'heapMB')+' MB';}
  function report(){
-  const lines=['ACZO Laufzeitmessung D2 — Modellreserve wiederverwendet','Keine automatische Ursachenzuordnung. Zeiten messen JavaScript/Treiber, keine direkte GPU-Zeit.','draws: pro Spielbild aufsummierte native Aufrufe/Dreiecke für Hauptbild, Köderfenster und Hintergrund; nach Objektart getrennt. callsLastPass bleibt nur der letzte Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
+  const lines=['ACZO Laufzeitmessung D3 — Wald-Detail nach tatsächlicher Entfernung','Keine automatische Ursachenzuordnung. Zeiten messen JavaScript/Treiber, keine direkte GPU-Zeit.','draws: pro Spielbild aufsummierte native Aufrufe/Dreiecke für Hauptbild, Köderfenster und Hintergrund; nach Objektart getrennt. callsLastPass bleibt nur der letzte Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
   if(diagnosticError)lines.push('Messfehler: '+diagnosticError);
   for(const [key,first]of starts){const recent=rows.filter(r=>r.water+' / '+r.view===key).slice(-15);lines.push('\n'+key+' — Anfang ('+first[0].s+' s): '+summary(first),'Zuletzt ('+(recent.at(-1)?.s??'?')+' s): '+summary(recent));}
   lines.push('\nLetzte Messpunkte als JSON (maximal 20):',JSON.stringify(rows.slice(-20)));
