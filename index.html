@@ -10442,15 +10442,59 @@ const aczoK77WakeFoamGLSL=`
 `;
 
 
+// K89: one small RGBA8 lookup shared by every Mosel view. Packed corners
+// retain smooth cubic noise without per-fragment hash/sine noise generation.
+const aczoK89WaterUniforms={aczoK89WaterLite:{value:1},aczoK89FoamNoise:{value:null}};
+function aczoK89CreateFoamTexture(){
+ if(aczoK89WaterUniforms.aczoK89FoamNoise.value)return aczoK89WaterUniforms.aczoK89FoamNoise.value;
+ const size=256,values=new Uint8Array(size*size),pixels=new Uint8Array(size*size*4);
+ let seed=0x4d4f5345;
+ for(let i=0;i<values.length;i++){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;values[i]=(seed>>>24)&255;}
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const k=(y*size+x)*4,x1=(x+1)&255,y1=(y+1)&255;
+  pixels[k]=values[y*size+x];pixels[k+1]=values[y*size+x1];pixels[k+2]=values[y1*size+x];pixels[k+3]=values[y1*size+x1];
+ }
+ const texture=new THREE.DataTexture(pixels,size,size,THREE.RGBAFormat,THREE.UnsignedByteType);
+ texture.minFilter=texture.magFilter=THREE.NearestFilter;texture.generateMipmaps=false;texture.flipY=false;texture.needsUpdate=true;
+ aczoK89WaterUniforms.aczoK89FoamNoise.value=texture;return texture;
+}
+const aczoK89FoamGLSL=`
+ uniform float aczoK89WaterLite;
+ uniform sampler2D aczoK89FoamNoise;
+ float aczoK89FoamPattern(vec2 p){
+  vec2 cell=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+  vec4 h=texture2D(aczoK89FoamNoise,fract((cell+vec2(.5))/256.));
+  return mix(mix(h.r,h.g,f.x),mix(h.b,h.a,f.x),f.y);
+ }
+ float aczoK89ShipFoam(vec2 xy){
+  // Preserve the established free-dive view, including its analytic texture.
+  if(aczoK89WaterLite<.5)return aczoShipWaves(xy,20.).w;
+  vec2 uv=vec2((xy.x+500.)/800.,(200.-xy.y)/830.);
+  if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return 0.;
+  float foam=texture2D(aczoWakeField,uv).a;if(foam==0.)return 0.;
+  float pattern=.48+.34*aczoK89FoamPattern(xy*.48+vec2(aczoWakeTime*.07,-aczoWakeTime*.035))
+   +.18*aczoK89FoamPattern(xy*1.7-vec2(aczoWakeTime*.09));
+  return foam*pattern;
+ }
+`;
+function aczoK89VertexWaveGLSL(){
+ // No vertex/fragment varying consumes foam: do not calculate that cosmetic
+ // noise for water vertices or for the surface's normal/displacement pass.
+ const first=aczoShipWakeGLSL.indexOf('  float foam=0.;'),end=aczoShipWakeGLSL.indexOf('  float coastFade=',first);
+ if(first<0||end<0)throw Error('K89 vertex wave anchor');
+ return aczoShipWakeGLSL.slice(0,first)+'  float foam=0.;\n'+aczoShipWakeGLSL.slice(end);
+}
+
 function aczoInstallShipWakeOnRiver(){
-  const cache=aczoK77WakeCache||(aczoK77WakeCache=aczoK77CreateWakeCache(THREE,renderer,aczoShipWakeGLSL,aczoK77WakeFoamGLSL));
-  Object.assign(moselWaterMat.uniforms,aczoShipWakeUniforms);if(cache.supported)Object.assign(moselWaterMat.uniforms,cache.uniforms);
-  const foam=cache.supported?'aczoK77ShipFoam(vWorldPos.xy)':'aczoShipWaves(vWorldPos.xy,aczoShipBankDist).w';
+  aczoK89CreateFoamTexture();
+  aczoK77WakeCache={supported:false,stats:{mode:'rgba8-lookup',bytes:256*256*4,fineRipples:'lightweight'}};
+  Object.assign(moselWaterMat.uniforms,aczoShipWakeUniforms,aczoK89WaterUniforms);
+  const foam='aczoK89ShipFoam(vWorldPos.xy)';
   moselWaterMat.vertexShader=moselWaterMat.vertexShader.replace('float localAmp=amp*shoreFade;','float localAmp=amp*shoreFade;if(p.x>-145.&&p.x<85.&&p.y<p.x*.80-341.&&p.y>p.x*.80-390.)localAmp*=.04;');
-  moselWaterMat.vertexShader=aczoShipWakeGLSL+'\nvarying float aczoShipFoam;varying float aczoShipBankDist;\n'+moselWaterMat.vertexShader;
+  moselWaterMat.vertexShader=aczoK89VertexWaveGLSL()+'\n'+moselWaterMat.vertexShader;
   moselWaterMat.vertexShader=moselWaterMat.vertexShader.replace('vec4 world=modelMatrix*vec4(p,1.0);',
-    'vec4 shipWave=aczoShipWaves(p.xy,shoreDist);p.z+=shipWave.x;n=normalize(n+vec3(-shipWave.y,-shipWave.z,0.0));aczoShipFoam=shipWave.w;aczoShipBankDist=shoreDist;\nvec4 world=modelMatrix*vec4(p,1.0);');
-  moselWaterMat.fragmentShader=(cache.supported?aczoK77WakeFoamGLSL:aczoShipWakeGLSL)+'varying float aczoShipFoam;varying float aczoShipBankDist;\n'+moselWaterMat.fragmentShader;
+    'vec4 shipWave=aczoShipWaves(p.xy,shoreDist);p.z+=shipWave.x;n=normalize(n+vec3(-shipWave.y,-shipWave.z,0.0));\nvec4 world=modelMatrix*vec4(p,1.0);');
+  moselWaterMat.fragmentShader=aczoShipWakeGLSL+aczoK89FoamGLSL+'\n'+moselWaterMat.fragmentShader;
   moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('gl_FragColor=vec4(color,finalAlpha);',
     'float washFoam='+foam+';vec3 riverColor=aczoK12Silt(color,vWorldPos);riverColor=mix(riverColor,aczoK53WashColour(),clamp(washFoam,0.0,.90));finalAlpha=max(finalAlpha,washFoam*.98);gl_FragColor=vec4(riverColor,finalAlpha);');
   // The lightweight river mode keeps the same wake foam as the full shader.
@@ -38418,6 +38462,7 @@ function aczoInsetWaterMaterial(source,side){
   return variants[side];
 }
 function aczoK25RenderAnglingInsetSource(cam,keepShoreNature=false){
+  aczoK89WaterUniforms.aczoK89WaterLite.value=fishMode?0:1;
   // P36: In der Stellenauswahl dienen Schilf, Straeucher und die echten
   // Uferbaeume als wichtige Orientierungspunkte. Nur dort bleiben die
   // vermessene Ufernatur und die markanten Weiden/Birken im Inset sichtbar.
@@ -43073,6 +43118,7 @@ function aczoK56RenderRiverScene(cam,reuseWorld=false){
 }
 
 function aczoRenderMainView(){
+  aczoK89WaterUniforms.aczoK89WaterLite.value=fishMode?0:1;
   // Patrol and angling state finish after traffic; apply their final camera/state before this draw.
   aczoK34UpdateRoadBeaconLighting(simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0);
   aczoK25MapDepthPrecision();
@@ -45962,10 +46008,19 @@ moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(/float waveBan
   float crest=sin(curve+packetMask*2.4)*.61+sin(curve*1.61-uv.y*.23+1.8)*.25+sin(uv.x*.71+uv.y*.58+3.4)*.14;
   return crest*(.22+.78*smoothstep(.20,.78,packetMask));
  }
+ // K89: only the finest colour modulation is simplified. Keep the two
+ // larger wind-crest patterns, physical wave normals and reflections intact.
+ float aczoK89FineRipples(vec2 p){
+  if(aczoK89WaterLite<.5)return .5+.5*aczoK26RiverCrests(p,2.47);
+  vec2 d=normalize(length(cloudWindDir)>.01?cloudWindDir:vec2(0.,-1.)),q=aczoK26RiverDrift(p);
+  float along=dot(q,d)*2.47,across=dot(q,vec2(-d.y,d.x))*2.47;
+  float curve=along+sin(across*.31+along*.085)*1.7;
+  return .5+.5*(sin(curve)*.72+sin(curve*1.61-across*.23+1.8)*.28);
+ }
  float waveBands(vec2 p){return aczoK26RiverCrests(p,.67);}
  float surfaceRipples(vec2 p){return .5+.5*aczoK26RiverCrests(p,1.63);}
  `);
-moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('float fine=(fine1*.68+fine2*.32)*.5+.5;','float fine=.5+.5*aczoK26RiverCrests(vWorldPos.xy,2.47);');
+moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('float fine=(fine1*.68+fine2*.32)*.5+.5;','float fine=aczoK89FineRipples(vWorldPos.xy);');
 const aczoK25RiverClock={value:0};
 const moselWaterUniforms={...waterUniforms,time:aczoK25RiverClock,anglingView:{value:0},clipToPond:{value:0.0}};
 moselWaterMat.uniforms=moselWaterUniforms;
