@@ -9481,6 +9481,16 @@ function aczoBuildCleanWaterGeometry(){
   g.setIndex(ind);
   return g;
 }
+// K90: shared smooth light profile, 4 KiB, no render target or frame updates.
+let aczoK90LightProfile=null;
+function aczoK90LightProfileTexture(){
+ if(aczoK90LightProfile)return aczoK90LightProfile;
+ const data=new Uint8Array(1024*4);
+ for(let i=0;i<1024;i++){const value=Math.round(Math.exp(-24*i/1023)*65535),k=i*4;data[k]=value>>>8;data[k+1]=value&255;data[k+3]=255;}
+ const texture=new THREE.DataTexture(data,1024,1,THREE.RGBAFormat,THREE.UnsignedByteType);
+ texture.minFilter=texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.flipY=false;texture.needsUpdate=true;
+ return aczoK90LightProfile=texture;
+}
 function makeDirectCelestialReflectionMaterial(color){
   return new THREE.ShaderMaterial({
     transparent:true,
@@ -9490,6 +9500,7 @@ function makeDirectCelestialReflectionMaterial(color){
     blending:THREE.AdditiveBlending,
     fog:false,
     uniforms:{
+      aczoK90Profile:{value:aczoK90LightProfileTexture()},
       boatHullMask:waterUniforms.boatHullMask,
       boatHullActive:waterUniforms.boatHullActive,
       time:waterUniforms.time,
@@ -9520,6 +9531,12 @@ function makeDirectCelestialReflectionMaterial(color){
     `,
     fragmentShader:`
       ${aczoBoatWaterMaskGLSL}
+      uniform sampler2D aczoK90Profile;
+      float aczoK90Falloff(float x){
+        if(x>=24.)return 0.;
+        vec2 profileSample=texture2D(aczoK90Profile,vec2((clamp(x,0.,24.)*(1023./24.)+.5)/1024.,.5)).rg;
+        return dot(profileSample,vec2(256./257.,1./257.));
+      }
       uniform float time;
       uniform vec2 anchor;
       uniform vec2 trailDir;
@@ -9559,14 +9576,14 @@ function makeDirectCelestialReflectionMaterial(color){
         // Ein kompakter Innenkern sorgt fuer den ansatzweise runden Sonnen-/
         // Mondkreis, ein weicher Aussenkern verhindert den Aufkleber-Look.
         float r=length(rel)/max(.05,coreRadius);
-        float innerCore=exp(-r*r*6.0);
-        float core=exp(-r*r*1.72);
-        float halo=exp(-r*r*.62)*.12;
+        float innerCore=aczoK90Falloff(r*r*6.0);
+        float core=aczoK90Falloff(r*r*1.72);
+        float halo=aczoK90Falloff(r*r*.62)*.12;
 
         // Vom Lichtpunkt in Richtung Betrachter auffaechernde Spiegelbahn.
         float u=clamp(along/max(.10,trailLength),0.0,1.0);
         float width=mix(coreRadius*.38,trailWidth,u);
-        float crossMask=exp(-pow(across/max(.05,width),2.0)*2.35);
+        float crossMask=aczoK90Falloff((across/max(.05,width))*(across/max(.05,width))*2.35);
         float alongMask=smoothstep(-.06,.30,along)
           *(1.0-smoothstep(trailLength*.74,trailLength,along));
 
@@ -10533,7 +10550,7 @@ function aczoInstallMoselSurfaceShadow(mat){
   clip(shader);Object.assign(shader.uniforms,moselWaterUniforms,aczoShipWakeUniforms);
   const vertex=moselWaterMat.vertexShader,begin=vertex.indexOf('     vec3 p=position;'),end=vertex.indexOf('     // Näherungs-Normale',begin);
   let deformation=vertex.slice(begin,end).replace('vec3 p=position;','vec3 p=transformed;');
-  shader.vertexShader='uniform float aczoMoselBrown,aczoMoselFlowClock;'+aczoK20FloodGLSL+aczoShipWakeGLSL+'uniform float time;uniform float windStrength;uniform vec2 cloudWindDir;uniform float anglingView;attribute float shoreDist;\n'+shader.vertexShader;
+  shader.vertexShader='uniform float aczoMoselBrown,aczoMoselFlowClock;'+aczoK20FloodGLSL+aczoK89VertexWaveGLSL()+'uniform float time;uniform float windStrength;uniform vec2 cloudWindDir;uniform float anglingView;attribute float shoreDist;\n'+shader.vertexShader;
   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+deformation+'\nvec4 shadowWake=aczoShipWaves(p.xy,shoreDist);p.z+=shadowWake.x+aczoK12FloodLift(p.xy)*smoothstep(1.,3.4,shoreDist)*(p.x>-145.&&p.x<85.&&p.y<p.x*.80-341.&&p.y>p.x*.80-390.?.04:1.);transformed=p;');
   shader.fragmentShader=shader.fragmentShader.replace('opacity * ( 1.0 - getShadowMask() )','opacity * ( 1.0 - getShadowMask() ) * aczoShadowFrustumFade() * aczoK37ObjectShadowEdge()');
   shader.uniforms.aczoK37ShadowEdgeEnabled=aczoK37ShadowEdgeEnabled;
@@ -54017,6 +54034,87 @@ function aczoK79OptimizeRiverShaders(mat){
  mat.vertexShader=v;mat.fragmentShader=f;mat.needsUpdate=true;
 }
 
+// D1: bounded runtime measurements only. No simulation/quality/storage changes.
+const aczoRuntimeDiagnostics=(()=>{
+ const rows=[],starts=new Map(),limit=900,origin=performance.now();
+ const sums={fish:0,traffic:0,render:0,inset:0};
+ let frames=0,cpu=0,maxGap=0,lastFrame=0,bucketAt=0,button=null,modal=null,diagnosticError=null;
+ const round=(x,n=1)=>Number.isFinite(x)?Math.round(x*10**n)/10**n:null;
+ function resetBucket(now){frames=0;cpu=0;maxGap=0;bucketAt=now;for(const k of Object.keys(sums))sums[k]=0;}
+ function scope(){
+  const water=aczoMoselFishing?'Mosel':'Weiher/Karte';
+  const view=anglingHallOfFameActive?'HoF':aczoExploreRuntime.active?'Ego':fishMode?'Tauchen':anglingMode?anglingCinematicView:(is2D?'Karte2D':'Karte3D');
+  return {water,view,state:anglingMode?anglingState:'Karte'};
+ }
+ function snapshot(now){
+  const elapsed=now-bucketAt;if(elapsed<1000||frames<1)return;
+  const mode=scope(),fish=aczoK87Report(),worker=aczoWaveGrid.k88Worker;
+  let shipDistance=null;const ship=aczoMoselShipCache.get(aczoMoselActiveSlot%4);
+  if(ship?.visible)shipDistance=round(Math.hypot(ship.position.x-camera.position.x,ship.position.y-camera.position.y));
+  let active=0,visible=0;for(const f of fishActors){active++;if(f.obj.visible)visible++;}
+  const row={s:round((now-origin)/1000),...mode,fps:round(frames*1000/elapsed),maxGapMs:round(maxGap),cpuFrameMs:round(cpu/frames,2),
+   fishMs:round(sums.fish/frames,2),trafficMs:round(sums.traffic/frames,2),renderMs:round(sums.render/frames,2),insetMs:round(sums.inset/frames,2),
+   activeFish:active,visibleFish:visible,riverAllocated:fish.allocated,hydratedFish:fish.hydrated,modelsCreated:fish.stats.created,modelsReused:fish.stats.reused,
+   fishGroupChildren:fishGroup.children.length,fishMaterials:Object.keys(fishBillboardMatCache).length,
+   geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,programs:renderer.info.programs?.length??null,
+   callsLastPass:renderer.info.render.calls,trianglesLastPass:renderer.info.render.triangles,
+   heapMB:round((performance.memory?.usedJSHeapSize??NaN)/1048576),
+   dpr:round(renderer.getPixelRatio(),2),renderScale:round(aczoRenderReserve.scale,2),shipDistance,
+   waveWorker:worker?.mode||'Start',wavePending:worker?.pending.length||0,waveHistory:worker?.history.length||0,
+   waveFallback:worker?.stats?.reason||null,lureTiles:fish.lureCache?.tiles??0,lureEvictions:fish.lureCache?.evictions??0};
+  rows.push(row);if(rows.length>limit)rows.shift();
+  const key=mode.water+' / '+mode.view;
+  let first=starts.get(key);if(!first&&starts.size<24){first=[];starts.set(key,first);}if(first&&first.length<15)first.push(row);
+  resetBucket(now);
+  if(!button){
+   button=document.createElement('button');button.type='button';button.id='aczoMeasurementReport';
+   button.title='Beim Ruckeln antippen und den Messbericht kopieren';
+   Object.assign(button.style,{position:'fixed',right:'6px',top:'calc(6px + env(safe-area-inset-top, 0px))',zIndex:'2147483500',padding:'8px 10px',font:'12px sans-serif',color:'#fff',background:'#172d38',border:'1px solid #9ac4cd',borderRadius:'8px',touchAction:'manipulation'});
+   for(const type of ['pointerdown','pointerup','touchstart','touchend'])button.addEventListener(type,e=>e.stopPropagation());
+   button.addEventListener('click',e=>{e.stopPropagation();showReport();});document.body.appendChild(button);
+  }
+  button.textContent=row.fps+' FPS · Bericht';
+ }
+ function average(a,key){const values=a.map(r=>r[key]).filter(Number.isFinite);return values.length?round(values.reduce((x,y)=>x+y,0)/values.length,2):'nicht verfügbar';}
+ function summary(a){return 'FPS '+average(a,'fps')+' | Fische sichtbar/aktiv '+average(a,'visibleFish')+'/'+average(a,'activeFish')
+  +' | Fischrechnung '+average(a,'fishMs')+' ms | Hauptbild '+average(a,'renderMs')+' ms | Köderfenster '+average(a,'insetMs')+' ms'
+  +' | Geometrien/Texturen/Programme '+average(a,'geometries')+'/'+average(a,'textures')+'/'+average(a,'programs')
+  +' | JS-Speicher '+average(a,'heapMB')+' MB';}
+ function report(){
+  const lines=['ACZO Laufzeitmessung D1 — Basis Schatten/Reflexion V6','Keine automatische Ursachenzuordnung. Zeiten messen JavaScript/Treiber, keine direkte GPU-Zeit.','Grafikaufrufe gelten nur für den letzten Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
+  if(diagnosticError)lines.push('Messfehler: '+diagnosticError);
+  for(const [key,first]of starts){const recent=rows.filter(r=>r.water+' / '+r.view===key).slice(-15);lines.push('\n'+key+' — Anfang ('+first[0].s+' s): '+summary(first),'Zuletzt ('+(recent.at(-1)?.s??'?')+' s): '+summary(recent));}
+  lines.push('\nLetzte Messpunkte als JSON (maximal 20):',JSON.stringify(rows.slice(-20)));
+  return lines.join('\n');
+ }
+ function showReport(){
+  if(modal)return;
+  const frozen=report();modal=document.createElement('div');modal.id='aczoMeasurementDialog';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
+  Object.assign(modal.style,{position:'fixed',inset:'0',zIndex:'2147483600',background:'rgba(4,14,21,.96)',color:'#fff',padding:'max(16px, env(safe-area-inset-top, 0px)) 16px 16px',display:'flex',flexDirection:'column',gap:'12px',font:'15px sans-serif'});
+  const title=document.createElement('strong');title.textContent='Messbericht zum Ruckeln';
+  const note=document.createElement('div');note.textContent='Bericht kopieren und im Chat einfügen. Falls Kopieren nicht klappt: Text gedrückt halten und alles auswählen.';
+  const area=document.createElement('textarea');area.value=frozen;area.readOnly=true;area.setAttribute('aria-label','Leistungsbericht');Object.assign(area.style,{flex:'1',minHeight:'100px',width:'100%',boxSizing:'border-box',background:'#fff',color:'#111',font:'12px monospace'});
+  const actions=document.createElement('div'),copy=document.createElement('button'),close=document.createElement('button');
+  copy.type=close.type='button';copy.textContent='Bericht kopieren';close.textContent='Zurück zum Spiel';
+  for(const b of [copy,close])Object.assign(b.style,{padding:'12px',margin:'0 8px 0 0',font:'15px sans-serif'});
+  copy.addEventListener('click',async()=>{area.focus();area.select();try{if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');await navigator.clipboard.writeText(frozen);note.textContent='Kopiert. Jetzt im Chat einfügen.';}catch(error){note.textContent='Text ist markiert. Über das Auswahlmenü kopieren.';}});
+  close.addEventListener('click',()=>{modal.remove();modal=null;lastFrame=0;resetBucket(performance.now());});
+  actions.append(copy,close);modal.append(title,note,area,actions);
+  for(const type of ['pointerdown','pointerup','click','touchstart','touchend'])modal.addEventListener(type,e=>e.stopPropagation());
+  document.body.appendChild(modal);
+ }
+ function frame(now,frameCpu){
+  if(modal){lastFrame=0;return;}
+  if(!lastFrame){lastFrame=now;resetBucket(now);return;}
+  const gap=now-lastFrame;lastFrame=now;if(gap>10000){resetBucket(now);return;}
+  frames++;cpu+=frameCpu;if(gap>maxGap)maxGap=gap;
+  try{snapshot(now);}catch(error){diagnosticError=String(error?.message||error);resetBucket(now);}
+ }
+ document.addEventListener('visibilitychange',()=>{lastFrame=0;resetBucket(performance.now());});
+ return {add:(key,ms)=>{sums[key]+=ms;},frame,report,showReport,rows,limit};
+})();
+window.__aczoRuntimeDiagnostics=aczoRuntimeDiagnostics;
+
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
 (function loop(frameNow=performance.now()){
@@ -54093,6 +54191,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
  const rawDt=clock.getDelta();
  // Nach App-Wechseln oder einzelnen Safari-Aussetzern darf kein riesiger
  // Zeitsprung auf einmal in Wolken, Regen, Verkehr und Figuren laufen.
+ const aczoMeasurementFrameStart=performance.now();
  const dt=Math.min(rawDt,.10);
  const visualDt=dt*anglingTimeLapseVisualScale();
  aczoK34AdvanceRegionalVisualTime(dt,visualDt);
@@ -54142,7 +54241,9 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
   updateAczoSurveyForestLod();
   updateAczoWildBoars(visualDt);
   updateAczoRealBirchFineLod();
+  const aczoMeasurementTrafficStart=performance.now();
   aczoPerfTest.timed('traffic',()=>updateAczoMoselTraffic());
+  aczoRuntimeDiagnostics.add('traffic',performance.now()-aczoMeasurementTrafficStart);
   updateAczoKonzerBridge();
   updateAczoRegionalWeather();
   updateAczoRegionalSky();
@@ -54181,7 +54282,9 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
   }
 
   updateFishView(dt);
+  const aczoMeasurementFishStart=performance.now();
   updateFishActors(dt);
+  aczoRuntimeDiagnostics.add('fish',performance.now()-aczoMeasurementFishStart);
   updateFishShadows();
   updateUnderwaterEffects(dt);
   updateAnglingMode(dt);
@@ -54393,7 +54496,9 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
  if(!window.__aczoSafeStart.gpuPrepared){window.__aczoSafeStart.prepareGpu(scene,camera);return;}
+ const aczoMeasurementRenderStart=performance.now();
  aczoPerfTest.timed('main',()=>aczoRenderMainView());
+ aczoRuntimeDiagnostics.add('render',performance.now()-aczoMeasurementRenderStart);
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
  if(window.__markMapStartupFirstFrame){
@@ -54403,8 +54508,11 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
  updateAnglingAmbientStatus(dt);
  renderAnglingFloatCamera();if(anglingUsesDeeper()&&anglingUi.classList.contains('line-active'))drawAnglingDeeperSonar();
   aczoK80ReuseMainWorld=aczoK80CanReuseInsetWorld();
+  const aczoMeasurementInsetStart=performance.now();
   try{aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());}finally{aczoK80ReuseMainWorld=false;}
+  aczoRuntimeDiagnostics.add('inset',performance.now()-aczoMeasurementInsetStart);
   aczoPerfTest.frame(frameNow);
+  aczoRuntimeDiagnostics.frame(frameNow,performance.now()-aczoMeasurementFrameStart);
  
  // Der Zehn-Sekunden-Timer beginnt erst nach dem ersten wirklich gezeichneten
  // Kartenbild. Der Viewer selbst bleibt dadurch beim Start sofort bedienbar.
