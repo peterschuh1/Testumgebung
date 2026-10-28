@@ -20930,7 +20930,20 @@ function aczoK87Activate(r){
  if(r.actor)return r.actor;if(!aczoK87Ready(r)||fishActors.length>=aczoK87World.maxActors)return null;
  aczoK87Position(r,aczoK87Time(),r.position,false);if(aczoK87FishFit(r.species,r.width,r.height,r.position.x,r.position.y,r.position.z)==null)return null;
  const w=aczoK87World,pool=w.pool.get(r.species);let f;
- if(pool?.length){f=pool.pop();w.stats.reused++;}else{
+ if(pool?.length){f=pool.pop();w.stats.reused++;}
+ // K93: all current river fish are billboards with shared species assets.
+ // Reuse a free billboard slot across species before allocating a new object.
+ // Active fish/records, 3D models and free diving never enter this path.
+ if(!f&&aczoMoselFishing&&anglingMode&&!fishMode&&anglingUsesArtificialLure()){
+  for(const available of w.pool.values()){
+   const spare=available[available.length-1];
+   if(!spare?.obj.isMesh||!spare.obj.userData.fishBillboard)continue;
+   const material=fishBillboardMaterial(r.species),geometry=ACZO_K8G_NEW[r.species]?aczoK8gBillboardGeo:fishBillboardGeo;
+   f=available.pop();f.obj.material=material;f.obj.geometry=geometry;f.obj.userData.species=r.species;
+   w.stats.reused++;w.stats.crossSpeciesReused=(w.stats.crossSpeciesReused||0)+1;break;
+  }
+ }
+ if(!f){
   let allocated=fishActors.length+[...w.pool.values()].reduce((n,p)=>n+p.length,0);while(allocated>=w.maxAllocated){let dropped=false;for(const p of w.pool.values())if(p.length){p.shift();allocated--;dropped=true;break;}if(!dropped)return null;}
   const at=fishActors.length;w.building=r;try{addFishPopulation(r.species,1);f=fishActors[at];fishActors.splice(at,1);}finally{w.building=null;}w.stats.created++;
  }
@@ -54034,13 +54047,40 @@ function aczoK79OptimizeRiverShaders(mat){
  mat.vertexShader=v;mat.fragmentShader=f;mat.needsUpdate=true;
 }
 
-// D1: bounded runtime measurements only. No simulation/quality/storage changes.
+// D2: bounded runtime measurements with per-pass native draw accounting.
 const aczoRuntimeDiagnostics=(()=>{
  const rows=[],starts=new Map(),limit=900,origin=performance.now();
  const sums={fish:0,traffic:0,render:0,inset:0};
+ const categories=['shadow','water','fish','nature','bed','other'],draws={};
+ for(const pass of ['main','inset','background'])draws[pass]=Object.fromEntries(categories.map(k=>[k,{calls:0,triangles:0}]));
+ let activePass='',rafCount=0,lastRaf=0,maxRafGap=0;
+ const objectKinds=new WeakMap();
+ function kind(object,material){
+  if(material?.isMeshDepthMaterial||material?.isMeshDistanceMaterial||material?.isShadowMaterial)return 'shadow';
+  let cached=objectKinds.get(object);if(cached)return cached;
+  if(object?.userData?.fishBillboard)cached='fish';
+  else if(object===moselWaterSurface||object===waterSurface)cached='water';
+  else{
+   cached='other';
+   for(let p=object,level=0;p&&level<4;p=p.parent,level++){
+    if(p.userData?.aczoForestChunk||p.userData?.aczoPerf11Sector||/TREE|BIRCH|WILLOW|FOREST|BAUM|VEGET|PLANT|BUSH|CANOPY|LAUB|KRONE|NATURE|WEIDE|CONIFER|REED|SCHILF/i.test(p.name||'')){cached='nature';break;}
+    if(/RIVER.?BED|MOSEL.*(BODEN|BOTTOM|BED|GRUND)|TERRAIN|GELAENDE/i.test(p.name||''))cached='bed';
+   }
+  }
+  if(object)objectKinds.set(object,cached);return cached;
+ }
+ if(typeof renderer.renderBufferDirect==='function'){
+  const native=renderer.renderBufferDirect;
+  renderer.renderBufferDirect=function(cam,sceneArg,geometry,material,object,group){
+   const beforeCalls=renderer.info.render.calls,beforeTriangles=renderer.info.render.triangles;
+   const result=native.call(this,cam,sceneArg,geometry,material,object,group);
+   const bucket=draws[activePass||'background'][kind(object,material)];
+   bucket.calls+=Math.max(0,renderer.info.render.calls-beforeCalls);bucket.triangles+=Math.max(0,renderer.info.render.triangles-beforeTriangles);return result;
+  };
+ }
  let frames=0,cpu=0,maxGap=0,lastFrame=0,bucketAt=0,button=null,modal=null,diagnosticError=null;
  const round=(x,n=1)=>Number.isFinite(x)?Math.round(x*10**n)/10**n:null;
- function resetBucket(now){frames=0;cpu=0;maxGap=0;bucketAt=now;for(const k of Object.keys(sums))sums[k]=0;}
+ function resetBucket(now){frames=0;cpu=0;maxGap=0;bucketAt=now;rafCount=0;maxRafGap=0;for(const k of Object.keys(sums))sums[k]=0;for(const pass of Object.values(draws))for(const bucket of Object.values(pass))bucket.calls=bucket.triangles=0;}
  function scope(){
   const water=aczoMoselFishing?'Mosel':'Weiher/Karte';
   const view=anglingHallOfFameActive?'HoF':aczoExploreRuntime.active?'Ego':fishMode?'Tauchen':anglingMode?anglingCinematicView:(is2D?'Karte2D':'Karte3D');
@@ -54062,6 +54102,10 @@ const aczoRuntimeDiagnostics=(()=>{
    dpr:round(renderer.getPixelRatio(),2),renderScale:round(aczoRenderReserve.scale,2),shipDistance,
    waveWorker:worker?.mode||'Start',wavePending:worker?.pending.length||0,waveHistory:worker?.history.length||0,
    waveFallback:worker?.stats?.reason||null,lureTiles:fish.lureCache?.tiles??0,lureEvictions:fish.lureCache?.evictions??0};
+  row.rafFps=round(rafCount*1000/elapsed);row.maxRafGapMs=round(maxRafGap);
+  row.crossSpeciesReused=fish.stats.crossSpeciesReused||0;
+  row.draws={};for(const [pass,groups]of Object.entries(draws)){row.draws[pass]={};for(const [group,data]of Object.entries(groups))if(data.calls)row.draws[pass][group]={calls:round(data.calls/frames),triangles:round(data.triangles/frames,0)};}
+  const programTypes=Object.create(null);for(const p of renderer.info.programs||[]){if(!p)continue;const name=p.name||'unbenannt';programTypes[name]=(programTypes[name]||0)+1;}row.programTypes=programTypes;
   rows.push(row);if(rows.length>limit)rows.shift();
   const key=mode.water+' / '+mode.view;
   let first=starts.get(key);if(!first&&starts.size<24){first=[];starts.set(key,first);}if(first&&first.length<15)first.push(row);
@@ -54081,7 +54125,7 @@ const aczoRuntimeDiagnostics=(()=>{
   +' | Geometrien/Texturen/Programme '+average(a,'geometries')+'/'+average(a,'textures')+'/'+average(a,'programs')
   +' | JS-Speicher '+average(a,'heapMB')+' MB';}
  function report(){
-  const lines=['ACZO Laufzeitmessung D1 — Basis Schatten/Reflexion V6','Keine automatische Ursachenzuordnung. Zeiten messen JavaScript/Treiber, keine direkte GPU-Zeit.','Grafikaufrufe gelten nur für den letzten Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
+  const lines=['ACZO Laufzeitmessung D2 — Modellreserve wiederverwendet','Keine automatische Ursachenzuordnung. Zeiten messen JavaScript/Treiber, keine direkte GPU-Zeit.','draws: pro Spielbild aufsummierte native Aufrufe/Dreiecke für Hauptbild, Köderfenster und Hintergrund; nach Objektart getrennt. callsLastPass bleibt nur der letzte Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
   if(diagnosticError)lines.push('Messfehler: '+diagnosticError);
   for(const [key,first]of starts){const recent=rows.filter(r=>r.water+' / '+r.view===key).slice(-15);lines.push('\n'+key+' — Anfang ('+first[0].s+' s): '+summary(first),'Zuletzt ('+(recent.at(-1)?.s??'?')+' s): '+summary(recent));}
   lines.push('\nLetzte Messpunkte als JSON (maximal 20):',JSON.stringify(rows.slice(-20)));
@@ -54110,8 +54154,8 @@ const aczoRuntimeDiagnostics=(()=>{
   frames++;cpu+=frameCpu;if(gap>maxGap)maxGap=gap;
   try{snapshot(now);}catch(error){diagnosticError=String(error?.message||error);resetBucket(now);}
  }
- document.addEventListener('visibilitychange',()=>{lastFrame=0;resetBucket(performance.now());});
- return {add:(key,ms)=>{sums[key]+=ms;},frame,report,showReport,rows,limit};
+ document.addEventListener('visibilitychange',()=>{lastFrame=0;lastRaf=0;resetBucket(performance.now());});
+ return {add:(key,ms)=>{sums[key]+=ms;},raf:now=>{if(modal)return;rafCount++;if(lastRaf)maxRafGap=Math.max(maxRafGap,now-lastRaf);lastRaf=now;},beginRender:pass=>{const previous=activePass;activePass=pass;return previous;},endRender:previous=>{activePass=previous;},frame,report,showReport,rows,limit};
 })();
 window.__aczoRuntimeDiagnostics=aczoRuntimeDiagnostics;
 
@@ -54119,6 +54163,7 @@ aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
+ aczoRuntimeDiagnostics.raf(frameNow);
  if(!window.__aczoSafeStart.readyForFrames)return;
  if(window.__aczoTransitionPrep?.busy){clock.getDelta();return;}
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
@@ -54496,8 +54541,8 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
    aczoShoreSeal.visible=regularSurface||fishDiveTransition;
  }
  if(!window.__aczoSafeStart.gpuPrepared){window.__aczoSafeStart.prepareGpu(scene,camera);return;}
- const aczoMeasurementRenderStart=performance.now();
- aczoPerfTest.timed('main',()=>aczoRenderMainView());
+ const aczoMeasurementRenderStart=performance.now(),aczoMeasurementMainPass=aczoRuntimeDiagnostics.beginRender('main');
+ try{aczoPerfTest.timed('main',()=>aczoRenderMainView());}finally{aczoRuntimeDiagnostics.endRender(aczoMeasurementMainPass);}
  aczoRuntimeDiagnostics.add('render',performance.now()-aczoMeasurementRenderStart);
  aczoRenderRodOverlay();
  restoreCelestialDiscWorldPositions();
@@ -54508,8 +54553,8 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
  updateAnglingAmbientStatus(dt);
  renderAnglingFloatCamera();if(anglingUsesDeeper()&&anglingUi.classList.contains('line-active'))drawAnglingDeeperSonar();
   aczoK80ReuseMainWorld=aczoK80CanReuseInsetWorld();
-  const aczoMeasurementInsetStart=performance.now();
-  try{aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());}finally{aczoK80ReuseMainWorld=false;}
+  const aczoMeasurementInsetStart=performance.now(),aczoMeasurementInsetPass=aczoRuntimeDiagnostics.beginRender('inset');
+  try{aczoPerfTest.timed('lureInset',()=>renderAnglingReelCamera());}finally{aczoK80ReuseMainWorld=false;aczoRuntimeDiagnostics.endRender(aczoMeasurementInsetPass);}
   aczoRuntimeDiagnostics.add('inset',performance.now()-aczoMeasurementInsetStart);
   aczoPerfTest.frame(frameNow);
   aczoRuntimeDiagnostics.frame(frameNow,performance.now()-aczoMeasurementFrameStart);
