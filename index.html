@@ -20470,9 +20470,68 @@ function aczoK87SolidSupport(x,y,radius,wet=false,travelX=0,travelY=0){
  if(len>.001)points.push([travelX/len*radius*1.85,travelY/len*radius*1.85]);
  for(const [dx,dy]of points){const xx=x+dx,yy=y+dy;if(wet&&aczoMoselDepth(xx,yy)==null)return null;top=Math.max(top,aczoK87SolidTop(xx,yy));}return top;
 }
+// Mosel lure view only: exact footprint reuse and cooperative CPU prewarming.
+// No simulation ticks, stock records, random draws or collision rules change.
+function aczoK87LurePerf(){
+ const rt=aczoMoselFishing;
+ if(!rt||!anglingMode||!anglingUsesArtificialLure()||(anglingCinematicView!=='underwater'&&anglingState!=='casting'))return null;
+ aczoK87SyncSolids();
+ const solids=aczoK87Solids,field=aczoK34Mosel.field;
+ let s=rt.k87LurePerf;
+ if(!s)s=rt.k87LurePerf={support:new Map(),revision:-1,field:null,pending:false,nextWarm:0,points:[],point:0,probe:0,actor:0};
+ if(s.revision!==solids.revision||s.field!==field){s.support.clear();s.points.length=0;s.point=s.probe=0;s.revision=solids.revision;s.field=field;}
+ return s;
+}
+function aczoK87LureSupport(s,x,y,radius){
+ let row=s.support.get(radius);
+ if(row)for(const sample of row.samples)if(sample.x===x&&sample.y===y)return sample.floor;
+ const floor=aczoK87SolidSupport(x,y,radius,true);
+ if(!row){if(s.support.size>=512)s.support.clear();row={samples:[],next:0};s.support.set(radius,row);}
+ let sample=row.samples[row.next];if(!sample)sample=row.samples[row.next]={};
+ sample.x=x;sample.y=y;sample.floor=floor;row.next=(row.next+1)&3;
+ return floor;
+}
+function aczoK87LureWarm(rt){
+ const s=aczoK87LurePerf();
+ if(!s||rt!==aczoMoselFishing||s.pending||document.hidden||performance.now()<s.nextWarm||window.__aczoTransitionPrep?.working||window.__aczoTransitionPrep?.contextLost)return;
+ // Never fill/flush the shared 8 cm cache just for speculative work.
+ if(aczoK87Solids.cache.size>=80000)return;
+ if(s.point>=s.points.length){
+  s.points.length=0;s.point=s.probe=0;
+  const count=fishActors.length;
+  for(let n=0;n<count;n++){
+   const f=fishActors[(s.actor+n)%count];if(!f.k87Record||f.obj.userData.hiddenByHunt)continue;
+   if(anglingState!=='casting'&&!f.k87Tick)continue;
+   const p=f.obj.position,b=f.predatorBrain,radius=Math.max(.04,Math.abs(f.obj.userData.baseFishWidth||.1)*.5);
+   let vx=0,vy=0;
+   if(b&&b.mode!=='idle'){vx=b.velocity.x;vy=b.velocity.y;}
+   else if(Number.isFinite(f.swimHeading)){vx=Math.cos(f.swimHeading)*f.speed;vy=Math.sin(f.swimHeading)*f.speed;}
+   // A short look ahead warms only cells; it never moves a fish or its target.
+   s.points.push(p.x+vx*.10,p.y+vy*.10,radius,f.target.x,f.target.y,radius);
+  }
+  s.actor=count?(s.actor+17)%count:0;
+  if(!s.points.length)return;
+ }
+ s.pending=true;
+ const run=deadline=>{
+  s.pending=false;
+  if(rt!==aczoMoselFishing||document.hidden||aczoK87LurePerf()!==s||window.__aczoTransitionPrep?.working||window.__aczoTransitionPrep?.contextLost)return;
+  const started=performance.now();let probes=0;
+  while(s.point<s.points.length&&probes<24&&performance.now()-started<1&&(!deadline||deadline.timeRemaining()>.5)&&aczoK87Solids.cache.size<80000){
+   const q=s.probe,r=s.points[s.point+2],dx=q===1?r:q===2?-r:q>=5?(q===6||q===8?-r*.71:r*.71):0,dy=q===3?r:q===4?-r:q>=5?(q>=7?-r*.71:r*.71):0;
+   const x=s.points[s.point]+dx,y=s.points[s.point+1]+dy;
+   if(aczoMoselDepth(x,y)!=null)aczoK87SolidTop(x,y);
+   probes++;if(++s.probe===9){s.probe=0;s.point+=3;}
+  }
+  s.nextWarm=performance.now()+(s.point<s.points.length?16:80);
+ };
+ if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(run,{timeout:180});
+ else window.setTimeout(()=>run(null),16);
+}
+
 function aczoK87FishFit(name,width,height,x,y,z){
  if(aczoMoselDepth(x,y)==null)return null;
- const pitch=strictBottomFish.has(name)?THREE.MathUtils.degToRad(8):MAX_FISH_PITCH,clear=Math.max(.055,height*.5+width*.5*Math.sin(pitch)+.028),floor=aczoK87SolidSupport(x,y,Math.max(.04,width*.5),true),top=ACZO_MOSEL_SURFACE_Z-Math.max(.20,clear);
+ const pitch=strictBottomFish.has(name)?THREE.MathUtils.degToRad(8):MAX_FISH_PITCH,clear=Math.max(.055,height*.5+width*.5*Math.sin(pitch)+.028),perf=aczoK87LurePerf(),radius=Math.max(.04,width*.5),floor=perf?aczoK87LureSupport(perf,x,y,radius):aczoK87SolidSupport(x,y,radius,true),top=ACZO_MOSEL_SURFACE_Z-Math.max(.20,clear);
  if(floor==null||floor+clear>top)return null;
  return name==='goby'?floor+clear:name==='eel'?THREE.MathUtils.clamp(z,floor+clear,Math.min(top,floor+clear+.16)):THREE.MathUtils.clamp(z,floor+clear,top);
 }
@@ -20652,13 +20711,14 @@ function aczoK87PrepareFrame(visual,feed){
  const time=aczoK87Time();for(const f of fishActors){if(!f.k87Record)continue;const visible=aczoK87Visible(f),busy=aczoK87Busy(f);f.k87Tick=visible||busy||feed;f.obj.visible=visible;
   if(f.k87Tick&&!busy&&!feed&&(f.feedBottomUntil||0)<=fishWorldTime)aczoK87Position(f.k87Record,time+7,f.target,false);
  }
+ aczoK87LureWarm(rt);
 }
 function aczoK43QueueRiverPopulation(rt,center,options={}){return aczoK87Select(rt,center,!!options.force);}
 function aczoK43StreamPopulation(rt){if(!rt)return;const visual=fishMode||anglingMode&&anglingUsesArtificialLure()&&anglingCinematicView==='underwater';if(visual){aczoK87Select(rt,camera.position);aczoK87Process(rt);}}
 function aczoK51PrimeLurePopulation(point){
  const rt=aczoMoselFishing;if(!rt||!anglingMode||!anglingUsesArtificialLure())return;
- aczoK87World.stats.repeatCasts++;rt.k87Range=aczoK87Range();aczoK87Select(rt,point);aczoK87Process(rt);
- clearTimeout(rt.k51PreflightTimer);const step=()=>{rt.k51PreflightTimer=0;if(aczoMoselFishing!==rt||!rt.k87Queue||anglingState!=='casting'||document.hidden)return;aczoK87Process(rt);if(rt.k87Queue)rt.k51PreflightTimer=setTimeout(step,12);};if(rt.k87Queue)rt.k51PreflightTimer=setTimeout(step,12);
+ aczoK87World.stats.repeatCasts++;rt.k87Range=aczoK87Range();aczoK87Select(rt,point);aczoK87Process(rt);aczoK87LureWarm(rt);
+ clearTimeout(rt.k51PreflightTimer);const step=()=>{rt.k51PreflightTimer=0;if(aczoMoselFishing!==rt||!rt.k87Queue||anglingState!=='casting'||document.hidden)return;aczoK87Process(rt);aczoK87LureWarm(rt);if(rt.k87Queue)rt.k51PreflightTimer=setTimeout(step,12);};if(rt.k87Queue)rt.k51PreflightTimer=setTimeout(step,12);
 }
 function aczoK42SwitchSection(rt,center){return aczoK87Select(rt,center);}
 function aczoK87Begin(rt,center,shore,inward,mapCenter){
