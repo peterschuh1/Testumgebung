@@ -39777,7 +39777,7 @@ async function aczoK34BuildSubstrate(spec,geo,job){
   if(large)placedRiprap++;else placedGravel++;
  }
  for(let v=0;v<4;v++){if(performance.now()-job.sliceStarted>=4)await aczoK34DetailYield(job);
-  const batch=batches[v],mesh=new THREE.InstancedMesh(geos[v],stoneMat,batch.length);mesh.name='MOSEL_K6B_BRUCHSTEIN_FORM_'+v;
+  const batch=batches[v],mesh=new THREE.InstancedMesh(geos[v],stoneMat,batch.length);mesh.name='MOSEL_K6B_BRUCHSTEIN_FORM_'+v;mesh.visible=false;/* S1: render-only stone test; collision geometry retained. */
   for(let i=0;i<batch.length;i++){if(performance.now()-job.sliceStarted>=4)await aczoK34DetailYield(job);const o=batch[i];mesh.setMatrixAt(i,o.matrix);mesh.setColorAt(i,o.colour);}mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;group.add(mesh);aczoK87SolidIndex(mesh);
  }
  plantCandidates.sort((a,b)=>a.rank-b.rank);const patches=[];
@@ -40293,7 +40293,7 @@ function aczoBuildMoselSubstrate(spec,geo){
   if(large)placedRiprap++;else placedGravel++;
  }
  for(let v=0;v<4;v++){
-  const batch=batches[v],mesh=new THREE.InstancedMesh(geos[v],stoneMat,batch.length);mesh.name='MOSEL_K6B_BRUCHSTEIN_FORM_'+v;
+  const batch=batches[v],mesh=new THREE.InstancedMesh(geos[v],stoneMat,batch.length);mesh.name='MOSEL_K6B_BRUCHSTEIN_FORM_'+v;mesh.visible=false;/* S1: render-only stone test; collision geometry retained. */
   batch.forEach((o,i)=>{mesh.setMatrixAt(i,o.matrix);mesh.setColorAt(i,o.colour);});mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;group.add(mesh);aczoK87SolidIndex(mesh);
  }
  plantCandidates.sort((a,b)=>a.rank-b.rank);const patches=[];
@@ -54364,7 +54364,7 @@ const aczoRuntimeDiagnostics=(()=>{
   +' | Geometrien/Texturen/Programme '+average(a,'geometries')+'/'+average(a,'textures')+'/'+average(a,'programs')
   +' | JS-Speicher '+average(a,'heapMB')+' MB';}
  function report(){
-  const lines=['ACZO Laufzeitmessung D5-K2 — Einzelzellen-Cache und Hauptthread-Bericht','CPU-Zeiten messen JavaScript/Treiber, keine GPU-Zeit. mainThread ergänzt RAF-Callbacks, Wellenempfang, Kopie und Upload; inklusive Bereiche überlappen und dürfen nicht addiert werden. rafTimestampLag ist keine CPU-Arbeit. Optionale gpu-Messungen sind asynchrone GPU-Stichproben; unavailable bedeutet nicht unterstützt.','fishPhases: inklusive CPU-Zeiten in jedem achten Fischbild; nicht addieren. cpuStages: Mittel und Spitzen je Spielbild. activeBrains umfasst auch unsichtbare Verfolger und Abbrüche.','draws: pro Spielbild aufsummierte native Aufrufe/Dreiecke für Hauptbild, Köderfenster und Hintergrund; nach Objektart getrennt. callsLastPass bleibt nur der letzte Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
+  const lines=['ACZO Laufzeitmessung D5-K2-S1 — Mosel-Steine unsichtbar; Kollisionen unverändert','CPU-Zeiten messen JavaScript/Treiber, keine GPU-Zeit. mainThread ergänzt RAF-Callbacks, Wellenempfang, Kopie und Upload; inklusive Bereiche überlappen und dürfen nicht addiert werden. rafTimestampLag ist keine CPU-Arbeit. Optionale gpu-Messungen sind asynchrone GPU-Stichproben; unavailable bedeutet nicht unterstützt.','fishPhases: inklusive CPU-Zeiten in jedem achten Fischbild; nicht addieren. cpuStages: Mittel und Spitzen je Spielbild. activeBrains umfasst auch unsichtbare Verfolger und Abbrüche.','draws: pro Spielbild aufsummierte native Aufrufe/Dreiecke für Hauptbild, Köderfenster und Hintergrund; nach Objektart getrennt. callsLastPass bleibt nur der letzte Renderpass. JS-Speicher ist auf manchen Browsern nicht verfügbar.'];
   if(diagnosticError)lines.push('Messfehler: '+diagnosticError);
   for(const [key,first]of starts){const recent=rows.filter(r=>r.water+' / '+r.view===key).slice(-15);lines.push('\n'+key+' — Anfang ('+first[0].s+' s): '+summary(first),'Zuletzt ('+(recent.at(-1)?.s??'?')+' s): '+summary(recent));}
   lines.push('\nLivefenster-Vergleich (jeweils die letzten 8 Messpunkte; gleiche laufende Sitzung):');
