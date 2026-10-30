@@ -8663,7 +8663,7 @@ function updateUnderwaterObstacleShadows(submerged){
     // K108: Nachts etwas staerker, damit der Brueckenschatten vom Mond auf
     // der Moseloberflaeche nicht untergeht.
     aczoMoselStructureShadowMat.opacity=useMoon
-      ?.18:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78));
+      ?.12:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78));
   }
   if(typeof aczoPondStructureShadowReceiver!=='undefined'){
     aczoPondStructureShadowReceiver.visible=!is2D&&active&&(useSun||useMoon);
@@ -9863,7 +9863,7 @@ function aczoK25UpdateBridgeShadow(){
   const cloud=simulationEnabled?THREE.MathUtils.clamp((liveWeather.cloud||0)/100,0,1):0;
   // K108: Mondschatten der Bruecke auf der Mosel sichtbarer machen,
   // ohne die Sonnenseite zu veraendern.
-  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&u.aczoK25BridgeSun.value.z>.055?(sunUp?.37:.22)*(1-cloud*.58):0;
+  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&u.aczoK25BridgeSun.value.z>.055?(sunUp?.37:.16)*(1-cloud*.65):0;
  }
 function aczoK20PublishPatrolWave(p,state,dt){
  const s=aczoK20PatrolWake,valid=!!(p?.active&&state?.valid&&state.inWorld);
@@ -42205,6 +42205,29 @@ function aczoK5dInit(){
  aczoLandscapeGroundMat.needsUpdate=true;
  const helpers=`float aczoK25BridgeShadow(vec3 world);uniform float aczoMoselBrown,aczoMoselFlowClock;uniform vec3 aczoK12Haze;uniform float aczoK12Density;
  ${aczoK20FloodGLSL}
+ // K109: Nur der Brueckenkasten wirft einen weichen, begrenzten Schatten
+ // auf die Mosel. Pfeiler, einzelne Quertraeger, Zuege und Zufahrtsrampen
+ // werden hier bewusst nicht mehr einzeln in kilometerlange Banden projiziert.
+ // Die alte, komplexe Land- und Unterwasserberechnung bleibt unveraendert.
+ float aczoK109MoselDeckShadow(vec3 world){
+   if(aczoK25BridgeStrength<=.001||aczoK25BridgeSun.z<=.055)return 0.;
+   vec2 delta=world.xy-vec2(-315.8,-497.);
+   // Der 217m lange Deckkasten kann ausserhalb dieser Region keinen
+   // sichtbaren Oberflaechenschatten hinterlassen.
+   if(dot(delta,delta)>24000.)return 0.;
+   // Eine flache Sonne/ein flacher Mond soll die Schatten nicht hunderte
+   // Meter ueber den Fluss bis vor den Weiher schieben. Maximal ca. 24m.
+   vec2 projection=aczoK25BridgeSun.xy*((11.05-world.z)/max(.46,aczoK25BridgeSun.z));
+   vec2 projected=delta+projection;
+   float across=dot(projected,vec2(.591,.807));
+   float along=dot(projected,vec2(.807,-.591));
+   // Ein einziger zusammenhaengender Brueckendeck-Schatten, weiche Kanten.
+   float deck=(1.-smoothstep(3.75,5.65,abs(across)))
+             *(1.-smoothstep(105.5,109.8,abs(along)));
+   // Auch nahe dem Ufer weich auslaufen; keine harte Loeschlinie.
+   float nearBridge=1.-smoothstep(20.,32.,abs(dot(delta,vec2(.591,.807))));
+   return clamp(deck*nearBridge*aczoK25BridgeStrength,0.,.38);
+ }
   // K53: sediment tints the existing ship/patrol wash in both quality paths.
   // Normal-water foam keeps its exact original colour.
   vec3 aczoK53WashColour(){return mix(vec3(.88,.91,.90),vec3(.64,.50,.33),clamp(aczoMoselBrown*2.0,0.0,1.0));}
@@ -42217,7 +42240,9 @@ function aczoK5dInit(){
   float above=step(-.205,cameraPosition.z);vec3 clearRiver=rgb;
   vec3 result=mix(clearRiver,silt,aczoMoselBrown*.97)+(streak*.006+movingRipple*.004)*aczoMoselBrown*above;
   if(underwaterView>.01&&cameraPosition.z<-.205){float dist=length(world-cameraPosition);result=mix(result,aczoK12Haze,1.-exp(-aczoK12Density*aczoK12Density*dist*dist));}
-  return result*(1.-aczoK25BridgeShadow(world));
+  // K109: Oberflaeche: nur der gebuendelte Deckschatten ohne die
+  // Linien der Einzelpfeiler/Rampen. Unterwasser: unveraenderter Pfad.
+  return result*(1.-(above>0.0?aczoK109MoselDeckShadow(world):aczoK25BridgeShadow(world)));
  }
  `;
  moselWaterMat.uniforms.aczoK12Haze={value:aczoK5dRiver.clone()};moselWaterMat.uniforms.aczoK12Density={value:.145};
