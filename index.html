@@ -45991,18 +45991,6 @@ moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(/float waveBan
  float surfaceRipples(vec2 p){return .5+.5*aczoK26RiverCrests(p,1.63);}
  `);
 moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('float fine=(fine1*.68+fine2*.32)*.5+.5;','float fine=aczoK89FineRipples(vWorldPos.xy);');
-// K98.1: No colour washout. Dampen only wide MOON surface reflections on the
-// Mosel; pond shader and underwater sun/moon appearance remain untouched.
-for(const [before,after] of [
- ['*moonStrength*surfaceOnly*nightFactor*.48;','*moonStrength*surfaceOnly*nightFactor*.29;'],
- ['float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*1.0;',
-  'float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*.78;'],
- ['*moonStrength*surfaceOnly;', '*moonStrength*surfaceOnly*.76;'],
- ['*moonStrength\n       *surfaceOnly*1.0;', '*moonStrength\n       *surfaceOnly*.75;']
-]){
-  if(!moselWaterMat.fragmentShader.includes(before))throw Error('K98.1 river moon shader anchor missing: '+before);
-  moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(before,after);
-}
 
 const aczoK25RiverClock={value:0};
 const moselWaterUniforms={...waterUniforms,time:aczoK25RiverClock,anglingView:{value:0},clipToPond:{value:0.0}};
@@ -53966,6 +53954,27 @@ function aczoK79OptimizeRiverShaders(mat){
 
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
+// K98.4: The existing K79 optimizer relies on the ORIGINAL K98 shader text.
+// Apply moon tuning AFTER that optimizer. Never abort startup for an optional
+// visual adjustment; keep the known-good K98 expression as a fallback.
+(function aczoK984MoonOnlyAfterK79(){
+ const replacements=[
+  ['*moonStrength*surfaceOnly*nightFactor*.48;}',
+   '*moonStrength*surfaceOnly*nightFactor*.29;}'],
+  ['if(moonStrength!=0.0){float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*1.0;',
+   'if(moonStrength!=0.0){float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*.78;'],
+  ['*moonStrength*surfaceOnly;', '*moonStrength*surfaceOnly*.76;'],
+  ['*moonStrength\n       *surfaceOnly*1.0;', '*moonStrength\n       *surfaceOnly*.75;']
+ ];
+ for(const [oldPart,newPart] of replacements){
+   if(moselWaterMat.fragmentShader.includes(oldPart)){
+     moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(oldPart,newPart);
+   }else{
+     console.warn('[ACZO K98.4] Optionale Mondanpassung uebersprungen:',oldPart);
+   }
+ }
+ moselWaterMat.needsUpdate=true;
+})();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
