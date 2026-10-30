@@ -11766,8 +11766,8 @@ function updateWaterStarReflectionPoints(dt){
   waterStarGeo.attributes.position.needsUpdate=true;
   waterStarGeo.attributes.color.needsUpdate=true;
   const twinkle=.88+.12*Math.sin(waterStarPhase*2.15);
-  waterStarHaloMat.opacity=opacity*.15*twinkle;
-  waterStarCoreMat.opacity=Math.min(.44,opacity*.40*twinkle);
+  waterStarHaloMat.opacity=opacity*.075*twinkle;
+  waterStarCoreMat.opacity=Math.min(.80,opacity*.72*twinkle);
 }
 function updateAstronomicalStars(now,sunAltitude){
   const jd=now.getTime()/86400000+2440587.5;
@@ -30115,8 +30115,28 @@ function equipAnglingEquipment(id){
    showAnglingToast(e.name+' ausgerüstet.',1000);
    return;
  }
- anglingProgress.selectedEquipment=id;saveAnglingProgress();closeAnglingGamePanels();updateAnglingSetupUi();
- showAnglingToast(e.name+' montiert.',1000);
+  // K98: Beim Wechsel vom Karpfen-/Wels-Ansitz zum Deeper die
+  // Zwei-Ruten-Methode regulär verlassen. Sonst bleibt die Einzelrute unsichtbar,
+  // die Ansitz-Zielsteuerung aktiv und der Deeper kann nicht ausgeworfen werden.
+  const fromBankSet=id==='deeper'&&anglingUsesBankSet();
+  if(fromBankSet&&!anglingBankEquipMethod(''))return;
+  anglingProgress.selectedEquipment=id;
+  saveAnglingProgress();closeAnglingGamePanels();updateAnglingSetupUi();
+  if(fromBankSet&&anglingMode&&anglingSelection&&anglingState==='ready'){
+    // Normale Uferangel wiederherstellen und Zielwahl neu freigeben,
+    // ohne die Angelstelle nochmals wechseln zu müssen.
+    anglingBankRestoreSingleRod();
+    anglingAimLocked=false;
+    anglingUi.classList.remove('aim-locked');
+    updateAnglingAimFromSettings(false);
+    updateAnglingDeeperReadyPose();
+    anglingActionBtn.disabled=true;
+    anglingActionBtn.textContent='Ziel wählen';
+    setAnglingStatus('Ziel wählen','Ziel für den Deeper antippen.');
+  }else if(id==='deeper'&&anglingSelection&&anglingState==='ready'){
+    updateAnglingDeeperReadyPose();
+  }
+  showAnglingToast(e.name+' montiert.',1000);
 }
 function auditAnglingCommerceCatalogs(){
   const naturalCatalog=ANGLING_NATURAL_BAITS.map(b=>b.id);
@@ -30235,6 +30255,7 @@ function buyAnglingEquipment(id){
  if(e.slot==='method'){saveAnglingProgress();if(!anglingBankHasLines()&&!anglingUi.classList.contains('line-active'))anglingBankEquipMethod(id);}
  else if(e.slot==='rod'){if(!anglingUsesBankSet()||anglingBankEquipMethod(''))anglingProgress.selectedRod=id;}
  else if(e.slot==='net')anglingProgress.selectedNet=id;
+ else if(id==='deeper'&&!anglingBankHasLines()&&!aczoBoatActive())equipAnglingEquipment(id);
  else if(e.slot!=='vehicle'&&!anglingBankHasLines()&&!(aczoBoatActive()&&id==='deeper'))anglingProgress.selectedEquipment=id;
  saveAnglingProgress();
  if(e.slot==='rod'&&anglingSelection&&anglingState==='ready')updateAnglingAimFromSettings(false);
@@ -45290,15 +45311,10 @@ const waterMat=new THREE.ShaderMaterial({
     }
 
 float reflectedStars(vec3 d){
-     float result=0.0;
-     // V8.81: Sterne duerfen nachts deutlicher als kleine Spiegelpunkte sichtbar sein.
-     // Sie bleiben gebrochen und punktfoermig, bekommen aber mehr Chance, sich gegen
-     // die Wasserfarbe und leichte Wellenmodulation durchzusetzen.
-     for(int i=0;i<32;i++){
-       float alignment=dot(d,realStarDirs[i]);
-       result+=smoothstep(.9954,.99920,alignment)*realStarBrightness[i]*1.02;
-     }
-     return min(result,1.10);
+     // K98: Die alte Winkel-Glättung entsprach mehreren Grad Sichtwinkel
+     // und erzeugte riesige weiße Sternkreise auf dem Weiher. Die Mosel
+     // benutzt bereits nur die kleinen Stern-Sprites. Beide Gewässer nun gleich.
+     return 0.0;
    }
 
    void main(){
@@ -46886,7 +46902,7 @@ const waterStarHaloMat=new THREE.PointsMaterial({
   depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending
 });
 const waterStarCoreMat=new THREE.PointsMaterial({
-  size:1.3,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:0,
+  size:2.0,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:0,
   map:waterStarTexture,alphaMap:waterStarTexture,
   depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending
 });
