@@ -8661,8 +8661,13 @@ function updateUnderwaterObstacleShadows(submerged){
   if(aczoMoselStructureShadowReceiver&&aczoMoselStructureShadowMat){
     aczoMoselStructureShadowReceiver.visible=surface&&waterVisible&&(useSun||useMoon);
     aczoMoselStructureShadowMat.opacity=useMoon
-      ?.12:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78));
+      ?.18:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78));
   }
+  // K99: Oberhalb der Wasseroberfläche darf die Konzer Brücke wieder reale
+  // Mond-/Strukturschatten werfen. In Unterwasser- bzw. Kunstköderansichten
+  // bleibt dieser Shadow-Caster dagegen deaktiviert, damit dort kein harter,
+  // ortsfester Brückenschatten stehen bleibt.
+  aczoSetKonzerBridgeShadowState(surface&&(useSun||useMoon));
   if(typeof aczoPondStructureShadowReceiver!=='undefined'){
     aczoPondStructureShadowReceiver.visible=!is2D&&active&&(useSun||useMoon);
     // Der echte Projektionsschatten bleibt unter Wasser klar erkennbar, aber
@@ -8712,6 +8717,15 @@ function aczoEnableCastOnlyShadowTree(root){
     o.receiveShadow=false;
   });
 }
+function aczoSetKonzerBridgeShadowState(enabled){
+  if(typeof aczoKonzerGroup==='undefined'||!aczoKonzerGroup)return;
+  const on=!!enabled;
+  aczoKonzerGroup.traverse(o=>{
+    if(!o.isMesh||o===aczoLandShadowReceiver)return;
+    o.castShadow=on&&!(o.userData&&o.userData.aczoNoShadow);
+    o.receiveShadow=!(o.userData&&o.userData.aczoNoReceiveShadow)&&!is2D;
+  });
+}
 function aczoRefreshAboveWaterShadowCasters(){
   if(typeof aczoFacilityGroup!=='undefined')aczoFacilityGroup.visible=!is2D;
   if(typeof aczoConstructionFenceGroup!=='undefined')aczoConstructionFenceGroup.visible=!is2D;
@@ -8734,6 +8748,7 @@ function aczoRefreshAboveWaterShadowCasters(){
     if(typeof aczoFacilityGroup!=='undefined')aczoEnableShadowTree(aczoFacilityGroup);
     if(typeof aczoConstructionFenceGroup!=='undefined')aczoEnableShadowTree(aczoConstructionFenceGroup);
     if(typeof aczoSurveyedNatureGroup!=='undefined')aczoEnableShadowTree(aczoSurveyedNatureGroup);
+    if(typeof aczoKonzerGroup!=='undefined')aczoEnableShadowTree(aczoKonzerGroup);
   }
 }
 function renderMoonPhase(date){
@@ -11610,6 +11625,22 @@ function pointInWaterStarStructureMask(x,y){
     const boatY=-boatDx*s+boatDy*c;
     if(boatX>=-2.55&&boatX<=2.45&&Math.abs(boatY)<=.82)return true;
   }
+
+  // K99: Unter der Konzer Brücke und direkt an den Pfeilern werden keine
+  // Sternpunkte auf der Wasseroberfläche gezeichnet. Die Brücke schirmt den
+  // Nachthimmel ab und verhindert damit Sterne unter dem Tragwerk.
+  const bridgeDir=(typeof ACZO_KONZ_BRIDGE!=='undefined'&&ACZO_KONZ_BRIDGE.direction)
+    ?ACZO_KONZ_BRIDGE.direction:new THREE.Vector2(.807,-.591).normalize();
+  const bridgeSide=new THREE.Vector2(-bridgeDir.y,bridgeDir.x);
+  const bridgeCenter=(typeof ACZO_KONZ_BRIDGE!=='undefined'&&ACZO_KONZ_BRIDGE.center)
+    ?ACZO_KONZ_BRIDGE.center:new THREE.Vector2(-315.8,-497);
+  const bridgeDeltaX=x-bridgeCenter.x,bridgeDeltaY=y-bridgeCenter.y;
+  const bridgeAlong=bridgeDeltaX*bridgeDir.x+bridgeDeltaY*bridgeDir.y;
+  const bridgeAcross=bridgeDeltaX*bridgeSide.x+bridgeDeltaY*bridgeSide.y;
+  if(Math.abs(bridgeAlong)<=110.0&&Math.abs(bridgeAcross)<=7.8)return true;
+  for(const pierY of [-82.5,-50.5,-14.5,23.5,56.5,84.5]){
+    if(Math.abs(bridgeAlong-pierY)<=2.4&&Math.abs(bridgeAcross)<=6.2)return true;
+  }
   return false;
 }
 function aczoBoatReflectionBoundsTree(bounds,indices){
@@ -11756,18 +11787,23 @@ function updateWaterStarReflectionPoints(dt){
     waterStarPositions[count*3]=x;
     waterStarPositions[count*3+1]=y;
     waterStarPositions[count*3+2]=starZ;
-    const brightness=THREE.MathUtils.clamp((4.1-starCatalog[i][2])/4.2,.42,1.35);
-    waterStarColors[count*3]=starColors[i*3]*brightness;
-    waterStarColors[count*3+1]=starColors[i*3+1]*brightness;
-    waterStarColors[count*3+2]=starColors[i*3+2]*brightness;
+    const brightnessBase=THREE.MathUtils.clamp((4.1-starCatalog[i][2])/4.2,.42,1.35);
+    const surfaceBrightness=inPond?brightnessBase:brightnessBase*.89;
+    waterStarColors[count*3]=starColors[i*3]*surfaceBrightness;
+    waterStarColors[count*3+1]=starColors[i*3+1]*surfaceBrightness;
+    waterStarColors[count*3+2]=starColors[i*3+2]*surfaceBrightness;
     count++;
   }
   waterStarGeo.setDrawRange(0,count);
   waterStarGeo.attributes.position.needsUpdate=true;
   waterStarGeo.attributes.color.needsUpdate=true;
   const twinkle=.88+.12*Math.sin(waterStarPhase*2.15);
-  waterStarHaloMat.opacity=opacity*.075*twinkle;
-  waterStarCoreMat.opacity=Math.min(.80,opacity*.72*twinkle);
+  const moselView=!!aczoMoselFishing;
+  const haloScale=moselView ? .064 : .075;
+  const coreScale=moselView ? .60 : .72;
+  const coreCap=moselView ? .68 : .80;
+  waterStarHaloMat.opacity=opacity*haloScale*twinkle;
+  waterStarCoreMat.opacity=Math.min(coreCap,opacity*coreScale*twinkle);
 }
 function updateAstronomicalStars(now,sunAltitude){
   const jd=now.getTime()/86400000+2440587.5;
