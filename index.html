@@ -8717,14 +8717,24 @@ function aczoEnableCastOnlyShadowTree(root){
     o.receiveShadow=false;
   });
 }
+let aczoK100BridgeProxyState=null;
+let aczoK100BridgeOriginalCastersDisabled=false;
 function aczoSetKonzerBridgeShadowState(enabled){
   if(typeof aczoKonzerGroup==='undefined'||!aczoKonzerGroup)return;
+  // K100: Einmalig die extrem detailreiche Originalbrücke aus der Shadowmap
+  // nehmen. Diese bleibt optisch und mit allen Scheinwerfer-Materialien erhalten.
+  if(!aczoK100BridgeOriginalCastersDisabled){
+    aczoKonzerGroup.traverse(o=>{if(o.isMesh)o.castShadow=false;});
+    aczoK100BridgeOriginalCastersDisabled=true;
+  }
   const on=!!enabled;
-  aczoKonzerGroup.traverse(o=>{
-    if(!o.isMesh||o===aczoLandShadowReceiver)return;
-    o.castShadow=on&&!(o.userData&&o.userData.aczoNoShadow);
-    o.receiveShadow=!(o.userData&&o.userData.aczoNoReceiveShadow)&&!is2D;
-  });
+  if(on===aczoK100BridgeProxyState)return;
+  aczoK100BridgeProxyState=on;
+  // Nur zwei einfache Schatten-Proxies, keine vollständige Traversierung
+  // der tausenden Brückendetails mehr bei jedem Spiel-Frame.
+  if(typeof aczoK100BridgeDeckProxy!=='undefined')aczoK100BridgeDeckProxy.castShadow=on;
+  if(typeof aczoK100BridgePiersProxy!=='undefined')aczoK100BridgePiersProxy.castShadow=on;
+  requestViewerShadowUpdate();
 }
 function aczoRefreshAboveWaterShadowCasters(){
   if(typeof aczoFacilityGroup!=='undefined')aczoFacilityGroup.visible=!is2D;
@@ -8748,7 +8758,7 @@ function aczoRefreshAboveWaterShadowCasters(){
     if(typeof aczoFacilityGroup!=='undefined')aczoEnableShadowTree(aczoFacilityGroup);
     if(typeof aczoConstructionFenceGroup!=='undefined')aczoEnableShadowTree(aczoConstructionFenceGroup);
     if(typeof aczoSurveyedNatureGroup!=='undefined')aczoEnableShadowTree(aczoSurveyedNatureGroup);
-    if(typeof aczoKonzerGroup!=='undefined')aczoEnableShadowTree(aczoKonzerGroup);
+    // K100: Konzer Brücke verwendet ausschließlich zwei Schatten-Proxies.
   }
 }
 function renderMoonPhase(date){
@@ -9874,7 +9884,12 @@ function aczoK25UpdateBridgeShadow(){
   if(!simulationEnabled)u.aczoK25BridgeSun.value.copy(aczoNeutralShadowSunPosition).normalize();
   else u.aczoK25BridgeSun.value.copy(source.position).sub(source.target.position).normalize();
   const cloud=simulationEnabled?THREE.MathUtils.clamp((liveWeather.cloud||0)/100,0,1):0;
-  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&u.aczoK25BridgeSun.value.z>.055?(sunUp?.37:.12)*(1-cloud*.65):0;
+  const moonAltitude=Number(moonLight.userData.astronomicalAltitudeRad);
+  const moonActuallyVisible=Number.isFinite(moonAltitude)&&moonAltitude>0&&moonLight.intensity>.005;
+  // K100: Deckschatten auf dem Wasser über eine einzige analytische Fläche.
+  // Mond nur über dem Horizont, Sonnen-/Mondrichtung folgt dem echten Himmel.
+  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&u.aczoK25BridgeSun.value.z>.055
+    &&(sunUp||moonActuallyVisible)?(sunUp?.48:.29)*(1-cloud*.55):0;
  }
 function aczoK20PublishPatrolWave(p,state,dt){
  const s=aczoK20PatrolWake,valid=!!(p?.active&&state?.valid&&state.inWorld);
@@ -11629,14 +11644,11 @@ function pointInWaterStarStructureMask(x,y){
   // K99: Unter der Konzer Brücke und direkt an den Pfeilern werden keine
   // Sternpunkte auf der Wasseroberfläche gezeichnet. Die Brücke schirmt den
   // Nachthimmel ab und verhindert damit Sterne unter dem Tragwerk.
-  const bridgeDir=(typeof ACZO_KONZ_BRIDGE!=='undefined'&&ACZO_KONZ_BRIDGE.direction)
-    ?ACZO_KONZ_BRIDGE.direction:new THREE.Vector2(.807,-.591).normalize();
-  const bridgeSide=new THREE.Vector2(-bridgeDir.y,bridgeDir.x);
-  const bridgeCenter=(typeof ACZO_KONZ_BRIDGE!=='undefined'&&ACZO_KONZ_BRIDGE.center)
-    ?ACZO_KONZ_BRIDGE.center:new THREE.Vector2(-315.8,-497);
-  const bridgeDeltaX=x-bridgeCenter.x,bridgeDeltaY=y-bridgeCenter.y;
-  const bridgeAlong=bridgeDeltaX*bridgeDir.x+bridgeDeltaY*bridgeDir.y;
-  const bridgeAcross=bridgeDeltaX*bridgeSide.x+bridgeDeltaY*bridgeSide.y;
+  // K100: Diese Abfrage läuft für viele Sternpunkte pro Frame: keine
+  // temporären Vector2-Objekte und damit kein unnötiger GC-Druck.
+  const bridgeDeltaX=x+315.8,bridgeDeltaY=y+497;
+  const bridgeAlong=bridgeDeltaX*.807+bridgeDeltaY*(-.591);
+  const bridgeAcross=bridgeDeltaX*.591+bridgeDeltaY*.807;
   if(Math.abs(bridgeAlong)<=110.0&&Math.abs(bridgeAcross)<=7.8)return true;
   for(const pierY of [-82.5,-50.5,-14.5,23.5,56.5,84.5]){
     if(Math.abs(bridgeAlong-pierY)<=2.4&&Math.abs(bridgeAcross)<=6.2)return true;
@@ -42127,6 +42139,7 @@ function updateCelestialDepthLighting(){
   moselCelestialDepthLift.visible=active&&!is2D;
   if(!active){
     celestialDepthUniforms.sourceStrength.value=0;
+    moselCelestialDepthUniforms.sourceStrength.value=0;
     return;
   }
 
@@ -42139,6 +42152,9 @@ function updateCelestialDepthLighting(){
   // Gewaessern. Seine Geometrien decken ausschließlich Wasser ab.
   const broadLightScale=useMoon?.42:.38;
   celestialDepthUniforms.sourceStrength.value=strength*broadLightScale;
+  // K101: Nur die Mosel bekommt eine schwächere breite Mond-Aufhellung.
+  // Weiher und Sonnenbeleuchtung bleiben exakt bei den K100-Werten.
+  moselCelestialDepthUniforms.sourceStrength.value=celestialDepthUniforms.sourceStrength.value*(useMoon ? .48 : 1);
   celestialDepthUniforms.sourceColor.value.set(useMoon?0xbdd9ff:0xffedbd);
 }
 function setInlineStyle(el,property,value){
@@ -42217,7 +42233,23 @@ function aczoK5dFogDensity(){
 }
 function aczoK5dInit(){
  Object.assign(moselWaterMat.uniforms,aczoK5dUniforms,aczoK25BridgeShadowUniforms);
- moselWaterMat.fragmentShader=aczoK25SearchlightGLSL+aczoK25BridgeShadowGLSL+moselWaterMat.fragmentShader;
+ // K100: Die Funktion wird NACH ihren Uniformdeklarationen eingefügt. Die
+ // Prototyp-Deklaration im vorangestellten Helper erlaubt den Aufruf weiter unten.
+ moselWaterMat.fragmentShader=aczoK25SearchlightGLSL+aczoK25BridgeShadowGLSL+`
+ // K100: Ein projiziertes Brückendeck mit weichen Randkanten statt einer
+ // aufwendigen Geometrie- und Zug-Kollisionssuche für jeden Wasserpixel.
+ float aczoK100BridgeDeckShade(vec3 world){
+  if(aczoK25BridgeStrength<=.001||aczoK25BridgeSun.z<.055)return 0.;
+  vec2 rel=world.xy-vec2(-315.8,-497.);
+  if(dot(rel,rel)>110000.)return 0.;
+  vec2 projected=rel+aczoK25BridgeSun.xy*((10.45-world.z)/aczoK25BridgeSun.z);
+  float across=dot(projected,vec2(.591,.807));
+  float along=dot(projected,vec2(.807,-.591));
+  float silhouette=(1.-smoothstep(4.00,4.85,abs(across)))
+                  *(1.-smoothstep(107.3,109.3,abs(along)));
+  return silhouette*aczoK25BridgeStrength;
+ }
+`+moselWaterMat.fragmentShader;
  Object.assign(aczoLandscapeGroundMat.uniforms,aczoK25BridgeShadowUniforms,aczoBridgeLightingUniforms);
  aczoLandscapeGroundMat.uniforms.aczoK40LocalBeacon=aczoK40LocalBeacon;aczoLandscapeGroundMat.uniforms.aczoK34BoatBeacon=aczoK34BoatBeacon;
  aczoLandscapeGroundMat.fragmentShader=aczoK40BeaconLandGLSL+aczoLandscapeGroundMat.fragmentShader;
@@ -42228,6 +42260,7 @@ function aczoK5dInit(){
  aczoLandscapeGroundMat.fragmentShader=aczoLandscapeGroundMat.fragmentShader.split('gl_FragColor=vec4(col,1.0);').join('vec3 bridgeGroundPoint=vec3((vUv-vec2(.5))*sceneSize+vec2(-100.,-215.),-.035);gl_FragColor=vec4(col*(1.-aczoK25BridgeShadow(bridgeGroundPoint))+aczoK25SearchLand(bridgeGroundPoint)+aczoK40BeaconLand(bridgeGroundPoint),1.0);');
  aczoLandscapeGroundMat.needsUpdate=true;
  const helpers=`float aczoK25BridgeShadow(vec3 world);uniform float aczoMoselBrown,aczoMoselFlowClock;uniform vec3 aczoK12Haze;uniform float aczoK12Density;
+ float aczoK100BridgeDeckShade(vec3 world);
  ${aczoK20FloodGLSL}
   // K53: sediment tints the existing ship/patrol wash in both quality paths.
   // Normal-water foam keeps its exact original colour.
@@ -42241,8 +42274,12 @@ function aczoK5dInit(){
   float above=step(-.205,cameraPosition.z);vec3 clearRiver=rgb;
   vec3 result=mix(clearRiver,silt,aczoMoselBrown*.97)+(streak*.006+movingRipple*.004)*aczoMoselBrown*above;
   if(underwaterView>.01&&cameraPosition.z<-.205){float dist=length(world-cameraPosition);result=mix(result,aczoK12Haze,1.-exp(-aczoK12Density*aczoK12Density*dist*dist));}
-  return result*(1.-aczoK25BridgeShadow(world));
+  // K100: Kein schwerer Pfeiler-/Zug-/Rampentest mehr pro Mosel-Wasserpixel.
+  // Die Deckprojektion kostet wenige Skalaroperationen und ist nur über Wasser aktiv.
+  // Unterwasser wird die starre Schattenmaske nicht mehr eingebrannt.
+  return result*(1.-above*aczoK100BridgeDeckShade(world));
  }
+
  `;
  moselWaterMat.uniforms.aczoK12Haze={value:aczoK5dRiver.clone()};moselWaterMat.uniforms.aczoK12Density={value:.145};
  moselWaterMat.fragmentShader='uniform float underwaterView;\n'+helpers+moselWaterMat.fragmentShader.replace('uniform float underwaterView;','');
@@ -46131,6 +46168,33 @@ directSunMoselReflectionMat=makeDirectCelestialReflectionMaterial(0xfff0bd);
 directMoonMoselReflectionMat=makeDirectCelestialReflectionMaterial(0xc8e2ff);
 directSunMoselReflectionMat.uniforms.clipToPond.value=0.0;
 directMoonMoselReflectionMat.uniforms.clipToPond.value=0.0;
+// K100: Sonnen- und Mondspiegelung respektieren den Schatten des Brückendecks,
+// statt ihn durch den nachfolgenden additiven Lichtpass wieder zu überstrahlen.
+// Kein zusätzlicher Renderpass oder Schattenmap-Lookup.
+const aczoK100ReflectedDeckMask=`
+uniform vec3 aczoK100LightDirection;
+uniform float aczoK100ShadowStrength;
+float aczoK100ReflectedDeck(vec2 xy){
+ if(aczoK100ShadowStrength<=.001||aczoK100LightDirection.z<.055)return 0.;
+ vec2 relative=xy-vec2(-315.8,-497.);
+ if(dot(relative,relative)>110000.)return 0.;
+ vec2 projected=relative+aczoK100LightDirection.xy*((10.45-.70)/aczoK100LightDirection.z);
+ float across=dot(projected,vec2(.591,.807));
+ float along=dot(projected,vec2(.807,-.591));
+ return (1.-smoothstep(4.,4.85,abs(across)))
+       *(1.-smoothstep(107.3,109.3,abs(along)));
+}
+`;
+for(const mat of [directSunMoselReflectionMat,directMoonMoselReflectionMat]){
+ mat.uniforms.aczoK100LightDirection=aczoK25BridgeShadowUniforms.aczoK25BridgeSun;
+ mat.uniforms.aczoK100ShadowStrength=aczoK25BridgeShadowUniforms.aczoK25BridgeStrength;
+ const pattern='gl_FragColor=vec4(lightColor,clamp(intensity,0.0,.92));';
+ if(!mat.fragmentShader.includes(pattern))throw new Error('K100: Reflexionsshader nicht erkannt');
+ mat.fragmentShader=aczoK100ReflectedDeckMask+mat.fragmentShader.replace(pattern,
+   'gl_FragColor=vec4(lightColor,clamp(intensity*(1.-aczoK100ReflectedDeck(vWorldXY)),0.0,.92));');
+ mat.needsUpdate=true;
+}
+
 directSunMoselReflection=new THREE.Mesh(moselWaterGeo,directSunMoselReflectionMat);
 directMoonMoselReflection=new THREE.Mesh(moselWaterGeo,directMoonMoselReflectionMat);
 directSunMoselReflectionMat.depthTest=true;
@@ -46187,7 +46251,7 @@ moselWaterBase.renderOrder=4.06;
 moselWaterBase.frustumCulled=false;
 moselWaterBase.visible=false;
 const moselCelestialDepthMat=celestialDepthMat.clone();
-const moselCelestialDepthUniforms={...celestialDepthUniforms,clipToPond:{value:0.0}};
+const moselCelestialDepthUniforms={...celestialDepthUniforms,sourceStrength:{value:0},clipToPond:{value:0.0}};
 moselCelestialDepthMat.uniforms=moselCelestialDepthUniforms;
 moselCelestialDepthMat.depthTest=true;
 aczoClipMoselMaterial(moselCelestialDepthMat,'vWorldPos.xy');
@@ -46366,6 +46430,36 @@ aczoBridgeSteel.userData.radarArmCount=4;
 aczoBridgeSteel.position.set(ACZO_KONZ_BRIDGE.center.x,ACZO_KONZ_BRIDGE.center.y,0);
 aczoBridgeSteel.rotation.z=Math.atan2(-ACZO_KONZ_BRIDGE.direction.x,ACZO_KONZ_BRIDGE.direction.y);
 aczoKonzerGroup.add(aczoBridgeSteel);
+// K100: Unsichtbare Schattengeometrie nur für die vorhandene Schattenkamera
+// (Layer 2). Hauptbild, Unterwasserkamera und Suchscheinwerfer rendern diese
+// vereinfachten Formen nie als normale Objekte.
+const aczoK100BridgeShadowProxyMaterial=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
+const aczoK100BridgeShadowProxyRoot=new THREE.Group();
+aczoK100BridgeShadowProxyRoot.name='K100_BRUECKE_LEICHTE_SCHATTENPROXIES';
+aczoK100BridgeShadowProxyRoot.position.set(ACZO_KONZ_BRIDGE.center.x,ACZO_KONZ_BRIDGE.center.y,0);
+aczoK100BridgeShadowProxyRoot.rotation.z=aczoBridgeSteel.rotation.z;
+scene.add(aczoK100BridgeShadowProxyRoot);
+const aczoK100BridgeDeckProxy=new THREE.Mesh(
+  new THREE.BoxGeometry(8.6,217,1.45),aczoK100BridgeShadowProxyMaterial
+);
+aczoK100BridgeDeckProxy.name='K100_BRUECKENDECK_SCHATTEN';
+aczoK100BridgeDeckProxy.position.z=10.36;
+aczoK100BridgeDeckProxy.layers.set(ACZO_TREE_SHADOW_PROXY_LAYER);
+aczoK100BridgeDeckProxy.castShadow=false;
+aczoK100BridgeDeckProxy.receiveShadow=false;
+aczoK100BridgeShadowProxyRoot.add(aczoK100BridgeDeckProxy);
+const aczoK100BridgePiersProxy=new THREE.InstancedMesh(
+  new THREE.BoxGeometry(8.6,3.6,9.45),aczoK100BridgeShadowProxyMaterial,6
+);
+aczoK100BridgePiersProxy.name='K100_SECHS_PFEILER_SCHATTEN';
+for(const [i,y] of [-82.5,-50.5,-14.5,23.5,56.5,84.5].entries()){
+  aczoK100BridgePiersProxy.setMatrixAt(i,new THREE.Matrix4().makeTranslation(0,y,4.42));
+}
+aczoK100BridgePiersProxy.instanceMatrix.needsUpdate=true;
+aczoK100BridgePiersProxy.layers.set(ACZO_TREE_SHADOW_PROXY_LAYER);
+aczoK100BridgePiersProxy.castShadow=false;
+aczoK100BridgePiersProxy.receiveShadow=false;
+aczoK100BridgeShadowProxyRoot.add(aczoK100BridgePiersProxy);
 const aczoBridgeA=ACZO_KONZ_BRIDGE.center.clone().addScaledVector(ACZO_KONZ_BRIDGE.direction,-108.5),aczoBridgeB=ACZO_KONZ_BRIDGE.center.clone().addScaledVector(ACZO_KONZ_BRIDGE.direction,108.5);
 const aczoTrackPositions=[],aczoApproachSolids=[];
 const aczoNorthRailCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(-508,-242,.48),new THREE.Vector3(-485,-305,.68),new THREE.Vector3(-469,-356,1.6),new THREE.Vector3(-451,-391,5.3),new THREE.Vector3(-427,-415,9.2),new THREE.Vector3(aczoBridgeA.x,aczoBridgeA.y,11.30)],false,'centripetal');
@@ -53799,7 +53893,7 @@ const aczoK35Panorama=(()=>{
   if(d>=450.){gl_FragColor=vec4(farColour,alpha);return;}
   aczoK37SurfaceMain();
   vec3 direct=aczoK37Direct(vWorldPos,aczoK37SunAnchor,aczoK37SunTrail,aczoK37SunCore,aczoK37SunLength,aczoK37SunWidth,aczoK37SunStrength*aczoK37SunOn,aczoK37SunColour)
-   +aczoK37Direct(vWorldPos,aczoK37MoonAnchor,aczoK37MoonTrail,aczoK37MoonCore,aczoK37MoonLength,aczoK37MoonWidth,aczoK37MoonStrength*aczoK37MoonOn,aczoK37MoonColour);
+   +aczoK37Direct(vWorldPos,aczoK37MoonAnchor,aczoK37MoonTrail,aczoK37MoonCore,aczoK37MoonLength,aczoK37MoonWidth,aczoK37MoonStrength*aczoK37MoonOn*.68,aczoK37MoonColour);
   gl_FragColor=vec4(mix(gl_FragColor.rgb+direct,farColour,blend),alpha);
  }
  `;
@@ -53971,6 +54065,46 @@ function aczoK79OptimizeRiverShaders(mat){
 
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
+// K101: Nur Mosel. Die K79-Optimierungen behalten ihre bekannten
+// Shader-Anker; erst anschließend werden die nächtlichen Lichtanteile gedämpft.
+(function aczoK101TuneMoselMoon(){
+ let f=moselWaterMat.fragmentShader;
+ const patch=(a,b,label)=>{
+   if(f.split(a).length!==2)throw new Error('K101: Mosel-Mond-Anker fehlt: '+label);
+   f=f.replace(a,b);
+ };
+ // Weiche, flächige Streuung und der sehr breite Glow waren zu stark.
+ patch('*moonStrength*surfaceOnly*nightFactor*.48;',
+       '*moonStrength*surfaceOnly*nightFactor*.30;','wide moon scatter');
+ patch('float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*1.0;',
+       'float moonLane=moonAxisMask*moonBreak*moonStrength*surfaceOnly*.70;','moon lane');
+ patch('moonOuter=max(0.0,moonWideMask-moonAxisMask)*moonBreak*moonStrength\n       *surfaceOnly*1.0;',
+       'moonOuter=max(0.0,moonWideMask-moonAxisMask)*moonBreak*moonStrength\n       *surfaceOnly*.48;','wide halo');
+ patch('moonViewSpec=(pow(md,5.2)*.78+pow(md,20.0)*1.18)\n       *moonStrength*surfaceOnly;',
+       'moonViewSpec=(pow(md,5.2)*.78+pow(md,20.0)*1.18)\n       *moonStrength*surfaceOnly*.72;','moon specular');
+ // Sky reflection darkened selectively during the night, day left alone.
+ patch('color=mix(color,reflectedSky,mirrorAmount*.34);',
+       'color=mix(color,reflectedSky,mirrorAmount*.34*mix(1.0,.78,clamp(nightFactor,0.0,1.0)));',
+       'night sky mirror');
+ // Only very steep viewing angles get an additional cap on indirect
+ // moonlit *base water*. Wake foam, boat lamps and searchlights are applied
+ // later; moon-lit shore viewing angles are largely unchanged.
+ patch('vec3 riverColor=aczoK12Silt(color,vWorldPos);',
+       'vec3 riverColor=aczoK12Silt(color,vWorldPos);'+
+       'float aczoK101TopView=smoothstep(.72,.97,abs(V.z));'+
+       'riverColor=mix(riverColor,min(riverColor,vec3(.27,.32,.37)),'+
+       'clamp(nightFactor*aczoK101TopView*.94,0.0,.94));',
+       'steep 3D night view brightness cap');
+ moselWaterMat.fragmentShader=f;
+ moselWaterMat.needsUpdate=true;
+ // Independent, light-weight direct moon sprite shader: river only.
+ let moonShader=directMoonMoselReflectionMat.fragmentShader;
+ const k100='intensity*(1.-aczoK100ReflectedDeck(vWorldXY))';
+ if(moonShader.split(k100).length!==2)throw new Error('K101: direct moon shadow anchor');
+ directMoonMoselReflectionMat.fragmentShader=moonShader.replace(k100,
+      'intensity*.68*(1.-aczoK100ReflectedDeck(vWorldXY))');
+ directMoonMoselReflectionMat.needsUpdate=true;
+})();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
