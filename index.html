@@ -45179,6 +45179,8 @@ aczoPerf2CloudTex.magFilter=THREE.LinearFilter;
 aczoPerf2CloudTex.generateMipmaps=false;
 aczoPerf2CloudTex.flipY=false;
 aczoPerf2CloudTex.needsUpdate=true;
+// CLOUD-R5b: mean of softCloud() over the static cloud texture (grazing reflections fade into it).
+var aczoR5CloudMeanValue=(()=>{try{const d=aczoPerf2CloudCtx.getImageData(0,0,ACZO_PERF2_CLOUD_W,ACZO_PERF2_CLOUD_H).data,ss=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};let sum=0;for(let i=0;i<d.length;i+=4){const r=d[i]/255;sum+=ss(.08,.52,r)*(.30+.24*ss(.16,.64,r));}return sum/(d.length/4);}catch(e){return .18;}})();
 const aczoPerf2CloudUniforms={
   map:{value:aczoPerf2CloudTex},
   worldScale:{value:new THREE.Vector2(.0060,.0047)},
@@ -45441,7 +45443,7 @@ const waterUniforms={
  // V8.47: waterGeo besteht bereits exakt aus denselben ReefMaster-Dreiecken
  // wie pondGeo. Eine zusätzliche rechteckige Fragment-Maske ist redundant
  // und schnitt die über pondW/pondH hinausragenden Ecken ab.
- clipToPond:{value:1.0},aczoR5WaterShade:{value:1},
+ clipToPond:{value:1.0},aczoR5WaterShade:{value:1},aczoR5CloudMean:{value:aczoR5CloudMeanValue},
  shoreInset:{value:0.18}
 };
 const waterMat=new THREE.ShaderMaterial({
@@ -45518,6 +45520,7 @@ const waterMat=new THREE.ShaderMaterial({
    uniform vec2 viewportOrigin;
    uniform float sunStrength;
    uniform float aczoR5WaterShade;
+   uniform float aczoR5CloudMean;
    uniform float moonStrength;
    uniform float cloudAmount;
    uniform vec2 cloudWindDir;
@@ -45661,15 +45664,18 @@ float reflectedStars(vec3 d){
      float mirrorAmount=(.40+fresnel*.46)*(1.0-clamp(underwaterView,0.0,1.0))
        *1.0*mix(1.12,1.60,anglingBoost);
 
-     // CLOUD-R5: far grazing pixels mirror from the camera's flat-water origin (no reversed drift).
-     float cloudRise=max(.16,reflectedView.z);
-     vec2 cloudFlatOrigin=cameraPosition.xy+reflectedView.xy/cloudRise*max(0.,cameraPosition.z-vWorldPos.z);
-     vec2 cloudMirrorPos=mix(cloudFlatOrigin,vWorldPos.xy,smoothstep(.16,.24,reflectedView.z))
-       +reflectedView.xy/cloudRise*max(0.,cloudCeiling-vWorldPos.z);
+     // CLOUD-R5b: rise >= .24 keeps the original mirror exactly. Flatter rays start at the camera's
+     // flat-water mirror point (same motion as the near part, no reversed drift) down to a rise of .08;
+     // their contrast fades into the mean cloud value between .16 and .08 (even haze, no streaks).
+     float cloudRise=max(.16,reflectedView.z),cloudFarRise=max(.08,reflectedView.z);
+     vec2 cloudNearPos=vWorldPos.xy+reflectedView.xy/cloudRise*max(0.,cloudCeiling-vWorldPos.z);
+     vec2 cloudFarPos=cameraPosition.xy+reflectedView.xy/cloudFarRise*(max(0.,cloudCeiling-vWorldPos.z)+max(0.,cameraPosition.z-vWorldPos.z));
+     vec2 cloudMirrorPos=mix(cloudFarPos,cloudNearPos,smoothstep(.16,.24,reflectedView.z));
+     float cloudDetail=smoothstep(.08,.16,reflectedView.z);
      // K73: no cloud sample when its exact contribution is zero.
      float cloudRefl=0.0;
      if(cloudAmount!=0.0 && underwaterView<1.0)
-       cloudRefl=softCloud(cloudMirrorPos)*cloudAmount
+       cloudRefl=mix(aczoR5CloudMean,softCloud(cloudMirrorPos),cloudDetail)*cloudAmount
          *(1.0-clamp(underwaterView,0.0,1.0));
      reflectedSky=mix(reflectedSky,
        mix(vec3(.70,.75,.80),vec3(.25,.31,.40),nightFactor),cloudRefl*.58);
