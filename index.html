@@ -7,6 +7,9 @@
 // only consumes dialog input; native scrolling and pointer button targets survive.
 for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window.__aczoPitTalk?.captureKey(event),true);
 
+/* OPT-5: reuse one live MediaQueryList per query (matchMedia runs in per-frame paths). */
+(function(){const nativeMatch=window.matchMedia;if(typeof nativeMatch!=='function')return;const lists=new Map();
+ window.matchMedia=function(query){const key=String(query);let list=lists.get(key);if(!list){list=nativeMatch.call(window,key);lists.set(key,list);}return list;};})();
 /* K24: cooperative classic-script startup. Gameplay globals keep their original scope. */
 (function(){
  'use strict';
@@ -26,10 +29,37 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
  };
  window.addEventListener('error',e=>{if(!boot.firstFrame&&e.target===window){stageError=e.error||new Error(e.message||'JavaScript-Startfehler');boot.fail(stageError);}});
  window.addEventListener('unhandledrejection',e=>{if(!boot.firstFrame){stageError=e.reason||new Error('Startvorbereitung fehlgeschlagen');boot.fail(stageError);}});
+ // OPT-1/OPT-2 (Performance 2026-11): cheap synchronous budget check for tight
+ // build loops and frame-independent work slices. The loader still gets a real
+ // animation frame at least every 50 ms.
+ let lastPaintYield=performance.now();
  boot.yield=async function(force=false){
   if(boot.failed)throw stageError||new Error(boot.error);
   if(!force&&performance.now()-lastYield<(boot.initializing?10:6))return;
   await new Promise(resolve=>native.raf(()=>native.timeout(resolve,0)));
+  lastYield=lastPaintYield=performance.now();
+ };
+ const workChannel=typeof MessageChannel==='function'?new MessageChannel():null,workResolvers=[];
+ if(workChannel)workChannel.port1.onmessage=()=>{const resolve=workResolvers.shift();if(resolve)resolve();};
+ // The clock is read adaptively: for very cheap loop iterations only every
+ // few calls (at most 32), immediately every call again once work gets heavier.
+ let dueStride=1,dueLeft=1,dueCheckedAt=performance.now();
+ boot.due=function(){
+  if(--dueLeft>0)return false;
+  const now=performance.now(),span=now-dueCheckedAt;dueCheckedAt=now;
+  dueStride=span>1?1:span<.2?Math.min(32,dueStride*2):dueStride;dueLeft=dueStride;
+  return boot.failed||now-lastYield>=(boot.initializing?10:6);
+ };
+ // Stage boundaries always read the clock (stages can be long).
+ boot.dueNow=function(){dueStride=dueLeft=1;dueCheckedAt=performance.now();return boot.failed||dueCheckedAt-lastYield>=(boot.initializing?10:6);};
+ boot.yieldWork=async function(){
+  if(boot.failed)throw stageError||new Error(boot.error);
+  if(!workChannel||performance.now()-lastPaintYield>=50){
+   // Offer the loader a real frame, but do not idle behind a busy GPU process:
+   // continue after 24 ms if no animation frame arrived (CPU-only build work).
+   await new Promise(resolve=>{let open=true;const go=()=>{if(open){open=false;resolve();}};native.raf(()=>native.timeout(go,0));native.timeout(go,24);});
+   lastPaintYield=performance.now();
+  }else await new Promise(resolve=>{workResolvers.push(resolve);workChannel.port2.postMessage(0);});
   lastYield=performance.now();
  };
  window.setTimeout=function(fn,delay,...args){
@@ -151,7 +181,7 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
     const code=node.textContent;node.textContent='';node.remove();
     runClassic(code,label);
     if(boot.pending){const pending=boot.pending;boot.pending=null;await pending;}
-    boot.completed++;await boot.yield();
+    boot.completed++;if(boot.dueNow())await boot.yieldWork();
    }
    boot.show('Bilder und Grafik werden vorbereitet …');
    // One decode callback / texture upload per turn, instead of one simultaneous peak.
@@ -199,7 +229,6 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
 <link rel="preconnect" href="https://geo4.service24.rlp.de" crossorigin>
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js" crossorigin="anonymous">
-<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" crossorigin="anonymous">
 <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" crossorigin="anonymous">
 <link rel="preload" as="image" href="https://geo4.service24.rlp.de/wms/rp_dop20.fcgi?SERVICE=WMS&amp;VERSION=1.1.1&amp;REQUEST=GetMap&amp;LAYERS=rp_dop20&amp;STYLES=&amp;SRS=EPSG:4326&amp;BBOX=6.5760811746,49.7090631509,6.5788421427,49.7108704740&amp;WIDTH=1600&amp;HEIGHT=1600&amp;FORMAT=image/jpeg" crossorigin="anonymous">
 
@@ -18882,7 +18911,7 @@ async function aczoSurveyBuildSegments(items,material,name,cast=true,receive=tru
   const groups=new Map();
   if(chunked){
     for(const s of items){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
       const mx=(s.a.x+s.b.x)*.5,my=(s.a.y+s.b.y)*.5;
       const key=Math.floor(mx/ACZO_SURVEY_SEGMENT_CHUNK_SIZE)+'|'+Math.floor(my/ACZO_SURVEY_SEGMENT_CHUNK_SIZE)+'|'+(aczoSurveyDistanceToPondEdge(mx,my)<=45?'near':'far');
@@ -18890,19 +18919,19 @@ await window.__aczoSafeStart.yield();
       groups.get(key).push(s);
     }
   }else for(const segment of items){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 const near=aczoSurveyDistanceToPondEdge((segment.a.x+segment.b.x)*.5,(segment.a.y+segment.b.y)*.5)<=45,key=near?'near':'far';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(segment);}
 
   let firstMesh=null,chunkIndex=0;
   for(const batch of groups.values()){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
     // Eigene kleine Branch-Geometrie pro Chunk erlaubt eine korrekte
     // BoundingSphere trotz InstancedMesh-Weltmatrizen.
     const geo=chunked?aczoSurveyBranchGeo.clone():aczoSurveyBranchGeo;
     const mesh=new THREE.InstancedMesh(geo,material,batch.length),dummy=new THREE.Object3D();
     let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-    (await (async()=>{for(const [i,s] of (batch).entries()){await window.__aczoSafeStart.yield();
+    (await (async()=>{for(const [i,s] of (batch).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
       const delta=s.b.clone().sub(s.a),length=delta.length();
       dummy.position.copy(s.a).add(s.b).multiplyScalar(.5);
       dummy.quaternion.setFromUnitVectors(aczoSurveyUp,delta.normalize());
@@ -18933,7 +18962,7 @@ await window.__aczoSafeStart.yield();
   return firstMesh;
 }
 function aczoSurveyShuffle(items,seed){const rnd=aczoSurveyRandom(seed);for(let i=items.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[items[i],items[j]]=[items[j],items[i]];}}
-async function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,receive=true){if(!items.length)return null;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();(await (async()=>{for(const [i,item] of (items).entries()){await window.__aczoSafeStart.yield();dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color(item.color??item.species?.summer??0x65a94c));}})());mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor){mesh.instanceColor.setUsage(THREE.StaticDrawUsage);mesh.instanceColor.needsUpdate=true;}mesh.updateMatrix();mesh.matrixAutoUpdate=false;mesh.name=name;mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;mesh.frustumCulled=false;mesh.userData.maxCount=items.length;mesh.userData.seasonCount=items.length;aczoSurveyedNatureGroup.add(mesh);(seasonal?aczoSurveySeasonMeshes:aczoSurveyEvergreenMeshes).push(mesh);if(name.includes('EINZELBLAETTER'))aczoSurveyFineLodMeshes.push(mesh);return mesh;}
+async function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,receive=true){if(!items.length)return null;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();(await (async()=>{for(const [i,item] of (items).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color(item.color??item.species?.summer??0x65a94c));}})());mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor){mesh.instanceColor.setUsage(THREE.StaticDrawUsage);mesh.instanceColor.needsUpdate=true;}mesh.updateMatrix();mesh.matrixAutoUpdate=false;mesh.name=name;mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;mesh.frustumCulled=false;mesh.userData.maxCount=items.length;mesh.userData.seasonCount=items.length;aczoSurveyedNatureGroup.add(mesh);(seasonal?aczoSurveySeasonMeshes:aczoSurveyEvergreenMeshes).push(mesh);if(name.includes('EINZELBLAETTER'))aczoSurveyFineLodMeshes.push(mesh);return mesh;}
 async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
   // VEG-02: Nur gleiche Sektormaterialien dieser Geometriefamilie teilen.
   // Artenidentitaet und exakte Farbverschiebungen bleiben getrennt.
@@ -18945,7 +18974,7 @@ async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,rece
   // damit die Zahl der Drawcalls nicht sinnlos explodiert.
   const baseBatches=new Map();
   for(const item of items){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
     const key=item.species.name+'_'+(item.toneBand||0);
     if(!baseBatches.has(key))baseBatches.set(key,[]);
@@ -18954,12 +18983,12 @@ await window.__aczoSafeStart.yield();
   const chunkSize=aczoSurveyReducedDetail?28:38;
   const chunkThreshold=aczoSurveyReducedDetail?180:300;
   for(const [key,baseBatch] of baseBatches){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
     const spatial=new Map();
     if(baseBatch.length>=chunkThreshold){
       for(const item of baseBatch){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
         const sectorSize=item.moselExpansion?76:chunkSize;
         const k=(item.moselExpansion?'mosel|':'')+Math.floor(item.p.x/sectorSize)+'|'+Math.floor(item.p.y/sectorSize);
@@ -18969,7 +18998,7 @@ await window.__aczoSafeStart.yield();
     }else spatial.set('all',baseBatch);
     let ci=0;
     for(const batch of spatial.values()){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
       const first=batch[0];
       let tones=materialPool.get(first.species);
@@ -18990,7 +19019,7 @@ await window.__aczoSafeStart.yield();
       }
       const mesh=new THREE.InstancedMesh(geometry,material,batch.length),dummy=new THREE.Object3D();
       let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-      (await (async()=>{for(const [i,item] of (batch).entries()){await window.__aczoSafeStart.yield();
+      (await (async()=>{for(const [i,item] of (batch).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
         dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
         const r=Math.max(item.scale.x,item.scale.y,item.scale.z)*1.35;
         minX=Math.min(minX,item.p.x-r);minY=Math.min(minY,item.p.y-r);minZ=Math.min(minZ,item.p.z-r);
@@ -19098,7 +19127,30 @@ function aczoSurveyPointSegmentDistance2D(px,py,a,b){
   const t=vv>1e-9?THREE.MathUtils.clamp((wx*vx+wy*vy)/vv,0,1):0;
   return Math.hypot(px-(a[0]+vx*t),py-(a[1]+vy*t));
 }
+// OPT-7: exact bounding-box pruning (start-up only, identical result).
+let aczoOpt7PondEdgeIndex=null;
+function aczoOpt7PondEdgeDistance(x,y){
+  const points=POND_RENDER_BOUNDARY,n=points.length;
+  let index=aczoOpt7PondEdgeIndex;
+  if(!index||index.points!==points||index.n!==n){
+    const box=new Float64Array(n*4);
+    for(let i=0;i<n;i++){const a=points[i],b=points[(i+1)%n];box[i*4]=Math.min(a[0],b[0]);box[i*4+1]=Math.max(a[0],b[0]);box[i*4+2]=Math.min(a[1],b[1]);box[i*4+3]=Math.max(a[1],b[1]);}
+    index=aczoOpt7PondEdgeIndex={points,n,box};
+  }
+  const box=index.box;let near=0,nearD=Infinity;
+  for(let i=0;i<n;i++){const p=points[i],dx=p[0]-x,dy=p[1]-y,d=dx*dx+dy*dy;if(d<nearD){nearD=d;near=i;}}
+  const s0=(near+n-1)%n;
+  let best=Math.min(aczoSurveyPointSegmentDistance2D(x,y,points[s0],points[near]),aczoSurveyPointSegmentDistance2D(x,y,points[near],points[(near+1)%n]));
+  for(let i=0;i<n;i++){
+    if(i===s0||i===near)continue;
+    const k=i*4,dx=x<box[k]?box[k]-x:x>box[k+1]?x-box[k+1]:0,dy=y<box[k+2]?box[k+2]-y:y>box[k+3]?y-box[k+3]:0;
+    if(dx*dx+dy*dy>best*best*(1+1e-9)+1e-9)continue;
+    best=Math.min(best,aczoSurveyPointSegmentDistance2D(x,y,points[i],points[(i+1)%n]));
+  }
+  return best;
+}
 function aczoSurveyDistanceToPondEdge(x,y){
+  if(window.__aczoSafeStart?.initializing&&POND_RENDER_BOUNDARY.length>2)return aczoOpt7PondEdgeDistance(x,y);
   let best=Infinity;
   for(let i=0;i<POND_RENDER_BOUNDARY.length;i++){
     const a=POND_RENDER_BOUNDARY[i],b=POND_RENDER_BOUNDARY[(i+1)%POND_RENDER_BOUNDARY.length];
@@ -19144,7 +19196,7 @@ function aczoBuildVariedDeciduous(tree){
   aczoSurveyBuildDeciduous(t);
   const lean=(kind===4?.13:kind===5?-.095:.02)*(variant()<.5?-1:1),angle=variant()*Math.PI*2;
   const sx=Math.cos(angle)*lean,sy=Math.sin(angle)*lean;
-  const seen=new WeakSet();const shift=p=>{if(seen.has(p))return;seen.add(p);const dz=Math.max(0,p.z-ACZO_SATELLITE_GROUND_Z);p.x+=sx*dz;p.y+=sy*dz;};
+  const seen=new Set();const shift=p=>{if(seen.has(p))return;seen.add(p);const dz=Math.max(0,p.z-ACZO_SATELLITE_GROUND_Z);p.x+=sx*dz;p.y+=sy*dz;};
   for(const [items,start] of [[aczoSurveyWoodSegments,wood],[aczoSurveyBirchSegments,birch],[aczoSurveyBirchMarks,marks]])
     for(let i=start;i<items.length;i++){shift(items[i].a);shift(items[i].b);}
   for(const [items,start] of [[aczoSurveyLeafItems,leaves],[aczoSurveySprayItems,sprays],[aczoSeasonalTreeShadowProxyItems,shadows]])
@@ -19156,7 +19208,7 @@ function aczoBuildVariedConifer(object,index,forestMix=false){
   aczoSurveyBuildConifer(object,index,forestMix);
   const rng=aczoSurveyRandom(aczoSurveySeed(object.x,object.y,index+441)),shape=index%4;
   const height=.78+rng()*.48,width=shape===0?.68:shape===1?1.22:.86+rng()*.25;
-  const seen=new WeakSet();const transform=p=>{if(seen.has(p))return;seen.add(p);p.x=object.x+(p.x-object.x)*width;p.y=object.y+(p.y-object.y)*width;p.z=ACZO_SATELLITE_GROUND_Z+(p.z-ACZO_SATELLITE_GROUND_Z)*height;};
+  const seen=new Set();const transform=p=>{if(seen.has(p))return;seen.add(p);p.x=object.x+(p.x-object.x)*width;p.y=object.y+(p.y-object.y)*width;p.z=ACZO_SATELLITE_GROUND_Z+(p.z-ACZO_SATELLITE_GROUND_Z)*height;};
   for(let i=wood;i<aczoSurveyConiferSegments.length;i++){transform(aczoSurveyConiferSegments[i].a);transform(aczoSurveyConiferSegments[i].b);}
   for(let i=needles;i<aczoSurveyNeedleItems.length;i++){transform(aczoSurveyNeedleItems[i].p);aczoSurveyNeedleItems[i].scale.multiply(new THREE.Vector3(width,width,height));}
   for(let i=shadows;i<aczoEvergreenTreeShadowProxyItems.length;i++){transform(aczoEvergreenTreeShadowProxyItems[i].p);aczoEvergreenTreeShadowProxyItems[i].scale.multiply(new THREE.Vector3(width,width,height));}
@@ -19188,7 +19240,7 @@ function aczoSurveyBuildLowPolyBush(object,index){
 }
 async function aczoBuildRegionalUnderstory(){
  for(let i=1664;i<ACZO_MOSEL_FOREST_POSITIONS.length;i++){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
   if(i%3!==0)continue;const [x,y]=ACZO_MOSEL_FOREST_POSITIONS[i],shadows=aczoSeasonalTreeShadowProxyItems.length;
   const sprays=aczoSurveySprayItems.length,leaves=aczoSurveyLeafItems.length;aczoSurveyBuildBush({x:x+1.6,y:y-1.3},94000+i);aczoSeasonalTreeShadowProxyItems.length=shadows;for(let j=sprays;j<aczoSurveySprayItems.length;j++)aczoSurveySprayItems[j].moselExpansion=true;for(let j=leaves;j<aczoSurveyLeafItems.length;j++)aczoSurveyLeafItems[j].moselExpansion=true;
@@ -19196,7 +19248,7 @@ await window.__aczoSafeStart.yield();
 }
 async function aczoBuildMoselForestWithExistingTrees(){
   for(let i=0;i<ACZO_MOSEL_FOREST_POSITIONS.length;i++){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
     const [x,y,height,edge]=ACZO_MOSEL_FOREST_POSITIONS[i];
     const tree=aczoSurveyTreeSpec({x,y,type:'deciduous'},51000+i,false);
@@ -19216,7 +19268,7 @@ await window.__aczoSafeStart.yield();
       aczoSurveyLeafItems.length=leaves+Math.min(16,aczoSurveyLeafItems.length-leaves);
       let write=wood;
       for(let j=wood;j<aczoSurveyWoodSegments.length;j++){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
         if(j<wood+6||aczoSurveyWoodSegments[j].r>=.075)aczoSurveyWoodSegments[write++]=aczoSurveyWoodSegments[j];
       }
@@ -19244,7 +19296,7 @@ async function aczoBuildSurveyVegetationProfile(reduced){
   aczoSeasonalTreeShadowProxyItems.push(...aczoSurveyBaseSeasonalProxies);
   aczoEvergreenTreeShadowProxyItems.push(...aczoSurveyBaseEvergreenProxies);
   const before=new Set(aczoSurveyedNatureGroup.children);
-(await (async()=>{for(const [i,o] of (aczoSurveyManualTreeObjects).entries()){await window.__aczoSafeStart.yield();
+(await (async()=>{for(const [i,o] of (aczoSurveyManualTreeObjects).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
   const tree=aczoSurveyTreeSpec(o,i,false);
   // PERF9.2: echte Geraeteprofile. Desktop rendert alle vermessenen Laubbaeume
   // wieder mit der vorhandenen Detailgeometrie; Mobil behaelt die bewiesene
@@ -19257,7 +19309,7 @@ else{aczoSurveyBuildDeciduous(ACZO_SOUTH_LIFEBUOY_TREE);aczoPerf2DetailedTrees++
 // durch die bereits vorhandene feste LowPoly-Silhouette ersetzt.
 // PERF25: Auch die vier manuell gesetzten Nadelbaeume des Ursprungsbestands
 // werden nicht mehr durch Fernwald-Filter entfernt.
-(await (async()=>{for(const [i,o] of (ACZO_SURVEY_DATA.objects.filter(o=>o.type==='conifer')).entries()){await window.__aczoSafeStart.yield();
+(await (async()=>{for(const [i,o] of (ACZO_SURVEY_DATA.objects.filter(o=>o.type==='conifer')).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
   const edgeDist=aczoSurveyDistanceToPondEdge(o.x,o.y);
   if(!aczoSurveyReducedDetail||edgeDist<=14||aczoP13TreeProtected(o.x,o.y)){aczoSurveyBuildConifer(o,i,false);aczoPerf2DetailedConifers++;}
   else{aczoSurveyBuildLowPolyConifer(o,i,edgeDist);aczoPerf2LowPolyConifers++;}
@@ -19271,23 +19323,23 @@ else{aczoSurveyBuildDeciduous(ACZO_SOUTH_LIFEBUOY_TREE);aczoPerf2DetailedTrees++
 // PERF25: Strauchpositionen aus der Ursprungsdatei bleiben 1:1 erhalten.
 // Nur spaeter automatisch hinzugefuegte Vegetation wird auf Waldpolygone begrenzt.
 (await (async()=>{for(const [i,o] of (ACZO_SURVEY_DATA.objects
-  .filter(o=>o.type==='bush')).entries()){await window.__aczoSafeStart.yield();
+  .filter(o=>o.type==='bush')).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
     if(aczoSurveyReducedDetail)aczoSurveyBuildLowPolyBush(o,18000+i);
     else aczoSurveyBuildBush(o,18000+i);
   }})());
 ACZO_SURVEY_DATA.objects.filter(o=>o.type==='reeds').forEach(aczoSurveyBuildReeds);
 
 for(let ai=0;ai<aczoSurveyForestAreas.length;ai++){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
   const poly=aczoSurveyForestAreas[ai].points,xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]),rnd=aczoSurveyRandom(23091+ai*817);
   // PERF25: Verdichtung nur in den original markierten Mischwaldpolygonen.
   // Desktop bekommt sichtbar mehr Bestand, Mobil bleibt vorsichtiger.
   const step=aczoSurveyReducedDetail?3.72:3.12;
   for(let y=Math.min(...ys)+step*.5;y<Math.max(...ys);y+=step){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 for(let x=Math.min(...xs)+step*.5;x<Math.max(...xs);x+=step){
-await window.__aczoSafeStart.yield();
+if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 
     const px=x+(rnd()-.5)*2.9,py=y+(rnd()-.5)*2.9;
     if(!aczoSurveyPointInPolygon(px,py,poly)||aczoSurveyClearAreas.some(a=>aczoSurveyPointInPolygon(px,py,a.points))||aczoSurveyInsidePond(px,py))continue;
@@ -19379,7 +19431,7 @@ aczoSurveyInstanceStats=Object.freeze({
   aczoSurveyMidCanopyItems,aczoSurveyFarCanopyItems,aczoSurveyFarConiferItems,
   aczoSurveyLowPolyBushItems,aczoSurveyForestUnderstoryItems,aczoSurveyReedBladeItems,aczoSeasonalTreeShadowProxyItems,
   aczoEvergreenTreeShadowProxyItems
-])){await window.__aczoSafeStart.yield();items.length=0;}})());
+])){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();items.length=0;}})());
 
 
   return {
@@ -44804,6 +44856,8 @@ scene.add(dayReliefLight.target);
 scene.add(dayReliefLight);
 const moonCanvas=document.createElement('canvas');
 moonCanvas.width=moonCanvas.height=256;
+// OPT-4: CPU-backed 2D context for the per-pixel moon phase (no GPU readback stall).
+try{moonCanvas.getContext('2d',{willReadFrequently:true});}catch(_e){}
 const moonTex=new THREE.CanvasTexture(moonCanvas);
 moonTex.encoding=THREE.sRGBEncoding;
 const moonDisc=new THREE.Sprite(new THREE.SpriteMaterial({
