@@ -18963,7 +18963,7 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 }
 function aczoSurveyShuffle(items,seed){const rnd=aczoSurveyRandom(seed);for(let i=items.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[items[i],items[j]]=[items[j],items[i]];}}
 async function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,receive=true){if(!items.length)return null;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();(await (async()=>{for(const [i,item] of (items).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color(item.color??item.species?.summer??0x65a94c));}})());mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor){mesh.instanceColor.setUsage(THREE.StaticDrawUsage);mesh.instanceColor.needsUpdate=true;}mesh.updateMatrix();mesh.matrixAutoUpdate=false;mesh.name=name;mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;mesh.frustumCulled=false;mesh.userData.maxCount=items.length;mesh.userData.seasonCount=items.length;aczoSurveyedNatureGroup.add(mesh);(seasonal?aczoSurveySeasonMeshes:aczoSurveyEvergreenMeshes).push(mesh);if(name.includes('EINZELBLAETTER'))aczoSurveyFineLodMeshes.push(mesh);return mesh;}
-async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
+async function aczoOpt8LegacyFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
   // VEG-02: Nur gleiche Sektormaterialien dieser Geometriefamilie teilen.
   // Artenidentitaet und exakte Farbverschiebungen bleiben getrennt.
   // Der lokale Pool lebt nur waehrend dieses unveraenderten Profilaufbaus.
@@ -19068,6 +19068,141 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
       if(fineLod)aczoSurveyFineLodMeshes.push(mesh);
       if(name.includes('NATURWALD_FEINE_BLATTFAECHER_UND_SCHATTEN'))aczoSurveySprayLodMeshes.push(mesh);
     }
+  }
+}
+// OPT-8 (Performance 2026-11): one InstancedMesh per foliage sector instead of
+// one per species x tone band x sector. Colours move into instanceColor.
+// OPT-IN for device tests: only active with ?opt8=1 in the URL (default: unchanged batches).
+const ACZO_OPT8_EMISSIVE_ANCHOR='vec3 totalEmissiveRadiance = emissive;';
+const ACZO_OPT8_ENABLED=/[?&]opt8=1(?:&|$)/.test(String(location.search||''))&&String(THREE.ShaderLib?.lambert?.fragmentShader||'').includes(ACZO_OPT8_EMISSIVE_ANCHOR);
+const aczoOpt8Color=new THREE.Color(),aczoOpt8Tmp=new THREE.Color();
+function aczoOpt8FoliageShader(shader){
+  // The former per-tone material used the tone colour as emissive colour too.
+  shader.fragmentShader=shader.fragmentShader.replace('vec3 totalEmissiveRadiance = emissive;','vec3 totalEmissiveRadiance = emissive;\n#ifdef USE_INSTANCING_COLOR\n\ttotalEmissiveRadiance *= vColor;\n#endif');
+}
+function aczoOpt8SeasonColor(target,tmp,s,phase,progress,d){
+  // Identical colour rule as updateAczoSurveyedNatureSeason.
+  if(phase==='winter')target.set(s.winter);
+  else if(phase==='spring'){
+    target.set(s.spring).lerp(tmp.set(s.summer),progress*.74);
+    if(s.blossom&&d>=82&&d<=126)target.set(0xe0e2cf).lerp(tmp.set(0xb5c595),Math.abs(d-104)/22);
+  }else if(phase==='autumn')target.set(s.summer).lerp(tmp.set(s.autumn),progress);
+  else target.set(s.summer);
+  return target;
+}
+function aczoOpt8Paint(mesh,phase,progress,d){
+  const data=mesh.userData.aczoOpt8,groups=data.groups;let changed=false;
+  for(const g of groups){
+    aczoOpt8SeasonColor(aczoOpt8Color,aczoOpt8Tmp,g.species,phase,progress,d).offsetHSL(g.hueShift,g.satShift,g.lightShift);
+    if(aczoOpt8Color.r!==g.r||aczoOpt8Color.g!==g.g||aczoOpt8Color.b!==g.b){g.r=aczoOpt8Color.r;g.g=aczoOpt8Color.g;g.b=aczoOpt8Color.b;changed=true;}
+  }
+  if(!changed)return;
+  const a=mesh.instanceColor.array,of=data.groupOf;
+  for(let i=0;i<of.length;i++){const g=groups[of[i]];a[i*3]=g.r;a[i*3+1]=g.g;a[i*3+2]=g.b;}
+  mesh.instanceColor.needsUpdate=true;
+}
+function aczoOpt8Count(mesh,factor){
+  // Same rounding per former batch as Math.round(seasonCount*factor) before.
+  let n=0;for(const g of mesh.userData.aczoOpt8.groups)n+=Math.max(0,Math.round(g.seasonCount*factor));return n;
+}
+async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
+  if(!ACZO_OPT8_ENABLED)return aczoOpt8LegacyFoliageBatches(items,geometry,name,cast,receive,fineLod);
+  const boot=window.__aczoSafeStart;
+  // Same base batches and the same 38 m / 76 m sector cells as before.
+  const baseBatches=new Map();
+  for(const item of items){
+    if(boot.due())await boot.yieldWork();
+    const key=item.species.name+'_'+(item.toneBand||0);
+    if(!baseBatches.has(key))baseBatches.set(key,[]);
+    baseBatches.get(key).push(item);
+  }
+  const chunkSize=aczoSurveyReducedDetail?28:38;
+  const chunkThreshold=aczoSurveyReducedDetail?180:300;
+  const sectors=new Map();
+  for(const [key,baseBatch] of baseBatches){
+    if(boot.due())await boot.yieldWork();
+    const spatial=new Map();
+    if(baseBatch.length>=chunkThreshold){
+      for(const item of baseBatch){
+        if(boot.due())await boot.yieldWork();
+        const sectorSize=item.moselExpansion?76:chunkSize;
+        const k=(item.moselExpansion?'mosel|':'')+Math.floor(item.p.x/sectorSize)+'|'+Math.floor(item.p.y/sectorSize);
+        if(!spatial.has(k))spatial.set(k,[]);
+        spatial.get(k).push(item);
+      }
+    }else spatial.set('all',baseBatch);
+    // A base batch that did not split stays unsectored (frustumCulled=false), as before.
+    const sectored=spatial.size>1;
+    for(const [cell,batch] of spatial){
+      const first=batch[0],k=sectored?cell:'all';
+      let groups=sectors.get(k);if(!groups){groups=[];sectors.set(k,groups);}
+      groups.push({key,batch,n:batch.length,seasonCount:batch.length,species:first.species,
+        hueShift:first.hueShift||0,satShift:first.satShift||0,lightShift:first.lightShift||0,r:NaN,g:NaN,b:NaN});
+    }
+  }
+  const material=new THREE.MeshLambertMaterial({color:0xffffff,side:THREE.DoubleSide,emissive:0xffffff,emissiveIntensity:.075});
+  material.userData.aczoDayColor=new THREE.Color(0xffffff);
+  material.userData.aczoDayEmissiveIntensity=.075;material.userData.aczoOpt8=true;
+  material.onBeforeCompile=aczoOpt8FoliageShader;
+  aczoSurveyFoliageMaterials.push(material);
+  let ci=0;
+  for(const [k,groups] of sectors){
+    if(boot.due())await boot.yieldWork();
+    // Instance j of former batch g is drawn when Math.round(n_g*f)>j, i.e. for f>=(j+.5)/n_g.
+    let total=0;for(const g of groups)total+=g.n;
+    // k-way merge of the already ordered batches (smallest fraction first, ties by batch order).
+    const orderG=new Uint16Array(total),orderJ=new Uint32Array(total),next=new Uint32Array(groups.length);
+    for(let i=0;i<total;i++){
+      let best=-1,bestF=Infinity;
+      for(let gi=0;gi<groups.length;gi++){const j=next[gi],n=groups[gi].n;if(j<n){const f=(j+.5)/n;if(f<bestF){bestF=f;best=gi;}}}
+      orderG[i]=best;orderJ[i]=next[best]++;
+    }
+    const mesh=new THREE.InstancedMesh(geometry,material,total),dummy=new THREE.Object3D(),groupOf=new Uint16Array(total);
+    let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+    for(let i=0;i<total;i++){
+      if(boot.due())await boot.yieldWork();
+      const gi=orderG[i],item=groups[gi].batch[orderJ[i]];groupOf[i]=gi;
+      dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      const r=Math.max(item.scale.x,item.scale.y,item.scale.z)*1.35;
+      minX=Math.min(minX,item.p.x-r);minY=Math.min(minY,item.p.y-r);minZ=Math.min(minZ,item.p.z-r);
+      maxX=Math.max(maxX,item.p.x+r);maxY=Math.max(maxY,item.p.y+r);maxZ=Math.max(maxZ,item.p.z+r);
+    }
+    mesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(total*3),3);
+    mesh.userData.aczoOpt8={groups,groupOf};
+    aczoOpt8Paint(mesh,'summer',0,180);
+    mesh.userData.aczoVisualBounds=new THREE.Box3(new THREE.Vector3(minX,minY,minZ),new THREE.Vector3(maxX,maxY,maxZ));
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;
+    mesh.name=name+'_OPT8_'+(k==='all'?'ALL':'SECTOR_'+(++ci));
+    mesh.castShadow=cast;mesh.receiveShadow=receive;
+    mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;
+    mesh.userData.maxCount=total;mesh.userData.seasonCount=total;
+    mesh.userData.species=groups[0].species;mesh.userData.hueShift=0;mesh.userData.satShift=0;mesh.userData.lightShift=0;
+    if(k!=='all'){
+      const center=new THREE.Vector3((minX+maxX)*.5,(minY+maxY)*.5,(minZ+maxZ)*.5);
+      const radius=.5*Math.hypot(maxX-minX,maxY-minY,maxZ-minZ)+1.0;
+      const sharedSector=geometry===realBirchLeafGeometry||geometry===realBirchSprayGeometry;
+      const cloneSource=sharedSector?Object.assign(Object.create(geometry),{attributes:{},index:null}):geometry;
+      mesh.geometry=geometry.clone.call(cloneSource);
+      if(sharedSector){
+        const sharedAttributes={...geometry.attributes},sharedIndex=geometry.index;
+        mesh.geometry.index=sharedIndex;
+        for(const key of Object.keys(sharedAttributes))mesh.geometry.attributes[key]=sharedAttributes[key];
+        const disposeSector=mesh.geometry.dispose;
+        mesh.geometry.dispose=function(){
+          const index=this.index,attributes=this.attributes,owned={};
+          for(const key of Object.keys(attributes))if(attributes[key]!==sharedAttributes[key])owned[key]=attributes[key];
+          this.index=index===sharedIndex?null:index;this.attributes=owned;
+          try{return disposeSector.call(this);}
+          finally{this.index=index;this.attributes=attributes;}
+        };
+      }
+      mesh.geometry.boundingSphere=new THREE.Sphere(center,radius);
+      mesh.frustumCulled=true;mesh.userData.aczoPerf11Sector=true;
+    }else mesh.frustumCulled=false;
+    mesh.updateMatrix();mesh.matrixAutoUpdate=false;
+    aczoSurveyedNatureGroup.add(mesh);aczoSurveySeasonMeshes.push(mesh);
+    if(fineLod)aczoSurveyFineLodMeshes.push(mesh);
+    if(name.includes('NATURWALD_FEINE_BLATTFAECHER_UND_SCHATTEN'))aczoSurveySprayLodMeshes.push(mesh);
   }
 }
 function aczoP13PointSegmentDistance(px,py,a,b){
@@ -19711,6 +19846,14 @@ function updateAczoSurveyedNatureSeason(day){
   }
   const key=phase+'|'+Math.round(progress*20)+'|'+Math.round(density*40)+'|'+(is2D?'2':'3');if(key===aczoSurveySeasonKey){aczoSurveyedNatureGroup.visible=!is2D;return;}aczoSurveySeasonKey=key;
   for(const mesh of aczoSurveySeasonMeshes){
+    if(mesh.userData.aczoOpt8){
+      // OPT-8: per former batch density, colours per instance, white shared material.
+      let total=0;for(const g of mesh.userData.aczoOpt8.groups){g.seasonCount=Math.max(0,Math.round(g.n*density));total+=g.seasonCount;}
+      mesh.userData.seasonCount=total;mesh.count=total;aczoOpt8Paint(mesh,phase,progress,d);
+      mesh.material.emissive.setRGB(1,1,1);mesh.material.color.copy(mesh.material.userData.aczoDayColor).multiplyScalar(brightness);
+      mesh.material.emissiveIntensity=mesh.material.userData.aczoDayEmissiveIntensity*(1-night);
+      mesh.visible=!is2D&&mesh.count>0;continue;
+    }
     const s=mesh.userData.species;
     mesh.userData.seasonCount=Math.max(0,Math.round(mesh.userData.maxCount*density));
     mesh.count=mesh.userData.seasonCount;
@@ -19783,14 +19926,14 @@ function updateAczoSurveyForestLod(){
     const max=mesh.userData.seasonCount??mesh.userData.maxCount??0;
     const groupDistance=localLod?aczoK94NatureDistance(mesh):null;
     const factor=groupDistance===null?leafFactor:1-THREE.MathUtils.smoothstep(groupDistance,42,60);
-    mesh.count=is2D?0:Math.max(0,Math.round(max*factor));
+    mesh.count=is2D?0:mesh.userData.aczoOpt8?aczoOpt8Count(mesh,factor):Math.max(0,Math.round(max*factor));
     mesh.visible=!is2D&&mesh.count>0;
   }
   for(const mesh of aczoSurveySprayLodMeshes){
     const max=mesh.userData.seasonCount??mesh.userData.maxCount??0;
     const groupDistance=localLod?aczoK94NatureDistance(mesh):null;
     const factor=groupDistance===null?sprayFactor:THREE.MathUtils.lerp(1,sprayFarFactor,THREE.MathUtils.smoothstep(groupDistance,58,125));
-    mesh.count=is2D?0:Math.max(0,Math.round(max*factor));
+    mesh.count=is2D?0:mesh.userData.aczoOpt8?aczoOpt8Count(mesh,factor):Math.max(0,Math.round(max*factor));
     mesh.visible=!is2D&&mesh.count>0;
   }
 }
