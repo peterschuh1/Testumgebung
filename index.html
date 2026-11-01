@@ -10757,7 +10757,7 @@ aczoLitPoint=instanceMatrix*aczoLitPoint;
 #endif
 aczoLitWorld=(modelMatrix*aczoLitPoint).xyz;`);
   shader.fragmentShader=aczoK25SearchlightGLSL+aczoBridgeDownlightGLSL+`varying vec3 aczoLitWorld;
-float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);return smoothstep(.975,.993,dot(normalize(d),direction))*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);}
+float aczoSearchSpot(vec3 origin,vec3 direction,vec3 normal){vec3 d=aczoLitWorld-origin;float distance=length(d);float cone=smoothstep(.975,.993,dot(normalize(d),direction));if(cone<=0.||aczoSearchStrength<=0.)return 0.;/* BRIDGE-R4: occlusion only inside the lit beam */return cone*max(.08,dot(normal,-normalize(d)))*(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018)*aczoK25SearchVisibility(aczoLitWorld,origin);}
 `+shader.fragmentShader;
   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',`vec3 aczoNormal=inverseTransformDirection(normalize(vNormal),viewMatrix);
 float aczoSearch=aczoSearchSpot(aczoSearchOrigin0,aczoSearchDirection0,aczoNormal);
@@ -16856,7 +16856,9 @@ function aczoBuildGrillPavilion(){
   ],2));
   roofGeo.setIndex([0,1,2,0,2,3,4,5,6,4,6,7,8,9,10,11,12,13]);
   roofGeo.computeVertexNormals();
-  aczoFacilityMesh(pavilion,new THREE.Mesh(roofGeo,aczoBuildingSlateMat),'PAVILLON_WALMDACH_SCHINDELN');
+  // FIX-1: roof visible from below (explore view); shadow pass unchanged (BackSide as before).
+const aczoFix1PavilionRoofMat=aczoBuildingSlateMat.clone();aczoFix1PavilionRoofMat.side=THREE.DoubleSide;aczoFix1PavilionRoofMat.shadowSide=THREE.BackSide;
+aczoFacilityMesh(pavilion,new THREE.Mesh(roofGeo,aczoFix1PavilionRoofMat),'PAVILLON_WALMDACH_SCHINDELN');
   aczoFacilityBox(pavilion,[ridgeHalf*2+.18,.13,.13],[0,0,ridge+.06],aczoBuildingRoofEdgeMat,'PAVILLON_FIRSTKAPPE');
   for(const y of [-ry,ry])aczoFacilityBox(pavilion,[w+over*2+.08,.11,.12],[0,y,eave-.02],aczoBuildingRoofEdgeMat,'PAVILLON_TRAUFKANTE');
   for(const x of [-rx,rx])aczoFacilityBox(pavilion,[.11,d+over*2+.08,.12],[x,0,eave-.02],aczoBuildingRoofEdgeMat,'PAVILLON_TRAUFKANTE_SEITE');
@@ -18931,12 +18933,12 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
     const geo=chunked?aczoSurveyBranchGeo.clone():aczoSurveyBranchGeo;
     const mesh=new THREE.InstancedMesh(geo,material,batch.length),dummy=new THREE.Object3D();
     let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-    (await (async()=>{for(const [i,s] of (batch).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
-      const delta=s.b.clone().sub(s.a),length=delta.length();
+    (await (async()=>{for(let i=0;i<batch.length;i++){const s=batch[i];if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
+      const delta=aczoOpt9Delta.copy(s.b).sub(s.a),length=delta.length();
       dummy.position.copy(s.a).add(s.b).multiplyScalar(.5);
       dummy.quaternion.setFromUnitVectors(aczoSurveyUp,delta.normalize());
       dummy.scale.set(s.r,length,s.r);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
-      if(material.vertexColors)mesh.setColorAt(i,new THREE.Color(s.color??material.color??0xffffff));
+      if(material.vertexColors)mesh.setColorAt(i,aczoOpt9Color.set(s.color??material.color??0xffffff));
       minX=Math.min(minX,s.a.x,s.b.x);minY=Math.min(minY,s.a.y,s.b.y);minZ=Math.min(minZ,s.a.z,s.b.z);
       maxX=Math.max(maxX,s.a.x,s.b.x);maxY=Math.max(maxY,s.a.y,s.b.y);maxZ=Math.max(maxZ,s.a.z,s.b.z);
     }})());
@@ -18954,6 +18956,8 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
       mesh.userData.aczoForestChunk=true;
       mesh.userData.aczoChunkCenter=center;
       mesh.userData.aczoChunkRadius=radius;
+      // OPT-11: far-distance geometry for this chunk (own bounds, like the near geometry).
+      if(ACZO_OPT8_ENABLED&&geo!==aczoSurveyBranchGeo&&geo.attributes.position.count===aczoSurveyBranchGeo.attributes.position.count){const lo=aczoOpt11BranchLoGeo.clone();lo.boundingSphere=geo.boundingSphere.clone();mesh.userData.aczoOpt11={hi:geo,lo,far:false};aczoOpt11Chunks.push(mesh);}
     }else mesh.frustumCulled=false;
     mesh.updateMatrix();mesh.matrixAutoUpdate=false;
     aczoSurveyedNatureGroup.add(mesh);
@@ -18962,7 +18966,7 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
   return firstMesh;
 }
 function aczoSurveyShuffle(items,seed){const rnd=aczoSurveyRandom(seed);for(let i=items.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[items[i],items[j]]=[items[j],items[i]];}}
-async function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,receive=true){if(!items.length)return null;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();(await (async()=>{for(const [i,item] of (items).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color(item.color??item.species?.summer??0x65a94c));}})());mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor){mesh.instanceColor.setUsage(THREE.StaticDrawUsage);mesh.instanceColor.needsUpdate=true;}mesh.updateMatrix();mesh.matrixAutoUpdate=false;mesh.name=name;mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;mesh.frustumCulled=false;mesh.userData.maxCount=items.length;mesh.userData.seasonCount=items.length;aczoSurveyedNatureGroup.add(mesh);(seasonal?aczoSurveySeasonMeshes:aczoSurveyEvergreenMeshes).push(mesh);if(name.includes('EINZELBLAETTER'))aczoSurveyFineLodMeshes.push(mesh);return mesh;}
+async function aczoSurveyBuildColored(items,geometry,material,name,seasonal,cast=true,receive=true){if(!items.length)return null;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();(await (async()=>{for(let i=0;i<items.length;i++){const item=items[i];if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,aczoOpt9Color.set(item.color??item.species?.summer??0x65a94c));}})());mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor){mesh.instanceColor.setUsage(THREE.StaticDrawUsage);mesh.instanceColor.needsUpdate=true;}mesh.updateMatrix();mesh.matrixAutoUpdate=false;mesh.name=name;mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.userData.aczoNoShadow=!cast;mesh.userData.aczoNoReceiveShadow=!receive;mesh.frustumCulled=false;mesh.userData.maxCount=items.length;mesh.userData.seasonCount=items.length;aczoSurveyedNatureGroup.add(mesh);(seasonal?aczoSurveySeasonMeshes:aczoSurveyEvergreenMeshes).push(mesh);if(name.includes('EINZELBLAETTER'))aczoSurveyFineLodMeshes.push(mesh);return mesh;}
 async function aczoOpt8LegacyFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
   // VEG-02: Nur gleiche Sektormaterialien dieser Geometriefamilie teilen.
   // Artenidentitaet und exakte Farbverschiebungen bleiben getrennt.
@@ -19019,7 +19023,7 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
       }
       const mesh=new THREE.InstancedMesh(geometry,material,batch.length),dummy=new THREE.Object3D();
       let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-      (await (async()=>{for(const [i,item] of (batch).entries()){if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
+      (await (async()=>{for(let i=0;i<batch.length;i++){const item=batch[i];if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
         dummy.position.copy(item.p);dummy.rotation.copy(item.rot);dummy.scale.copy(item.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
         const r=Math.max(item.scale.x,item.scale.y,item.scale.z)*1.35;
         minX=Math.min(minX,item.p.x-r);minY=Math.min(minY,item.p.y-r);minZ=Math.min(minZ,item.p.z-r);
@@ -19072,9 +19076,9 @@ if(window.__aczoSafeStart.due())await window.__aczoSafeStart.yieldWork();
 }
 // OPT-8 (Performance 2026-11): one InstancedMesh per foliage sector instead of
 // one per species x tone band x sector. Colours move into instanceColor.
-// OPT-IN for device tests: only active with ?opt8=1 in the URL (default: unchanged batches).
+// Default since round 4. A/B switch: ?opt8=0 restores the previous batches, sectors and branch geometry.
 const ACZO_OPT8_EMISSIVE_ANCHOR='vec3 totalEmissiveRadiance = emissive;';
-const ACZO_OPT8_ENABLED=/[?&]opt8=1(?:&|$)/.test(String(location.search||''))&&String(THREE.ShaderLib?.lambert?.fragmentShader||'').includes(ACZO_OPT8_EMISSIVE_ANCHOR);
+const ACZO_OPT8_ENABLED=!/[?&]opt8=0(?:&|$)/.test(String(location.search||''))&&String(THREE.ShaderLib?.lambert?.fragmentShader||'').includes(ACZO_OPT8_EMISSIVE_ANCHOR);
 const aczoOpt8Color=new THREE.Color(),aczoOpt8Tmp=new THREE.Color();
 function aczoOpt8FoliageShader(shader){
   // The former per-tone material used the tone colour as emissive colour too.
@@ -19108,7 +19112,7 @@ function aczoOpt8Count(mesh,factor){
 async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,receive=false,fineLod=false){
   if(!ACZO_OPT8_ENABLED)return aczoOpt8LegacyFoliageBatches(items,geometry,name,cast,receive,fineLod);
   const boot=window.__aczoSafeStart;
-  // Same base batches and the same 38 m / 76 m sector cells as before.
+  // Same base batches; sector cells 76 m (Mosel expansion 76 m as before).
   const baseBatches=new Map();
   for(const item of items){
     if(boot.due())await boot.yieldWork();
@@ -19116,7 +19120,7 @@ async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,rece
     if(!baseBatches.has(key))baseBatches.set(key,[]);
     baseBatches.get(key).push(item);
   }
-  const chunkSize=aczoSurveyReducedDetail?28:38;
+  const chunkSize=aczoSurveyReducedDetail?28:76; // round 4: 76 m map-view sectors (legacy path keeps 38 m)
   const chunkThreshold=aczoSurveyReducedDetail?180:300;
   const sectors=new Map();
   for(const [key,baseBatch] of baseBatches){
@@ -19203,6 +19207,19 @@ async function aczoSurveyBuildFoliageBatches(items,geometry,name,cast=false,rece
     aczoSurveyedNatureGroup.add(mesh);aczoSurveySeasonMeshes.push(mesh);
     if(fineLod)aczoSurveyFineLodMeshes.push(mesh);
     if(name.includes('NATURWALD_FEINE_BLATTFAECHER_UND_SCHATTEN'))aczoSurveySprayLodMeshes.push(mesh);
+  }
+}
+// OPT-9a: reused scratch objects for the forest generator (values are copied immediately).
+const aczoOpt9Delta=new THREE.Vector3(),aczoOpt9Color=new THREE.Color();
+// OPT-11: branch distance LOD (see aczoOpt11UpdateBranchLod).
+const aczoOpt11BranchLoGeo=new THREE.CylinderGeometry(1,1,1,4,1,false),aczoOpt11Chunks=[];
+function aczoOpt11UpdateBranchLod(){
+  if(!aczoOpt11Chunks.length||typeof camera==='undefined')return;
+  const p=camera.position;
+  for(const mesh of aczoOpt11Chunks){
+    const lod=mesh.userData.aczoOpt11,c=mesh.userData.aczoChunkCenter,r=mesh.userData.aczoChunkRadius||0;if(!lod||!c)continue;
+    const gap=p.distanceTo(c)-r,far=lod.far?gap>58:gap>62;
+    if(far!==lod.far){lod.far=far;mesh.geometry=far?lod.lo:lod.hi;}
   }
 }
 function aczoP13PointSegmentDistance(px,py,a,b){
@@ -19902,6 +19919,7 @@ function aczoK94NatureDistance(mesh){
 function updateAczoSurveyForestLod(){
   const localLod=aczoK94UseLocalNatureLod(),modeChanged=localLod!==aczoK94NatureLodActive;
   const now=performance.now(),seasonChanged=aczoSurveyLodSeason!==aczoSurveySeasonKey;if(now<aczoSurveyLastLodAt&&!seasonChanged&&!modeChanged)return;aczoSurveyLastLodAt=now+180;aczoSurveyLodSeason=aczoSurveySeasonKey;aczoK94NatureLodActive=localLod;
+  aczoOpt11UpdateBranchLod(); // OPT-11
   const dist=Math.max(0,camera.position.distanceTo(controls.target));
   // P5 unveraendert: Die feinsten Einzelblaetter verschwinden in der Ferne.
   let leafFactor=1;
@@ -46072,8 +46090,113 @@ const aczoK25PatrolMaskGLSL=`uniform vec3 aczoK25PatrolPose;uniform vec2 aczoK25
   float halfWidth=along< -3.6?mix(1.16,1.34,clamp((along+4.35)/.75,0.,1.)):along<1.6?1.34:along<3.5?mix(1.34,.90,(along-1.6)/1.9):mix(.90,0.,clamp((along-3.5)/1.0,0.,1.));
   return along> -4.35&&along<4.5&&abs(across)<halfWidth;
  }`;
+// BRIDGE-R4 (2026-11): shared, simplified and connected shadow body of the Konz railway bridge
+// (6 piers + deck/girder body, no railings) for sun, moon and the ship searchlight. The bridge is
+// ~595 m outside the only shadow map, so the existing analytic receivers test this body instead.
+const aczoR4BridgeProxyGLSL=`
+#ifndef ACZO_R4_BRIDGE_PROXY
+#define ACZO_R4_BRIDGE_PROXY
+// BRIDGE-R4: bridge frame x = across (.5908,.8068), y = along the deck (.8068,-.5908), z = world.
+// Body: deck plate + plate girders at x=-4.02/+0.90/+4.02, outline |x|<=4.30, |y|<=108.5,
+// z 9.40..11.16. Piers: six tapered octagons z -0.30..9.40 tangent to the real rounded piers
+// (stadium 2x2.70 m core, radius 1.65 m, scale 1.08 at z=-0.3 to 0.95 at z=8.8) plus capping
+// stone and plinth, touching the girders: one connected body. No railings, rails, masts, lamps.
+// Branch-free slab arithmetic: one reciprocal per ray, intervals (enter,leave) in ray units.
+vec2 aczoR4Slab(float p,float inv,float lo,float hi){float a=(lo-p)*inv,b=(hi-p)*inv;return vec2(min(a,b),max(a,b));}
+vec2 aczoR4And(vec2 a,vec2 b){return vec2(max(a.x,b.x),min(a.y,b.y));}
+vec3 aczoR4Inv(vec3 d){return 1./vec3(abs(d.x)<.000001?.000001:d.x,abs(d.y)<.000001?.000001:d.y,abs(d.z)<.000001?.000001:d.z);}
+// Half-space num-t*den>=0 (tilted pier planes), without branching.
+vec2 aczoR4Half(vec2 iv,float num,float den){
+ den=abs(den)<.000001?.000001:den;float t=num/den;
+ return vec2(den<0.?max(iv.x,t):iv.x,den>0.?min(iv.y,t):iv.y);
+}
+float aczoR4PierY(int i){return i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;}
+// One pier; iv is already limited to |x|<=4.70 and z -0.30..9.40.
+bool aczoR4Pier(vec3 p,vec3 d,vec3 inv,float pierY,vec2 iv){
+ vec3 q=vec3(p.x,p.y-pierY,p.z);
+ iv=aczoR4And(iv,aczoR4Slab(q.y,inv.y,-1.79,1.79));
+ if(!(iv.x<iv.y))return false;
+ // Square capping stone (8.4 x 2.95 m, up to the bearings) and waterline plinth (8.6 x 2.95 m).
+ vec2 square=aczoR4And(iv,aczoR4Slab(q.y,inv.y,-1.475,1.475));
+ vec2 cap=aczoR4And(aczoR4And(square,aczoR4Slab(q.x,inv.x,-4.20,4.20)),aczoR4Slab(q.z,inv.z,8.85,9.40));
+ vec2 plinth=aczoR4And(aczoR4And(square,aczoR4Slab(q.x,inv.x,-4.30,4.30)),aczoR4Slab(q.z,inv.z,-.30,.42));
+ if(cap.x<cap.y||plinth.x<plinth.y)return true;
+ // Tapered rounded shaft as a chamfered octagon tangent to it.
+ iv=aczoR4Half(iv,1.774929-q.y-.023571*q.z,d.y+.023571*d.z);
+ iv=aczoR4Half(iv,1.774929+q.y-.023571*q.z,-d.y+.023571*d.z);
+ iv=aczoR4Half(iv,4.679357-q.x-.062143*q.z,d.x+.062143*d.z);
+ iv=aczoR4Half(iv,4.679357+q.x-.062143*q.z,-d.x+.062143*d.z);
+ float c=5.414557-.071906*q.z,cd=.071906*d.z;
+ iv=aczoR4Half(iv,c-q.x-q.y,d.x+d.y+cd);
+ iv=aczoR4Half(iv,c-q.x+q.y,d.x-d.y+cd);
+ iv=aczoR4Half(iv,c+q.x-q.y,-d.x+d.y+cd);
+ iv=aczoR4Half(iv,c+q.x+q.y,-d.x-d.y+cd);
+ return iv.x<iv.y;
+}
+// All six piers: only those within the ray's along-deck range get the detailed test.
+bool aczoR4Piers(vec3 p,vec3 d,vec3 inv,vec2 iv){
+ iv=aczoR4And(aczoR4And(iv,aczoR4Slab(p.x,inv.x,-4.70,4.70)),aczoR4Slab(p.z,inv.z,-.30,9.40));
+ if(!(iv.x<iv.y))return false;
+ float ya=p.y+d.y*iv.x,yb=p.y+d.y*iv.y,lo=min(ya,yb)-1.79,hi=max(ya,yb)+1.79;
+ for(int i=0;i<6;i++){float y=aczoR4PierY(i);if(y<lo||y>hi)continue;if(aczoR4Pier(p,d,inv,y,iv))return true;}
+ return false;
+}
+// Point light (ship searchlight): true if the body or a pier lies on p+t*d, tMin<t<tMax.
+bool aczoR4BridgeBlocks(vec3 p,vec3 d,float tMin,float tMax){
+ vec3 inv=aczoR4Inv(d);
+ vec2 iv=aczoR4And(vec2(tMin,tMax),aczoR4Slab(p.y,inv.y,-108.5,108.5));
+ // Body as its real parts: deck plate + three plate girders (flange width 0.54 m). Same outline as
+ // the solid box for outside receivers, but undersides between the girders stay reachable.
+ vec2 body=aczoR4And(iv,aczoR4Slab(p.z,inv.z,9.40,11.16));
+ if(body.x<body.y){
+  vec2 deck=aczoR4And(aczoR4And(body,aczoR4Slab(p.z,inv.z,10.98,11.16)),aczoR4Slab(p.x,inv.x,-4.30,4.30));
+  vec2 w0=aczoR4And(body,aczoR4Slab(p.x,inv.x,-4.30,-3.75)),w1=aczoR4And(body,aczoR4Slab(p.x,inv.x,.63,1.17)),w2=aczoR4And(body,aczoR4Slab(p.x,inv.x,3.75,4.30));
+  if(deck.x<deck.y||w0.x<w0.y||w1.x<w1.y||w2.x<w2.y)return true;
+ }
+ return aczoR4Piers(p,d,inv,iv);
+}
+// Sun/moon (directional): 0..1 shade. The body keeps the previous soft deck edge, now over the
+// full girder height 9.40..11.16; piers are hard as before.
+float aczoR4BridgeSunShade(vec3 world,vec3 toLight){
+ vec2 along=vec2(.806786,-.590843),across=vec2(.590843,.806786),delta=world.xy-vec2(-315.8,-497.);
+ vec3 p=vec3(dot(delta,across),dot(delta,along),world.z),d=vec3(dot(toLight.xy,across),dot(toLight.xy,along),toLight.z);
+ if(d.z<=.0001)return 0.;
+ vec3 inv=aczoR4Inv(d);
+ // Broad phase: almost every water/ground pixel leaves here.
+ vec2 iv=aczoR4And(aczoR4And(aczoR4And(vec2(0.,100000.),aczoR4Slab(p.x,inv.x,-4.70,4.70)),aczoR4Slab(p.y,inv.y,-109.1,109.1)),aczoR4Slab(p.z,inv.z,-.30,11.16));
+ if(!(iv.x<iv.y))return 0.;
+ float shade=0.,z0=max(9.40,p.z);
+ if(z0<11.16){
+  vec2 a=p.xy+d.xy*((z0-p.z)/d.z),b=p.xy+d.xy*((11.16-p.z)/d.z);
+  vec2 m=max(max(min(a,b),-max(a,b)),vec2(0.));
+  shade=(1.-smoothstep(4.05,4.65,m.x))*(1.-smoothstep(108.3,109.1,m.y));
+ }
+ if(shade>.999)return 1.;
+ return aczoR4Piers(p,d,inv,vec2(0.,100000.))?1.:shade;
+}
+#endif
+`;
+function aczoR4BridgeGLSL(kind,source){
+ // BRIDGE-R4: optional text edits; any anchor that is not unique keeps the old shader text.
+ try{
+  const edits=kind==='sun'?[
+   ['  vec2 deck=p.xy+d.xy*((11.05-p.z)/d.z);\n  float shade=(1.-smoothstep(4.05,4.65,abs(deck.x)))*(1.-smoothstep(108.3,109.1,abs(deck.y)));\n',
+    '  // BRIDGE-R4: complete deck/girder body + real-size piers (shared bridge proxy).\n  float shade=aczoR4BridgeSunShade(world,aczoK25BridgeSun);\n'],
+   ['  vec3 safeDir=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,d.z);\n  for(int i=0;i<6;i++){\n   float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   vec3 lo=(vec3(-4.35,y-1.65,-.3)-p)/safeDir,hi=(vec3(4.35,y+1.65,9.1)-p)/safeDir;\n   vec3 t0=min(lo,hi),t1=max(lo,hi);float enter=max(max(t0.x,t0.y),t0.z),leave=min(min(t1.x,t1.y),t1.z);\n   shade=max(shade,step(max(0.,enter),leave));\n  }\n',
+    '']
+  ]:[
+   [' float aczoK25SearchVisibility(vec3 point,vec3 origin){\n',
+    ' float aczoK25SearchVisibility(vec3 point,vec3 origin){\n  // BRIDGE-R4: light off (exactly 0 by day/far) -> every caller scales by the strength anyway.\n  if(aczoSearchStrength<=0.)return 1.;\n'],
+   ['  if(aczoK25SearchBox(p,d,distance,vec3(-4.3,-108.5,10.90),vec3(4.3,108.5,11.16)))return 0.;\n  for(int i=0;i<6;i++){float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   if(aczoK25SearchBox(p,d,distance,vec3(-4.0,y-1.35,-.3),vec3(4.0,y+1.35,9.15)))return 0.;}\n  return 1.;\n',
+    '  // BRIDGE-R4: same connected body as the sun/moon shadow (full girder height, real pier size).\n  return aczoR4BridgeBlocks(p,d,.12,distance-.12)?0.:1.;\n']
+  ];
+  for(const [anchor] of edits)if(source.split(anchor).length!==2){console.warn('BRIDGE-R4: Anker nicht eindeutig, Brückenschatten ('+kind+') unverändert:',anchor.slice(0,72));return source;}
+  let out=source;for(const [anchor,text] of edits)out=out.replace(anchor,()=>text);
+  return aczoR4BridgeProxyGLSL+out;
+ }catch(error){console.warn('BRIDGE-R4 übersprungen:',error);return source;}
+}
 const aczoK25BridgeShadowUniforms={aczoK25BridgeSun:{value:new THREE.Vector3(.3,.5,.8).normalize()},aczoK25BridgeStrength:{value:0},aczoK40TrainCount:{value:0},aczoK40TrainCenter:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainAlong:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainUp:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainMin:{value:new THREE.Vector3()},aczoK40TrainMax:{value:new THREE.Vector3()}};
-const aczoK25BridgeShadowGLSL="\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform vec3 aczoK25BridgeSun;uniform float aczoK25BridgeStrength;\n\nuniform int aczoK40TrainCount;\nuniform vec4 aczoK40TrainCenter[10],aczoK40TrainAlong[10],aczoK40TrainUp[10];\nuniform vec3 aczoK40TrainMin,aczoK40TrainMax;\nfloat aczoK40TrainShadow(vec3 world){\n if(aczoK40TrainCount==0)return 0.;\n // The ray/AABB reject keeps the ten-car loop away from other river pixels.\n if(!aczoK37ApproachBox(world,aczoK25BridgeSun,20000.,aczoK40TrainMin,aczoK40TrainMax))return 0.;\n // Respect the same map clipping as the rendered train materials, including\n // a partially visible car. An invisible off-map part cannot cast back in.\n float mapFirst=.12,mapLast=20000.;\n if(!aczoK37ApproachClip(-500.-world.x,-aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.x-300.,aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(-630.-world.y,-aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.y-200.,aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n float shade=0.;\n for(int i=0;i<10;i++){\n  if(i>=aczoK40TrainCount)break;\n  vec4 c=aczoK40TrainCenter[i],a=aczoK40TrainAlong[i],u=aczoK40TrainUp[i];\n  vec3 side=cross(a.xyz,u.xyz),delta=world-c.xyz;\n  vec3 p=vec3(dot(delta,side),dot(delta,a.xyz),dot(delta,u.xyz));\n  vec3 d=vec3(dot(aczoK25BridgeSun,side),dot(aczoK25BridgeSun,a.xyz),dot(aczoK25BridgeSun,u.xyz));\n  float first=mapFirst,last=mapLast;\n  if(!aczoK37ApproachClip(-c.w-p.x,-d.x,first,last))continue;\n  if(!aczoK37ApproachClip(p.x-c.w,d.x,first,last))continue;\n  if(!aczoK37ApproachClip(-a.w-p.y,-d.y,first,last))continue;\n  if(!aczoK37ApproachClip(p.y-a.w,d.y,first,last))continue;\n  if(!aczoK37ApproachClip(-u.w-p.z,-d.z,first,last))continue;\n  if(!aczoK37ApproachClip(p.z-u.w,d.z,first,last))continue;\n  shade=max(shade,smoothstep(0.,.20,last-first));\n  if(shade>.999)break;\n }\n return shade;\n}\n\n float aczoK25BridgeShadow(vec3 world){\n  if(aczoK25BridgeStrength<=.001||world.z>11.2)return 0.;\n  vec2 delta=world.xy-vec2(-315.8,-497.),along=vec2(.807,-.591),across=vec2(.591,.807);\n  vec3 p=vec3(dot(delta,across),dot(delta,along),world.z),d=vec3(dot(aczoK25BridgeSun.xy,across),dot(aczoK25BridgeSun.xy,along),aczoK25BridgeSun.z);\n  if(d.z<.055||length(delta)>900.)return 0.;\n  vec2 deck=p.xy+d.xy*((11.05-p.z)/d.z);\n  float shade=(1.-smoothstep(4.05,4.65,abs(deck.x)))*(1.-smoothstep(108.3,109.1,abs(deck.y)));\n  vec3 safeDir=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,d.z);\n  for(int i=0;i<6;i++){\n   float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   vec3 lo=(vec3(-4.35,y-1.65,-.3)-p)/safeDir,hi=(vec3(4.35,y+1.65,9.1)-p)/safeDir;\n   vec3 t0=min(lo,hi),t1=max(lo,hi);float enter=max(max(t0.x,t0.y),t0.z),leave=min(min(t1.x,t1.y),t1.z);\n   shade=max(shade,step(max(0.,enter),leave));\n  }\n  if(aczoK37ApproachOccluded(world,aczoK25BridgeSun,20000.))shade=1.;\n  shade=max(shade,aczoK40TrainShadow(world));\n  return shade*aczoK25BridgeStrength;\n }\n";
+const aczoK25BridgeShadowGLSL=aczoR4BridgeGLSL('sun',"\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform vec3 aczoK25BridgeSun;uniform float aczoK25BridgeStrength;\n\nuniform int aczoK40TrainCount;\nuniform vec4 aczoK40TrainCenter[10],aczoK40TrainAlong[10],aczoK40TrainUp[10];\nuniform vec3 aczoK40TrainMin,aczoK40TrainMax;\nfloat aczoK40TrainShadow(vec3 world){\n if(aczoK40TrainCount==0)return 0.;\n // The ray/AABB reject keeps the ten-car loop away from other river pixels.\n if(!aczoK37ApproachBox(world,aczoK25BridgeSun,20000.,aczoK40TrainMin,aczoK40TrainMax))return 0.;\n // Respect the same map clipping as the rendered train materials, including\n // a partially visible car. An invisible off-map part cannot cast back in.\n float mapFirst=.12,mapLast=20000.;\n if(!aczoK37ApproachClip(-500.-world.x,-aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.x-300.,aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(-630.-world.y,-aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.y-200.,aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n float shade=0.;\n for(int i=0;i<10;i++){\n  if(i>=aczoK40TrainCount)break;\n  vec4 c=aczoK40TrainCenter[i],a=aczoK40TrainAlong[i],u=aczoK40TrainUp[i];\n  vec3 side=cross(a.xyz,u.xyz),delta=world-c.xyz;\n  vec3 p=vec3(dot(delta,side),dot(delta,a.xyz),dot(delta,u.xyz));\n  vec3 d=vec3(dot(aczoK25BridgeSun,side),dot(aczoK25BridgeSun,a.xyz),dot(aczoK25BridgeSun,u.xyz));\n  float first=mapFirst,last=mapLast;\n  if(!aczoK37ApproachClip(-c.w-p.x,-d.x,first,last))continue;\n  if(!aczoK37ApproachClip(p.x-c.w,d.x,first,last))continue;\n  if(!aczoK37ApproachClip(-a.w-p.y,-d.y,first,last))continue;\n  if(!aczoK37ApproachClip(p.y-a.w,d.y,first,last))continue;\n  if(!aczoK37ApproachClip(-u.w-p.z,-d.z,first,last))continue;\n  if(!aczoK37ApproachClip(p.z-u.w,d.z,first,last))continue;\n  shade=max(shade,smoothstep(0.,.20,last-first));\n  if(shade>.999)break;\n }\n return shade;\n}\n\n float aczoK25BridgeShadow(vec3 world){\n  if(aczoK25BridgeStrength<=.001||world.z>11.2)return 0.;\n  vec2 delta=world.xy-vec2(-315.8,-497.),along=vec2(.807,-.591),across=vec2(.591,.807);\n  vec3 p=vec3(dot(delta,across),dot(delta,along),world.z),d=vec3(dot(aczoK25BridgeSun.xy,across),dot(aczoK25BridgeSun.xy,along),aczoK25BridgeSun.z);\n  if(d.z<.055||length(delta)>900.)return 0.;\n  vec2 deck=p.xy+d.xy*((11.05-p.z)/d.z);\n  float shade=(1.-smoothstep(4.05,4.65,abs(deck.x)))*(1.-smoothstep(108.3,109.1,abs(deck.y)));\n  vec3 safeDir=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,d.z);\n  for(int i=0;i<6;i++){\n   float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   vec3 lo=(vec3(-4.35,y-1.65,-.3)-p)/safeDir,hi=(vec3(4.35,y+1.65,9.1)-p)/safeDir;\n   vec3 t0=min(lo,hi),t1=max(lo,hi);float enter=max(max(t0.x,t0.y),t0.z),leave=min(min(t1.x,t1.y),t1.z);\n   shade=max(shade,step(max(0.,enter),leave));\n  }\n  if(aczoK37ApproachOccluded(world,aczoK25BridgeSun,20000.))shade=1.;\n  shade=max(shade,aczoK40TrainShadow(world));\n  return shade*aczoK25BridgeStrength;\n }\n"); // BRIDGE-R4: shared bridge proxy
 const aczoShipWakeUniforms={
   aczoWakeOrigin:{value:new THREE.Vector2()},aczoWakeDirection:{value:new THREE.Vector2(1,0)},
   aczoWakeTime:{value:0},aczoWakeLength:{value:100},aczoWakeAmplitude:{value:0},aczoWakeTravel:{value:0}
@@ -46587,7 +46710,7 @@ const aczoNavigationGlowTexture=(()=>{
  const c=document.createElement('canvas');c.width=c.height=48;const x=c.getContext('2d'),g=x.createRadialGradient(24,24,1,24,24,23);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.13,'rgba(255,255,255,.9)');g.addColorStop(.34,'rgba(255,255,255,.22)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,48,48);return new THREE.CanvasTexture(c);
 })();
 const aczoBridgeLightingUniforms={aczoBridgeNight:{value:0},aczoSearchStrength:{value:0},aczoSearchOrigin0:{value:new THREE.Vector3()},aczoSearchOrigin1:{value:new THREE.Vector3()},aczoSearchDirection0:{value:new THREE.Vector3(0,1,0)},aczoSearchDirection1:{value:new THREE.Vector3(0,1,0)}};
-const aczoK25SearchlightGLSL="\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform float aczoSearchStrength;uniform vec3 aczoSearchOrigin0,aczoSearchOrigin1,aczoSearchDirection0,aczoSearchDirection1;\n bool aczoK25SearchBox(vec3 p,vec3 d,float lengthToLight,vec3 lo,vec3 hi){\n  vec3 safe=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,abs(d.z)<.0001?.0001:d.z);\n  vec3 a=(lo-p)/safe,b=(hi-p)/safe,enter=min(a,b),leave=max(a,b);\n  float first=max(max(enter.x,enter.y),enter.z),last=min(min(leave.x,leave.y),leave.z);\n  return max(first,.12)<min(last,lengthToLight-.12);\n }\n float aczoK25SearchVisibility(vec3 point,vec3 origin){\n  vec2 axis=normalize(vec2(.807,-.591)),crossAxis=vec2(-axis.y,axis.x),delta=point.xy-vec2(-315.8,-497.);\n  vec3 deltaLight=origin-point;float distance=length(deltaLight);if(distance<1.)return 1.;\n  if(aczoSearchStrength>.001&&aczoK37ApproachOccluded(point+deltaLight*(.55/distance),deltaLight/distance,distance-.67))return 0.;\n  vec3 p=vec3(dot(delta,crossAxis),dot(delta,axis),point.z),d=vec3(dot(deltaLight.xy,crossAxis),dot(deltaLight.xy,axis),deltaLight.z)/distance;\n  // Small bias avoids shadowing the illuminated masonry face with its simplified blocker.\n  p+=d*.55;distance-=.55;\n  if(aczoK25SearchBox(p,d,distance,vec3(-4.3,-108.5,10.90),vec3(4.3,108.5,11.16)))return 0.;\n  for(int i=0;i<6;i++){float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   if(aczoK25SearchBox(p,d,distance,vec3(-4.0,y-1.35,-.3),vec3(4.0,y+1.35,9.15)))return 0.;}\n  return 1.;\n }\n vec3 aczoK25SearchContribution(vec3 point,vec3 normal,vec3 origin,vec3 beam,bool water){\n  vec3 toward=origin-point;float distance=length(toward);if(distance<.1||distance>420.)return vec3(0.);\n  vec3 L=toward/distance;float cone=smoothstep(.975,.993,dot(-L,beam));if(cone<.002)return vec3(0.);\n  float visibility=aczoK25SearchVisibility(point,origin);if(visibility<.5)return vec3(0.);\n  float fade=(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018);\n  float facing=max(0.,dot(normal,L));\n  float value=water?(.10+pow(max(0.,dot(reflect(-L,normal),normalize(cameraPosition-point))),28.)*4.6)*(.35+.65*facing):(.04+.96*facing)*.85;\n  return vec3(.82,.89,1.)*value*cone*fade*aczoSearchStrength;\n }\n vec3 aczoK25SearchWater(vec3 point,vec3 normal){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,normal,aczoSearchOrigin0,aczoSearchDirection0,true);\n }\n vec3 aczoK25SearchLand(vec3 point){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,vec3(0.,0.,1.),aczoSearchOrigin0,aczoSearchDirection0,false);\n }\n";
+const aczoK25SearchlightGLSL=aczoR4BridgeGLSL('search',"\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform float aczoSearchStrength;uniform vec3 aczoSearchOrigin0,aczoSearchOrigin1,aczoSearchDirection0,aczoSearchDirection1;\n bool aczoK25SearchBox(vec3 p,vec3 d,float lengthToLight,vec3 lo,vec3 hi){\n  vec3 safe=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,abs(d.z)<.0001?.0001:d.z);\n  vec3 a=(lo-p)/safe,b=(hi-p)/safe,enter=min(a,b),leave=max(a,b);\n  float first=max(max(enter.x,enter.y),enter.z),last=min(min(leave.x,leave.y),leave.z);\n  return max(first,.12)<min(last,lengthToLight-.12);\n }\n float aczoK25SearchVisibility(vec3 point,vec3 origin){\n  vec2 axis=normalize(vec2(.807,-.591)),crossAxis=vec2(-axis.y,axis.x),delta=point.xy-vec2(-315.8,-497.);\n  vec3 deltaLight=origin-point;float distance=length(deltaLight);if(distance<1.)return 1.;\n  if(aczoSearchStrength>.001&&aczoK37ApproachOccluded(point+deltaLight*(.55/distance),deltaLight/distance,distance-.67))return 0.;\n  vec3 p=vec3(dot(delta,crossAxis),dot(delta,axis),point.z),d=vec3(dot(deltaLight.xy,crossAxis),dot(deltaLight.xy,axis),deltaLight.z)/distance;\n  // Small bias avoids shadowing the illuminated masonry face with its simplified blocker.\n  p+=d*.55;distance-=.55;\n  if(aczoK25SearchBox(p,d,distance,vec3(-4.3,-108.5,10.90),vec3(4.3,108.5,11.16)))return 0.;\n  for(int i=0;i<6;i++){float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   if(aczoK25SearchBox(p,d,distance,vec3(-4.0,y-1.35,-.3),vec3(4.0,y+1.35,9.15)))return 0.;}\n  return 1.;\n }\n vec3 aczoK25SearchContribution(vec3 point,vec3 normal,vec3 origin,vec3 beam,bool water){\n  vec3 toward=origin-point;float distance=length(toward);if(distance<.1||distance>420.)return vec3(0.);\n  vec3 L=toward/distance;float cone=smoothstep(.975,.993,dot(-L,beam));if(cone<.002)return vec3(0.);\n  float visibility=aczoK25SearchVisibility(point,origin);if(visibility<.5)return vec3(0.);\n  float fade=(1.-smoothstep(270.,420.,distance))/(1.+distance*distance*.000018);\n  float facing=max(0.,dot(normal,L));\n  float value=water?(.10+pow(max(0.,dot(reflect(-L,normal),normalize(cameraPosition-point))),28.)*4.6)*(.35+.65*facing):(.04+.96*facing)*.85;\n  return vec3(.82,.89,1.)*value*cone*fade*aczoSearchStrength;\n }\n vec3 aczoK25SearchWater(vec3 point,vec3 normal){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,normal,aczoSearchOrigin0,aczoSearchDirection0,true);\n }\n vec3 aczoK25SearchLand(vec3 point){\n  if(aczoSearchStrength<.001)return vec3(0.);\n  return aczoK25SearchContribution(point,vec3(0.,0.,1.),aczoSearchOrigin0,aczoSearchDirection0,false);\n }\n"); // BRIDGE-R4: shared bridge proxy
 const aczoBridgeDownlightGLSL=`
 uniform float aczoBridgeNight;
 uniform vec3 aczoBridgeLamp0,aczoBridgeLamp1,aczoBridgeLamp2,aczoBridgeLamp3;
@@ -49049,7 +49172,7 @@ const aczoSurveyLowPolyBushItems=[];
 const aczoSurveyForestUnderstoryItems=[];
 const aczoSurveyReedSegments=[],aczoSurveyReedHeads=[],aczoSurveyReedBladeItems=[];
 let aczoPerf2DetailedTrees=0,aczoPerf2LowPolyTrees=0,aczoPerf2DetailedConifers=0,aczoPerf2LowPolyConifers=0;
-const ACZO_SURVEY_SEGMENT_CHUNK_SIZE=42;
+const ACZO_SURVEY_SEGMENT_CHUNK_SIZE=(typeof ACZO_OPT8_ENABLED!=='undefined'&&ACZO_OPT8_ENABLED)?84:42; // OPT-8b: 84 m (default; ?opt8=0 = 42 m)
 const ACZO_SURVEY_SEGMENT_CHUNK_THRESHOLD=5000;
 const aczoSurveyFineLodMeshes=[],aczoSurveySprayLodMeshes=[];
 let aczoSurveyReducedDetail=false;
@@ -54138,6 +54261,31 @@ function aczoK79OptimizeRiverShaders(mat){
 
 aczoK5dInit();
 aczoK79OptimizeRiverShaders(moselWaterMat);
+(function aczoOpt10SoftenMoselGlint(){
+ // OPT-10 (2026-11): Mosel only. Narrower lobes + less whitening, same colours.
+ const edits=[
+  ['pow(sourceSd,1.65)','pow(sourceSd,2.3)'],['pow(sourceSd,5.0)','pow(sourceSd,6.5)'],
+  ['pow(sourceMd,1.65)','pow(sourceMd,2.3)'],['pow(sourceMd,5.0)','pow(sourceMd,6.5)'],
+  ['color+=vec3(1.0,.965,.82)*solarScatter*solarScatterBreak*.82;','color+=vec3(1.0,.965,.82)*solarScatter*solarScatterBreak*.70;'],
+  ['clamp(solarScatter*solarScatterBreak*.12,0.0,.18)','clamp(solarScatter*solarScatterBreak*.12,0.0,.12)'],
+  ['color+=vec3(.84,.93,1.0)*moonScatter*moonScatterBreak*.76;','color+=vec3(.84,.93,1.0)*moonScatter*moonScatterBreak*.64;'],
+  ['clamp(moonScatter*moonScatterBreak*.10,0.0,.14)','clamp(moonScatter*moonScatterBreak*.10,0.0,.09)'],
+  ['pow(sd,5.2)','pow(sd,6.5)'],['pow(md,5.2)','pow(md,6.5)'],
+  ['clamp(celestialViewSpec*.38,0.0,.72)','clamp(celestialViewSpec*.32,0.0,.55)']
+ ];
+ try{
+  let f=moselWaterMat.fragmentShader,missing=[];
+  for(const [a,b] of edits){if(f.split(a).length===2)f=f.replace(a,b);else missing.push(a);}
+  if(missing.length)console.warn('OPT-10: Mosel-Anker nicht eindeutig, unverändert:',missing);
+  moselWaterMat.fragmentShader=f;moselWaterMat.needsUpdate=true;
+  // Additive sun/moon overlay of the Mosel: about 15 % less, same light colour.
+  for(const m of [typeof directSunMoselReflectionMat!=='undefined'?directSunMoselReflectionMat:null,typeof directMoonMoselReflectionMat!=='undefined'?directMoonMoselReflectionMat:null]){
+   if(!m||typeof m.fragmentShader!=='string')continue;
+   const a='gl_FragColor=vec4(lightColor,clamp(intensity,0.0,.92));';
+   if(m.fragmentShader.split(a).length===2){m.fragmentShader=m.fragmentShader.replace(a,'gl_FragColor=vec4(lightColor,clamp(intensity*.85,0.0,.80));');m.needsUpdate=true;}
+  }
+ }catch(error){console.warn('OPT-10 übersprungen:',error);}
+})();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
@@ -57428,6 +57576,73 @@ setInterval(()=>{try{tick();}catch(e){console.warn('ZPC:',e);}},250);
  update();
 })();
 
+</script>
+<style id="aczoUiRound3">
+/* UI-18: uniform close controls, at least 44x44 px touch target, top right */
+#helpClose,#anglingDailyQuestIntroClose,#aczoCloseCard,#aczoFullscreenHelpClose{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;top:8px!important;right:8px!important;padding:0!important;border-radius:50%!important;font-size:22px!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+#anglingMainCloseBtn,#anglingLogTopCloseBtn{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;padding:0!important;border-radius:50%!important;font-size:22px!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 44px!important}
+.angling-panel-close{min-height:44px!important;min-width:84px!important;height:auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+.angling-game-panel-head{padding-right:104px!important;min-height:60px}
+.angling-leaderboard-panel .angling-game-panel-head{padding-right:104px!important}
+.help-card>h2,.help-card>h3,.angling-daily-quest-intro-card>h2,.angling-daily-quest-intro-card>h3{padding-right:52px}
+/* UI-19: grouped map tools */
+.map-tools-panel .aczo-tools-heading{grid-column:1/-1;margin:2px 2px 0;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#47705a;text-align:left}
+.map-tools-panel.open{max-height:330px!important}
+.controls.aczo-tools-weather-moved{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media(max-width:700px){.map-tools-panel.open{max-height:430px!important}.map-tools-panel>button{min-height:38px!important;font-size:10.5px!important}.map-tools-panel .aczo-tools-heading{font-size:8.5px}}
+/* UI-17: section descriptions under the new group titles */
+#anglingMainMenu .aczo-ui17-shortcut[hidden]{display:none!important}
+</style>
+<script id="aczoUiRound3Script">
+(function aczoUiRound3(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ // UI-19: map tools in three labelled groups; weather toggle moves into "Einstellungen".
+ try{
+  const panel=$('mapToolsPanel'),sim=$('simBtn'),gfx=$('aczoGraphicsQuality');
+  if(panel&&!panel.dataset.aczoGrouped){
+   const heading=text=>{const el=document.createElement('small');el.className='aczo-tools-heading';el.textContent=text;return el;};
+   const groups=[['Ansicht',['aczoMapFullscreen','resetView','landscapeOverview','overlayBtn']],['Karte & Werkzeuge',['contourBtn','measureBtn','locBtn','printBtn']]];
+   const frag=document.createDocumentFragment();
+   for(const [title,ids] of groups){frag.append(heading(title));for(const id of ids){const el=$(id);if(el)frag.append(el);}}
+   frag.append(heading('Einstellungen'));
+   if(sim){const bar=sim.parentElement;frag.append(sim);bar?.classList.add('aczo-tools-weather-moved');}
+   if(gfx)frag.append(gfx);
+   panel.prepend(frag);panel.dataset.aczoGrouped='1';
+  }
+ }catch(error){console.warn('UI-19 übersprungen:',error);}
+ // UI-17: main menu groups "Angeln", "Fortschritt", "Konto & Hilfe".
+ try{
+  const menu=$('anglingMainMenu'),overview=$('aczo-main-overview');
+  if(menu&&overview&&!overview.dataset.aczoGrouped){
+   overview.dataset.aczoGrouped='1';
+   const sections=[...overview.querySelectorAll(':scope > section.angling-main-section')];
+   const setTitle=(section,small,title,desc)=>{const t=section?.querySelector('.angling-main-section-title');if(!t)return;const s=t.querySelector('small'),h=t.querySelector('h3');if(s)s.textContent=small;if(h)h.textContent=title;let p=t.querySelector('p');if(desc){if(!p){p=document.createElement('p');t.append(p);}p.textContent=desc;}};
+   const progress=$('anglingMainLogBtn')?.closest('section'),help=$('anglingMainHelpBtn')?.closest('section'),play=$('anglingMainPlayBtn')?.closest('section');
+   setTitle(progress,'MEINE DATEN','📊 Fortschritt','Fangbuch, Bestenlisten, Hall of Fame und Tagesaufgaben.');
+   setTitle(help,'SERVICE','👤 Konto & Hilfe','Profil, Community, Einstellungen und Hilfe.');
+   const button=(label,cls)=>{const b=document.createElement('button');b.type='button';b.className='angling-main-btn aczo-ui17-shortcut'+(cls?' '+cls:'');b.textContent=label;return b;};
+   const helpActions=help?.querySelector('.angling-main-actions');
+   if(helpActions){
+    for(const [label,target] of [['👤 Profil','profile'],['👥 Community','community'],['⚙️ Einstellungen','settings']]){
+     const b=button(label);b.addEventListener('click',()=>menu.querySelector('[data-main-target="'+target+'"]')?.click());
+     helpActions.insertBefore(b,$('anglingMainHelpBtn'));
+    }
+   }
+   // Tacklebox and shop shortcuts, only while their game buttons are usable.
+   const playActions=play?.querySelector('.angling-main-actions'),shortcuts=[];
+   if(playActions){
+    for(const [label,id] of [['🎒 Köderbox','anglingBaitBoxBtn'],['🛒 Shop','anglingShopBtn']]){
+     const b=button(label);b.hidden=true;b.dataset.aczoTarget=id;
+     b.addEventListener('click',()=>{const target=$(id);$('anglingMainCloseBtn')?.click();requestAnimationFrame(()=>target?.click());});
+     playActions.append(b);shortcuts.push(b);
+    }
+   }
+   const sync=()=>{for(const b of shortcuts){const t=$(b.dataset.aczoTarget);b.hidden=!(t&&t.offsetParent!==null&&!t.disabled&&!t.hidden);}};
+   new MutationObserver(sync).observe(menu,{attributes:true,attributeFilter:['class','hidden','style']});sync();
+  }
+ }catch(error){console.warn('UI-17 übersprungen:',error);}
+})();
 </script>
 <script>window.__aczoSafeStart.start();</script>
 </body>
