@@ -45661,8 +45661,11 @@ float reflectedStars(vec3 d){
      float mirrorAmount=(.40+fresnel*.46)*(1.0-clamp(underwaterView,0.0,1.0))
        *1.0*mix(1.12,1.60,anglingBoost);
 
-     vec2 cloudMirrorPos=vWorldPos.xy
-       +reflectedView.xy/max(.16,reflectedView.z)*max(0.,cloudCeiling-vWorldPos.z);
+     // CLOUD-R5: far grazing pixels mirror from the camera's flat-water origin (no reversed drift).
+     float cloudRise=max(.16,reflectedView.z);
+     vec2 cloudFlatOrigin=cameraPosition.xy+reflectedView.xy/cloudRise*max(0.,cameraPosition.z-vWorldPos.z);
+     vec2 cloudMirrorPos=mix(cloudFlatOrigin,vWorldPos.xy,smoothstep(.16,.24,reflectedView.z))
+       +reflectedView.xy/cloudRise*max(0.,cloudCeiling-vWorldPos.z);
      // K73: no cloud sample when its exact contribution is zero.
      float cloudRefl=0.0;
      if(cloudAmount!=0.0 && underwaterView<1.0)
