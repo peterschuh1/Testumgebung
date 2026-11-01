@@ -8635,7 +8635,9 @@ function updateUnderwaterObstacleShadows(submerged){
   // Nicht der pauschale Nachtfaktor, sondern der echte astronomische Horizont
   // entscheidet. So bleiben am 08.09. um 19:00 Uhr die langen Abendschatten
   // sichtbar und verschwinden erst nach dem realen Sonnenuntergang.
-  const useSun=active&&sunAboveHorizon&&(simulationEnabled?sun.intensity>.012:true);
+  const useSun=active&&sunAboveHorizon&&(simulationEnabled?(Number.isFinite(sun.userData.aczoOpenIntensity)?sun.userData.aczoOpenIntensity:sun.intensity)>.012:true);
+  // HILL-R5: source selection stays astronomical (no light/program switch); the sun's share fades.
+  const aczoR5Hill=useSun&&simulationEnabled?(typeof aczoHillLight==='function'?aczoHillLight('pond'):1):1,aczoR5HillOn=aczoR5Hill>.002;
   const useMoon=active&&simulationEnabled&&!useSun&&moonAboveHorizon&&moonLight.intensity>.005;
   // Live-Bewoelkung veraendert die Weichheit, deaktiviert die Schattenkarte
   // aber nicht. NEUTRAL entspricht einem klaren festen Sonnentag.
@@ -8660,7 +8662,7 @@ function updateUnderwaterObstacleShadows(submerged){
     const cloudTransmission=THREE.MathUtils.lerp(1.0,.58,Math.pow(cloud,.86)); // PERF17: sichtbarer Schatten-Kontrast auch bei 100 % Wolken
     aczoStructureShadowLight.intensity=useMoon
       ?THREE.MathUtils.clamp(moonLight.intensity*.76*cloudTransmission,.045,.25)
-      :.82*THREE.MathUtils.lerp(.56,1.0,altitude01)*cloudTransmission;
+      :.82*THREE.MathUtils.lerp(.56,1.0,altitude01)*cloudTransmission*aczoR5Hill;
   }else{
     aczoStructureShadowLight.intensity=0;
   }
@@ -8678,27 +8680,27 @@ function updateUnderwaterObstacleShadows(submerged){
     +'|'+Math.round(cloud*20)+'|a'+Math.round((Number.isFinite(sourceAltitude)?sourceAltitude:0)*90/Math.PI)
     +'|z'+Math.round((Number.isFinite(sourceAzimuth)?sourceAzimuth:0)*60/Math.PI);
   if(aczoLandShadowReceiver){
-    aczoLandShadowReceiver.visible=surface&&(useSun||useMoon);
+    aczoLandShadowReceiver.visible=surface&&(useSun||useMoon)&&aczoR5HillOn;
     if(typeof aczoLandShadowMat!=='undefined')aczoLandShadowMat.opacity=useMoon
-      ?.20:THREE.MathUtils.lerp(.62,.38,Math.pow(cloud,.78));
+      ?.20:THREE.MathUtils.lerp(.62,.38,Math.pow(cloud,.78))*aczoR5Hill;
   }
   if(aczoWaterStructureShadowReceiver&&aczoWaterStructureShadowMat){
-    aczoWaterStructureShadowReceiver.visible=surface&&waterVisible&&(useSun||useMoon);
+    aczoWaterStructureShadowReceiver.visible=surface&&waterVisible&&(useSun||useMoon)&&aczoR5HillOn;
     aczoWaterStructureShadowMat.opacity=useMoon
-      ?.13:THREE.MathUtils.lerp(.44,.28,Math.pow(cloud,.78));
+      ?.13:THREE.MathUtils.lerp(.44,.28,Math.pow(cloud,.78))*aczoR5Hill;
   }
   if(aczoMoselStructureShadowReceiver&&aczoMoselStructureShadowMat){
-    aczoMoselStructureShadowReceiver.visible=surface&&waterVisible&&(useSun||useMoon);
+    aczoMoselStructureShadowReceiver.visible=surface&&waterVisible&&(useSun||useMoon)&&aczoR5HillOn;
     aczoMoselStructureShadowMat.opacity=useMoon
-      ?.12:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78));
+      ?.12:THREE.MathUtils.lerp(.38,.25,Math.pow(cloud,.78))*aczoR5Hill;
   }
   if(typeof aczoPondStructureShadowReceiver!=='undefined'){
-    aczoPondStructureShadowReceiver.visible=!is2D&&active&&(useSun||useMoon);
+    aczoPondStructureShadowReceiver.visible=!is2D&&active&&(useSun||useMoon)&&aczoR5HillOn;
     // Der echte Projektionsschatten bleibt unter Wasser klar erkennbar, aber
     // nicht mehr tiefschwarz durch das ganze Gewaesser hindurch.
-    aczoPondStructureShadowMat.opacity=below
+    aczoPondStructureShadowMat.opacity=(below
       ?THREE.MathUtils.lerp(.46,.30,Math.pow(cloud,.78))
-      :THREE.MathUtils.lerp(.36,.26,Math.pow(cloud,.78));
+      :THREE.MathUtils.lerp(.36,.26,Math.pow(cloud,.78)))*aczoR5Hill;
   }
   if(typeof updateAczoOpticalStructureShadows==='function'){
     updateAczoOpticalStructureShadows(structureActive,below,cloud,night);
@@ -9208,7 +9210,9 @@ function applyWeatherScene(){
       : sun.intensity;
     // Auch eine geschlossene Wolkendecke laesst diffuses gerichtetes Licht
     // uebrig. Die alte 28-%-Grenze liess Objekt-Schatten praktisch verschwinden.
-    sun.intensity=clearSun*Math.max(.66,1-fraction*.48);
+    // HILL-R5: open-sky value (clouds) kept for logic; the light itself is shaded by the hills.
+    sun.userData.aczoOpenIntensity=clearSun*Math.max(.66,1-fraction*.48);
+    sun.intensity=sun.userData.aczoOpenIntensity*(typeof aczoHillLight==='function'?aczoHillLight('pond'):1);
     if(sunDisc.material) sunDisc.material.opacity=1.0;
   }
 
@@ -9252,7 +9256,7 @@ function applyWeatherScene(){
       // V2.3.0: Tiefenfläche nachts stark abdunkeln; keine additive Selbstbeleuchtung mehr.
       pondNightLiftMat.opacity=0;pondNightLift.visible=false;
       const depthNight=THREE.MathUtils.smoothstep(neutralDark,.18,.96);
-      if(typeof pondMat!=='undefined'&&pondMat.color)pondMat.color.setRGB(1,1,1).multiplyScalar(THREE.MathUtils.lerp(1.0,.16,depthNight));
+      if(typeof pondMat!=='undefined'&&pondMat.color){pondMat.userData.aczoOpenShade=THREE.MathUtils.lerp(1.0,.16,depthNight);pondMat.color.setRGB(1,1,1).multiplyScalar(pondMat.userData.aczoOpenShade*(typeof aczoHillShade==='function'?aczoHillShade('pond'):1));} // HILL-R5b
     }
 
     const viewerWrap=document.querySelector('.wrap');
@@ -9305,7 +9309,8 @@ function applyWeatherScene(){
 
       // Tagsüber warmes gerichtetes Relieflicht aus der echten Sonnenposition.
       if(typeof dayReliefLight!=='undefined'){
-        dayReliefLight.intensity=.55*(1-neutralDark)*cloudTransmission;
+        dayReliefLight.userData.aczoOpenIntensity=.55*(1-neutralDark)*cloudTransmission;
+        dayReliefLight.intensity=dayReliefLight.userData.aczoOpenIntensity*(typeof aczoHillLight==='function'?aczoHillLight('pond'):1); // HILL-R5
       }
     }
     if(typeof hemi!=='undefined'){
@@ -9318,7 +9323,8 @@ function applyWeatherScene(){
 
     // Satellitenbild: nur Helligkeit reduzieren, keine Farbtönung.
     if(typeof satUniforms!=='undefined' && satUniforms.dayLight){
-      satUniforms.dayLight.value=THREE.MathUtils.lerp(1.0,0.22,neutralDark);
+      satUniforms.dayLight.aczoOpen=THREE.MathUtils.lerp(1.0,0.22,neutralDark); // HILL-R5b: open-sky value for logic
+      satUniforms.dayLight.value=satUniforms.dayLight.aczoOpen*(typeof aczoHillShade==='function'?aczoHillShade('land'):1);
     }
   }
 }
@@ -9718,7 +9724,7 @@ function updateOneDirectCelestialReflection(source,astronomicallyVisible,materia
     material.uniforms.trailWidth.value=THREE.MathUtils.lerp(3.00,1.46,altNorm)*(aczoUsesReducedMobileGraphics()?.72:1);
   }else{
     // Sonne bleibt dominant und bekommt ebenfalls eine klarere Spiegelbahn.
-    strength=THREE.MathUtils.lerp(1.00,.74,altNorm)*clearSky*(1-night*.92);
+    strength=THREE.MathUtils.lerp(1.00,.74,altNorm)*clearSky*(1-night*.92)*(typeof aczoHillLight==='function'?aczoHillLight(area==='mosel'?'bridge':'pond'):1); // HILL-R5
     material.uniforms.coreRadius.value=THREE.MathUtils.lerp(3.10,2.05,altNorm);
     material.uniforms.trailLength.value=THREE.MathUtils.lerp(24.0,9.2,altNorm)*(aczoUsesReducedMobileGraphics()?.68:1);
     material.uniforms.trailWidth.value=THREE.MathUtils.lerp(2.95,1.48,altNorm)*(aczoUsesReducedMobileGraphics()?.70:1);
@@ -9884,11 +9890,17 @@ function aczoBuildMoselWakeGeometry(){
 }
 function aczoK25UpdateBridgeShadow(){
   const u=aczoK25BridgeShadowUniforms,sunUp=simulationEnabled?Number(sun.userData.astronomicalAltitudeRad)>0:true;
-  const source=sunUp?sun:moonLight;
+  // BRIDGE-R5: same source selection as the pond's tree/pier shadows (updateUnderwaterObstacleShadows):
+  // sun while it is above the real horizon, otherwise the moon while it is above the horizon and lit.
+  const useSun=sunUp&&(simulationEnabled?(Number.isFinite(sun.userData.aczoOpenIntensity)?sun.userData.aczoOpenIntensity:sun.intensity)>.012:true);
+  const moonAltitude=Number(moonLight.userData.astronomicalAltitudeRad);
+  const useMoon=simulationEnabled&&!useSun&&(Number.isFinite(moonAltitude)?moonAltitude>0:!!moonLight.visible)&&moonLight.intensity>.005;
+  const source=useMoon?moonLight:sun;
   if(!simulationEnabled)u.aczoK25BridgeSun.value.copy(aczoNeutralShadowSunPosition).normalize();
   else u.aczoK25BridgeSun.value.copy(source.position).sub(source.target.position).normalize();
   const cloud=simulationEnabled?THREE.MathUtils.clamp((liveWeather.cloud||0)/100,0,1):0;
-  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&u.aczoK25BridgeSun.value.z>.055?(sunUp?.37:.12)*(1-cloud*.65):0;
+  // HILL-R5: the sun's share fades out while the sun sinks behind the hills as seen from the bridge.
+  u.aczoK25BridgeStrength.value=!is2D&&waterSurface.visible&&(useSun||useMoon)&&u.aczoK25BridgeSun.value.z>0?(useSun?.37*(typeof aczoHillLight==='function'?aczoHillLight('bridge'):1):.12)*(1-cloud*.65):0;
  }
 function aczoK20PublishPatrolWave(p,state,dt){
  const s=aczoK20PatrolWake,valid=!!(p?.active&&state?.valid&&state.inWorld);
@@ -10593,7 +10605,7 @@ function updateAczoMoselTraffic(){
   if(!aczoMoselShipCache.has(state.type)){const ship=aczoBuildMoselVessel(state.type);ship.visible=false;aczoMoselShipCache.set(state.type,ship);aczoMoselShips.add(ship);}
  }
  const ship=aczoMoselShipCache.get(state.type);
- const night=typeof satUniforms!=='undefined'?THREE.MathUtils.clamp((1-satUniforms.dayLight.value)*1.28,0,1):0;
+ const night=typeof satUniforms!=='undefined'?THREE.MathUtils.clamp((1-(satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value))*1.28,0,1):0;
  aczoShipMaterials.glass.emissive.setRGB(.20*night,.16*night,.065*night);
  aczoShipMaterials.navRed.emissive.setRGB(.34*night,.008*night,.002*night);aczoShipMaterials.navGreen.emissive.setRGB(.002*night,.25*night,.015*night);
  aczoMoselShips.visible=waterSurface.visible&&moselWaterSurface.visible;
@@ -10707,7 +10719,7 @@ function updateAczoKonzerBridge(){
  const elapsed=aczoK34RegionalVisualTime()-aczoKonzerTrainEpoch,slot=Math.max(0,Math.floor(elapsed/240)),phase=elapsed-slot*240,reverse=slot%2===1,type=slot%3,consist=aczoGetKonzerConsist(type);
  if(type!==aczoKonzerTrainActiveType){for(const root of aczoKonzerTrainCache.values())root.visible=false;aczoKonzerTrainActiveType=type;}
  const speed=type===2?11.2:15.8,travelled=phase*speed,total=consist.userData.totalLength;consist.visible=elapsed>=0&&travelled<aczoTrackLength+total;
- const night=simulationEnabled?THREE.MathUtils.clamp((1-satUniforms.dayLight.value)*1.28,0,1):0;
+ const night=simulationEnabled?THREE.MathUtils.clamp((1-(satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value))*1.28,0,1):0;
  for(const group of [consist.userData.front,consist.userData.rear])for(const light of group.children)light.material.opacity=night*.94;
  if(!consist.visible){aczoK40UpdateTrainShadow(null,type);return;}
  for(const car of consist.userData.cars){const distance=reverse?aczoTrackLength-travelled+car.userData.centerOffset:travelled-car.userData.centerOffset;car.visible=distance>=0&&distance<=aczoTrackLength;if(!car.visible)continue;
@@ -10733,7 +10745,7 @@ function aczoK26ShipSearchPose(state){
  return {origin:new THREE.Vector3(state.position.x+dx*along,state.position.y+dy*along,ACZO_MOSEL_SURFACE_Z+.02+roof),direction:new THREE.Vector3(dx,dy,-.018).normalize(),range:420};
 }
 function aczoUpdateRegionalNight(state,ship){
- const night=simulationEnabled?THREE.MathUtils.clamp((1-satUniforms.dayLight.value)*1.28,0,1):0;aczoBridgeLightingUniforms.aczoBridgeNight.value=is2D?0:night;
+ const night=simulationEnabled?THREE.MathUtils.clamp((1-(satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value))*1.28,0,1):0;aczoBridgeLightingUniforms.aczoBridgeNight.value=is2D?0:night;
  aczoShipMaterials.trainGlass.emissive.setRGB(.24*night,.17*night,.07*night);aczoShipMaterials.bridgeLamp.color.setRGB(.15+.85*night,.13+.68*night,.075+.32*night);
  for(const pool of aczoBridgeLampPools){pool.visible=!is2D&&waterSurface.visible&&night>.03;pool.material.opacity=night*.10;}
  if(ship){const dir=state.direction,side=new THREE.Vector2(dir.y,-dir.x),rel=new THREE.Vector2(camera.position.x-state.position.x,camera.position.y-state.position.y),forward=rel.dot(dir),right=rel.dot(side),angle=Math.atan2(right,forward);
@@ -11897,6 +11909,42 @@ function positionCelestialDiscsForMainCamera(){
 function restoreCelestialDiscWorldPositions(){
   positionCelestialDiscsForMainCamera();
 }
+// HILL-R5: real terrain horizon from the DGM1 payload of the K35 panorama (computed when this build
+// was made). Index = SunCalc azimuth in half degrees (0 = south, +west), value = ridge elevation in
+// 1/100 degree, seen from the pond centre and from the Konz bridge. Geometric altitude like the disc.
+var ACZO_HILL_HORIZON={pond:new Int16Array([197,187,177,167,168,169,169,169,169,167,165,164,164,164,165,165,166,167,168,170,171,172,172,173,150,131,129,125,119,111,103,96,88,80,69,43,65,93,110,111,112,119,128,135,137,140,139,139,140,135,130,124,119,119,120,112,103,95,93,104,114,118,120,118,115,112,109,107,108,109,109,109,109,105,97,94,94,98,104,95,84,75,75,78,82,85,90,99,113,130,148,149,149,151,157,167,182,200,217,228,239,251,260,264,268,266,264,264,263,262,258,254,253,254,272,283,294,312,322,323,325,326,328,328,330,333,336,345,354,362,373,374,374,377,380,382,385,385,385,384,383,380,376,373,369,351,329,309,291,277,266,255,245,238,230,223,217,212,207,202,198,194,191,191,190,189,189,189,189,189,190,191,192,193,193,194,195,196,197,198,199,199,200,201,202,202,203,203,204,205,206,206,208,218,228,239,251,266,280,293,297,300,302,305,308,312,317,320,321,323,325,326,328,328,329,329,329,330,330,331,333,336,338,341,344,348,352,356,361,365,369,362,358,359,360,362,363,367,372,379,392,405,407,406,408,410,411,413,416,424,432,440,448,456,464,472,480,488,496,504,513,521,529,537,545,553,562,570,578,586,594,602,610,618,626,634,642,648,655,662,668,675,680,685,690,695,701,706,711,714,717,720,724,727,730,732,735,737,737,739,741,741,743,743,740,737,733,731,725,724,718,717,701,683,667,652,639,629,620,613,604,598,590,582,564,542,520,502,481,457,438,419,397,374,369,373,376,380,398,417,435,454,472,483,493,503,513,524,534,543,549,554,560,566,572,573,572,571,571,570,569,563,559,558,557,556,554,552,550,547,544,541,538,535,531,528,524,517,511,505,498,490,483,478,470,460,451,443,435,432,425,417,413,408,402,397,389,378,376,367,358,349,336,327,316,300,284,268,254,239,225,214,202,188,174,155,130,116,97,76,59,46,35,27,26,25,25,24,24,23,22,22,21,20,20,19,19,18,18,17,17,17,16,16,15,15,15,15,14,14,14,14,14,14,14,14,14,14,14,14,14,14,15,18,21,23,24,24,24,24,25,27,28,29,32,35,36,38,41,42,44,45,47,48,50,53,57,62,68,74,83,93,101,106,109,110,112,116,118,119,121,125,130,138,145,150,157,166,171,176,178,180,187,199,209,220,230,240,251,255,259,262,265,267,270,276,285,293,302,310,319,321,323,324,326,328,332,336,340,343,347,351,355,359,364,368,372,377,380,384,388,392,396,399,400,401,402,404,405,405,405,406,406,406,406,406,406,407,407,407,408,409,409,410,411,412,414,417,420,424,427,431,435,438,442,447,451,452,453,453,453,453,453,453,453,454,455,456,456,457,457,458,458,459,459,459,459,458,458,457,456,456,455,454,453,451,448,446,443,441,440,438,436,435,434,432,432,431,430,429,428,427,425,424,422,421,419,418,417,416,415,413,411,407,404,402,400,398,398,398,398,398,399,400,399,398,398,398,398,397,396,391,387,384,381,377,376,372,371,368,366,362,357,353,349,345,342,336,334,328,326,320,314,306,302,299,295,292,289,287,284,281,278,276,274,272,278,287,291,294,298,302,307,308,306,306,306,308,310,297,283,273,268,264,259,255,245,231,218,207]),
+ bridge:new Int16Array([192,190,190,191,193,193,195,197,198,200,201,203,204,204,205,206,170,154,147,140,132,125,112,105,96,63,50,44,31,36,69,105,121,137,135,139,142,141,140,143,152,155,158,158,157,158,158,153,148,142,137,134,135,134,125,116,108,109,120,130,136,138,139,136,133,130,126,124,126,127,128,128,128,128,127,118,111,110,111,115,121,116,105,95,87,87,91,94,99,104,115,131,148,166,167,167,169,172,180,191,206,224,242,254,264,273,286,294,297,303,306,302,302,303,302,301,299,295,292,290,290,291,311,321,332,342,355,366,375,380,381,382,383,384,385,386,388,390,393,402,410,418,424,432,442,442,441,443,445,447,449,449,448,448,447,446,442,439,435,430,413,392,370,349,331,318,304,291,280,273,265,257,250,244,238,232,226,222,217,214,209,201,193,193,194,197,198,197,197,195,190,201,213,224,235,237,244,255,267,274,275,276,278,279,280,281,282,282,281,282,283,284,284,285,285,285,285,286,286,286,284,283,283,283,283,280,280,280,280,277,277,276,281,287,296,305,315,320,322,324,326,329,331,333,335,337,339,340,340,341,341,342,342,341,340,339,338,338,339,340,341,345,347,349,351,354,357,360,363,366,371,374,377,380,383,386,389,392,394,395,397,398,398,398,398,399,399,400,401,402,404,404,404,412,419,427,434,441,449,457,465,474,483,488,493,498,503,507,512,517,523,527,532,536,540,545,550,554,559,564,568,570,572,574,576,578,580,581,582,582,583,583,583,584,583,582,580,580,578,577,575,571,565,559,554,550,545,537,517,497,478,463,455,447,437,419,397,376,360,370,381,389,394,405,418,431,439,444,449,454,458,457,456,454,453,449,448,446,445,443,440,438,436,432,429,426,421,415,409,403,395,390,381,372,363,360,354,346,342,337,332,324,317,311,301,292,280,271,255,239,223,209,194,183,171,156,142,118,100,82,60,46,34,25,18,17,13,12,12,12,11,11,10,10,10,9,9,9,9,8,8,8,8,8,8,9,9,10,10,11,12,13,12,11,11,10,10,9,8,7,7,7,7,7,6,6,8,14,23,28,31,33,35,38,39,41,42,44,45,46,48,49,51,53,55,58,66,69,73,79,87,97,106,115,124,136,150,163,175,186,197,208,215,220,224,229,237,244,253,262,271,274,277,279,281,287,294,301,309,315,320,324,329,334,338,340,342,344,346,348,351,353,354,355,356,357,358,360,363,367,372,376,379,381,386,391,397,402,403,405,406,407,409,410,413,415,417,419,421,423,425,427,428,429,430,431,431,433,433,434,434,431,429,427,426,426,426,427,428,428,429,430,430,430,430,430,430,431,431,432,432,432,432,433,431,430,429,428,427,427,428,429,431,434,437,439,441,443,445,447,447,445,443,441,440,439,437,436,434,433,433,431,430,429,426,424,422,420,418,416,413,410,406,403,400,397,394,387,380,372,365,357,350,343,345,348,351,352,353,354,353,353,353,354,355,353,351,350,351,351,350,348,346,344,342,339,336,333,331,328,326,324,321,319,327,336,343,345,347,350,355,360,365,365,363,362,362,363,363,366,371,358,345,331,321,317,312,304,291,277,263,250,238,228,218,209,200,191,183,181,183,184,187,190,191,192,193,193,193,193])};
+var aczoHill={target:{pond:1,bridge:1},value:{pond:1,bridge:1},shade:{land:1,pond:1,mosel:1},init:false};
+function aczoHillHorizonDeg(table,azimuthRad){let a=(azimuthRad*57.29577951308232)%360;if(a<0)a+=360;const x=a*2,i=Math.floor(x),f=x-i;return (table[i%720]*(1-f)+table[(i+1)%720]*f)/100;}
+// Share of the 0.53 deg sun disc above the ridge.
+function aczoHillVisibility(table,altitudeRad,azimuthRad){return THREE.MathUtils.smoothstep(altitudeRad*57.29577951308232-aczoHillHorizonDeg(table,azimuthRad),-.265,.265);}
+function aczoHillLight(where){return simulationEnabled?aczoHill.value[where]:1;}
+function aczoHillSetTarget(altitudeRad,azimuthRad,sunUp){
+ for(const w of ['pond','bridge'])aczoHill.target[w]=!simulationEnabled?1:sunUp?aczoHillVisibility(ACZO_HILL_HORIZON[w],altitudeRad,azimuthRad):0;
+ if(!aczoHill.init||(typeof anglingTimeShiftActive!=='undefined'&&anglingTimeShiftActive)){aczoHill.value.pond=aczoHill.target.pond;aczoHill.value.bridge=aczoHill.target.bridge;aczoHill.init=true;}
+}
+// Per frame: ease toward the 30-s astronomy target (no light steps) and re-apply the direct light.
+function aczoHillTick(dt){
+ if(!simulationEnabled){aczoHill.value.pond=aczoHill.value.bridge=1;aczoHill.shade.land=aczoHill.shade.pond=aczoHill.shade.mosel=1;if(typeof aczoK25BridgeShadowUniforms!=='undefined'&&aczoK25BridgeShadowUniforms.aczoR5MoselShade)aczoK25BridgeShadowUniforms.aczoR5MoselShade.value=1;if(typeof waterUniforms!=='undefined'&&waterUniforms.aczoR5WaterShade)waterUniforms.aczoR5WaterShade.value=1;return;}
+ const fast=typeof anglingTimeShiftActive!=='undefined'&&anglingTimeShiftActive,k=fast?1:1-Math.exp(-Math.max(0,Math.min(1,Number(dt)||0))/1.2);
+ for(const w of ['pond','bridge']){const t=aczoHill.target[w];let v=aczoHill.value[w]+(t-aczoHill.value[w])*k;if(Math.abs(t-v)<.002)v=t;aczoHill.value[w]=v;}
+ const h=aczoHill.value.pond;
+ if(Number.isFinite(sun.userData.aczoOpenIntensity))sun.intensity=sun.userData.aczoOpenIntensity*h;
+ if(typeof dayReliefLight!=='undefined'&&Number.isFinite(dayReliefLight.userData.aczoOpenIntensity))dayReliefLight.intensity=dayReliefLight.userData.aczoOpenIntensity*h;
+ // HILL-R5b: in the hills' shade the unlit aerial image, pond depth colours and Mosel get the same
+ // darkening as a sun shadow (same strengths as the shadow catchers, same cloud rule). It fades out
+ // with the existing night factor, so night is unchanged and dusk never brightens again.
+ const lerp=THREE.MathUtils.lerp,nd=THREE.MathUtils.clamp(Number(sceneNightFactor)||0,0,1),fade=Math.sqrt(THREE.MathUtils.clamp((1-nd)/.75,0,1));
+ const c=Math.pow(THREE.MathUtils.clamp((Number(liveWeather?.cloud)||0)/100,0,1),.78),wP=(1-aczoHill.value.pond)*fade,wB=(1-aczoHill.value.bridge)*fade;
+ aczoHill.shade.land=1-lerp(.62,.38,c)*wP;
+ aczoHill.shade.pond=1-(1-(1-lerp(.44,.28,c))*(1-lerp(.36,.26,c)))*wP;
+ aczoHill.shade.mosel=1-lerp(.38,.25,c)*wB;
+ if(typeof satUniforms!=='undefined'&&satUniforms.dayLight&&Number.isFinite(satUniforms.dayLight.aczoOpen))satUniforms.dayLight.value=satUniforms.dayLight.aczoOpen*aczoHill.shade.land;
+ if(typeof pondMat!=='undefined'&&pondMat.color&&Number.isFinite(pondMat.userData.aczoOpenShade))pondMat.color.setScalar(pondMat.userData.aczoOpenShade*aczoHill.shade.pond);
+ if(typeof aczoK25BridgeShadowUniforms!=='undefined'&&aczoK25BridgeShadowUniforms.aczoR5MoselShade)aczoK25BridgeShadowUniforms.aczoR5MoselShade.value=aczoHill.shade.mosel;
+ if(typeof waterUniforms!=='undefined'&&waterUniforms.aczoR5WaterShade){const uw=(typeof fishMode!=='undefined'&&fishMode)||!!window.__aczoUnderwaterSceneActive;waterUniforms.aczoR5WaterShade.value=uw?1:aczoHill.shade.pond;}
+}
+function aczoHillShade(where){return simulationEnabled&&typeof aczoHill!=='undefined'?aczoHill.shade[where]:1;}
 function updateAstronomy(){
   if(typeof SunCalc==='undefined') return;
 
@@ -12011,6 +12059,7 @@ function updateAstronomy(){
   // Unveränderter Ausgangswert für die Wolkendämpfung. Dadurch kann der
   // Regler die Sonne nicht bei jedem Aufruf erneut schwächer multiplizieren.
   sun.userData.clearSkyIntensity=sun.intensity;
+  aczoHillSetTarget(sunPos.altitude,sunPos.azimuth,sunUp); // HILL-R5
   // Mondlicht bleibt in heller Daemmerung/bei Tag dezent; nur die Scheibe darf
   // sichtbar sein. Dadurch entsteht kein kuenstlicher Nacht-Look vor Sonnenuntergang.
   const moonLightDayFade=THREE.MathUtils.lerp(1,.16,moonDaylight);
@@ -13212,7 +13261,7 @@ function updateTraffic(dt){
 function birdsAllowedNow(){
   if(is2D&&!(typeof anglingMode!=='undefined'&&anglingMode))return false;
   if(typeof simulationEnabled!=='undefined'&&simulationEnabled){
-    if(typeof sun==='undefined'||!sun.visible||sun.intensity<0.16)return false;
+    if(typeof sun==='undefined'||!sun.visible||(Number.isFinite(sun.userData.aczoOpenIntensity)?sun.userData.aczoOpenIntensity:sun.intensity)<0.16)return false; // HILL-R5: birds keep the astronomical rule
   }
   return true;
 }
@@ -24475,7 +24524,7 @@ function updateAnglingEnvironment(){
   // V7.20: Panorama und Satellitenbild bekommen dieselbe astronomische
   // Grundhelligkeit. Das verhindert den bisherigen "Tageswald bei Sternenhimmel".
   const satelliteDayLevel=(simulationEnabled&&satUniforms&&satUniforms.dayLight)
-    ? THREE.MathUtils.clamp(Number(satUniforms.dayLight.value)||.22,.08,1)
+    ? THREE.MathUtils.clamp(Number(satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value)||.22,.08,1)
     : 1;
   const panoramaNightUser=seasonPanoramaNightStrength();
   // V7.28: Nachts deutlich dunkler, vor allem ohne Mondlicht oder bei stark verdecktem Himmel.
@@ -42411,7 +42460,7 @@ function aczoK5dInit(){
  aczoLandscapeGroundMat.fragmentShader=aczoK25SearchlightGLSL+aczoK25BridgeShadowGLSL+aczoLandscapeGroundMat.fragmentShader;
  aczoLandscapeGroundMat.fragmentShader=aczoLandscapeGroundMat.fragmentShader.split('gl_FragColor=vec4(col,1.0);').join('vec3 bridgeGroundPoint=vec3((vUv-vec2(.5))*sceneSize+vec2(-100.,-215.),-.035);gl_FragColor=vec4(col*(1.-aczoK25BridgeShadow(bridgeGroundPoint))+aczoK25SearchLand(bridgeGroundPoint)+aczoK40BeaconLand(bridgeGroundPoint),1.0);');
  aczoLandscapeGroundMat.needsUpdate=true;
- const helpers=`float aczoK25BridgeShadow(vec3 world);uniform float aczoMoselBrown,aczoMoselFlowClock;uniform vec3 aczoK12Haze;uniform float aczoK12Density;
+ const helpers=`float aczoK25BridgeShadow(vec3 world);uniform float aczoR5MoselShade;uniform float aczoMoselBrown,aczoMoselFlowClock;uniform vec3 aczoK12Haze;uniform float aczoK12Density;
  ${aczoK20FloodGLSL}
   // K53: sediment tints the existing ship/patrol wash in both quality paths.
   // Normal-water foam keeps its exact original colour.
@@ -42425,7 +42474,7 @@ function aczoK5dInit(){
   float above=step(-.205,cameraPosition.z);vec3 clearRiver=rgb;
   vec3 result=mix(clearRiver,silt,aczoMoselBrown*.97)+(streak*.006+movingRipple*.004)*aczoMoselBrown*above;
   if(underwaterView>.01&&cameraPosition.z<-.205){float dist=length(world-cameraPosition);result=mix(result,aczoK12Haze,1.-exp(-aczoK12Density*aczoK12Density*dist*dist));}
-  return result*(1.-aczoK25BridgeShadow(world));
+  return result*(1.-aczoK25BridgeShadow(world))*mix(1.,aczoR5MoselShade,above);
  }
  `;
  moselWaterMat.uniforms.aczoK12Haze={value:aczoK5dRiver.clone()};moselWaterMat.uniforms.aczoK12Density={value:.145};
@@ -42485,7 +42534,7 @@ function updateAczoRegionalWeather(){
  aczoUpdateRiverBuoys();aczoK6aFocus();
  const fog=scene.fog,underwater=typeof fishUnderwaterFog!=='undefined'&&fog===fishUnderwaterFog;aczoRegionalWeatherUniforms.aczoWeatherFogDensity.value=fog&&fog.isFogExp2&&!underwater?fog.density:0;if(fog?.color)aczoRegionalWeatherUniforms.aczoWeatherFogColor.value.copy(fog.color);
  aczoRegionalWeatherUniforms.aczoRegionalRain.value=simulationEnabled&&seasonTestRaining()?Math.min(1,Number(liveWeather.precipitation||liveWeather.rain||0)/1.5):0;
- aczoRiverCarveUniform.value=waterSurface.visible?1:0;aczoRiverBed.visible=waterSurface.visible;const riverLight=simulationEnabled?Math.max(.035,satUniforms.dayLight.value):1;aczoRiverBedMat.color.setRGB(.012*riverLight,.035*riverLight,.039*riverLight);aczoRiverBank.visible=false;if(aczoK12BankSkirt)aczoK12BankSkirt.visible=aczoRiverBed.visible;aczoRiverBankMat.color.setRGB(riverLight,riverLight,riverLight);
+ aczoRiverCarveUniform.value=waterSurface.visible?1:0;aczoRiverBed.visible=waterSurface.visible;const riverLight=simulationEnabled?Math.max(.035,satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value):1;aczoRiverBedMat.color.setRGB(.012*riverLight,.035*riverLight,.039*riverLight);aczoRiverBank.visible=false;if(aczoK12BankSkirt)aczoK12BankSkirt.visible=aczoRiverBed.visible;aczoRiverBankMat.color.setRGB(riverLight,riverLight,riverLight);
  aczoNeighbourPondSurface.visible=!is2D&&waterSurface.visible;aczoHarborHullOverlay.visible=aczoNeighbourPondSurface.visible;
  aczoNeighbourSun.visible=aczoNeighbourPondSurface.visible&&aczoK10NeighbourReflection(aczoNeighbourSunMat,directSunMoselReflectionMat,sun,!!sunDisc.userData.astronomicallyVisible);
  aczoNeighbourMoon.visible=aczoNeighbourPondSurface.visible&&aczoK10NeighbourReflection(aczoNeighbourMoonMat,directMoonMoselReflectionMat,moonLight,!!moonDisc.userData.astronomicallyVisible);
@@ -45392,7 +45441,7 @@ const waterUniforms={
  // V8.47: waterGeo besteht bereits exakt aus denselben ReefMaster-Dreiecken
  // wie pondGeo. Eine zusätzliche rechteckige Fragment-Maske ist redundant
  // und schnitt die über pondW/pondH hinausragenden Ecken ab.
- clipToPond:{value:1.0},
+ clipToPond:{value:1.0},aczoR5WaterShade:{value:1},
  shoreInset:{value:0.18}
 };
 const waterMat=new THREE.ShaderMaterial({
@@ -45468,6 +45517,7 @@ const waterMat=new THREE.ShaderMaterial({
    uniform vec2 viewportSize;
    uniform vec2 viewportOrigin;
    uniform float sunStrength;
+   uniform float aczoR5WaterShade;
    uniform float moonStrength;
    uniform float cloudAmount;
    uniform vec2 cloudWindDir;
@@ -45596,6 +45646,7 @@ float reflectedStars(vec3 d){
        float liteIntroU=clamp(anglingIntroFade,0.0,1.0);
        float liteIntroCover=sin(liteIntroU*3.14159265);
        liteFinalAlpha=clamp(liteFinalAlpha*(1.0+liteIntroCover*.13),.34,.94);
+       liteColor*=mix(1.,aczoR5WaterShade,1.-clamp(underwaterView,0.,1.));
        gl_FragColor=vec4(liteColor,liteFinalAlpha);
        return;
      }
@@ -45850,6 +45901,7 @@ float reflectedStars(vec3 d){
      float introU=clamp(anglingIntroFade,0.0,1.0);
      float introCover=sin(introU*3.14159265);
      finalAlpha=clamp(finalAlpha*(1.0+introCover*.13),.34,.94);
+     color*=mix(1.,aczoR5WaterShade,1.-clamp(underwaterView,0.,1.));
      gl_FragColor=vec4(color,finalAlpha);
    }
  `
@@ -46195,8 +46247,8 @@ function aczoR4BridgeGLSL(kind,source){
   return aczoR4BridgeProxyGLSL+out;
  }catch(error){console.warn('BRIDGE-R4 übersprungen:',error);return source;}
 }
-const aczoK25BridgeShadowUniforms={aczoK25BridgeSun:{value:new THREE.Vector3(.3,.5,.8).normalize()},aczoK25BridgeStrength:{value:0},aczoK40TrainCount:{value:0},aczoK40TrainCenter:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainAlong:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainUp:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainMin:{value:new THREE.Vector3()},aczoK40TrainMax:{value:new THREE.Vector3()}};
-const aczoK25BridgeShadowGLSL=aczoR4BridgeGLSL('sun',"\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform vec3 aczoK25BridgeSun;uniform float aczoK25BridgeStrength;\n\nuniform int aczoK40TrainCount;\nuniform vec4 aczoK40TrainCenter[10],aczoK40TrainAlong[10],aczoK40TrainUp[10];\nuniform vec3 aczoK40TrainMin,aczoK40TrainMax;\nfloat aczoK40TrainShadow(vec3 world){\n if(aczoK40TrainCount==0)return 0.;\n // The ray/AABB reject keeps the ten-car loop away from other river pixels.\n if(!aczoK37ApproachBox(world,aczoK25BridgeSun,20000.,aczoK40TrainMin,aczoK40TrainMax))return 0.;\n // Respect the same map clipping as the rendered train materials, including\n // a partially visible car. An invisible off-map part cannot cast back in.\n float mapFirst=.12,mapLast=20000.;\n if(!aczoK37ApproachClip(-500.-world.x,-aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.x-300.,aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(-630.-world.y,-aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.y-200.,aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n float shade=0.;\n for(int i=0;i<10;i++){\n  if(i>=aczoK40TrainCount)break;\n  vec4 c=aczoK40TrainCenter[i],a=aczoK40TrainAlong[i],u=aczoK40TrainUp[i];\n  vec3 side=cross(a.xyz,u.xyz),delta=world-c.xyz;\n  vec3 p=vec3(dot(delta,side),dot(delta,a.xyz),dot(delta,u.xyz));\n  vec3 d=vec3(dot(aczoK25BridgeSun,side),dot(aczoK25BridgeSun,a.xyz),dot(aczoK25BridgeSun,u.xyz));\n  float first=mapFirst,last=mapLast;\n  if(!aczoK37ApproachClip(-c.w-p.x,-d.x,first,last))continue;\n  if(!aczoK37ApproachClip(p.x-c.w,d.x,first,last))continue;\n  if(!aczoK37ApproachClip(-a.w-p.y,-d.y,first,last))continue;\n  if(!aczoK37ApproachClip(p.y-a.w,d.y,first,last))continue;\n  if(!aczoK37ApproachClip(-u.w-p.z,-d.z,first,last))continue;\n  if(!aczoK37ApproachClip(p.z-u.w,d.z,first,last))continue;\n  shade=max(shade,smoothstep(0.,.20,last-first));\n  if(shade>.999)break;\n }\n return shade;\n}\n\n float aczoK25BridgeShadow(vec3 world){\n  if(aczoK25BridgeStrength<=.001||world.z>11.2)return 0.;\n  vec2 delta=world.xy-vec2(-315.8,-497.),along=vec2(.807,-.591),across=vec2(.591,.807);\n  vec3 p=vec3(dot(delta,across),dot(delta,along),world.z),d=vec3(dot(aczoK25BridgeSun.xy,across),dot(aczoK25BridgeSun.xy,along),aczoK25BridgeSun.z);\n  if(d.z<.055||length(delta)>900.)return 0.;\n  vec2 deck=p.xy+d.xy*((11.05-p.z)/d.z);\n  float shade=(1.-smoothstep(4.05,4.65,abs(deck.x)))*(1.-smoothstep(108.3,109.1,abs(deck.y)));\n  vec3 safeDir=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,d.z);\n  for(int i=0;i<6;i++){\n   float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   vec3 lo=(vec3(-4.35,y-1.65,-.3)-p)/safeDir,hi=(vec3(4.35,y+1.65,9.1)-p)/safeDir;\n   vec3 t0=min(lo,hi),t1=max(lo,hi);float enter=max(max(t0.x,t0.y),t0.z),leave=min(min(t1.x,t1.y),t1.z);\n   shade=max(shade,step(max(0.,enter),leave));\n  }\n  if(aczoK37ApproachOccluded(world,aczoK25BridgeSun,20000.))shade=1.;\n  shade=max(shade,aczoK40TrainShadow(world));\n  return shade*aczoK25BridgeStrength;\n }\n"); // BRIDGE-R4: shared bridge proxy
+const aczoK25BridgeShadowUniforms={aczoK25BridgeSun:{value:new THREE.Vector3(.3,.5,.8).normalize()},aczoK25BridgeStrength:{value:0},aczoR5MoselShade:{value:1},aczoK40TrainCount:{value:0},aczoK40TrainCenter:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainAlong:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainUp:{value:Array.from({length:10},()=>new THREE.Vector4())},aczoK40TrainMin:{value:new THREE.Vector3()},aczoK40TrainMax:{value:new THREE.Vector3()}};
+const aczoK25BridgeShadowGLSL=aczoR4BridgeGLSL('sun',"\n#ifndef ACZO_K37_APPROACH_OCCLUSION\n#define ACZO_K37_APPROACH_OCCLUSION\n// Same two real approach ramps; no extra shadow maps, textures or draw passes.\nbool aczoK37ApproachClip(float p,float d,inout float first,inout float last){\n if(abs(d)<.000001)return p<=0.;\n float t=-p/d;if(d>0.)last=min(last,t);else first=max(first,t);return first<=last;\n}\nbool aczoK37ApproachBox(vec3 point,vec3 direction,float range,vec3 lo,vec3 hi){\n float first=.12,last=range;\n if(!aczoK37ApproachClip(lo.x-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-hi.x,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(lo.y-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-hi.y,direction.y,first,last))return false;\n if(!aczoK37ApproachClip(lo.z-point.z,-direction.z,first,last))return false;\n return aczoK37ApproachClip(point.z-hi.z,direction.z,first,last);\n}\nbool aczoK37ApproachPrism(vec3 point,vec3 direction,float range,vec2 origin,vec2 axis,float span,float top,float grade,float floorZ,float floorGrade,float width,float taper){\n vec2 delta=point.xy-origin,side=vec2(axis.y,-axis.x);\n vec3 p=vec3(dot(delta,side),dot(delta,axis),point.z),d=vec3(dot(direction.xy,side),dot(direction.xy,axis),direction.z);\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-p.y,-d.y,first,last))return false;\n if(!aczoK37ApproachClip(p.y-span,d.y,first,last))return false;\n if(!aczoK37ApproachClip(floorZ+floorGrade*p.y-p.z,floorGrade*d.y-d.z,first,last))return false;\n if(!aczoK37ApproachClip(p.z-top-grade*p.y,d.z-grade*d.y,first,last))return false;\n float extension=width+taper*(top+grade*p.y-p.z),extensionD=taper*(grade*d.y-d.z);\n if(!aczoK37ApproachClip(p.x-extension,d.x-extensionD,first,last))return false;\n return aczoK37ApproachClip(-p.x-extension,-d.x-extensionD,first,last);\n}\nbool aczoK37ApproachOccluded(vec3 point,vec3 direction,float range){\n // Match the existing regional material clip: off-map invisible ramp pieces\n // cannot cast a ghost shadow back onto the active map.\n float first=.12,last=range;\n if(!aczoK37ApproachClip(-500.-point.x,-direction.x,first,last))return false;\n if(!aczoK37ApproachClip(point.x-300.,direction.x,first,last))return false;\n if(!aczoK37ApproachClip(-630.-point.y,-direction.y,first,last))return false;\n if(!aczoK37ApproachClip(point.y-200.,direction.y,first,last))return false;\n float skip=max(0.,first-.12);point+=direction*skip;range=last-skip;\n if(aczoK37ApproachBox(point,direction,range,vec3(-503.7591403,-437.061441,-0.14),vec3(-400.2356975,-263.7158446,11.0776808))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-499.3580661,-265.3092365),vec2(0.3392135,-0.9407094),44.2175081,0.2462161,0.0041301,-0.13,0.0,4.5775408,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-484.4436266,-306.646557),vec2(0.2859947,-0.9582312),40.1119021,0.4276823,0.0106284,-0.13,0.0,4.5253476,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-473.0998186,-344.724296),vec2(0.3602623,-0.9328511),20.5143547,0.8502228,0.05176,-0.13,0.0,4.6372732,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-465.8480446,-363.5324319),vec2(0.4241598,-0.9055874),15.0126756,1.891211,0.0927946,-0.13,0.0,4.5212879,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-459.7107591,-376.6944426),vec2(0.5047541,-0.8632632),13.3427775,3.2463836,0.1083297,-0.13,0.0,4.5750532,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-453.389266,-387.6078367),vec2(0.6122094,-0.7906957),12.6384592,4.6173653,0.1115149,-0.13,0.0,4.6111828,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-446.1435144,-397.0338984),vec2(0.7065546,-0.7076586),13.1486644,5.9344362,0.1215586,-0.13,0.0,4.555506,0.24))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-437.143318,-406.0626432),vec2(0.7564602,-0.6540397),19.7826575,7.569233,0.101613,-0.13,0.0,4.5353854,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-422.4880989,-418.7515845),vec2(0.8044526,-0.5940169),23.8628029,9.4671602,0.0670718,-0.13,0.0,4.5117739,0.055))return true;\n }\n if(aczoK37ApproachBox(point,direction,range,vec3(-231.4371388,-633.6902369,-0.14),vec3(-127.137545,-556.9967838,11.0424555))){\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-228.2770681,-561.0962121),vec2(0.7922159,-0.6102409),32.0186351,11.0324555,-0.0051985,-0.13,0.0,4.5480771,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-203.1994545,-580.4299788),vec2(0.8312051,-0.5559659),25.6865997,10.8703909,-0.0066038,-0.13,0.0,4.5987191,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-155.357614,-612.1835442),vec2(0.8253344,-0.5646443),30.7565699,10.5223418,-0.0035054,-0.13,0.0,4.4242902,0.055))return true;\n  if(aczoK37ApproachPrism(point,direction,range,vec2(-183.0716319,-593.9236128),vec2(0.8350361,-0.5501952),33.3028273,10.8496332,-0.0055337,10.6281614,-0.0055337,4.4663866,0.0))return true;\n }\n return false;\n}\n#endif\nuniform vec3 aczoK25BridgeSun;uniform float aczoK25BridgeStrength;\n\nuniform int aczoK40TrainCount;\nuniform vec4 aczoK40TrainCenter[10],aczoK40TrainAlong[10],aczoK40TrainUp[10];\nuniform vec3 aczoK40TrainMin,aczoK40TrainMax;\nfloat aczoK40TrainShadow(vec3 world){\n if(aczoK40TrainCount==0)return 0.;\n // The ray/AABB reject keeps the ten-car loop away from other river pixels.\n if(!aczoK37ApproachBox(world,aczoK25BridgeSun,20000.,aczoK40TrainMin,aczoK40TrainMax))return 0.;\n // Respect the same map clipping as the rendered train materials, including\n // a partially visible car. An invisible off-map part cannot cast back in.\n float mapFirst=.12,mapLast=20000.;\n if(!aczoK37ApproachClip(-500.-world.x,-aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.x-300.,aczoK25BridgeSun.x,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(-630.-world.y,-aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n if(!aczoK37ApproachClip(world.y-200.,aczoK25BridgeSun.y,mapFirst,mapLast))return 0.;\n float shade=0.;\n for(int i=0;i<10;i++){\n  if(i>=aczoK40TrainCount)break;\n  vec4 c=aczoK40TrainCenter[i],a=aczoK40TrainAlong[i],u=aczoK40TrainUp[i];\n  vec3 side=cross(a.xyz,u.xyz),delta=world-c.xyz;\n  vec3 p=vec3(dot(delta,side),dot(delta,a.xyz),dot(delta,u.xyz));\n  vec3 d=vec3(dot(aczoK25BridgeSun,side),dot(aczoK25BridgeSun,a.xyz),dot(aczoK25BridgeSun,u.xyz));\n  float first=mapFirst,last=mapLast;\n  if(!aczoK37ApproachClip(-c.w-p.x,-d.x,first,last))continue;\n  if(!aczoK37ApproachClip(p.x-c.w,d.x,first,last))continue;\n  if(!aczoK37ApproachClip(-a.w-p.y,-d.y,first,last))continue;\n  if(!aczoK37ApproachClip(p.y-a.w,d.y,first,last))continue;\n  if(!aczoK37ApproachClip(-u.w-p.z,-d.z,first,last))continue;\n  if(!aczoK37ApproachClip(p.z-u.w,d.z,first,last))continue;\n  shade=max(shade,smoothstep(0.,.20,last-first));\n  if(shade>.999)break;\n }\n return shade;\n}\n\n float aczoK25BridgeShadow(vec3 world){\n  if(aczoK25BridgeStrength<=.001||world.z>11.2)return 0.;\n  vec2 delta=world.xy-vec2(-315.8,-497.),along=vec2(.807,-.591),across=vec2(.591,.807);\n  vec3 p=vec3(dot(delta,across),dot(delta,along),world.z),d=vec3(dot(aczoK25BridgeSun.xy,across),dot(aczoK25BridgeSun.xy,along),aczoK25BridgeSun.z);\n  float aczoR5Reach=length(delta);if(d.z<=.0001||aczoR5Reach>900.)return 0.;\n  vec2 deck=p.xy+d.xy*((11.05-p.z)/d.z);\n  float shade=(1.-smoothstep(4.05,4.65,abs(deck.x)))*(1.-smoothstep(108.3,109.1,abs(deck.y)));\n  vec3 safeDir=vec3(abs(d.x)<.0001?.0001:d.x,abs(d.y)<.0001?.0001:d.y,d.z);\n  for(int i=0;i<6;i++){\n   float y=i==0?-82.5:i==1?-50.5:i==2?-14.5:i==3?23.5:i==4?56.5:84.5;\n   vec3 lo=(vec3(-4.35,y-1.65,-.3)-p)/safeDir,hi=(vec3(4.35,y+1.65,9.1)-p)/safeDir;\n   vec3 t0=min(lo,hi),t1=max(lo,hi);float enter=max(max(t0.x,t0.y),t0.z),leave=min(min(t1.x,t1.y),t1.z);\n   shade=max(shade,step(max(0.,enter),leave));\n  }\n  if(aczoK37ApproachOccluded(world,aczoK25BridgeSun,20000.))shade=1.;\n  shade=max(shade,aczoK40TrainShadow(world));\n  return shade*aczoK25BridgeStrength*(1.-smoothstep(780.,900.,aczoR5Reach));\n }\n"); // BRIDGE-R4: shared bridge proxy
 const aczoShipWakeUniforms={
   aczoWakeOrigin:{value:new THREE.Vector2()},aczoWakeDirection:{value:new THREE.Vector2(1,0)},
   aczoWakeTime:{value:0},aczoWakeLength:{value:100},aczoWakeAmplitude:{value:0},aczoWakeTravel:{value:0}
@@ -46300,7 +46352,7 @@ moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace(/float waveBan
  `);
 moselWaterMat.fragmentShader=moselWaterMat.fragmentShader.replace('float fine=(fine1*.68+fine2*.32)*.5+.5;','float fine=aczoK89FineRipples(vWorldPos.xy);');
 const aczoK25RiverClock={value:0};
-const moselWaterUniforms={...waterUniforms,time:aczoK25RiverClock,anglingView:{value:0},clipToPond:{value:0.0}};
+const moselWaterUniforms={...waterUniforms,time:aczoK25RiverClock,anglingView:{value:0},clipToPond:{value:0.0},aczoR5WaterShade:{value:1}};
 moselWaterMat.uniforms=moselWaterUniforms;
 for(const [from,to] of [
  ['vec3(.055,.28,.46)','vec3(.038,.085,.059)'],['vec3(.10,.47,.68)','vec3(.085,.155,.100)'],['vec3(.18,.64,.79)','vec3(.19,.265,.18)'],
@@ -54137,7 +54189,7 @@ const aczoK35Panorama=(()=>{
   for(let i=0;i<roots.length;i++){const a=roots[i],b=copies[i];b.visible=a.visible;b.position.copy(a.position);b.quaternion.copy(a.quaternion);b.scale.copy(a.scale);b.layers.mask=a.layers.mask;}
   uniforms.uSkyTop.value.copy(skyMat.uniforms.topColor.value);uniforms.uSkyBottom.value.copy(skyMat.uniforms.bottomColor.value);
   uniforms.uSkyFocus.value.copy(skyMat.uniforms.aczoSkyWorldFocus.value);uniforms.uSkyCenter.value.copy(sky.position);uniforms.uSkyRadius.value=900*sky.scale.x;uniforms.uSkyOffset.value=skyMat.uniforms.offset.value;uniforms.uSkyExponent.value=skyMat.uniforms.exponent.value;
-  uniforms.uSun.value.copy(sun.position).sub(sun.target.position).normalize();uniforms.uNight.value=simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;uniforms.uDay.value=simulationEnabled?THREE.MathUtils.clamp(satUniforms.dayLight.value,.03,1):1;
+  uniforms.uSun.value.copy(sun.position).sub(sun.target.position).normalize();uniforms.uNight.value=simulationEnabled?THREE.MathUtils.clamp(sceneNightFactor,0,1):0;uniforms.uDay.value=simulationEnabled?THREE.MathUtils.clamp(satUniforms.dayLight.aczoOpen??satUniforms.dayLight.value,.03,1):1;
   uniforms.uCloud.value=simulationEnabled?THREE.MathUtils.clamp(Number(liveWeather.cloud||0)/100,0,1):0;uniforms.uRain.value=simulationEnabled?THREE.MathUtils.clamp(Number(liveWeather.precipitation||liveWeather.rain||0)/1.5,0,1):0;
   uniforms.uRiver.value.copy(moselWaterMat.uniforms.aczoK12Haze.value);
  }
@@ -54400,6 +54452,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
     updateRealBirchSeason(aczoSeasonDayNow);
     window.__aczoNextSeasonMaterialUpdateAt=aczoSeasonPerfNow+(aczoSeasonFast?80:500);
   }
+  if(typeof aczoHillTick==='function')aczoHillTick(visualDt); // HILL-R5
   updateAczoSurveyForestLod();
   updateAczoWildBoars(visualDt);
   updateAczoRealBirchFineLod();
@@ -54429,7 +54482,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
         celestialPower=(moonDisc.userData.astronomicallyVisible?(.18+.28*mf):0)*cloudClear;
         satUniforms.celestialColor.value.set(0xb8d8ff);
       }else{
-        celestialPower=(sun.visible ? .62 : 0)*cloudClear;
+        celestialPower=(sun.visible ? .62 : 0)*cloudClear*(typeof aczoHillLight==='function'?aczoHillLight('pond'):1);
         satUniforms.celestialColor.value.set(0xffe1a0);
       }
     }else{
@@ -54465,7 +54518,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
      // Eigenständige Reflexionsstärke: nicht mehr vom vergleichsweise kleinen
      // Three.js-Lichtwert abhängig. Wolken schwächen sie weiterhin realistisch.
      waterUniforms.sunStrength.value=(sun.visible && simulationEnabled)
-       ? Math.min(.74,.82*sunCloud)
+       ? Math.min(.74,.82*sunCloud)*(typeof aczoHillLight==='function'?aczoHillLight('pond'):1)
        : 0.0;
    }
    if(typeof moonLight!=='undefined'){
@@ -57638,8 +57691,9 @@ setInterval(()=>{try{tick();}catch(e){console.warn('ZPC:',e);}},250);
      playActions.append(b);shortcuts.push(b);
     }
    }
-   const sync=()=>{for(const b of shortcuts){const t=$(b.dataset.aczoTarget);b.hidden=!(t&&t.offsetParent!==null&&!t.disabled&&!t.hidden);}};
-   new MutationObserver(sync).observe(menu,{attributes:true,attributeFilter:['class','hidden','style']});sync();
+   // Shown in angling mode; openAnglingShop/openAnglingBaitBox keep their own guards.
+   const sync=()=>{const angling=typeof anglingMode!=='undefined'&&!!anglingMode;for(const b of shortcuts){const t=$(b.dataset.aczoTarget);b.hidden=!(angling&&t&&!t.disabled);}};
+   new MutationObserver(sync).observe(menu,{attributes:true,attributeFilter:['class','hidden','style','aria-hidden']});sync();
   }
  }catch(error){console.warn('UI-17 übersprungen:',error);}
 })();
