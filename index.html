@@ -44002,7 +44002,7 @@ function aczoScapeInit(){
   const S=aczoScape,ctx=aczoAudioCtx;
   if(!ctx||ctx.state!=='running')return false;
   if(S.ctx===ctx)return true;
-  S.ctx=ctx;S.bed=S.shipA=S.shipU=S.train=S.siren=null;
+  S.ctx=ctx;S.bed=S.shipA=S.shipU=S.train=S.siren=S.patrolA=S.patrolU=S.lure=null;S.patrolPrev=null;
   const g=v=>{const n=ctx.createGain();n.gain.value=v;return n;};
   S.out=g(.9);S.out.connect(aczoAudioDestination(ctx));
   S.surfIn=g(1);S.surfLP=ctx.createBiquadFilter();S.surfLP.type='lowpass';S.surfLP.Q.value=.9;S.surfLP.frequency.value=20000;S.surfOut=g(1);
@@ -44047,16 +44047,16 @@ function aczoScapeBubbles(dest,t,n,spread,aLo,aHi,fLo,fHi){
 function aczoScapeBedStart(){
   const S=aczoScape,N=aczoScapeN(),t=S.ctx.currentTime;
   const env=N.gain(0);env.connect(S.out);env.gain.setTargetAtTime(1,t,.35);
-  const n1=N.noise(S.brown,t),g1=N.gain(.15);N.chain(n1,N.filt('lowpass',300,.5),g1,env);
-  const lfo=N.osc('sine',.07,t);N.chain(lfo,N.gain(.1),g1.gain);
-  const n2=N.noise(S.white,t);N.chain(n2,N.filt('bandpass',85,.9),N.gain(.25),env);
-  const n3=N.noise(S.white,t),g3=N.gain(.03);N.chain(n3,N.filt('bandpass',480,.8),g3,env);N.chain(lfo,N.gain(.02),g3.gain);
+  const n1=N.noise(S.brown,t),g1=N.gain(.06);N.chain(n1,N.filt('lowpass',300,.5),g1,env);
+  const lfo=N.osc('sine',.07,t);N.chain(lfo,N.gain(.04),g1.gain);
+  const n2=N.noise(S.white,t);N.chain(n2,N.filt('bandpass',85,.9),N.gain(.1),env);
+  const n3=N.noise(S.white,t),g3=N.gain(.012);N.chain(n3,N.filt('bandpass',480,.8),g3,env);N.chain(lfo,N.gain(.008),g3.gain);
   S.bed={env,src:[n1,lfo,n2,n3],next:t+aczoScapeRnd(1,3),big:t+aczoScapeRnd(10,25)};
 }
 function aczoScapeBedTick(){
   const S=aczoScape,b=S.bed,to=S.ctx.currentTime+1.2;if(!b)return;
-  while(b.next<to){aczoScapeBubbles(b.env,b.next,Math.floor(aczoScapeRnd(2,6)),.6,.025,.07,350,1000);b.next+=aczoScapeRnd(2.5,7);}
-  while(b.big<to){aczoScapeBubbles(b.env,b.big,Math.floor(aczoScapeRnd(10,15)),1.5,.05,.13,320,1150);b.big+=aczoScapeRnd(15,40);}
+  while(b.next<to){aczoScapeBubbles(b.env,b.next,Math.floor(aczoScapeRnd(2,6)),.6,.015,.042,350,1000);b.next+=aczoScapeRnd(2.5,7);}
+  while(b.big<to){aczoScapeBubbles(b.env,b.big,Math.floor(aczoScapeRnd(10,15)),1.5,.03,.08,320,1150);b.big+=aczoScapeRnd(15,40);}
 }
 // ---- Mosel ship: diesel above water, propeller under water (only the branch you can hear runs) ------
 function aczoScapeShipAStart(){
@@ -44091,7 +44091,7 @@ function aczoScapeShipUStart(){
 function aczoScapeShipUUpdate(d,pn){
   const v=aczoScape.shipU,U=Math.pow(Math.min(1,30/d),.9);
   aczoScapeSet(v.clp.frequency,900+3500*U*U,.2);
-  aczoScapeSet(v.pg.gain,.7*U,.2);aczoScapeSet(v.pg2.gain,.7*Math.pow(U,.9)*1.2,.2);aczoScapeSet(v.hg.gain,.7*U*.8,.2);
+  aczoScapeSet(v.pg.gain,.25*U,.2);aczoScapeSet(v.pg2.gain,.25*Math.pow(U,.9)*1.2,.2);aczoScapeSet(v.hg.gain,.25*U*.8,.2);
   if(v.pu.pan)aczoScapeSet(v.pu.pan,pn*.85);
 }
 // ---- train on the Konz bridge -----------------------------------------------------
@@ -44107,8 +44107,8 @@ function aczoScapeTrainStart(){
 }
 function aczoScapeTrainUpdate(near,pnv,speed,carLen){
   const S=aczoScape,v=S.train,ctx=S.ctx;
-  aczoScapeSet(v.rg.gain,.7*Math.pow(near,1.2));aczoScapeSet(v.rog.gain,.22*Math.pow(near,1.6));
-  aczoScapeSet(v.clicks.gain,.55*Math.pow(near,1.4));aczoScapeSet(v.tlp.frequency,800+5000*near*near,.25);
+  aczoScapeSet(v.rg.gain,.25*Math.pow(near,1.2));aczoScapeSet(v.rog.gain,.08*Math.pow(near,1.6));
+  aczoScapeSet(v.clicks.gain,.2*Math.pow(near,1.4));aczoScapeSet(v.tlp.frequency,800+5000*near*near,.25);
   if(v.pn.pan)aczoScapeSet(v.pn.pan,pnv);
   // wheel/rail-joint pattern of one joint near the player: two bogies per car, two axles per bogie
   const to=ctx.currentTime+.35,period=(carLen+.85)/Math.max(1,speed);if(v.nextCar<ctx.currentTime)v.nextCar=ctx.currentTime+.05;
@@ -44154,6 +44154,119 @@ function aczoScapeWave(t,size,level,pnv){
     og.gain.setValueAtTime(.06*size,dt);og.gain.exponentialRampToValueAtTime(.0008,dt+.03);o.connect(og);og.connect(p);o.start(dt);o.stop(dt+.05);}
   n.stop(t+2.4);b.stop(t+2.4);s.stop(t+2.4);
 }
+// ---- SCAPE-R20 (04.11.): chosen by the player on the sample page ---------------------------------
+// Police patrol boat (Wasserschutzpolizei, aczoK17Patrol): small, higher-revving engine with hull wash above
+// water; fast propeller beat with cavitation hiss under water. Lures: the soft rush of a hard lure and the
+// soft tail wipe of a soft-plastic shad, only in the under-water view and only while the lure really moves.
+// Level, muffling and direction follow the real distance between the camera and the boat or the lure.
+// Read-only access to game state; nothing here changes catches, saves or cloud data.
+const ACZO_SCAPE_PATROL_U=.107;   // under-water patrol level, same mix correction as the ship under water (r4.20)
+const ACZO_SCAPE_LURE_REF=3;      // distance (m) camera -> lure at which the lure plays at sample-page level
+function aczoScapePatrolAStart(){
+  const S=aczoScape,N=aczoScapeN(),t=S.ctx.currentTime;
+  const env=N.gain(0);env.connect(S.surfIn);env.gain.setTargetAtTime(.6,t,.4);
+  const pa=N.pan(0);pa.connect(env);const prox=N.gain(0);prox.connect(pa);
+  const o1=N.osc('sawtooth',68,t),o2=N.osc('sawtooth',136.4,t),o3=N.osc('triangle',204,t);
+  const mix=N.gain(.2),elp=N.filt('lowpass',1200,.7),am=N.gain(.8);
+  o1.connect(mix);N.chain(o2,N.gain(.5),mix);N.chain(o3,N.gain(.35),mix);N.chain(mix,elp,am,prox);
+  const fire=N.osc('sine',22,t);N.chain(fire,N.gain(.25),am.gain);
+  const w=N.noise(S.white,t),wg=N.gain(0);N.chain(w,N.filt('bandpass',1100,.7),wg,pa);
+  const b=N.noise(S.brown,t),bg=N.gain(0);N.chain(b,N.filt('lowpass',400,.6),bg,pa);
+  S.patrolA={env,src:[o1,o2,o3,fire,w,b],o:[[o1,68],[o2,136.4],[o3,204]],fire,elp,prox,wg,bg,pa};
+}
+function aczoScapePatrolAUpdate(d,vr,pn,rpm){
+  const v=aczoScape.patrolA,P=Math.min(1,20/d),dop=343/(343+vr);
+  for(const [o,f] of v.o)aczoScapeSet(o.frequency,f*dop*rpm,.25);
+  aczoScapeSet(v.fire.frequency,22*rpm,.25);
+  aczoScapeSet(v.elp.frequency,700+3300*P*P,.2);
+  aczoScapeSet(v.prox.gain,Math.pow(P,1.2));
+  aczoScapeSet(v.wg.gain,.25*Math.pow(P,1.5));aczoScapeSet(v.bg.gain,.3*Math.pow(P,1.3));
+  if(v.pa.pan)aczoScapeSet(v.pa.pan,pn);
+}
+function aczoScapePatrolUStart(){
+  const S=aczoScape,N=aczoScapeN(),t=S.ctx.currentTime;
+  const env=N.gain(0);env.connect(S.out);env.gain.setTargetAtTime(1,t,.4);
+  const pu=N.pan(0);pu.connect(env);const lvl=N.gain(0);lvl.connect(pu);
+  const pulse=N.osc('sine',32,t),ws=S.ctx.createWaveShaper();ws.curve=S.pulse;pulse.connect(ws);
+  const cav=N.noise(S.white,t),ca=N.gain(.12),clp=N.filt('lowpass',3000,.6);
+  N.chain(cav,N.filt('bandpass',3200,.8),ca,clp,lvl);N.chain(ws,N.gain(.8),ca.gain);
+  const wh=N.osc('sine',880,t);N.chain(wh,N.gain(.04),lvl);
+  const th=N.noise(S.brown,t),ta=N.gain(.12);N.chain(th,N.filt('lowpass',300,.7),ta,lvl);N.chain(ws,N.gain(.6),ta.gain);
+  S.patrolU={env,src:[pulse,cav,wh,th],pulse,wh,clp,lvl,pu};
+}
+function aczoScapePatrolUUpdate(d,pn,rpm){
+  const v=aczoScape.patrolU,U=Math.pow(Math.min(1,25/d),.9);
+  aczoScapeSet(v.pulse.frequency,32*rpm,.3);aczoScapeSet(v.wh.frequency,880*rpm,.3);
+  aczoScapeSet(v.clp.frequency,1200+4000*U*U,.2);
+  aczoScapeSet(v.lvl.gain,ACZO_SCAPE_PATROL_U*U,.2);
+  if(v.pu.pan)aczoScapeSet(v.pu.pan,pn*.85);
+}
+function aczoScapeLureStart(kind){
+  const S=aczoScape,N=aczoScapeN(),t=S.ctx.currentTime;
+  const env=N.gain(0);env.connect(S.out);env.gain.setTargetAtTime(1,t,.1);
+  const pn=N.pan(0);pn.connect(env);const lv=N.gain(0);lv.connect(pn);
+  let src;
+  if(kind==='softbait'){
+    // soft-plastic shad: soft wipe in the rhythm of the wagging tail
+    const n=N.noise(S.brown,t),amp=N.gain(.1);N.chain(n,N.filt('lowpass',420,.6),amp,lv);
+    const lfo=N.osc('sine',6.5,t);N.chain(lfo,N.gain(.08),amp.gain);
+    const n2=N.noise(S.white,t),a2=N.gain(.03);N.chain(n2,N.filt('bandpass',1700,1.2),a2,lv);N.chain(lfo,N.gain(.04),a2.gain);
+    src=[n,lfo,n2];
+  }else{
+    // hard lure: soft rush with a slow, gentle flutter (no rotating blade)
+    const n=N.noise(S.white,t),amp=N.gain(.5),out=N.gain(.045);N.chain(n,N.filt('bandpass',950,1.3),amp,out,lv);
+    const m1=N.osc('sine',2.6,t),m2=N.osc('sine',4.1,t);N.chain(m1,N.gain(.28),amp.gain);N.chain(m2,N.gain(.12),amp.gain);
+    const b=N.noise(S.brown,t),bg=N.gain(.04);N.chain(b,N.filt('lowpass',380,.6),bg,lv);N.chain(m1,N.gain(.04),bg.gain);
+    src=[n,m1,m2,b];
+  }
+  S.lure={env,src,kind,lv,pn};
+}
+function aczoScapeLureUpdate(level,pnv){
+  const v=aczoScape.lure;
+  aczoScapeSet(v.lv.gain,level,level>v.lv.gain.value?.08:.18);
+  if(v.pn.pan)aczoScapeSet(v.pn.pan,pnv*.6);
+}
+function aczoScapeR20Update(under){
+  const S=aczoScape;
+  // police patrol boat: engine above water within 700 m, propeller under water within 900 m
+  let patA=false,patU=false;
+  try{
+    const p=typeof aczoK17Patrol!=='undefined'?aczoK17Patrol:null;
+    if(p&&p.active&&p.obj&&p.obj.visible){
+      const o=p.obj.position,now=performance.now()/1000,q=S.patrolPrev;
+      let vx=0,vy=0;
+      if(q&&now-q.t>.05&&now-q.t<1){vx=(o.x-q.x)/(now-q.t);vy=(o.y-q.y)/(now-q.t);}
+      S.patrolPrev={x:o.x,y:o.y,t:now};
+      const sz=typeof ACZO_MOSEL_SURFACE_Z!=='undefined'?ACZO_MOSEL_SURFACE_Z:o.z;
+      const r=aczoScapeRel(o.x,o.y,sz+(under?-.8:1));
+      const rpm=.88+.12*Math.min(1.5,Math.max(0,(Number(p.speed)||0)/6.4));
+      if(!under&&r.d<700){patA=true;if(!S.patrolA)aczoScapePatrolAStart();
+        aczoScapePatrolAUpdate(r.d,Math.max(-40,Math.min(40,vx*r.ux+vy*r.uy)),r.pan,rpm);}
+      if(under&&r.d<900){patU=true;if(!S.patrolU)aczoScapePatrolUStart();aczoScapePatrolUUpdate(r.d,r.pan,rpm);}
+    }else S.patrolPrev=null;
+  }catch(_e){}
+  if(!patA&&S.patrolA){aczoScapeEnd(S.patrolA,.6);S.patrolA=null;}
+  if(!patU&&S.patrolU){aczoScapeEnd(S.patrolU,.6);S.patrolU=null;}
+  // lure pulled through the water: under-water view only, only while it really moves
+  let lureKind=null,lureLevel=0,lurePan=0;
+  try{
+    if(under&&typeof anglingUsesArtificialLure==='function'&&anglingUsesArtificialLure()
+      &&typeof anglingLure!=='undefined'&&anglingLure&&anglingLure.visible
+      &&(anglingSelectedBait==='spinner'||anglingSelectedBait==='softbait')){
+      const lp=anglingLure.position;
+      if(lp.z<anglingSurfaceZ(lp.x,lp.y)){
+        lureKind=anglingSelectedBait;
+        const moving=anglingState==='lure-retrieving'&&anglingLureWorldSpeed>.1;
+        S.lureTmp=S.lureTmp||new THREE.Vector3();anglingLure.getWorldPosition(S.lureTmp);
+        const r=aczoScapeRel(S.lureTmp.x,S.lureTmp.y,S.lureTmp.z);
+        S.lureD=r.d;lurePan=r.pan;
+        lureLevel=moving?Math.pow(Math.min(1,ACZO_SCAPE_LURE_REF/r.d),.9):0;
+      }
+    }
+  }catch(_e){lureKind=null;}
+  if(S.lure&&S.lure.kind!==lureKind){aczoScapeEnd(S.lure,.2);S.lure=null;}
+  if(lureKind){if(!S.lure)aczoScapeLureStart(lureKind);aczoScapeLureUpdate(lureLevel,lurePan);}
+}
 // ---- listener + update ------------------------------------------------------------
 function aczoScapeRel(x,y,z){
   // distance and stereo position of a world point relative to the camera (the player's ears)
@@ -44162,12 +44275,13 @@ function aczoScapeRel(x,y,z){
 }
 function aczoScapeStopAll(){
   const S=aczoScape;if(!S.ctx)return;
-  for(const k of ['bed','shipA','shipU','train','siren']){aczoScapeEnd(S[k],.15);S[k]=null;}
+  for(const k of ['bed','shipA','shipU','train','siren','patrolA','patrolU','lure']){aczoScapeEnd(S[k],.15);S[k]=null;}
+  S.patrolPrev=null;
   S.sprays.length=0;
 }
 function aczoScapeUpdate(){
   const S=aczoScape;
-  if(!aczoScapeAllowed()){if(S.bed||S.shipA||S.shipU||S.train||S.siren)aczoScapeStopAll();S.sprays.length=0;return;}
+  if(!aczoScapeAllowed()){if(S.bed||S.shipA||S.shipU||S.train||S.siren||S.patrolA||S.patrolU||S.lure)aczoScapeStopAll();S.sprays.length=0;return;}
   if(!aczoScapeInit())return;
   if(typeof camera==='undefined'||!camera)return;
   const ctx=S.ctx;
@@ -44226,6 +44340,7 @@ function aczoScapeUpdate(){
     }
   }
   if(!sirenOn&&S.siren){aczoScapeEnd(S.siren,.8);S.siren=null;}
+  aczoScapeR20Update(under);
   // bank splashes near the player (the same events that draw the visible spray)
   const a=S.sprays;
   if(a.length){
@@ -44234,8 +44349,8 @@ function aczoScapeUpdate(){
       const w=Math.pow(Math.min(1,15/r.d),1.5);e+=a[i+2]*w;if(r.d<bd){bd=r.d;bp=r.pan;}}
     a.length=0;
     const now=ctx.currentTime;
-    if(e>.06&&now-S.lastSplash>.32){S.lastSplash=now;
-      aczoScapeWave(now+.02,Math.max(.3,Math.min(1,e*.8)),Math.pow(Math.min(1,12/bd),1.2),bp);}
+    if(e>.1&&now-S.lastSplash>.5){S.lastSplash=now;
+      aczoScapeWave(now+.02,Math.max(.3,Math.min(1,e*.8)),.35*Math.pow(Math.min(1,12/bd),1.2),bp);}
   }
 }
 window.addEventListener('aczo-sound-stop-all',aczoScapeStopAll);
