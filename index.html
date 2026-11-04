@@ -39686,7 +39686,10 @@ function finishLeaveAngling(){
   restoreAnglingPanoramaBackdropEffects();
   // Beim Verlassen sofort jeden Spiel-/Ambientton beenden und Audio pausieren.
   aczoSoundStopAll();
-  if(aczoAudioCtx&&aczoAudioCtx.state==='running'){try{aczoAudioCtx.suspend();}catch(_e){}}
+  // SCAPE-R22: suspend 150 ms later, after the sound world's 40 ms fade-out. A context suspended mid-sound can
+  // beep on some outputs. Skipped if angling was re-entered or a new sound started meanwhile.
+  if(aczoAudioCtx&&aczoAudioCtx.state==='running'){const ctx=aczoAudioCtx,mark=aczoSoundLastAnyAt;
+    window.setTimeout(()=>{if(!anglingMode&&ctx.state==='running'&&aczoSoundLastAnyAt===mark){try{ctx.suspend();}catch(_e){}}},150);}
   document.querySelector('.wrap').classList.remove('angling-mode');
   stopAnglingPresence();hideAnglingWelcomeBack();anglingUi.classList.remove('is-active');
   rememberAnglingLastVisit();
@@ -43993,6 +43996,7 @@ function aczoScapeRnd(a,b){return a+Math.random()*(b-a);}
 function aczoScapeAllowed(){
   return !!(aczoSoundEnabled&&!document.hidden&&!aczoAudioBackgroundPaused
     &&typeof anglingMode!=='undefined'&&anglingMode
+    &&!(typeof anglingState!=='undefined'&&['selecting','overview-flight','exit-flight','idle'].includes(anglingState))
     &&!(typeof anglingHallOfFameActive!=='undefined'&&anglingHallOfFameActive)
     &&!(typeof anglingTimeShiftActive!=='undefined'&&anglingTimeShiftActive)
     &&!(typeof fishMode!=='undefined'&&fishMode)
@@ -44008,11 +44012,13 @@ function aczoScapeInit(){
   S.surfIn=g(1);S.surfLP=ctx.createBiquadFilter();S.surfLP.type='lowpass';S.surfLP.Q.value=.9;S.surfLP.frequency.value=20000;S.surfOut=g(1);
   S.surfIn.connect(S.surfLP);S.surfLP.connect(S.surfOut);S.surfOut.connect(S.out);
   const sr=ctx.sampleRate,mk=(sec,fill)=>{const b=ctx.createBuffer(1,Math.max(1,Math.floor(sr*sec)),sr);fill(b.getChannelData(0));return b;};
+  if(S.bufCtx!==ctx){S.bufCtx=ctx;
   S.white=mk(1.5,d=>{for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;});
   S.brown=mk(3,d=>{let b=0;for(let i=0;i<d.length;i++){b=(b+.02*(Math.random()*2-1))/1.02;d[i]=b*3.5;}
     const a=d[0],z=d[d.length-1];for(let i=0;i<d.length;i++)d[i]-=a+(z-a)*i/(d.length-1);});
   S.click=mk(.06,d=>{for(let j=0;j<d.length;j++){const t=j/sr;d[j]=(Math.random()*2-1)*.7*Math.exp(-t/.003)+Math.sin(2*Math.PI*95*t)*.9*Math.exp(-t/.022);}});
   S.pulse=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;S.pulse[i]=Math.pow(Math.max(0,x),5);}
+  }
   S.under=null;
   return true;
 }
@@ -44070,11 +44076,11 @@ function aczoScapeShipAStart(){
   const w=N.noise(S.brown,t),wg=N.gain(0);N.chain(w,N.filt('lowpass',650,.6),wg,pa);
   S.shipA={env,src:[o1,o2,o3,kl,w],o:[[o1,38],[o2,38.3],[o3,114]],elp,ag,wg,pa};
 }
-function aczoScapeShipAUpdate(d,vr,pn){
+function aczoScapeShipAUpdate(d,vr,pn,w=1){
   const v=aczoScape.shipA,P=Math.min(1,25/d),dop=343/(343+vr);
   for(const [o,f] of v.o)aczoScapeSet(o.frequency,f*dop,.2);
   aczoScapeSet(v.elp.frequency,500+3000*P*P,.2);
-  aczoScapeSet(v.ag.gain,.7*Math.pow(P,1.3));aczoScapeSet(v.wg.gain,.7*Math.pow(P,1.5));
+  aczoScapeSet(v.ag.gain,.7*Math.pow(P,1.3)*w);aczoScapeSet(v.wg.gain,.7*Math.pow(P,1.5)*w);
   if(v.pa.pan)aczoScapeSet(v.pa.pan,pn);
 }
 function aczoScapeShipUStart(){
@@ -44088,10 +44094,10 @@ function aczoScapeShipUStart(){
   const hg=N.gain(0);hg.connect(pu);const h1=N.osc('sine',50,t),h2=N.osc('sine',100,t);N.chain(h1,N.gain(.06),hg);N.chain(h2,N.gain(.05),hg);
   S.shipU={env,src:[pulse,cav,th,h1,h2],clp,pg,pg2,hg,pu};
 }
-function aczoScapeShipUUpdate(d,pn){
+function aczoScapeShipUUpdate(d,pn,w=1){
   const v=aczoScape.shipU,U=Math.pow(Math.min(1,30/d),.9);
   aczoScapeSet(v.clp.frequency,900+3500*U*U,.2);
-  aczoScapeSet(v.pg.gain,.25*U,.2);aczoScapeSet(v.pg2.gain,.25*Math.pow(U,.9)*1.2,.2);aczoScapeSet(v.hg.gain,.25*U*.8,.2);
+  aczoScapeSet(v.pg.gain,.25*U*w,.2);aczoScapeSet(v.pg2.gain,.25*Math.pow(U,.9)*1.2*w,.2);aczoScapeSet(v.hg.gain,.25*U*.8*w,.2);
   if(v.pu.pan)aczoScapeSet(v.pu.pan,pn*.85);
 }
 // ---- train on the Konz bridge -----------------------------------------------------
@@ -44174,13 +44180,13 @@ function aczoScapePatrolAStart(){
   const b=N.noise(S.brown,t),bg=N.gain(0);N.chain(b,N.filt('lowpass',400,.6),bg,pa);
   S.patrolA={env,src:[o1,o2,o3,fire,w,b],o:[[o1,68],[o2,136.4],[o3,204]],fire,elp,prox,wg,bg,pa};
 }
-function aczoScapePatrolAUpdate(d,vr,pn,rpm){
+function aczoScapePatrolAUpdate(d,vr,pn,rpm,w=1){
   const v=aczoScape.patrolA,P=Math.min(1,20/d),dop=343/(343+vr);
   for(const [o,f] of v.o)aczoScapeSet(o.frequency,f*dop*rpm,.25);
   aczoScapeSet(v.fire.frequency,22*rpm,.25);
   aczoScapeSet(v.elp.frequency,700+3300*P*P,.2);
-  aczoScapeSet(v.prox.gain,Math.pow(P,1.2));
-  aczoScapeSet(v.wg.gain,.25*Math.pow(P,1.5));aczoScapeSet(v.bg.gain,.3*Math.pow(P,1.3));
+  aczoScapeSet(v.prox.gain,Math.pow(P,1.2)*w);
+  aczoScapeSet(v.wg.gain,.25*Math.pow(P,1.5)*w);aczoScapeSet(v.bg.gain,.3*Math.pow(P,1.3)*w);
   if(v.pa.pan)aczoScapeSet(v.pa.pan,pn);
 }
 function aczoScapePatrolUStart(){
@@ -44194,11 +44200,11 @@ function aczoScapePatrolUStart(){
   const th=N.noise(S.brown,t),ta=N.gain(.12);N.chain(th,N.filt('lowpass',300,.7),ta,lvl);N.chain(ws,N.gain(.6),ta.gain);
   S.patrolU={env,src:[pulse,cav,wh,th],pulse,wh,clp,lvl,pu};
 }
-function aczoScapePatrolUUpdate(d,pn,rpm){
+function aczoScapePatrolUUpdate(d,pn,rpm,w=1){
   const v=aczoScape.patrolU,U=Math.pow(Math.min(1,25/d),.9);
   aczoScapeSet(v.pulse.frequency,32*rpm,.3);aczoScapeSet(v.wh.frequency,880*rpm,.3);
   aczoScapeSet(v.clp.frequency,1200+4000*U*U,.2);
-  aczoScapeSet(v.lvl.gain,ACZO_SCAPE_PATROL_U*U,.2);
+  aczoScapeSet(v.lvl.gain,ACZO_SCAPE_PATROL_U*U*w,.2);
   if(v.pu.pan)aczoScapeSet(v.pu.pan,pn*.85);
 }
 function aczoScapeLureStart(kind){
@@ -44234,10 +44240,12 @@ function aczoScapeR20Update(under){
       const sz=typeof ACZO_MOSEL_SURFACE_Z!=='undefined'?ACZO_MOSEL_SURFACE_Z:o.z;
       const r=aczoScapeRel(o.x,o.y,sz+(under?-.8:1));
       const rpm=.88+.12*Math.min(1.5,Math.max(0,(Number(p.speed)||0)/6.4));
-      if(!under&&r.d<700){patA=true;if(!S.patrolA)aczoScapePatrolAStart();
-        aczoScapePatrolAUpdate(r.d,Math.max(-40,Math.min(40,vx*r.ux+vy*r.uy)),r.pan,rpm);}
-      if(under&&r.d<900){patU=true;if(!S.patrolU)aczoScapePatrolUStart();aczoScapePatrolUUpdate(r.d,r.pan,rpm);}
-    }else S.patrolPrev=null;
+      const sp=Math.hypot(vx,vy);if(sp>.3)S.patrolDir={x:vx/sp,y:vy/sp};
+      const pd=S.patrolDir,w=pd?aczoScapeAlongWindow(o.x,o.y,pd.x,pd.y):1-Math.max(0,Math.min(1,(Math.hypot(o.x-S.listener.x,o.y-S.listener.y)-30)/80));S.patrolW=w;
+      if(!under&&w>0&&r.d<700){patA=true;if(!S.patrolA)aczoScapePatrolAStart();
+        aczoScapePatrolAUpdate(r.d,Math.max(-40,Math.min(40,vx*r.ux+vy*r.uy)),r.pan,rpm,w);}
+      if(under&&w>0&&aczoScapeInMosel()&&r.d<900){patU=true;if(!S.patrolU)aczoScapePatrolUStart();aczoScapePatrolUUpdate(r.d,r.pan,rpm,w);}
+    }else{S.patrolPrev=null;S.patrolDir=null;}
   }catch(_e){}
   if(!patA&&S.patrolA){aczoScapeEnd(S.patrolA,.6);S.patrolA=null;}
   if(!patU&&S.patrolU){aczoScapeEnd(S.patrolU,.6);S.patrolU=null;}
@@ -44268,11 +44276,24 @@ function aczoScapeRel(x,y,z){
   return {d,pan:Math.max(-.85,Math.min(.85,(dx*R.x+dy*R.y+dz*R.z)/d)),ux:dx/d,uy:dy/d};
 }
 function aczoScapeStopAll(){
+  // Fast 40 ms fade, then the whole graph is dropped. The game may suspend the context right after a stop-all;
+  // a dropped graph cannot freeze mid-sound or carry a tail into the next sound after a resume.
   const S=aczoScape;if(!S.ctx)return;
-  for(const k of ['bed','shipA','shipU','train','siren','patrolA','patrolU','lure']){aczoScapeEnd(S[k],.15);S[k]=null;}
-  S.patrolPrev=null;
+  const ctx=S.ctx,t=ctx.currentTime,out=S.out;
+  for(const k of ['bed','shipA','shipU','train','siren','patrolA','patrolU','lure']){const v=S[k];S[k]=null;if(!v)continue;
+    for(const e of [v.env,v.aenv]){if(!e)continue;try{e.gain.cancelScheduledValues(t);e.gain.setValueAtTime(e.gain.value,t);e.gain.linearRampToValueAtTime(0,t+.04);}catch(_e){}}
+    for(const s of v.src){try{s.stop(t+.06);}catch(_e){}}}
+  if(out){try{out.gain.cancelScheduledValues(t);out.gain.setValueAtTime(out.gain.value,t);out.gain.linearRampToValueAtTime(0,t+.04);}catch(_e){}
+    window.setTimeout(()=>{try{out.disconnect();}catch(_e){}},90);}
+  S.ctx=null;S.out=null;S.under=null;S.patrolPrev=null;S.patrolDir=null;
   S.sprays.length=0;
 }
+function aczoScapeAlongWindow(x,y,dx,dy){
+  // 1 when the source is beside the player, fading to 0 between 30 m and 110 m along the river (left/right)
+  const L=aczoScape.listener,a=Math.abs((L.x-x)*dx+(L.y-y)*dy),q=Math.max(0,Math.min(1,(a-30)/80));
+  return 1-q*q*(3-2*q);
+}
+function aczoScapeInMosel(){return typeof aczoMoselFishing!=='undefined'&&!!aczoMoselFishing;}
 function aczoScapeUpdate(){
   const S=aczoScape;
   if(!aczoScapeAllowed()){if(S.bed||S.shipA||S.shipU||S.train||S.siren||S.patrolA||S.patrolU||S.lure)aczoScapeStopAll();S.sprays.length=0;return;}
@@ -44293,9 +44314,10 @@ function aczoScapeUpdate(){
     if(st.visible){
       const ex=st.position.x-st.direction.x*st.length*.38,ey=st.position.y-st.direction.y*st.length*.38;
       const r=aczoScapeRel(ex,ey,ACZO_MOSEL_SURFACE_Z+(under?-1:1.5));
-      if(!under&&r.d<800){shipA=true;if(!S.shipA)aczoScapeShipAStart();
-        aczoScapeShipAUpdate(r.d,st.direction.x*st.speed*r.ux+st.direction.y*st.speed*r.uy,r.pan);}
-      if(under&&r.d<1100){shipU=true;if(!S.shipU)aczoScapeShipUStart();aczoScapeShipUUpdate(r.d,r.pan);}
+      const w=aczoScapeAlongWindow(ex,ey,st.direction.x,st.direction.y);S.shipW=w;
+      if(!under&&w>0&&r.d<800){shipA=true;if(!S.shipA)aczoScapeShipAStart();
+        aczoScapeShipAUpdate(r.d,st.direction.x*st.speed*r.ux+st.direction.y*st.speed*r.uy,r.pan,w);}
+      if(under&&w>0&&aczoScapeInMosel()&&r.d<1100){shipU=true;if(!S.shipU)aczoScapeShipUStart();aczoScapeShipUUpdate(r.d,r.pan,w);}
     }
   }
   if(!shipA&&S.shipA){aczoScapeEnd(S.shipA,.6);S.shipA=null;}
