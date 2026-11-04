@@ -44206,14 +44206,8 @@ function aczoScapeLureStart(kind){
   const env=N.gain(0);env.connect(S.out);env.gain.setTargetAtTime(1,t,.1);
   const pn=N.pan(0);pn.connect(env);const lv=N.gain(0);lv.connect(pn);
   let src;
-  if(kind==='softbait'){
-    // soft-plastic shad: soft wipe in the rhythm of the wagging tail
-    const n=N.noise(S.brown,t),amp=N.gain(.1);N.chain(n,N.filt('lowpass',420,.6),amp,lv);
-    const lfo=N.osc('sine',6.5,t);N.chain(lfo,N.gain(.08),amp.gain);
-    const n2=N.noise(S.white,t),a2=N.gain(.03);N.chain(n2,N.filt('bandpass',1700,1.2),a2,lv);N.chain(lfo,N.gain(.04),a2.gain);
-    src=[n,lfo,n2];
-  }else{
-    // hard lure: soft rush with a slow, gentle flutter (no rotating blade)
+  {
+    // every artificial lure (spoon/spinner and soft-plastic shad): soft rush with a slow, gentle flutter
     const n=N.noise(S.white,t),amp=N.gain(.5),out=N.gain(.045);N.chain(n,N.filt('bandpass',950,1.3),amp,out,lv);
     const m1=N.osc('sine',2.6,t),m2=N.osc('sine',4.1,t);N.chain(m1,N.gain(.28),amp.gain);N.chain(m2,N.gain(.12),amp.gain);
     const b=N.noise(S.brown,t),bg=N.gain(.04);N.chain(b,N.filt('lowpass',380,.6),bg,lv);N.chain(m1,N.gain(.04),bg.gain);
@@ -44255,7 +44249,7 @@ function aczoScapeR20Update(under){
       &&(anglingSelectedBait==='spinner'||anglingSelectedBait==='softbait')){
       const lp=anglingLure.position;
       if(lp.z<anglingSurfaceZ(lp.x,lp.y)){
-        lureKind=anglingSelectedBait;
+        lureKind='lure';
         const moving=anglingState==='lure-retrieving'&&anglingLureWorldSpeed>.1;
         S.lureTmp=S.lureTmp||new THREE.Vector3();anglingLure.getWorldPosition(S.lureTmp);
         const r=aczoScapeRel(S.lureTmp.x,S.lureTmp.y,S.lureTmp.z);
@@ -44332,7 +44326,7 @@ function aczoScapeUpdate(){
     let car=null,best=null;
     for(const a of aczoK7aFleet){if(!a.active||!a.emergency||!a.obj||!a.obj.visible)continue;
       const r=aczoScapeRel(a.pos.x,a.pos.y,ACZO_SATELLITE_GROUND_Z+1.6);if(!best||r.d<best.d){best=r;car=a;}}
-    if(car&&best.d<1500){
+    if(!under&&car&&best.d<1500){
       const buf=aczoAudioBuffers.scapeSiren;
       if(!buf)aczoDecodeSoundKey('scapeSiren');
       else{sirenOn=true;if(!S.siren)aczoScapeSirenStart(buf);
