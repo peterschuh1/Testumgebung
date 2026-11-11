@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <script id="aczo-start-diagnostics">
-/* ACZO56 START-GPU-20261111-1. Startup context-loss guard and CPU render diagnostics; graphics unchanged. */
+/* ACZO56 START-SERIAL-20261111-1. Startup context-loss guard and CPU render diagnostics; graphics unchanged. */
 (function(){
  'use strict';
- const build='START-GPU-20261111-1',sourceSha256='d47616b07e6c5e377d60dfc715f9827d2c05d456a5da5657d11571663d445df6';
+ const build='START-SERIAL-20261111-1',sourceSha256='d47616b07e6c5e377d60dfc715f9827d2c05d456a5da5657d11571663d445df6';
  const nativeTimeout=window.setTimeout.bind(window),started=performance.now(),startedUtc=new Date().toISOString();
  const key='aczo56.start-diagnostic.last-failure.v1',journalKey=key+'.checkpoint';
  const timeline=[],owners=new WeakMap(),waiting=new WeakMap(),attached=new WeakSet();
@@ -57,7 +57,7 @@
   entry.programsAfter=r.info.programs.length;entry.render={...r.info.render};
   if(entry.cpuCallMs>=250)trace('slow-render-call',{sequence:entry.sequence,kind:entry.kind,cpuCallMs:entry.cpuCallMs});
  }
- function rendering(){return {recentDraws:startupDraws.map(x=>({...x})),initialShadowLights:shadowSetup,gpuCompletion:unavailable('CPU-Rückkehr ist kein GPU-Abschluss; der letzte Render-Aufruf ist kein Beweis für den Verursacher'),drawingBuffer:renderer?[renderer.domElement.width,renderer.domElement.height]:null,pixelRatio:renderer?.getPixelRatio?.()??null};}
+ function rendering(){return {serialPreparation:safe(()=>window.__aczoSafeStart?.gpuStartProgress),recentDraws:startupDraws.map(x=>({...x})),initialShadowLights:shadowSetup,gpuCompletion:unavailable('CPU-Rückkehr ist kein GPU-Abschluss; der letzte Render-Aufruf ist kein Beweis für den Verursacher'),drawingBuffer:renderer?[renderer.domElement.width,renderer.domElement.height]:null,pixelRatio:renderer?.getPixelRatio?.()??null};}
 
  function snapshot(){return {format:'ACZO56 start diagnostic v1',build,sourceSha256,attemptStartedUtc:startedUtc,capturedUtc:new Date().toISOString(),elapsedMs:time(),phase,
   device:{userAgent:navigator.userAgent,platform:navigator.platform,maxTouchPoints:navigator.maxTouchPoints,devicePixelRatio:window.devicePixelRatio,viewport:[window.innerWidth,window.innerHeight],exactModel:unavailable('Aus Browserdaten wird kein iPhone-/iPad-Modell geraten'),osVersion:unavailable('Nur der unveränderte User-Agent ist verfügbar; bitte Modell und OS-Version bei Bedarf ergänzen')},
@@ -300,48 +300,72 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
   }
  };
 
+ // Prepare original renderables one at a time; all temporary state is restored
+ // synchronously before yielding. The normal rendering path stays untouched.
  boot.prepareGpu=async function(scene,camera){
   if(boot.gpuBusy||boot.gpuPrepared||boot.failed)return;
   boot.gpuBusy=true;let target=null;
+  const progress=boot.gpuStartProgress={completed:0,total:0,current:null,views:[]};
   try{
-   const renderer=boot.renderer,objects=[];
-   scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
-   const frustum=new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
-   scene.traverseVisible(o=>{if(o.isMesh||o.isLine||o.isPoints||o.isSprite){
-    if(!o.frustumCulled||o.isSprite&&frustum.intersectsSprite(o)||!o.isSprite&&frustum.intersectsObject(o))objects.push(o);
-   }});
+   const renderer=boot.renderer,views=[{scene,camera,label:'Karte'},...(boot.additionalStartupViews?.()||[])];
    target=new THREE.WebGLRenderTarget(128,128,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;
-   if(typeof renderer.aczoPreparePrograms==='function'){boot.show('Kartenansicht und Beleuchtung werden vorbereitet');await renderer.aczoPreparePrograms(scene,camera,{yield:()=>new Promise(resolve=>native.raf(()=>native.timeout(resolve,0)))});}
-   const protectedGeometries=new Set(objects.filter(object=>Array.isArray(object.material)).map(object=>object.geometry));
-   const batchSize=mobile?32:96;
-   for(let offset=0;offset<objects.length;offset+=batchSize){
-    boot.show('Grafik wird schrittweise vorbereitet · '+Math.round(offset/Math.max(1,objects.length)*100)+' %');
-    const visible=objects.map(o=>o.visible),saved={target:renderer.getRenderTarget(),viewport:renderer.getViewport(new THREE.Vector4()),scissor:renderer.getScissor(new THREE.Vector4()),test:renderer.getScissorTest(),shadowAuto:renderer.shadowMap.autoUpdate,shadowDirty:renderer.shadowMap.needsUpdate};
-    const rasterCounts=[],rasterRanges=new Map();
-    try{
-     for(let i=offset;i<Math.min(objects.length,offset+batchSize);i++){const object=objects[i],geometry=object.geometry;
-      if(object.isInstancedMesh&&object.count>1){rasterCounts.push([object,object.count]);object.count=1;}
-      if(geometry&&!protectedGeometries.has(geometry)&&geometry.drawRange.count>512&&!rasterRanges.has(geometry)){rasterRanges.set(geometry,{...geometry.drawRange});geometry.setDrawRange(geometry.drawRange.start,512);}
-     }
-     for(let i=0;i<objects.length;i++)objects[i].visible=visible[i]&&i>=offset&&i<offset+batchSize;
-     for(let i=offset;i<Math.min(objects.length,offset+batchSize);i++)if(visible[i]){for(let p=objects[i].parent;p;p=p.parent){const index=objects.indexOf(p);if(index>=0&&visible[index])p.visible=true;}}
-     // Offscreen geometry batches must not rebuild partial world shadows.
-     // The first complete map frame builds the real shadow map once under the loader.
-     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false;
-     renderer.setRenderTarget(target);renderer.setViewport(0,0,128/renderer.getPixelRatio(),128/renderer.getPixelRatio());renderer.setScissorTest(false);
-     boot.warmingDraw=true;renderer.render(scene,camera);
-    }finally{
-     boot.warmingDraw=false;
-     for(const [object,count]of rasterCounts)object.count=count;for(const [geometry,range]of rasterRanges)geometry.setDrawRange(range.start,range.count);
-     objects.forEach((o,i)=>{o.visible=visible[i];});
-     renderer.setRenderTarget(saved.target);renderer.setViewport(saved.viewport);renderer.setScissor(saved.scissor);renderer.setScissorTest(saved.test);renderer.shadowMap.autoUpdate=saved.shadowAuto;renderer.shadowMap.needsUpdate=saved.shadowDirty;
-    }
-    if(!await boot.waitForGpu('geometry-batch-'+Math.floor(offset/batchSize)))await boot.yield(true);
+   const plans=[];
+   for(const view of views){
+    const jobs=[];view.scene.updateMatrixWorld(true);view.camera.updateMatrixWorld(true);
+    const frustum=new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(view.camera.projectionMatrix,view.camera.matrixWorldInverse));
+    view.scene.traverseVisible(object=>{
+     if(!(object.isMesh||object.isLine||object.isPoints||object.isSprite)||!object.layers.test(view.camera.layers))return;
+     if(object.frustumCulled&&!(object.isSprite?frustum.intersectsSprite(object):frustum.intersectsObject(object)))return;
+     if(Array.isArray(object.material)){
+      for(const group of object.geometry?.groups||[]){const material=object.material[group.materialIndex];if(material?.visible)jobs.push({object,material,group});}
+     }else if(object.material?.visible)jobs.push({object,material:object.material,group:null});
+    });
+    plans.push({...view,jobs});progress.total+=jobs.length;progress.views.push({label:view.label,jobs:jobs.length});
    }
-   renderer.shadowMap.needsUpdate=true;boot.gpuPrepared=true;boot.show('Karte wird geöffnet …');
+   for(const view of plans){
+    if(typeof renderer.aczoPreparePrograms==='function'){
+     boot.show(view.label+' · Grafikprogramme werden vorbereitet');
+     await renderer.aczoPreparePrograms(view.scene,view.camera,{yield:()=>new Promise(resolve=>native.raf(()=>native.timeout(resolve,0)))});
+    }
+    for(const job of view.jobs){
+     if(boot.failed)throw new Error(boot.error||'Start unterbrochen.');
+     const object=job.object,geometry=object.geometry;
+     progress.current={view:view.label,objectId:object.id,objectName:object.name||'',materialId:job.material.id,materialName:job.material.name||'',materialType:job.material.type,group:job.group?{...job.group}:null};
+     boot.show('Grafik wird schrittweise vorbereitet · '+Math.round(progress.completed/Math.max(1,progress.total)*100)+' %');
+     const saved={target:renderer.getRenderTarget(),viewport:renderer.getViewport(new THREE.Vector4()),scissor:renderer.getScissor(new THREE.Vector4()),test:renderer.getScissorTest(),shadowAuto:renderer.shadowMap.autoUpdate,shadowDirty:renderer.shadowMap.needsUpdate};
+     const masks=[],count=object.count,range=geometry?{...geometry.drawRange}:null,groups=geometry?.groups;
+     try{
+      // Layers do not hide descendants: a mesh parent may remain traversable
+      // without issuing an extra draw. No material or visibility flag changes.
+      view.scene.traverse(other=>{
+       if(other!==object&&(other.isMesh||other.isLine||other.isPoints||other.isSprite)&&other.layers.mask!==0){masks.push([other,other.layers.mask]);other.layers.mask=0;}
+      });
+      if(object.isInstancedMesh&&object.count>1)object.count=1;
+      if(geometry){
+       const start=job.group?Math.max(range.start,job.group.start):range.start;
+       const end=job.group?Math.min(range.start+range.count,job.group.start+job.group.count):range.start+range.count;
+       geometry.setDrawRange(start,Math.max(0,Math.min(512,end-start)));
+       if(job.group)geometry.groups=[job.group];
+      }
+      renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false;
+      renderer.setRenderTarget(target);renderer.setViewport(0,0,128/renderer.getPixelRatio(),128/renderer.getPixelRatio());renderer.setScissorTest(false);
+      boot.warmingDraw=true;renderer.render(view.scene,view.camera);
+     }finally{
+      boot.warmingDraw=false;
+      for(const [other,mask] of masks)other.layers.mask=mask;
+      if(object.isInstancedMesh)object.count=count;
+      if(geometry){geometry.setDrawRange(range.start,range.count);geometry.groups=groups;}
+      renderer.setRenderTarget(saved.target);renderer.setViewport(saved.viewport);renderer.setScissor(saved.scissor);renderer.setScissorTest(saved.test);renderer.shadowMap.autoUpdate=saved.shadowAuto;renderer.shadowMap.needsUpdate=saved.shadowDirty;
+     }
+     if(!await boot.waitForGpu('startup-item-'+progress.completed))await boot.yield(true);
+     progress.completed++;
+    }
+   }
+   progress.current=null;renderer.shadowMap.needsUpdate=true;boot.gpuPrepared=true;boot.show('Karte wird geöffnet …');
   }catch(error){boot.fail(error);}
   finally{boot.gpuBusy=false;if(target)target.dispose();}
  };
+
  boot.onFirstFrame=function(){
   if(boot.firstFrame)return;boot.firstFrame=true;window.__aczoStartDiag?.trace('first-map-frame',{});
   document.documentElement.classList.remove('aczo-safe-starting');
@@ -55172,7 +55196,7 @@ const aczoK35Panorama=(()=>{
  renderer.domElement.addEventListener('webglcontextrestored',contextLost,false);
  // No RAF/timer. The owning main-view renderer is the only driver. CPU arrays
  // stay resident for WebGL context restoration; shared K34 sky assets are never disposed.
- return {draw,dispose,photoCollar,stats:Object.freeze({...data.stats,waterTriangles:waterData.indices.length/3,waterLevelNhn:waterData.stats.levelNhn,artificialEdgeTailVertices:edgeTail.length/3,newDrawCalls:2,newRenderTargets:0,photoCollarGpuBytes:collar.gpuRgbaBytes}),terrainScene,skyScene,farCamera,get warmed(){return warmed;},get edgeTailValid(){return edgeTailValid;}};
+ return {startupViews(){sync();return [{scene:skyScene,camera:farCamera,label:'Himmel'},{scene:terrainScene,camera:farCamera,label:'Panorama'}];},draw,dispose,photoCollar,stats:Object.freeze({...data.stats,waterTriangles:waterData.indices.length/3,waterLevelNhn:waterData.stats.levelNhn,artificialEdgeTailVertices:edgeTail.length/3,newDrawCalls:2,newRenderTargets:0,photoCollarGpuBytes:collar.gpuRgbaBytes}),terrainScene,skyScene,farCamera,get warmed(){return warmed;},get edgeTailValid(){return edgeTailValid;}};
 })();
 
 </script>
@@ -55248,6 +55272,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
   }
  }catch(error){console.warn('OPT-10 übersprungen:',error);}
 })();
+window.__aczoSafeStart.additionalStartupViews=()=>aczoK35Panorama.startupViews();
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
