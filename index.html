@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <script id="aczo-start-diagnostics">
-/* ACZO56 START-DIAG-20261111-2. Startup context-loss guard and CPU render diagnostics; graphics unchanged. */
+/* ACZO56 START-GPU-20261111-1. Startup context-loss guard and CPU render diagnostics; graphics unchanged. */
 (function(){
  'use strict';
- const build='START-DIAG-20261111-2',sourceSha256='d47616b07e6c5e377d60dfc715f9827d2c05d456a5da5657d11571663d445df6';
+ const build='START-GPU-20261111-1',sourceSha256='d47616b07e6c5e377d60dfc715f9827d2c05d456a5da5657d11571663d445df6';
  const nativeTimeout=window.setTimeout.bind(window),started=performance.now(),startedUtc=new Date().toISOString();
  const key='aczo56.start-diagnostic.last-failure.v1',journalKey=key+'.checkpoint';
  const timeline=[],owners=new WeakMap(),waiting=new WeakMap(),attached=new WeakSet();
@@ -267,6 +267,39 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
   renderer.domElement.addEventListener('webglcontextlost',()=>{if(!window.__aczoStartupLoader?.snapshot?.().finished){const error=new Error('Grafikkontext während des Starts verloren. Fehlerbericht bitte kopieren; danach kann die Seite manuell neu geladen werden.');boot.contextLostDuringStartup=true;boot.gpuPrepared=false;boot.fail(error);window.__aczoStartupLoader?.fail?.(error);}});
   return renderer;
  };
+ // Startup only: do not equate returning from render() with completed GPU work.
+ // A zero-timeout poll returns control to the browser between attempts.
+ boot.pendingGpuWaits=0;
+ boot.waitForGpu=async function(stage){
+  const gl=boot.renderer.getContext(),diag=window.__aczoStartDiag;
+  if(gl.isContextLost())throw new Error('Grafikkontext während der Vorbereitung verloren.');
+  if(typeof gl.fenceSync!=='function'||typeof gl.clientWaitSync!=='function'){
+   diag?.trace('gpu-completion-unavailable',{stage,reason:'WebGL 1: bisherige Frame-Freigabe bleibt erhalten'});return false;
+  }
+  const sync=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);
+  if(!sync)throw new Error('GPU-Abschlussprüfung konnte nicht angelegt werden.');
+  boot.pendingGpuWaits++;const began=performance.now();let polls=0;
+  diag?.trace('gpu-work-submitted',{stage});
+  try{
+   gl.flush();
+   // WebGL forbids signalling a new sync within the same event-loop task.
+   await boot.yield(true);
+   while(true){
+    if(boot.failed)throw new Error(boot.error||'Start unterbrochen.');
+    if(gl.isContextLost())throw new Error('Grafikkontext während der Vorbereitung verloren.');
+    const status=gl.clientWaitSync(sync,0,0);polls++;
+    if(gl.isContextLost())throw new Error('Grafikkontext während der Vorbereitung verloren.');
+    if(status===gl.ALREADY_SIGNALED||status===gl.CONDITION_SATISFIED){
+     diag?.trace('gpu-work-completed',{stage,polls,elapsedMs:Math.round(performance.now()-began)});return true;
+    }
+    if(status!==gl.TIMEOUT_EXPIRED)throw new Error('GPU-Abschlussprüfung fehlgeschlagen.');
+    await boot.yield(true);
+   }
+  }finally{
+   boot.pendingGpuWaits--;try{gl.deleteSync(sync);}catch(_error){}
+  }
+ };
+
  boot.prepareGpu=async function(scene,camera){
   if(boot.gpuBusy||boot.gpuPrepared||boot.failed)return;
   boot.gpuBusy=true;let target=null;
@@ -303,7 +336,7 @@ for(const type of ['keydown','keyup'])window.addEventListener(type,event=>window
      objects.forEach((o,i)=>{o.visible=visible[i];});
      renderer.setRenderTarget(saved.target);renderer.setViewport(saved.viewport);renderer.setScissor(saved.scissor);renderer.setScissorTest(saved.test);renderer.shadowMap.autoUpdate=saved.shadowAuto;renderer.shadowMap.needsUpdate=saved.shadowDirty;
     }
-    await boot.yield(true);
+    if(!await boot.waitForGpu('geometry-batch-'+Math.floor(offset/batchSize)))await boot.yield(true);
    }
    renderer.shadowMap.needsUpdate=true;boot.gpuPrepared=true;boot.show('Karte wird geöffnet …');
   }catch(error){boot.fail(error);}
@@ -54220,7 +54253,12 @@ aczoResumeSession();
  function prepareMapReady(){
   if(prep.map.state==='ready'&&!prep.contextLost)return Promise.resolve({...prep.map});if(prep.map.state==='running')return mapPromise;
   const generation=prep.map.generation;prep.map.state='running';prep.map.error=null;window.__aczoStartDiag?.phase('Panorama und Kartenfreigabe');
-  mapPromise=(async()=>{try{await aczoK35Panorama.photoCollar.promise;if(prep.contextLost||generation!==prep.map.generation)throw cancelled();prep.map.warmingDraw=true;try{aczoRenderMainView();}finally{prep.map.warmingDraw=false;}if(!aczoK35Panorama.photoCollar.settled||!aczoK35Panorama.warmed)throw Error('Die Umgebung ist noch nicht bereit.');if(prep.contextLost||generation!==prep.map.generation)throw cancelled();prep.map.state='ready';return {...prep.map};}catch(error){if(generation===prep.map.generation){prep.map.state=prep.contextLost?'idle':'error';prep.map.error=String(error.message||error);}throw error;}})();return mapPromise;
+  mapPromise=(async()=>{try{await aczoK35Panorama.photoCollar.promise;if(prep.contextLost||generation!==prep.map.generation)throw cancelled();const boot=window.__aczoSafeStart;
+   const reuseFirstMap=boot.firstFrame&&!boot.failed&&!window.__aczoStartupLoader?.snapshot?.().finished&&aczoK35Panorama.photoCollar.settled&&aczoK35Panorama.warmed;
+   if(!reuseFirstMap){prep.map.warmingDraw=true;try{aczoRenderMainView();}finally{prep.map.warmingDraw=false;}}
+   else window.__aczoStartDiag?.trace('first-map-frame-reused',{});
+   if(!window.__aczoStartupLoader?.snapshot?.().finished)await boot.waitForGpu('first-complete-map');
+   if(!aczoK35Panorama.photoCollar.settled||!aczoK35Panorama.warmed)throw Error('Die Umgebung ist noch nicht bereit.');if(prep.contextLost||generation!==prep.map.generation)throw cancelled();prep.map.state='ready';return {...prep.map};}catch(error){if(generation===prep.map.generation){prep.map.state=prep.contextLost?'idle':'error';prep.map.error=String(error.message||error);}throw error;}})();return mapPromise;
  }
  prep.prepareStartup=function(options={}){
   if(startup.state==='ready'&&!prep.contextLost&&anglingLureUnderwaterWorldReady&&aczoPerf26UwFullWarmReady)return Promise.resolve(startupSnapshot());if(startup.state==='running'){if(!options.background&&prep.startupJob){prep.startupJob.foreground=true;prep.startupJob.background=false;prep.startupJob.priority=100;prep.startupJob.fishingLoader=!!options.fishingLoader;if(prep.active?.background&&prep.active!==prep.startupJob)prep.active.pauseRequested=true;}return startupPromise;}
@@ -55213,6 +55251,7 @@ aczoK79OptimizeRiverShaders(moselWaterMat);
 (function loop(frameNow=performance.now()){
  requestAnimationFrame(loop);
  if(!window.__aczoSafeStart.readyForFrames)return;
+ if(window.__aczoSafeStart.gpuBusy||window.__aczoSafeStart.pendingGpuWaits>0){clock.getDelta();return;}
  if(window.__aczoTransitionPrep?.busy){clock.getDelta();return;}
  if(aczoPerf4Hidden||document.visibilityState!=='visible')return;
 
